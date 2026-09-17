@@ -111,6 +111,12 @@
   }
   .ctrl-btn:active{ transform: scale(0.92); }
   .ctrl-btn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); }
+  .reportSubMenu{
+    display:none;
+    flex-direction:column;
+    gap:10px;
+  }
+  .reportSubMenu.open{ display:flex; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -450,8 +456,11 @@
   </div>
   <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
   <div class="ctrl-btn" id="btnLocate" title="Wyśrodkuj na mnie">🎯</div>
-  <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
-  <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+  <div class="reportSubMenu" id="reportSubMenu">
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+  </div>
   <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
     💾
     <span class="badge" id="exportBadge">0</span>
@@ -2122,8 +2131,25 @@
     setTimeout(()=> document.getElementById("btnLocate").classList.remove("active"), 400);
   });
 
-  document.getElementById("btnReportParking").addEventListener("click", reportHgvParkingHere);
-  document.getElementById("btnReportCamera").addEventListener("click", reportCameraHere);
+  document.getElementById("btnReportMenu").addEventListener("click", () => {
+    const menu = document.getElementById("reportSubMenu");
+    const open = menu.classList.toggle("open");
+    document.getElementById("btnReportMenu").classList.toggle("active", open);
+  });
+
+  function closeReportMenu(){
+    document.getElementById("reportSubMenu").classList.remove("open");
+    document.getElementById("btnReportMenu").classList.remove("active");
+  }
+
+  document.getElementById("btnReportParking").addEventListener("click", () => {
+    reportHgvParkingHere();
+    closeReportMenu();
+  });
+  document.getElementById("btnReportCamera").addEventListener("click", () => {
+    reportCameraHere();
+    closeReportMenu();
+  });
 
   function updateExportBadge(){
     const badge = document.getElementById("exportBadge");
