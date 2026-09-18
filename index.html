@@ -199,12 +199,12 @@
   #navDest::placeholder{ color: var(--text-dim); }
   #navDest:focus{ border-color: var(--accent); }
   #navSuggestions{
-    position:absolute; left:0; right:0; top: calc(100% + 6px);
+    position:fixed; left:0; top:0; width:200px;
     background: var(--panel-bg-solid);
     border:1px solid var(--panel-border);
     border-radius:10px;
     overflow:hidden;
-    z-index:46;
+    z-index:200;
     box-shadow: 0 10px 24px rgba(0,0,0,.4);
     display:none;
   }
@@ -327,6 +327,12 @@
     display:flex; align-items:center; justify-content:center;
     background: rgba(255,255,255,0.08); cursor:pointer; color: var(--text-main);
   }
+  .navPrefLabel{
+    display:flex; align-items:center; gap:8px;
+    font-size:13px; color: var(--text-main);
+    cursor:pointer;
+  }
+  .navPrefLabel input{ width:16px; height:16px; accent-color: var(--accent); }
   #navKeyToggle, .navKeyToggle{
     display:flex; align-items:center; justify-content:space-between;
     font-size:11px; color: var(--text-dim);
@@ -589,6 +595,10 @@
       <div id="navSettingsClose">✕</div>
     </div>
 
+    <div class="navTitle">Widoczność na ekranie</div>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+
     <div id="navKeyToggle">
       <span>🔑 Klucz API TomTom</span>
       <span class="chev">▾</span>
@@ -656,6 +666,10 @@
   const DEVICE_ID_STORAGE = "nawigator_device_id";
   const CAMERA_REPORT_STORAGE = "nawigator_camera_user_reported"; // lokalny fallback (jw., dla fotoradarów)
   const SUPA_FETCH_PAD_DEG = 0.05; // ~5-6 km promienia przy pobieraniu zgłoszeń społeczności wokół pozycji
+
+  /* ---------- preferencje widoczności (użytkownik decyduje, co ma być na ekranie) ---------- */
+  const PREF_SHOW_SPEEDOMETER = "nawigator_pref_show_speedometer";
+  const PREF_SHOW_LIMIT_SIGN = "nawigator_pref_show_limit_sign";
   const REFETCH_DISTANCE_M = 600;    // od jakiego przesunięcia odświeżamy dane
   const REFETCH_INTERVAL_MS = 25000; // minimalny odstęp między zapytaniami
   const CAMERA_ALERT_M = 200;        // próg alertu dźwiękowego/wizualnego
@@ -749,6 +763,8 @@
   let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
   let supaUrl = localStorage.getItem(SUPA_URL_STORAGE) || "";
   let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
+  let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
+  let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
 
   // --- stan nawigatora ---
   let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
@@ -898,6 +914,24 @@
     });
   }
 
+  // Autostrady (M1, M6…) w bazowym stylu wyglądają na wąskie, jednopasmowe drogi.
+  // Pogrubiamy warstwy dróg klasy "motorway" (nitka + obwódka, na wszystkich zoomach
+  // proporcjonalnie), żeby wizualnie przypominały drogę wielopasmową.
+  const MOTORWAY_WIDTH_FACTOR = 2.2;
+  function thickenMotorways(){
+    const layers = map.getStyle().layers || [];
+    layers.forEach(layer => {
+      if(layer.type !== "line") return;
+      if(layer["source-layer"] !== "transportation") return;
+      if(!/motorway/i.test(layer.id)) return;
+      try{
+        const current = map.getPaintProperty(layer.id, "line-width");
+        if(current === undefined || current === null) return;
+        map.setPaintProperty(layer.id, "line-width", ["*", current, MOTORWAY_WIDTH_FACTOR]);
+      }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
+    });
+  }
+
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -911,6 +945,7 @@
 
     map.on("load", () => {
       hideNonHgvPoi();
+      thickenMotorways();
 
       // źródło fotoradarów
       map.addSource("cameras", { type:"geojson", data: emptyFC() });
@@ -1502,6 +1537,7 @@
   }
 
   function showLimitSign(limit){
+    if(!prefShowLimitSign){ hideLimitSign(); return; }
     const sign = document.getElementById("limitSign");
     sign.classList.remove("hidden");
     document.getElementById("limitValue").textContent = kmhToDisplay(limit);
@@ -1512,6 +1548,12 @@
     const sign = document.getElementById("limitSign");
     sign.classList.add("hidden");
     sign.classList.remove("blink");
+  }
+
+  // stosuje preferencje widoczności prędkościomierza / znaku ograniczenia (ustawiane w ⋮ → Nawigator)
+  function applyDisplayPrefs(){
+    document.getElementById("speedPanel").style.display = prefShowSpeedometer ? "" : "none";
+    if(!prefShowLimitSign) hideLimitSign();
   }
 
   /* ============================================================
@@ -1716,6 +1758,15 @@
     box.classList.remove("open");
   }
 
+  function positionNavSuggestions(){
+    const input = document.getElementById("navDest");
+    const box = document.getElementById("navSuggestions");
+    const rect = input.getBoundingClientRect();
+    box.style.left = Math.round(rect.left) + "px";
+    box.style.top = Math.round(rect.bottom + 6) + "px";
+    box.style.width = Math.round(rect.width) + "px";
+  }
+
   function renderNavSuggestions(results){
     const box = document.getElementById("navSuggestions");
     box.innerHTML = "";
@@ -1737,6 +1788,7 @@
       });
       box.appendChild(item);
     });
+    positionNavSuggestions();
     box.classList.add("open");
   }
 
@@ -1793,6 +1845,10 @@
       if(first && !navSelectedDest) first.click();
       else if(navSelectedDest) confirmDestination();
     }
+  });
+
+  window.addEventListener("resize", () => {
+    if(document.getElementById("navSuggestions").classList.contains("open")) positionNavSuggestions();
   });
 
   document.addEventListener("click", (e) => {
@@ -2064,6 +2120,23 @@
   document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
   document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
   document.getElementById("navSettingsBackdrop").addEventListener("click", closeNavSettings);
+
+  const navPrefSpeedometerInput = document.getElementById("navPrefSpeedometer");
+  const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
+  navPrefSpeedometerInput.checked = prefShowSpeedometer;
+  navPrefLimitSignInput.checked = prefShowLimitSign;
+  applyDisplayPrefs();
+
+  navPrefSpeedometerInput.addEventListener("change", (e) => {
+    prefShowSpeedometer = e.target.checked;
+    try{ localStorage.setItem(PREF_SHOW_SPEEDOMETER, prefShowSpeedometer ? "1" : "0"); }catch(err){}
+    applyDisplayPrefs();
+  });
+  navPrefLimitSignInput.addEventListener("change", (e) => {
+    prefShowLimitSign = e.target.checked;
+    try{ localStorage.setItem(PREF_SHOW_LIMIT_SIGN, prefShowLimitSign ? "1" : "0"); }catch(err){}
+    applyDisplayPrefs();
+  });
 
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
   const navApiKeyInput = document.getElementById("navApiKey");
