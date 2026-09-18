@@ -136,107 +136,54 @@
 
   /* ---------- Nawigator: panel wyznaczania trasy ---------- */
   #navPanel{
-    display:none;
+    position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
+    width: min(320px, calc(100vw - 100px));
     background: var(--panel-bg);
     border:1px solid var(--panel-border);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
+    border-radius:16px;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    padding:12px;
     z-index:45;
+    display:none;
     flex-direction:column;
     gap:8px;
-  }
-  #navPanel[data-state]{ display:flex; }
-  #navPanel[data-state="navigating"]{ display:none !important; }
-
-  /* stan "search" — mały panel przy przycisku 🧭, tak jak wcześniej */
-  #navPanel[data-state="search"]{
-    position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
-    width: min(280px, calc(100vw - 100px));
-    border-radius:16px;
-    padding:12px;
     max-height: calc(100vh - 32px - env(safe-area-inset-top));
     overflow-y:auto;
+    transition: all .2s ease;
   }
-
-  /* stany "confirm" i "routes" — szeroki pasek na dole ekranu, zero marginesów */
-  #navPanel[data-state="confirm"],
-  #navPanel[data-state="routes"]{
-    position:fixed; left:0; right:0; bottom:0; top:auto;
-    width:100%;
-    border-radius:16px 16px 0 0;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  #navPanel.open{ display:flex; }
+  /* stan po wybraniu celu / dobieraniu trasy / w trakcie nawigacji: pasek na dole, na całą szerokość */
+  #navPanel[data-navstate="confirm"], #navPanel[data-navstate="picker"], #navPanel[data-navstate="nav"]{
+    top:auto; right:0; left:0; bottom:0;
+    width:100%; max-width:none;
+    border-radius:20px 20px 0 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    max-height: 60vh;
   }
-
-  #navPanel .navTitle{
+  .navHeader{ display:flex; align-items:center; justify-content:space-between; }
+  .navTitle{
     font-size:12px; font-weight:700; letter-spacing:.04em;
     color: var(--text-dim); text-transform:uppercase;
   }
-  .navHeaderRow{ display:flex; align-items:center; justify-content:space-between; }
   #navSettingsBtn{
-    width:28px; height:28px; border-radius:8px; flex:0 0 auto;
-    background: rgba(255,255,255,0.08);
+    width:26px; height:26px; border-radius:8px;
     display:flex; align-items:center; justify-content:center;
-    font-size:16px; cursor:pointer; color: var(--text-main);
+    color: var(--text-dim); font-size:16px; cursor:pointer;
+    background: rgba(255,255,255,0.06);
   }
-  #navSettingsBtn:active{ transform: scale(0.92); }
-
-  #navSearchBlock, #navConfirmBlock, #navRouteInfo{ display:none; flex-direction:column; gap:8px; }
-  #navPanel[data-state="search"] #navSearchBlock{ display:flex; }
-  #navPanel[data-state="confirm"] #navConfirmBlock{ display:flex; }
-  #navPanel[data-state="routes"] #navRouteInfo{ display:flex; }
-
-  #navConfirmLabel{ font-size:14px; font-weight:600; }
-  #navConfirmBtnRow{ display:flex; gap:8px; }
-  #navConfirmBtnRow > button{ flex:1; }
-  #navBackBtn{
-    background: rgba(255,255,255,0.08); color: var(--text-main); border:1px solid var(--panel-border);
-    padding:12px; border-radius:10px; font-weight:600; font-size:14px; font-family:'Inter',sans-serif; cursor:pointer;
-  }
-
-  .routeOption{
-    background: rgba(255,255,255,0.05);
-    border:1px solid var(--panel-border);
-    border-radius:12px;
-    padding:12px;
-    cursor:pointer;
-    transition: background .2s ease;
-  }
-  .routeOption:active{ background: rgba(255,255,255,0.1); }
-  .routeOption .roLabel{ font-weight:700; font-size:13px; margin-bottom:2px; }
-  .routeOption .roMeta{ font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; }
-  .routeOption .roTraffic{ font-size:11px; color:#f2b632; margin-top:2px; }
-  .routeOption .roTraffic.heavy{ color: var(--danger); }
-  #navCancelBtn{
-    text-align:center; font-size:12px; color: var(--text-dim); cursor:pointer; padding-top:2px;
-    background:none; border:none; font-family:'Inter',sans-serif;
-  }
-
-  /* ---------- Panel ustawień (klucze API + wspólna baza), otwierany z ⋮ ---------- */
-  #navSettingsPanel{
-    display:none;
-    position:absolute; top: calc(max(16px, env(safe-area-inset-top)) + 60px); right:16px;
-    width: min(300px, calc(100vw - 32px));
-    background: var(--panel-bg);
-    border:1px solid var(--panel-border);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-radius:16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    padding:12px;
-    z-index:46;
-    flex-direction:column;
-    gap:8px;
-    max-height: calc(100vh - 100px - env(safe-area-inset-top));
-    overflow-y:auto;
-  }
-  #navSettingsPanel.open{ display:flex; }
-  #navSettingsCloseBtn{
-    background: rgba(255,255,255,0.08); color: var(--text-main); border:1px solid var(--panel-border);
-    padding:10px; border-radius:10px; font-weight:600; font-size:13px; font-family:'Inter',sans-serif; cursor:pointer;
-    margin-top:4px;
-  }
-
+  /* pokazuj/chowaj bloki zależnie od stanu */
+  #navConfirmBlock, #navRoutePicker{ display:none; }
+  #navPanel[data-navstate="confirm"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
+  #navPanel[data-navstate="picker"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
+  #navPanel[data-navstate="picker"] #navRoutePicker{ display:flex; }
+  #navPanel[data-navstate="picker"] #navGoBtn{ display:none; }
+  #navPanel[data-navstate="confirm"] #navSearchBlock,
+  #navPanel[data-navstate="picker"] #navSearchBlock,
+  #navPanel[data-navstate="nav"] #navSearchBlock,
+  #navPanel[data-navstate="nav"] #navConfirmBlock{ display:none; }
+  #navConfirmLabel{ font-size:13px; color: var(--text-main); }
   #navDestWrap{ position:relative; }
   #navDest{
     width:100%;
@@ -273,6 +220,22 @@
   .navSuggestion:active, .navSuggestion.highlight{ background: rgba(255,255,255,0.08); }
   .navSuggestion .addr1{ font-weight:600; }
   .navSuggestion .addr2{ font-size:11px; color: var(--text-dim); margin-top:2px; }
+  #navRoutePicker{ flex-direction:column; gap:8px; }
+  .navRouteChoice{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:10px 12px;
+    cursor:pointer;
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    text-align:left;
+    width:100%;
+  }
+  .navRouteChoice .rcTitle{ font-weight:700; font-size:13px; }
+  .navRouteChoice .rcSub{ font-size:12px; color: var(--text-dim); }
+  .navRouteChoice:disabled, .navRouteChoice.unavailable{ opacity:.4; cursor:default; }
   #navGoBtn{
     background: var(--accent);
     color:#0c0f12;
@@ -286,6 +249,31 @@
   }
   #navGoBtn:disabled{ opacity:.4; cursor:default; }
   #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
+  #navCancelBtn{
+    background: rgba(255,255,255,0.08);
+    color: var(--text-main);
+    border:1px solid var(--panel-border);
+    padding:9px 12px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:13px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navEditBtn{
+    background: rgba(255,255,255,0.08);
+    color: var(--text-main);
+    border:1px solid var(--panel-border);
+    padding:9px 12px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:13px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navEditBtn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); border-color: transparent; }
+  #navRouteBtnRow{ display:flex; gap:8px; }
+  #navRouteBtnRow > button{ flex:1; }
   #navError{
     font-size:12px; color: var(--danger); display:none;
   }
@@ -294,6 +282,51 @@
     font-size:12px; color: var(--text-dim); display:none;
   }
   #navStatus.show{ display:block; }
+  #navRouteInfo{
+    display:none;
+    flex-direction:column;
+    gap:4px;
+    background: rgba(255,255,255,0.05);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  #navRouteInfo.show{ display:flex; }
+  #navRouteInfo .rMain{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:18px; font-weight:700;
+  }
+  #navRouteInfo .rSub{ font-size:12px; color: var(--text-dim); }
+  #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
+  #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
+
+  /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
+  #navSettingsPanel{
+    position:fixed; inset:0; z-index:80;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  #navSettingsPanel.open{ display:flex; }
+  #navSettingsBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
+  #navSettingsCard{
+    position:relative;
+    width:100%; max-width:420px;
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:20px 20px 0 0;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:10px;
+    max-height:80vh; overflow-y:auto;
+    box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+  }
+  .navSettingsHeader{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:14px; font-weight:700; color: var(--text-main);
+    padding-bottom:8px; border-bottom:1px solid var(--panel-border);
+  }
+  #navSettingsClose{
+    width:28px; height:28px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.08); cursor:pointer; color: var(--text-main);
+  }
   #navKeyToggle, .navKeyToggle{
     display:flex; align-items:center; justify-content:space-between;
     font-size:11px; color: var(--text-dim);
@@ -506,8 +539,8 @@
   </div>
 </div>
 
-<div id="navPanel">
-  <div class="navHeaderRow">
+<div id="navPanel" data-navstate="search">
+  <div class="navHeader">
     <div class="navTitle">Nawigator</div>
     <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
   </div>
@@ -519,58 +552,66 @@
     </div>
   </div>
 
-  <div id="navConfirmBlock">
-    <div id="navConfirmLabel"></div>
-    <div id="navConfirmBtnRow">
-      <button id="navBackBtn">← Zmień cel</button>
-      <button id="navGoBtn">Wyznacz trasę</button>
-    </div>
-  </div>
-
   <div id="navError"></div>
   <div id="navStatus"></div>
 
+  <div id="navConfirmBlock">
+    <div id="navConfirmLabel"></div>
+    <div id="navRoutePicker">
+      <div class="navRouteChoice" id="navChooseMain">
+        <span class="rcTitle">Trasa TomTom</span>
+        <span class="rcSub" id="navChooseMainSub"></span>
+      </div>
+      <div class="navRouteChoice" id="navChooseAlt">
+        <span class="rcTitle">Trasa alternatywna (główne drogi)</span>
+        <span class="rcSub" id="navChooseAltSub"></span>
+      </div>
+    </div>
+    <button id="navGoBtn">Wyznacz trasę</button>
+  </div>
+
   <div id="navRouteInfo">
-    <div class="routeOption" id="routeOptionMain">
-      <div class="roLabel">🚗 Trasa główna (TomTom)</div>
-      <div class="roMeta" id="roMainMeta">–</div>
-      <div class="roTraffic" id="roMainTraffic"></div>
+    <div class="rMain" id="navRouteMain">–</div>
+    <div class="rSub" id="navRouteSub"></div>
+    <div class="rTraffic" id="navRouteTraffic"></div>
+    <div id="navRouteBtnRow">
+      <button id="navEditBtn">✋ Edytuj trasę</button>
+      <button id="navCancelBtn">Anuluj trasę</button>
     </div>
-    <div class="routeOption" id="routeOptionAlt">
-      <div class="roLabel">🚚 Trasa alternatywna — głównymi drogami</div>
-      <div class="roMeta" id="roAltMeta">–</div>
-    </div>
-    <button id="navCancelBtn">Anuluj</button>
   </div>
 </div>
 
 <div id="navSettingsPanel">
-  <div class="navTitle">Klucze API i wspólna baza</div>
-
-  <div id="navKeyToggle">
-    <span>🔑 Klucz API TomTom</span>
-    <span class="chev">▾</span>
-  </div>
-  <div id="navKeyRow">
-    <input type="password" id="navApiKey" placeholder="Wklej klucz API TomTom…" autocomplete="off">
-    <div id="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
-  </div>
-  <div id="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
-
-  <div id="navSupaToggle" class="navKeyToggle">
-    <span>🔗 Wspólna baza (Supabase)</span>
-    <span class="chev">▾</span>
-  </div>
-  <div id="navSupaRow" class="navKeyRow navKeyRowStack">
-    <input type="text" id="navSupaUrl" class="navApiKeyInput" placeholder="Adres projektu Supabase (https://xxxx.supabase.co)…" autocomplete="off">
-    <div style="display:flex; gap:6px; align-items:center;">
-      <input type="password" id="navSupaKey" class="navApiKeyInput" placeholder="Klucz anon…" autocomplete="off">
-      <div id="navSupaKeyEye" class="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+  <div id="navSettingsBackdrop"></div>
+  <div id="navSettingsCard">
+    <div class="navSettingsHeader">
+      <span>Ustawienia nawigatora</span>
+      <div id="navSettingsClose">✕</div>
     </div>
-  </div>
-  <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
 
-  <button id="navSettingsCloseBtn">Zamknij</button>
+    <div id="navKeyToggle">
+      <span>🔑 Klucz API TomTom</span>
+      <span class="chev">▾</span>
+    </div>
+    <div id="navKeyRow">
+      <input type="password" id="navApiKey" placeholder="Wklej klucz API TomTom…" autocomplete="off">
+      <div id="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+    </div>
+    <div id="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+
+    <div id="navSupaToggle" class="navKeyToggle">
+      <span>🔗 Wspólna baza (Supabase)</span>
+      <span class="chev">▾</span>
+    </div>
+    <div id="navSupaRow" class="navKeyRow navKeyRowStack">
+      <input type="text" id="navSupaUrl" class="navApiKeyInput" placeholder="Adres projektu Supabase (https://xxxx.supabase.co)…" autocomplete="off">
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input type="password" id="navSupaKey" class="navApiKeyInput" placeholder="Klucz anon…" autocomplete="off">
+        <div id="navSupaKeyEye" class="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+      </div>
+    </div>
+    <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+  </div>
 </div>
 
 <div id="speedCluster">
@@ -639,12 +680,18 @@
   };
   const LOCAL_ROUTE_ANCHOR_M = 1200; // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
   const LOCAL_ROUTE_BBOX_PAD_DEG = 0.012; // ~1.3 km zapasu wokół kotwic przy pobieraniu dróg
+  const LOCAL_ROUTE_SPEED_KMH = { // założone prędkości do szacowania czasu przejazdu trasy alternatywnej
+    motorway:100, motorway_link:70, trunk:90, trunk_link:60,
+    primary:80, primary_link:50, secondary:60, secondary_link:45,
+    tertiary:50, tertiary_link:40, unclassified:40, residential:30,
+    living_street:20, service:20
+  };
 
-  /* ---------- trasa alternatywna dla HGV — z innego źródła niż TomTom, trzyma się głównych dróg ---------- */
-  const ALT_ROUTE_HIGHWAY_CLASSES = "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link";
-  const ALT_ROUTE_MAX_STRAIGHT_KM = 150; // powyżej tego dystansu pomijamy (zbyt duże zapytanie do Overpass)
-  const ALT_ROUTE_BBOX_PAD_DEG = 0.15;   // zapas wokół prostej łączącej start-cel
-  const ALT_ROUTE_AVG_SPEED_KMH = 70;    // uproszczony szacunek czasu jazdy (brak danych o ruchu z tego źródła)
+  /* ---------- trasa alternatywna (od A do B, lokalnie, trzymająca się głównych dróg, bez TomTom) ---------- */
+  const LOCAL_ALT_ROUTE_MAX_KM = 30; // powyżej tego dystansu pobieranie/przeszukiwanie sieci dróg w przeglądarce przestaje być praktyczne
+  const LOCAL_ALT_HIGHWAY_CLASSES =
+    "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link";
+  const LOCAL_ALT_BBOX_PAD_DEG = 0.05; // ~5-6 km zapasu wokół prostej łączącej start i cel
 
   /* ============================================================
      STAN
@@ -709,12 +756,11 @@
   let navSuggestTimer = null;
   let navRouteAbort = null;
   let navSelectedDest = null;   // {lat, lon, label}
-  let navUiState = "closed";    // "closed" | "search" | "confirm" | "routes" | "navigating"
-  let pendingRoutes = { main: null, alt: null }; // obliczone, jeszcze niewybrane trasy
-  let destMarker = null;        // pinezka celu pokazywana od chwili wyboru adresu
   let routeSpeedSegments = [];  // limity prędkości pobrane wraz z trasą z TomTom (a,b,maxspeed)
   let routeTrafficIncidents = []; // [{lat,lon,delay,magnitude}]
-  let activeRoute = null;       // {coords, distanceM, timeS, trafficDelayS, manuallyEdited}
+  let activeRoute = null;       // {coords, distanceM, timeS, trafficDelayS, manuallyEdited, source}
+  let navUiState = "search";    // 'search' | 'confirm' | 'picker' | 'nav'
+  let pendingRoutes = { main:null, alt:null }; // obliczone, ale jeszcze nie wybrane trasy
   let routeEditMode = false;    // czy tryb "przeciągnij trasę" jest włączony
   let routeDragState = null;    // stan trwającego przeciągania punktu trasy
 
@@ -746,6 +792,40 @@
     t = Math.max(0, Math.min(1, t));
     const cx = ax + t*dx, cy = ay + t*dy;
     return Math.sqrt((px-cx)**2 + (py-cy)**2);
+  }
+
+  // jak wyżej, ale zwraca też rzutowany punkt (lat,lon) — używane do "dociągania" GPS do pasa drogi
+  function projectPointToSegment(lat, lon, a, b){
+    const mPerDegLat = 111320;
+    const mPerDegLon = 111320 * Math.cos(toRad(lat));
+    const ax = (a[0]-lon) * mPerDegLon, ay = (a[1]-lat) * mPerDegLat;
+    const bx = (b[0]-lon) * mPerDegLon, by = (b[1]-lat) * mPerDegLat;
+    const dx = bx-ax, dy = by-ay;
+    const len2 = dx*dx + dy*dy;
+    let t = len2 === 0 ? 0 : ((0-ax)*dx + (0-ay)*dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t*dx, cy = ay + t*dy;
+    return {
+      lat: lat + cy / mPerDegLat,
+      lon: lon + cx / mPerDegLon,
+      distM: Math.sqrt(cx*cx + cy*cy)
+    };
+  }
+
+  const SNAP_TO_ROUTE_MAX_M = 20; // GPS dalej niż to od trasy uznajemy za realne zjechanie, nie za dryf
+  // dociąga surową pozycję GPS do najbliższego punktu na aktywnej trasie, jeśli jest wystarczająco blisko —
+  // koryguje typowy dryf GPS "obok drogi". Działa tylko podczas nawigacji (potrzebna jest linia trasy);
+  // bez aktywnej trasy nie mamy wiarygodnej geometrii pasa do dociągania.
+  function snapToRoute(lat, lon){
+    const coords = activeRoute && activeRoute.coords;
+    if(!coords || coords.length < 2) return null;
+    let best = null;
+    for(let i=0;i<coords.length-1;i++){
+      const p = projectPointToSegment(lat, lon, coords[i], coords[i+1]);
+      if(!best || p.distM < best.distM) best = p;
+    }
+    if(best && best.distM <= SNAP_TO_ROUTE_MAX_M) return { lat: best.lat, lon: best.lon };
+    return null;
   }
 
   function parseMaxspeed(tag){
@@ -896,21 +976,14 @@
         paint:{ "line-color": "#1FD6C1", "line-width":5 }
       }, "cameras-glow");
 
-      // źródło trasy alternatywnej (własny router po głównych drogach z OSM/Overpass)
+      // źródło trasy alternatywnej (lokalna, głównymi drogami) — widoczne tylko przy wyborze trasy
       map.addSource("route-line-alt", { type:"geojson", data: emptyFC() });
-      map.addLayer({
-        id:"route-line-alt-casing",
-        type:"line",
-        source:"route-line-alt",
-        layout:{ "line-cap":"round", "line-join":"round" },
-        paint:{ "line-color":"#0c0f12", "line-width":8, "line-opacity":0.5 }
-      }, "cameras-glow");
       map.addLayer({
         id:"route-line-alt-main",
         type:"line",
         source:"route-line-alt",
         layout:{ "line-cap":"round", "line-join":"round" },
-        paint:{ "line-color": "#FFB020", "line-width":4, "line-dasharray":[2,1.5] }
+        paint:{ "line-color": "#f2b632", "line-width":5, "line-dasharray": [2, 1.5] }
       }, "cameras-glow");
 
       // źródło utrudnień w ruchu na wyznaczonej trasie (TomTom)
@@ -983,6 +1056,19 @@
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
 
+  // Przesuwa efektywny środek mapy w dół ekranu (przez padding), żeby znacznik pozycji nie stał
+  // na środku ekranu, tylko niżej — dzięki temu w widoku 3D widać więcej drogi PRZED pojazdem.
+  function applyDrivingCamera(on){
+    if(!map) return;
+    const el = map.getContainer();
+    const h = (el && el.clientHeight) || window.innerHeight || 800;
+    if(on){
+      map.setPadding({ top: Math.round(h * 0.55), bottom: 0, left: 0, right: 0 });
+    } else {
+      map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+    }
+  }
+
   function addUserMarker(lat, lon){
     userMarkerEl = document.createElement("div");
     userMarkerEl.style.width = "26px";
@@ -998,64 +1084,16 @@
       .addTo(map);
   }
 
-  const SNAP_MAX_M = 25; // maks. odległość od jezdni, przy której "przyciągamy" znacznik na drogę
-
-  // rzutuje punkt (lat,lon) na najbliższe miejsce odcinka a-b (oba w [lon,lat]) — lokalna aproksymacja płaska
-  function projectPointOnSegment(lat, lon, a, b){
-    const mPerDegLat = 111320;
-    const mPerDegLon = 111320 * Math.cos(toRad(lat));
-    const ax = (a[0]-lon) * mPerDegLon, ay = (a[1]-lat) * mPerDegLat;
-    const bx = (b[0]-lon) * mPerDegLon, by = (b[1]-lat) * mPerDegLat;
-    const dx = bx-ax, dy = by-ay;
-    const len2 = dx*dx + dy*dy;
-    let t = len2 === 0 ? 0 : ((-ax)*dx + (-ay)*dy) / len2;
-    t = Math.max(0, Math.min(1, t));
-    const cx = ax + t*dx, cy = ay + t*dy;
-    return { lat: lat + cy/mPerDegLat, lon: lon + cx/mPerDegLon };
-  }
-
-  // "przyciąga" pozycję GPS do najbliższej drogi — do aktywnej trasy w pierwszej kolejności,
-  // w przeciwnym razie do dróg pobranych z Overpass (roadSegments). Tylko do wizualnego
-  // ustawienia znacznika/kamery — logika (prędkość, alerty) zawsze używa surowego GPS.
-  function snapToRoad(lat, lon){
-    let bestDist = Infinity, bestA = null, bestB = null;
-    if(activeRoute && activeRoute.coords && activeRoute.coords.length > 1){
-      const coords = activeRoute.coords;
-      for(let i=0;i<coords.length-1;i++){
-        const d = pointToSegmentMeters(lat, lon, coords[i], coords[i+1]);
-        if(d < bestDist){ bestDist = d; bestA = coords[i]; bestB = coords[i+1]; }
-      }
-    } else if(roadSegments.length){
-      for(const seg of roadSegments){
-        const d = pointToSegmentMeters(lat, lon, seg.a, seg.b);
-        if(d < bestDist){ bestDist = d; bestA = seg.a; bestB = seg.b; }
-      }
-    }
-    if(bestA && bestDist <= SNAP_MAX_M) return projectPointOnSegment(lat, lon, bestA, bestB);
-    return null;
-  }
-
-  // niżej ustawiony znacznik = więcej widoku "przed" kierowcą; więcej w 3D niż w 2D
-  function cameraBottomPaddingPx(){
-    const h = map.getContainer().clientHeight;
-    return h * (is3D ? 0.46 : 0.30);
-  }
-
   function updateUserMarker(lat, lon, heading){
     if(!userMarker) return;
-    const snapped = snapToRoad(lat, lon);
-    const dLat = snapped ? snapped.lat : lat;
-    const dLon = snapped ? snapped.lon : lon;
-
-    userMarker.setLngLat([dLon, dLat]);
+    userMarker.setLngLat([lon, lat]);
     if(heading !== null && !isNaN(heading)){
       userMarkerEl.querySelector("svg").style.transform = `rotate(${heading}deg)`;
     }
     if(followUser){
       map.easeTo({
-        center: [dLon, dLat],
+        center: [lon, lat],
         bearing: (heading !== null && !isNaN(heading) && is3D) ? heading : map.getBearing(),
-        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
         duration: 600
       });
     }
@@ -1496,8 +1534,14 @@
      GEOLOKALIZACJA
   ============================================================ */
   function onPosition(pos){
-    const { latitude: lat, longitude: lon, speed, heading } = pos.coords;
+    const { latitude: rawLat, longitude: rawLon, speed, heading } = pos.coords;
     const now = pos.timestamp || Date.now();
+
+    // dociągnij pozycję do pasa aktywnej trasy, jeśli GPS jest wystarczająco blisko niej
+    // (koryguje typowy dryf GPS "obok drogi" podczas nawigacji)
+    const snapped = snapToRoute(rawLat, rawLon);
+    const lat = snapped ? snapped.lat : rawLat;
+    const lon = snapped ? snapped.lon : rawLon;
 
     // prędkość: użyj danych GPS jeśli dostępne, w przeciwnym razie oblicz z przesunięcia
     let speedKmh;
@@ -1641,9 +1685,17 @@
     el.classList.toggle("show", !!msg);
   }
 
+  function openNavSettings(){
+    document.getElementById("navSettingsPanel").classList.add("open");
+  }
+  function closeNavSettings(){
+    document.getElementById("navSettingsPanel").classList.remove("open");
+  }
+
   function setNavKeyRowOpen(open){
     document.getElementById("navKeyRow").classList.toggle("open", open);
     document.getElementById("navKeyToggle").classList.toggle("open", open);
+    if(open) openNavSettings();
   }
 
   function saveApiKey(key){
@@ -1677,48 +1729,21 @@
       item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
       item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
       item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
-      item.addEventListener("click", () => selectDestination(r.position.lat, r.position.lon, label));
+      item.addEventListener("click", () => {
+        navSelectedDest = { lat: r.position.lat, lon: r.position.lon, label };
+        document.getElementById("navDest").value = label;
+        clearNavSuggestions();
+        confirmDestination();
+      });
       box.appendChild(item);
     });
     box.classList.add("open");
   }
 
-  /* ---------- wybór celu: tylko pokazuje go na mapie, NIE liczy jeszcze trasy ---------- */
-  function showDestMarker(lat, lon){
-    if(destMarker) destMarker.remove();
-    const el = document.createElement("div");
-    el.style.width = "18px"; el.style.height = "18px"; el.style.borderRadius = "50%";
-    el.style.background = "#FF4757"; el.style.border = "3px solid #fff";
-    el.style.boxShadow = "0 2px 8px rgba(0,0,0,.5)";
-    destMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
-  }
-  function hideDestMarker(){
-    if(destMarker){ destMarker.remove(); destMarker = null; }
-  }
-
-  function selectDestination(lat, lon, label){
-    navSelectedDest = { lat, lon, label };
-    document.getElementById("navDest").value = label;
-    clearNavSuggestions();
-    showNavError("");
-    document.getElementById("navConfirmLabel").textContent = "Cel: " + label;
-    followUser = false;
-    showDestMarker(lat, lon);
-    if(map){
-      map.easeTo({ center: [lon, lat], zoom: 15, pitch: 0, bearing: 0, padding: {top:0,bottom:0,left:0,right:0}, duration: 800 });
-    }
-    setNavUiState("confirm");
-  }
-
-  function openNavSettingsWithKeyFocus(){
-    document.getElementById("navSettingsPanel").classList.add("open");
-    setNavKeyRowOpen(true);
-  }
-
   function fetchNavSuggestions(query){
     if(!tomtomApiKey){
-      showNavError("Wklej klucz API TomTom w ustawieniach (⋮ obok „Nawigator”), aby wyszukiwać adresy.");
-      openNavSettingsWithKeyFocus();
+      showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
+      setNavKeyRowOpen(true);
       return;
     }
     showNavError("");
@@ -1763,10 +1788,10 @@
   document.getElementById("navDest").addEventListener("keydown", (e) => {
     if(e.key === "Enter"){
       e.preventDefault();
-      // Enter wybiera pierwszą podpowiedź z listy — to tylko pokazuje cel na mapie
-      // (patrz selectDestination); trasę liczymy dopiero po kliknięciu "Wyznacz trasę"
+      // jeśli użytkownik nie kliknął podpowiedzi, spróbuj użyć pierwszej dostępnej
       const first = document.querySelector("#navSuggestions .navSuggestion");
-      if(first) first.click();
+      if(first && !navSelectedDest) first.click();
+      else if(navSelectedDest) confirmDestination();
     }
   });
 
@@ -1774,181 +1799,155 @@
     if(!e.target.closest("#navDestWrap")) clearNavSuggestions();
   });
 
-  /* ---------- stan UI nawigatora: closed / search / confirm / routes / navigating ---------- */
   function setNavUiState(state){
     navUiState = state;
-    const panel = document.getElementById("navPanel");
-    if(state === "closed") panel.removeAttribute("data-state");
-    else panel.setAttribute("data-state", state);
-    document.getElementById("btnNav").classList.toggle("active", state !== "closed" && state !== "navigating");
+    document.getElementById("navPanel").dataset.navstate = state;
   }
 
-  /* ---------- wyznaczanie trasy: GŁÓWNA z TomTom + ALTERNATYWNA (inne źródło, głównymi drogami) ---------- */
-  function parseTomTomRoute(data){
-    const route = data.routes && data.routes[0];
-    if(!route) throw new Error("NO_ROUTE");
-    const coords = [];
-    (route.legs || []).forEach(leg => (leg.points || []).forEach(p => coords.push([p.longitude, p.latitude])));
-    const speedSegments = [];
-    const incidents = [];
-    (route.sections || []).forEach(sec => {
-      if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
-        for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
-          speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
-        }
-      } else if(sec.sectionType === "TRAFFIC"){
-        const midIdx = Math.round((sec.startPointIndex + sec.endPointIndex) / 2);
-        const p = coords[Math.min(midIdx, coords.length - 1)];
-        if(p) incidents.push({ lon: p[0], lat: p[1], delay: sec.delay || 0, magnitude: sec.magnitudeOfDelay || 0 });
-      }
-    });
-    return {
-      coords,
-      distanceM: route.summary.lengthInMeters,
-      timeS: route.summary.travelTimeInSeconds,
-      trafficDelayS: route.summary.trafficDelayInSeconds || 0,
-      speedSegments, incidents
-    };
-  }
-
-  // trasa alternatywna liczona lokalnie (Overpass + Dijkstra), ograniczona do głównych klas dróg —
-  // to jest "inne źródło" niż TomTom, dobre pod HGV bo unika wąskich uliczek/osiedli
-  function computeAlternativeMainRoadsRoute(originLL, destLL){
-    const straightKm = haversine(originLL[1], originLL[0], destLL[1], destLL[0]) / 1000;
-    if(straightKm > ALT_ROUTE_MAX_STRAIGHT_KM) return Promise.reject(new Error("TOO_FAR"));
-
-    const south = Math.min(originLL[1], destLL[1]) - ALT_ROUTE_BBOX_PAD_DEG;
-    const north = Math.max(originLL[1], destLL[1]) + ALT_ROUTE_BBOX_PAD_DEG;
-    const west = Math.min(originLL[0], destLL[0]) - ALT_ROUTE_BBOX_PAD_DEG;
-    const east = Math.max(originLL[0], destLL[0]) + ALT_ROUTE_BBOX_PAD_DEG;
-    const query = `
-      [out:json][timeout:40];
-      ( way["highway"~"^(${ALT_ROUTE_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
-      out geom;
-    `;
-    return tryEndpoints(query, 0).then(data => {
-      const graph = buildLocalRoadGraph(data.elements);
-      if(graph.coordOf.size === 0) throw new Error("NO_ROADS");
-      const startKey = nearestGraphNode(graph, originLL[1], originLL[0]);
-      const endKey = nearestGraphNode(graph, destLL[1], destLL[0]);
-      const path = dijkstraPath(graph, startKey, endKey);
-      if(!path || path.length < 2) throw new Error("NO_PATH");
-      const distanceM = routeLengthMeters(path);
-      const timeS = distanceM / (ALT_ROUTE_AVG_SPEED_KMH * 1000 / 3600);
-      return { coords: path, distanceM, timeS };
-    });
-  }
-
-  function calculateNavRoute(){
+  // krok 1: użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie, ale jeszcze nie licz trasy
+  function confirmDestination(){
+    if(!navSelectedDest) return;
     showNavError("");
-    if(!tomtomApiKey){
-      showNavError("Wklej klucz API TomTom w ustawieniach (⋮), aby wyznaczyć trasę.");
-      openNavSettingsWithKeyFocus();
-      return;
+    followUser = false;
+    if(map){
+      map.easeTo({ center: [navSelectedDest.lon, navSelectedDest.lat], zoom: 14, pitch: 0, bearing: 0, duration: 600 });
     }
-    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
-    if(!navSelectedDest){ showNavError("Najpierw wybierz cel z listy podpowiedzi."); return; }
+    document.getElementById("navConfirmLabel").textContent = "Cel: " + navSelectedDest.label;
+    setNavUiState("confirm");
+  }
 
-    const goBtn = document.getElementById("navGoBtn");
-    goBtn.disabled = true;
-    goBtn.textContent = "Wyznaczam trasy…";
-    showNavStatus("Pobieram trasę główną (TomTom) i szukam alternatywnej trasy głównymi drogami…");
-
+  /* ---------- wyznaczanie trasy + limity + ruch (TomTom Routing) ---------- */
+  // czysta funkcja pobierająca dane — nie dotyka UI/activeRoute, żeby dało się ją odpalić
+  // równolegle z lokalną trasą alternatywną i wybrać dopiero jedną z dwóch gotowych propozycji
+  function fetchTomTomRoute(origin, dest){
+    if(!tomtomApiKey) return Promise.reject(new Error("NO_KEY"));
     if(navRouteAbort) navRouteAbort.abort();
     navRouteAbort = new AbortController();
 
-    const originLL = [lastPos.lon, lastPos.lat];
-    const destLL = [navSelectedDest.lon, navSelectedDest.lat];
-    const origin = `${lastPos.lat},${lastPos.lon}`;
-    const dest = `${navSelectedDest.lat},${navSelectedDest.lon}`;
+    const originStr = `${origin.lat},${origin.lon}`;
+    const destStr = `${dest.lat},${dest.lon}`;
+    // jeden request: trasa + ruch na żywo + limity prędkości wzdłuż trasy + utrudnienia
     const params = new URLSearchParams({
       key: tomtomApiKey, traffic: "true", travelMode: "car", routeType: "fastest",
       language: "pl-PL", report: "effectiveSettings"
     });
-    const url = `${TOMTOM_ROUTE_URL}${origin}:${dest}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
+    const url = `${TOMTOM_ROUTE_URL}${originStr}:${destStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
 
-    const mainPromise = fetch(url, { signal: navRouteAbort.signal })
-      .then(r => {
-        if(r.status === 403) throw new Error("UNAUTHORIZED");
-        if(!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(data => parseTomTomRoute(data));
-
-    const altPromise = computeAlternativeMainRoadsRoute(originLL, destLL)
-      .catch(err => { console.warn("Trasa alternatywna niedostępna:", err.message || err); return null; });
-
-    Promise.allSettled([mainPromise, altPromise]).then(([mainRes, altRes]) => {
-      pendingRoutes.main = mainRes.status === "fulfilled" ? mainRes.value : null;
-      pendingRoutes.alt = altRes.status === "fulfilled" ? altRes.value : null;
-
-      showNavStatus("");
-      goBtn.disabled = false;
-      goBtn.textContent = "Wyznacz trasę";
-
-      if(!pendingRoutes.main && !pendingRoutes.alt){
-        const reason = mainRes.status === "rejected" ? mainRes.reason : null;
-        if(reason && reason.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
-        else showNavError("Nie udało się wyznaczyć żadnej trasy.");
-        return;
-      }
-      showNavError("");
-      renderRouteOptions();
-      setNavUiState("routes");
+    return fetch(url, { signal: navRouteAbort.signal }).then(r => {
+      if(r.status === 403) throw new Error("UNAUTHORIZED");
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(data => {
+      const route = data.routes && data.routes[0];
+      if(!route) return null;
+      const coords = [];
+      (route.legs || []).forEach(leg => (leg.points || []).forEach(p => coords.push([p.longitude, p.latitude])));
+      const speedSegments = [];
+      const incidents = [];
+      (route.sections || []).forEach(sec => {
+        if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
+          for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
+            speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
+          }
+        } else if(sec.sectionType === "TRAFFIC"){
+          const midIdx = Math.round((sec.startPointIndex + sec.endPointIndex) / 2);
+          const p = coords[Math.min(midIdx, coords.length - 1)];
+          if(p) incidents.push({ lon:p[0], lat:p[1], delay: sec.delay||0, magnitude: sec.magnitudeOfDelay||0 });
+        }
+      });
+      return {
+        coords,
+        distanceM: route.summary.lengthInMeters,
+        timeS: route.summary.travelTimeInSeconds,
+        trafficDelayS: route.summary.trafficDelayInSeconds || 0,
+        speedSegments, incidents
+      };
     });
   }
 
-  function renderRouteOptions(){
-    const mainEl = document.getElementById("routeOptionMain");
-    const altEl = document.getElementById("routeOptionAlt");
+  // krok 2: "Wyznacz trasę" — liczymy RÓWNOLEGLE trasę główną (TomTom) i alternatywną
+  // (lokalnie, głównymi drogami, bez TomTom) i pokazujemy obie do wyboru
+  function planRoutes(){
+    showNavError("");
+    if(!tomtomApiKey){
+      showNavError("Wklej klucz API TomTom w ustawieniach (⋮), aby wyznaczyć trasę.");
+      setNavKeyRowOpen(true);
+      return;
+    }
+    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
+    if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
+
+    // pełny ekran włączamy tu (synchronicznie, w reakcji na klik), żeby przeglądarka
+    // zaakceptowała żądanie jako wynik gestu użytkownika
+    enterFullscreen();
+
+    const goBtn = document.getElementById("navGoBtn");
+    goBtn.disabled = true;
+    showNavStatus("Wyznaczam trasy…");
+
+    const origin = { lat: lastPos.lat, lon: lastPos.lon };
+    let tomtomErr = null;
+
+    Promise.all([
+      fetchTomTomRoute(origin, navSelectedDest).catch(err => { tomtomErr = err; return null; }),
+      computeLocalMainRoadsRoute([origin.lon, origin.lat], [navSelectedDest.lon, navSelectedDest.lat])
+    ]).then(([mainRoute, altRoute]) => {
+      showNavStatus("");
+      goBtn.disabled = false;
+      if(!mainRoute && !altRoute){
+        if(tomtomErr && tomtomErr.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+        else showNavError("Nie udało się wyznaczyć żadnej trasy.");
+        return;
+      }
+      pendingRoutes = { main: mainRoute, alt: altRoute };
+      renderRoutePicker();
+      setNavUiState("picker");
+    });
+  }
+
+  function renderRoutePicker(){
+    const mainBtn = document.getElementById("navChooseMain");
+    const altBtn = document.getElementById("navChooseAlt");
+    const mainSub = document.getElementById("navChooseMainSub");
+    const altSub = document.getElementById("navChooseAltSub");
 
     if(pendingRoutes.main){
-      mainEl.style.display = "";
-      document.getElementById("roMainMeta").textContent =
-        `${metersToDistanceLabel(pendingRoutes.main.distanceM)} · ${secondsToTimeLabel(pendingRoutes.main.timeS)}`;
-      const trafficEl = document.getElementById("roMainTraffic");
-      if(pendingRoutes.main.trafficDelayS > 60){
-        trafficEl.textContent = `⏱ Opóźnienie: ok. ${Math.round(pendingRoutes.main.trafficDelayS/60)} min`;
-        trafficEl.classList.toggle("heavy", pendingRoutes.main.trafficDelayS > 600);
-      } else {
-        trafficEl.textContent = "Brak większych utrudnień";
-        trafficEl.classList.remove("heavy");
-      }
-      if(map.getSource("route-line")){
-        map.getSource("route-line").setData({
-          type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: pendingRoutes.main.coords }
-        });
-      }
+      mainBtn.classList.remove("unavailable");
+      const delay = pendingRoutes.main.trafficDelayS;
+      mainSub.textContent = `${metersToDistanceLabel(pendingRoutes.main.distanceM)} · ${secondsToTimeLabel(pendingRoutes.main.timeS)}` +
+        (delay > 60 ? ` · +${Math.round(delay/60)} min w korkach` : "");
     } else {
-      mainEl.style.display = "none";
+      mainBtn.classList.add("unavailable");
+      mainSub.textContent = "Niedostępna";
     }
 
     if(pendingRoutes.alt){
-      altEl.style.display = "";
-      document.getElementById("roAltMeta").textContent =
-        `${metersToDistanceLabel(pendingRoutes.alt.distanceM)} · ${secondsToTimeLabel(pendingRoutes.alt.timeS)} (szac.)`;
-      if(map.getSource("route-line-alt")){
-        map.getSource("route-line-alt").setData({
-          type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: pendingRoutes.alt.coords }
-        });
-      }
+      altBtn.classList.remove("unavailable");
+      altSub.textContent = `${metersToDistanceLabel(pendingRoutes.alt.distanceM)} · ok. ${secondsToTimeLabel(pendingRoutes.alt.timeS)} (szacunkowo)`;
     } else {
-      altEl.style.display = "none";
+      altBtn.classList.add("unavailable");
+      altSub.textContent = "Niedostępna (cel zbyt daleko lub brak głównych dróg w okolicy)";
     }
+
+    if(pendingRoutes.main) setRouteLineCoords(pendingRoutes.main.coords, "route-line");
+    else setRouteLineCoords([], "route-line");
+    if(pendingRoutes.alt) setRouteLineCoords(pendingRoutes.alt.coords, "route-line-alt");
+    else setRouteLineCoords([], "route-line-alt");
 
     const allCoords = [].concat(
       pendingRoutes.main ? pendingRoutes.main.coords : [],
       pendingRoutes.alt ? pendingRoutes.alt.coords : []
     );
     if(allCoords.length > 1){
-      const bounds = allCoords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(allCoords[0], allCoords[0]));
-      map.fitBounds(bounds, { padding: 60, duration: 700 });
+      const bounds = allCoords.reduce((b,c) => b.extend(c), new maplibregl.LngLatBounds(allCoords[0], allCoords[0]));
+      map.fitBounds(bounds, { padding: 70, duration: 600 });
     }
   }
 
-  // kierowca wybrał konkretną trasę — od tej chwili: pełny ekran + widok 3D gotowy do jazdy
-  function selectRoute(which){
-    const chosen = which === "alt" ? pendingRoutes.alt : pendingRoutes.main;
+  // krok 3: kierowca wybrał jedną z dwóch tras — włącz pełny ekran (jeśli jeszcze nie jest)
+  // i przełącz na widok 3D gotowy do jazdy
+  function selectRoute(key){
+    const chosen = pendingRoutes[key];
     if(!chosen) return;
 
     activeRoute = {
@@ -1957,59 +1956,91 @@
       timeS: chosen.timeS,
       trafficDelayS: chosen.trafficDelayS || 0,
       manuallyEdited: false,
-      source: which
+      source: key
     };
-    routeSpeedSegments = which === "main" ? (chosen.speedSegments || []) : [];
-    routeTrafficIncidents = which === "main" ? (chosen.incidents || []) : [];
+    routeSpeedSegments = chosen.speedSegments || [];
+    routeTrafficIncidents = chosen.incidents || [];
+    pendingRoutes = { main:null, alt:null };
 
-    setRouteLineCoords(activeRoute.coords);
-    if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC());
+    setRouteLineCoords(activeRoute.coords, "route-line");
+    setRouteLineCoords([], "route-line-alt");
     if(map.getSource("route-incidents")){
       map.getSource("route-incidents").setData({
-        type: "FeatureCollection",
+        type:"FeatureCollection",
         features: routeTrafficIncidents.map(inc => ({
-          type: "Feature", properties: { delay: inc.delay },
-          geometry: { type: "Point", coordinates: [inc.lon, inc.lat] }
+          type:"Feature", properties:{ delay: inc.delay }, geometry:{ type:"Point", coordinates:[inc.lon, inc.lat] }
         }))
       });
     }
 
-    // pełny ekran, jeśli jeszcze nie jest włączony
     enterFullscreen();
-
-    // widok 3D gotowy do jazdy
+    followUser = true;
     is3D = true;
     document.getElementById("btnDim").classList.add("active");
     document.getElementById("dimIcon").textContent = "2D";
-    followUser = true;
-    if(map){
-      map.easeTo({
-        pitch: 55,
-        bearing: currentHeading,
-        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
-        duration: 800
-      });
-    }
+    applyDrivingCamera(true);
+    map.easeTo({
+      center: [lastPos.lon, lastPos.lat],
+      zoom: 17,
+      pitch: 60,
+      bearing: currentHeading,
+      duration: 800
+    });
 
-    setNavUiState("navigating");
+    renderNavRouteInfo();
+    setNavUiState("nav");
+  }
+
+  document.getElementById("navChooseMain").addEventListener("click", () => {
+    if(pendingRoutes.main) selectRoute("main");
+  });
+  document.getElementById("navChooseAlt").addEventListener("click", () => {
+    if(pendingRoutes.alt) selectRoute("alt");
+  });
+
+  function renderNavRouteInfo(){
+    const info = document.getElementById("navRouteInfo");
+    if(!activeRoute){ info.classList.remove("show"); return; }
+    const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna" : "";
+    document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
+      ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
+      : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
+    document.getElementById("navRouteSub").textContent =
+      navSelectedDest ? `Cel: ${navSelectedDest.label}` : "";
+    const trafficEl = document.getElementById("navRouteTraffic");
+    if(activeRoute.manuallyEdited){
+      trafficEl.textContent = "Czas przejazdu i limity dla zmienionego odcinka mogą być nieaktualne";
+      trafficEl.classList.remove("heavy");
+    } else if(activeRoute.trafficDelayS > 60){
+      trafficEl.textContent = `⏱ Opóźnienie w ruchu: ok. ${Math.round(activeRoute.trafficDelayS/60)} min`;
+      trafficEl.classList.toggle("heavy", activeRoute.trafficDelayS > 600);
+    } else {
+      trafficEl.textContent = routeTrafficIncidents.length
+        ? `Utrudnienia na trasie: ${routeTrafficIncidents.length}`
+        : "Brak większych utrudnień na trasie";
+      trafficEl.classList.remove("heavy");
+    }
+    info.classList.add("show");
   }
 
   function clearNavRoute(){
     navSelectedDest = null;
     activeRoute = null;
-    pendingRoutes = { main: null, alt: null };
+    pendingRoutes = { main:null, alt:null };
     routeSpeedSegments = [];
     routeTrafficIncidents = [];
     routeEditMode = false;
     routeDragState = null;
+    const editBtn = document.getElementById("navEditBtn");
+    editBtn.classList.remove("active");
+    editBtn.textContent = "✋ Edytuj trasę";
     document.getElementById("navDest").value = "";
-    hideDestMarker();
+    document.getElementById("navRouteInfo").classList.remove("show");
     clearNavSuggestions();
     showNavError("");
     showNavStatus("");
     exitFullscreen();
-    followUser = true;
-    setNavUiState("closed");
+    applyDrivingCamera(false);
     if(map){
       map.getCanvas().style.cursor = "";
       map.dragPan.enable();
@@ -2017,42 +2048,28 @@
       if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC());
       if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
     }
+    setNavUiState("search");
   }
 
-  document.getElementById("navGoBtn").addEventListener("click", calculateNavRoute);
+  document.getElementById("navGoBtn").addEventListener("click", planRoutes);
   document.getElementById("navCancelBtn").addEventListener("click", clearNavRoute);
-  document.getElementById("navBackBtn").addEventListener("click", () => {
-    navSelectedDest = null;
-    hideDestMarker();
-    followUser = true;
-    setNavUiState("search");
-    setTimeout(() => document.getElementById("navDest").focus(), 150);
-  });
-  document.getElementById("routeOptionMain").addEventListener("click", () => selectRoute("main"));
-  document.getElementById("routeOptionAlt").addEventListener("click", () => selectRoute("alt"));
 
   document.getElementById("btnNav").addEventListener("click", () => {
-    // podczas aktywnej nawigacji ten sam przycisk kończy trasę
-    if(activeRoute){ clearNavRoute(); return; }
-    if(navUiState === "closed"){
-      setNavUiState("search");
-      setTimeout(() => document.getElementById("navDest").focus(), 150);
-    } else {
-      setNavUiState("closed");
-    }
+    const panel = document.getElementById("navPanel");
+    const open = panel.classList.toggle("open");
+    document.getElementById("btnNav").classList.toggle("active", open);
+    if(open) setTimeout(() => document.getElementById("navDest").focus(), 150);
   });
 
-  document.getElementById("navSettingsBtn").addEventListener("click", () => {
-    document.getElementById("navSettingsPanel").classList.toggle("open");
-  });
-  document.getElementById("navSettingsCloseBtn").addEventListener("click", () => {
-    document.getElementById("navSettingsPanel").classList.remove("open");
-  });
+  document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
+  document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
+  document.getElementById("navSettingsBackdrop").addEventListener("click", closeNavSettings);
 
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
   const navApiKeyInput = document.getElementById("navApiKey");
   navApiKeyInput.value = tomtomApiKey;
   setNavKeyRowOpen(!tomtomApiKey);
+  document.getElementById("navSettingsPanel").classList.remove("open"); // nie pokazuj modala automatycznie przy starcie
 
   document.getElementById("navKeyToggle").addEventListener("click", () => {
     setNavKeyRowOpen(!document.getElementById("navKeyRow").classList.contains("open"));
@@ -2140,7 +2157,9 @@
     }
     (elements || []).forEach(el => {
       if(el.type !== "way" || !el.geometry || !el.tags || !el.tags.highway) return;
-      const classWeight = LOCAL_ROUTE_CLASS_WEIGHT[el.tags.highway] || 0.25;
+      const cls = el.tags.highway;
+      const classWeight = LOCAL_ROUTE_CLASS_WEIGHT[cls] || 0.25;
+      const speedKmh = LOCAL_ROUTE_SPEED_KMH[cls] || 30;
       const oneway = el.tags.oneway === "yes" || el.tags.oneway === "1" || el.tags.oneway === "true";
       const geom = el.geometry;
       for(let i=0;i<geom.length-1;i++){
@@ -2149,8 +2168,8 @@
         const kB = ensureNode(geom[i+1].lat, geom[i+1].lon);
         const dist = haversine(geom[i].lat, geom[i].lon, geom[i+1].lat, geom[i+1].lon);
         const cost = dist / classWeight;
-        adj.get(kA).push({ to:kB, cost });
-        if(!oneway) adj.get(kB).push({ to:kA, cost });
+        adj.get(kA).push({ to:kB, cost, distM:dist, speedKmh });
+        if(!oneway) adj.get(kB).push({ to:kA, cost, distM:dist, speedKmh });
       }
     });
     return { adj, coordOf, nodeKey };
@@ -2165,22 +2184,54 @@
     return bestKey;
   }
 
-  function dijkstraPath(graph, startKey, endKey){
-    if(!startKey || !endKey) return null;
+  // Dijkstra z kolejką priorytetową (kopiec binarny) — potrzebne dla większych grafów
+  // (trasa alternatywna od A do B), gdzie naiwne O(V^2) byłoby zbyt wolne w przeglądarce.
+  function dijkstraKeys(graph, startKey, endKey){
+    if(!startKey || !endKey || !graph.adj.has(startKey)) return null;
     const dist = new Map([[startKey, 0]]);
     const prev = new Map();
     const visited = new Set();
-    for(;;){
-      let u = null, best = Infinity;
-      for(const [k, d] of dist){ if(!visited.has(k) && d < best){ best = d; u = k; } }
-      if(u === null || u === endKey) break;
+    const heap = [[0, startKey]];
+    function heapPush(item){
+      heap.push(item);
+      let i = heap.length - 1;
+      while(i > 0){
+        const p = (i - 1) >> 1;
+        if(heap[p][0] <= heap[i][0]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    }
+    function heapPop(){
+      const top = heap[0];
+      const last = heap.pop();
+      if(heap.length > 0){
+        heap[0] = last;
+        let i = 0;
+        for(;;){
+          const l = 2*i+1, r = 2*i+2;
+          let smallest = i;
+          if(l < heap.length && heap[l][0] < heap[smallest][0]) smallest = l;
+          if(r < heap.length && heap[r][0] < heap[smallest][0]) smallest = r;
+          if(smallest === i) break;
+          [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+          i = smallest;
+        }
+      }
+      return top;
+    }
+    while(heap.length){
+      const [d, u] = heapPop();
+      if(visited.has(u)) continue;
       visited.add(u);
+      if(u === endKey) break;
       for(const edge of (graph.adj.get(u) || [])){
         if(visited.has(edge.to)) continue;
-        const nd = best + edge.cost;
+        const nd = d + edge.cost;
         if(nd < (dist.has(edge.to) ? dist.get(edge.to) : Infinity)){
           dist.set(edge.to, nd);
           prev.set(edge.to, u);
+          heapPush([nd, edge.to]);
         }
       }
     }
@@ -2188,7 +2239,24 @@
     const path = [endKey];
     let cur = endKey;
     while(prev.has(cur)){ cur = prev.get(cur); path.unshift(cur); }
-    return path.map(k => graph.coordOf.get(k));
+    return path;
+  }
+
+  function dijkstraPath(graph, startKey, endKey){
+    const keys = dijkstraKeys(graph, startKey, endKey);
+    return keys ? keys.map(k => graph.coordOf.get(k)) : null;
+  }
+
+  // jak wyżej, ale sumuje też realny dystans i szacowany czas (do trasy alternatywnej od A do B)
+  function dijkstraWithMetrics(graph, startKey, endKey){
+    const keys = dijkstraKeys(graph, startKey, endKey);
+    if(!keys) return null;
+    let distM = 0, timeS = 0;
+    for(let i=0;i<keys.length-1;i++){
+      const edge = (graph.adj.get(keys[i]) || []).find(e => e.to === keys[i+1]);
+      if(edge){ distM += edge.distM; timeS += (edge.distM/1000) / edge.speedKmh * 3600; }
+    }
+    return { coords: keys.map(k => graph.coordOf.get(k)), distM, timeS };
   }
 
   // liczy nowy lokalny przebieg drogi: beforeLL -> dragLL -> afterLL, trzymając się głównych dróg
@@ -2217,9 +2285,39 @@
     });
   }
 
-  function setRouteLineCoords(coords){
-    if(map && map.getSource("route-line")){
-      map.getSource("route-line").setData({
+  // trasa alternatywna od A do B (bez TomTom) — tylko na rozsądny dystans (patrz LOCAL_ALT_ROUTE_MAX_KM),
+  // sieć ograniczona do głównych klas dróg (motorway…tertiary), żeby graf dało się przeszukać w przeglądarce
+  function computeLocalMainRoadsRoute(originLL, destLL){
+    const straightKm = haversine(originLL[1], originLL[0], destLL[1], destLL[0]) / 1000;
+    if(straightKm > LOCAL_ALT_ROUTE_MAX_KM) return Promise.resolve(null);
+
+    const south = Math.min(originLL[1], destLL[1]) - LOCAL_ALT_BBOX_PAD_DEG;
+    const north = Math.max(originLL[1], destLL[1]) + LOCAL_ALT_BBOX_PAD_DEG;
+    const west = Math.min(originLL[0], destLL[0]) - LOCAL_ALT_BBOX_PAD_DEG;
+    const east = Math.max(originLL[0], destLL[0]) + LOCAL_ALT_BBOX_PAD_DEG;
+    const query = `
+      [out:json][timeout:25];
+      ( way["highway"~"^(${LOCAL_ALT_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
+      out geom;
+    `;
+    return tryEndpoints(query, 0).then(data => {
+      const graph = buildLocalRoadGraph(data.elements);
+      if(graph.coordOf.size === 0) return null;
+      const startKey = nearestGraphNode(graph, originLL[1], originLL[0]);
+      const endKey = nearestGraphNode(graph, destLL[1], destLL[0]);
+      const result = dijkstraWithMetrics(graph, startKey, endKey);
+      if(!result || result.coords.length < 2) return null;
+      return { coords: result.coords, distanceM: result.distM, timeS: result.timeS };
+    }).catch(err => {
+      console.warn("Lokalna trasa alternatywna nie powiodła się:", err);
+      return null;
+    });
+  }
+
+  function setRouteLineCoords(coords, sourceId){
+    sourceId = sourceId || "route-line";
+    if(map && map.getSource(sourceId)){
+      map.getSource(sourceId).setData({
         type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: coords }
       });
     }
@@ -2287,6 +2385,7 @@
         activeRoute.distanceM = routeLengthMeters(newCoords);
         activeRoute.manuallyEdited = true;
         setRouteLineCoords(newCoords);
+        renderNavRouteInfo();
       })
       .catch(err => {
         console.warn("Lokalne trasowanie nie powiodło się:", err);
@@ -2295,6 +2394,14 @@
         setRouteLineCoords(activeRoute.coords);
       });
   }
+
+  document.getElementById("navEditBtn").addEventListener("click", () => {
+    routeEditMode = !routeEditMode;
+    const btn = document.getElementById("navEditBtn");
+    btn.classList.toggle("active", routeEditMode);
+    btn.textContent = routeEditMode ? "✋ Kliknij i przeciągnij trasę" : "✋ Edytuj trasę";
+    if(map) map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
+  });
 
   /* ============================================================
      TRYB PEŁNEGO EKRANU (przydatny podczas nawigacji)
@@ -2331,12 +2438,6 @@
   ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
     document.addEventListener(ev, updateFullscreenBtn)
   );
-  ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
-    document.addEventListener(ev, () => {
-      // wysokość okna mapy zmienia się po wejściu/wyjściu z pełnego ekranu — odśwież przesunięcie kamery
-      if(map && lastPos) updateUserMarker(lastPos.lat, lastPos.lon, currentHeading);
-    })
-  );
 
   /* ============================================================
      KONTROLKI UI
@@ -2345,11 +2446,11 @@
     is3D = !is3D;
     document.getElementById("btnDim").classList.toggle("active", is3D);
     document.getElementById("dimIcon").textContent = is3D ? "2D" : "3D";
+    applyDrivingCamera(is3D);
     if(map){
       map.easeTo({
-        pitch: is3D ? 55 : 0,
+        pitch: is3D ? 60 : 0,
         bearing: is3D ? currentHeading : 0,
-        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
         duration: 700
       });
     }
