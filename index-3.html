@@ -149,7 +149,6 @@
   #navPanel[data-state]{ display:flex; }
   #navPanel[data-state="navigating"]{ display:none !important; }
 
-  /* stan "search" — mały panel przy przycisku 🧭, tak jak wcześniej */
   #navPanel[data-state="search"]{
     position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
     width: min(280px, calc(100vw - 100px));
@@ -159,7 +158,6 @@
     overflow-y:auto;
   }
 
-  /* stany "confirm" i "routes" — szeroki pasek na dole ekranu, zero marginesów */
   #navPanel[data-state="confirm"],
   #navPanel[data-state="routes"]{
     position:fixed; left:0; right:0; bottom:0; top:auto;
@@ -212,7 +210,6 @@
     background:none; border:none; font-family:'Inter',sans-serif;
   }
 
-  /* ---------- Panel ustawień (klucze API + wspólna baza), otwierany z ⋮ ---------- */
   #navSettingsPanel{
     display:none;
     position:absolute; top: calc(max(16px, env(safe-area-inset-top)) + 60px); right:16px;
@@ -407,8 +404,6 @@
   #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
   @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
 
-  /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
-
   /* Loading splash */
   #splash{
     position:absolute; inset:0; z-index:100;
@@ -471,7 +466,7 @@
   <div class="hint hidden" id="splashHint">
     Jeśli po kliknięciu nic się nie dzieje albo przeglądarka nie pyta o zgodę,
     ten podgląd może blokować lokalizację. Otwórz plik bezpośrednio w przeglądarce
-    (pobierz plik i otwórz go, albo otwórz link w nowej karcie) i spróbuj ponownie.
+    i spróbuj ponownie.
   </div>
 </div>
 
@@ -602,33 +597,30 @@
     "https://overpass.openstreetmap.ru/api/interpreter",
     "https://overpass.private.coffee/api/interpreter"
   ];
-  const OVERPASS_ATTEMPT_TIMEOUT_MS = 18000; // maks. czas na jedną próbę zanim przejdziemy do kolejnego serwera
-  const OVERPASS_RETRY_AFTER_FAIL_MS = 15000; // po całkowitym niepowodzeniu, ponów próbę po tym czasie
-  const CAMERA_RADIUS_M = 3000;      // promień pobierania fotoradarów
-  const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
-  const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
-  const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
+  const OVERPASS_ATTEMPT_TIMEOUT_MS = 18000;
+  const OVERPASS_RETRY_AFTER_FAIL_MS = 15000;
+  const CAMERA_RADIUS_M = 3000;
+  const ROAD_RADIUS_M   = 900;
+  const HGV_PARKING_RADIUS_M = 20000;
+  const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user";
 
-  /* ---------- Supabase — wspólna, współdzielona baza fotoradarów/parkingów HGV ---------- */
   const SUPA_URL_STORAGE = "nawigator_supabase_url";
   const SUPA_KEY_STORAGE = "nawigator_supabase_anon_key";
   const DEVICE_ID_STORAGE = "nawigator_device_id";
-  const CAMERA_REPORT_STORAGE = "nawigator_camera_user_reported"; // lokalny fallback (jw., dla fotoradarów)
-  const SUPA_FETCH_PAD_DEG = 0.05; // ~5-6 km promienia przy pobieraniu zgłoszeń społeczności wokół pozycji
-  const REFETCH_DISTANCE_M = 600;    // od jakiego przesunięcia odświeżamy dane
-  const REFETCH_INTERVAL_MS = 25000; // minimalny odstęp między zapytaniami
-  const CAMERA_ALERT_M = 200;        // próg alertu dźwiękowego/wizualnego
-  const CAMERA_ALERT_RESET_M = 260;  // histereza - powyżej tego znów można alarmować
+  const CAMERA_REPORT_STORAGE = "nawigator_camera_user_reported";
+  const SUPA_FETCH_PAD_DEG = 0.05;
+  const REFETCH_DISTANCE_M = 600;
+  const REFETCH_INTERVAL_MS = 25000;
+  const CAMERA_ALERT_M = 200;
+  const CAMERA_ALERT_RESET_M = 260;
 
-  /* ---------- TomTom (nawigacja: podpowiedzi adresów, trasa, ruch, limity) ---------- */
   const TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/";
   const TOMTOM_ROUTE_URL = "https://api.tomtom.com/routing/1/calculateRoute/";
   const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
   const NAV_SUGGEST_MIN_CHARS = 3;
   const NAV_SUGGEST_DEBOUNCE_MS = 350;
-  const NAV_DEFAULT_COUNTRY = "GB"; // aplikacja działa głównie w Anglii — podpowiedzi/trasy domyślnie faworyzują UK
+  const NAV_DEFAULT_COUNTRY = "GB";
 
-  /* ---------- ręczna edycja trasy — lokalne trasowanie po drogach z OSM/Overpass, bez TomTom ---------- */
   const LOCAL_ROUTE_HIGHWAY_CLASSES =
     "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service";
   const LOCAL_ROUTE_CLASS_WEIGHT = {
@@ -637,30 +629,29 @@
     tertiary:0.55, tertiary_link:0.5, unclassified:0.35,
     residential:0.3, living_street:0.2, service:0.12
   };
-  const LOCAL_ROUTE_ANCHOR_M = 1200; // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
-  const LOCAL_ROUTE_BBOX_PAD_DEG = 0.012; // ~1.3 km zapasu wokół kotwic przy pobieraniu dróg
+  const LOCAL_ROUTE_ANCHOR_M = 1200;
+  const LOCAL_ROUTE_BBOX_PAD_DEG = 0.012;
 
-  /* ---------- trasa alternatywna dla HGV — z innego źródła niż TomTom, trzyma się głównych dróg ---------- */
   const ALT_ROUTE_HIGHWAY_CLASSES = "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link";
-  const ALT_ROUTE_MAX_STRAIGHT_KM = 150; // powyżej tego dystansu pomijamy (zbyt duże zapytanie do Overpass)
-  const ALT_ROUTE_BBOX_PAD_DEG = 0.15;   // zapas wokół prostej łączącej start-cel
-  const ALT_ROUTE_AVG_SPEED_KMH = 70;    // uproszczony szacunek czasu jazdy (brak danych o ruchu z tego źródła)
+  const ALT_ROUTE_MAX_STRAIGHT_KM = 150;
+  const ALT_ROUTE_BBOX_PAD_DEG = 0.15;
+  const ALT_ROUTE_AVG_SPEED_KMH = 70;
 
   /* ============================================================
      STAN
   ============================================================ */
   let map, userMarkerEl, userMarker;
-  let lastPos = null;           // {lat,lon,t}
+  let lastPos = null;
   let currentSpeedKmh = 0;
-  let unitSystem = "km"; // "km" albo "mph" — wykrywane automatycznie na podstawie kraju
+  let unitSystem = "km";
   let lastUnitCheckPos = null;
   let lastUnitCheckTime = 0;
-  const UNIT_CHECK_MIN_INTERVAL_MS = 60000; // nie odpytuj Nominatim częściej niż raz na minutę
-  const UNIT_CHECK_MIN_DISTANCE_M = 80000;  // ponów sprawdzenie kraju dopiero po ~80 km
-  const MPH_COUNTRY_CODES = ["gb", "im", "je", "gg"]; // kraje/terytoria jeżdżące w milach
+  const UNIT_CHECK_MIN_INTERVAL_MS = 60000;
+  const UNIT_CHECK_MIN_DISTANCE_M = 80000;
+  const MPH_COUNTRY_CODES = ["gb", "im", "je", "gg"];
   let currentHeading = 0;
-  const STOP_SPEED_KMH = 6;       // poniżej tej prędkości kierunek GPS jest zbyt niepewny, by mu ufać
-  const MAX_HEADING_STEP_DEG = 25; // ogranicznik szybkości obrotu mapy między odczytami (chroni przed "kręceniem się")
+  const STOP_SPEED_KMH = 6;
+  const MAX_HEADING_STEP_DEG = 25;
 
   function angleDiffDeg(a, b){
     let d = (b - a) % 360;
@@ -684,39 +675,37 @@
     }
     if(bestIdx === -1) return null;
     const a = coords[bestIdx], b = coords[bestIdx+1];
-    return bearingBetween(a[1], a[0], b[1], b[0]); // coords są w formacie [lon,lat]
+    return bearingBetween(a[1], a[0], b[1], b[0]);
   }
   let is3D = false;
   let followUser = true;
   let lastFetchPos = null;
   let lastFetchTime = 0;
   let fetching = false;
-  let cameras = [];             // [{id, lat, lon, alerted}] — WYNIKOWA lista (OSM+społeczność+lokalne zgłoszenia), używana do alertu
-  let osmCameras = [];          // fotoradary z OSM/Overpass + zgłoszenia społeczności (Supabase), odświeżane co refetch
-  let roadSegments = [];        // [{a:[lon,lat], b:[lon,lat], maxspeed:number}]
+  let cameras = [];
+  let osmCameras = [];
+  let roadSegments = [];
   let currentLimit = null;
-  let preferredEndpointIdx = 0; // zapamiętujemy który serwer ostatnio zadziałał, żeby próbować go pierwszego
+  let preferredEndpointIdx = 0;
   let audioCtx = null;
-  const collectedCameras = new Map(); // akumulowane fotoradary (id -> {id,lat,lon,firstSeen}) do eksportu JSON
-  let userHgvParking = loadUserHgvParking(); // parkingi HGV zgłoszone lokalnie (fallback, gdy brak Supabase lub request się nie uda)
-  let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
+  let userHgvParking = loadUserHgvParking();
+  let userReportedCameras = loadUserReportedCameras();
   let supaUrl = localStorage.getItem(SUPA_URL_STORAGE) || "";
   let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
 
-  // --- stan nawigatora ---
   let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
   let navSuggestAbort = null;
   let navSuggestTimer = null;
   let navRouteAbort = null;
-  let navSelectedDest = null;   // {lat, lon, label}
-  let navUiState = "closed";    // "closed" | "search" | "confirm" | "routes" | "navigating"
-  let pendingRoutes = { main: null, alt: null }; // obliczone, jeszcze niewybrane trasy
-  let destMarker = null;        // pinezka celu pokazywana od chwili wyboru adresu
-  let routeSpeedSegments = [];  // limity prędkości pobrane wraz z trasą z TomTom (a,b,maxspeed)
-  let routeTrafficIncidents = []; // [{lat,lon,delay,magnitude}]
-  let activeRoute = null;       // {coords, distanceM, timeS, trafficDelayS, manuallyEdited}
-  let routeEditMode = false;    // czy tryb "przeciągnij trasę" jest włączony
-  let routeDragState = null;    // stan trwającego przeciągania punktu trasy
+  let navSelectedDest = null;
+  let navUiState = "closed";
+  let pendingRoutes = { main: null, alt: null };
+  let destMarker = null;
+  let routeSpeedSegments = [];
+  let routeTrafficIncidents = [];
+  let activeRoute = null;
+  let routeEditMode = false;
+  let routeDragState = null;
 
   /* ============================================================
      POMOCNICZE FUNKCJE GEO
@@ -731,9 +720,7 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
-  // odległość punktu (lat,lon) od odcinka a-b (lon,lat), w metrach, przybliżenie płaskie lokalnie
   function pointToSegmentMeters(lat, lon, a, b){
-    // rzutowanie na lokalny układ metrów wokół punktu
     const lat0 = lat;
     const mPerDegLat = 111320;
     const mPerDegLon = 111320 * Math.cos(toRad(lat0));
@@ -777,7 +764,7 @@
         osc.start(now + i*0.28);
         osc.stop(now + i*0.28 + 0.25);
       }
-    }catch(e){ /* audio niedostępne - ignorujemy, alert wizualny wystarczy */ }
+    }catch(e){}
   }
 
   /* ============================================================
@@ -797,10 +784,6 @@
   /* ============================================================
      MAPA
   ============================================================ */
-  // Aplikacja jest głównie dla HGV — usuwamy z bazowej mapy przystanki
-  // autobusowe i parkingi dla samochodów osobowych, żeby nie zaśmiecały widoku.
-  // Styl OpenFreeMap Liberty trzyma te ikony w warstwie źródłowej "poi"
-  // (schemat OpenMapTiles), rozróżniane polem class/subclass.
   const HGV_HIDE_POI_CLASSES = ["bus", "parking"];
   const HGV_HIDE_POI_SUBCLASSES = ["bus_stop", "bus_station", "parking", "parking_entrance", "parking_space"];
 
@@ -832,7 +815,7 @@
     map.on("load", () => {
       hideNonHgvPoi();
 
-      // źródło fotoradarów
+      // Fotoradary
       map.addSource("cameras", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"cameras-glow",
@@ -866,20 +849,48 @@
         }
       });
 
-      // źródło dróg z ograniczeniem prędkości (do celów wizualnych - opcjonalne podświetlenie)
+      // Źródło dróg z uwzględnieniem liczby pasów (dwu- i trzypasmowe)
       map.addSource("roads-maxspeed", { type:"geojson", data: emptyFC() });
+      
+      // Obrys zewnętrzny drogi (casing)
+      map.addLayer({
+        id:"roads-maxspeed-casing",
+        type:"line",
+        source:"roads-maxspeed",
+        paint:{
+          "line-color": "#0c0f12",
+          "line-width": ["+", ["*", ["coalesce", ["get", "lanes"], 2], 2.5], 2],
+          "line-opacity": 0.35
+        }
+      }, "cameras-glow");
+
+      // Główny pas drogi o szerokości zależnej od liczby pasów
       map.addLayer({
         id:"roads-maxspeed-line",
         type:"line",
         source:"roads-maxspeed",
         paint:{
           "line-color": "#1FD6C1",
-          "line-width": 1.5,
-          "line-opacity": 0.25
+          "line-width": ["*", ["coalesce", ["get", "lanes"], 2], 2.2],
+          "line-opacity": 0.45
         }
       }, "cameras-glow");
 
-      // źródło wyznaczonej trasy (TomTom)
+      // Przerywana linia rozdzielająca pasy (dla dróg posiadających 2 lub więcej pasów)
+      map.addLayer({
+        id:"roads-maxspeed-lanes",
+        type:"line",
+        source:"roads-maxspeed",
+        filter: [">=", ["coalesce", ["get", "lanes"], 2], 2],
+        paint:{
+          "line-color": "#ffffff",
+          "line-width": 1,
+          "line-opacity": 0.6,
+          "line-dasharray": [2, 2]
+        }
+      }, "cameras-glow");
+
+      // Trasa główna (TomTom)
       map.addSource("route-line", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"route-line-casing",
@@ -896,7 +907,7 @@
         paint:{ "line-color": "#1FD6C1", "line-width":5 }
       }, "cameras-glow");
 
-      // źródło trasy alternatywnej (własny router po głównych drogach z OSM/Overpass)
+      // Trasa alternatywna
       map.addSource("route-line-alt", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"route-line-alt-casing",
@@ -913,7 +924,6 @@
         paint:{ "line-color": "#FFB020", "line-width":4, "line-dasharray":[2,1.5] }
       }, "cameras-glow");
 
-      // źródło utrudnień w ruchu na wyznaczonej trasie (TomTom)
       map.addSource("route-incidents", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"route-incidents-icon",
@@ -926,17 +936,6 @@
         }
       });
 
-      // interakcja "przeciągnij trasę" — patrz sekcja RĘCZNA EDYCJA TRASY
-      map.on("mousedown", "route-line-main", onRouteDragStart);
-      map.on("touchstart", "route-line-main", onRouteDragStart);
-      map.on("mouseenter", "route-line-main", () => {
-        if(routeEditMode && !routeDragState) map.getCanvas().style.cursor = "grab";
-      });
-      map.on("mouseleave", "route-line-main", () => {
-        if(!routeDragState) map.getCanvas().style.cursor = "";
-      });
-
-      // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
       map.addSource("hgv-parking", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"hgv-parking-icon",
@@ -949,27 +948,25 @@
         }
       });
 
-      // źródło parkingów HGV zgłoszonych ręcznie przez użytkownika (tylko lokalnie, w tej przeglądarce)
       map.addSource("hgv-parking-user", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"hgv-parking-user-icon",
         type:"symbol",
         source:"hgv-parking-user",
         layout:{
-          "text-field": "🅿️❔", // inny symbol niż w OSM - to zgłoszenie użytkownika, niepotwierdzone
+          "text-field": "🅿️❔",
           "text-size": 15,
           "text-allow-overlap": true
         }
       });
 
-      // źródło parkingów HGV zgłoszonych przez społeczność (wspólna baza Supabase, widoczne dla wszystkich)
       map.addSource("hgv-parking-community", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"hgv-parking-community-icon",
         type:"symbol",
         source:"hgv-parking-community",
         layout:{
-          "text-field": "🅿️🤝", // zgłoszone i widoczne dla innych kierowców
+          "text-field": "🅿️🤝",
           "text-size": 15,
           "text-allow-overlap": true
         }
@@ -998,9 +995,8 @@
       .addTo(map);
   }
 
-  const SNAP_MAX_M = 25; // maks. odległość od jezdni, przy której "przyciągamy" znacznik na drogę
+  const SNAP_MAX_M = 25;
 
-  // rzutuje punkt (lat,lon) na najbliższe miejsce odcinka a-b (oba w [lon,lat]) — lokalna aproksymacja płaska
   function projectPointOnSegment(lat, lon, a, b){
     const mPerDegLat = 111320;
     const mPerDegLon = 111320 * Math.cos(toRad(lat));
@@ -1014,9 +1010,6 @@
     return { lat: lat + cy/mPerDegLat, lon: lon + cx/mPerDegLon };
   }
 
-  // "przyciąga" pozycję GPS do najbliższej drogi — do aktywnej trasy w pierwszej kolejności,
-  // w przeciwnym razie do dróg pobranych z Overpass (roadSegments). Tylko do wizualnego
-  // ustawienia znacznika/kamery — logika (prędkość, alerty) zawsze używa surowego GPS.
   function snapToRoad(lat, lon){
     let bestDist = Infinity, bestA = null, bestB = null;
     if(activeRoute && activeRoute.coords && activeRoute.coords.length > 1){
@@ -1035,25 +1028,15 @@
     return null;
   }
 
-  // niżej ustawiony znacznik = więcej widoku "przed" kierowcą; więcej w 3D niż w 2D
   function cameraBottomPaddingPx(){
     const h = map.getContainer().clientHeight;
     return h * (is3D ? 0.46 : 0.30);
   }
 
-  /* ================= PŁYNNY RUCH MIĘDZY ODCZYTAMI GPS (dead reckoning) =================
-     GPS zwykle daje nowy odczyt raz na ok. sekundę. Przesuwanie znacznika/kamery tylko
-     przy każdym odczycie (nawet z animacją easeTo) wygląda jak "urywany" ruch: chwila
-     animacji, potem przestój do kolejnego odczytu. Zamiast tego trzymamy ostatni znany
-     stan (pozycja + prędkość + kierunek) i co klatkę (requestAnimationFrame) ekstrapolujemy,
-     gdzie pojazd powinien teraz być — to samo podejście co w typowych nawigacjach. */
-  const MOTION_EXTRAPOLATION_CAP_S = 2.5; // po tylu sekundach bez nowego fixa przestajemy "zgadywać" dalej
-
-  let motionBase = null;       // { lat, lon, headingDeg, speedMps, tMs } — stan z ostatniego prawdziwego fixa
+  const MOTION_EXTRAPOLATION_CAP_S = 2.5;
+  let motionBase = null;
   let motionLoopStarted = false;
 
-  // przesuwa punkt (lat,lon) o distanceM metrów w kierunku bearingDeg — przybliżenie płaskie,
-  // w sam raz dla przesunięć rzędu pojedynczych–kilkudziesięciu metrów między odczytami GPS
   function movePointMeters(lat, lon, bearingDeg, distanceM){
     const mPerDegLat = 111320;
     const mPerDegLon = 111320 * Math.cos(toRad(lat));
@@ -1092,8 +1075,6 @@
     const dLat = snapped ? snapped.lat : lat;
     const dLon = snapped ? snapped.lon : lon;
 
-    // to tylko aktualizuje "bazę" do ekstrapolacji — faktyczne rysowanie robi renderMotionFrame,
-    // co klatkę, więc ruch jest ciągły zamiast skokowego przy każdym odczycie GPS
     motionBase = {
       lat: dLat,
       lon: dLon,
@@ -1109,12 +1090,11 @@
   }
 
   /* ============================================================
-     OVERPASS API — fotoradary + drogi z maxspeed
+     OVERPASS API — fotoradary + drogi (maxspeed + lanes)
   ============================================================ */
   function fetchOverpassData(lat, lon){
     if(fetching) return;
     fetching = true;
-    roadDataState = "searching";
 
     const query = `
       [out:json][timeout:25];
@@ -1122,6 +1102,7 @@
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
+        way["highway"~"motorway|trunk|primary|secondary"](around:${ROAD_RADIUS_M},${lat},${lon});
         node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
@@ -1137,12 +1118,9 @@
         applyOverpassResult(data, supaReports);
         lastFetchPos = { lat, lon };
         lastFetchTime = Date.now();
-        roadDataState = "ok";
       })
       .catch(err => {
-        console.warn("Overpass — wszystkie serwery zawiodły:", err);
-        roadDataState = "retrying";
-        // ponów automatycznie po krótkiej przerwie, żeby nie czekać na duży przejazd
+        console.warn("Overpass — błąd:", err);
         setTimeout(() => {
           if(lastPos) fetchOverpassData(lastPos.lat, lastPos.lon);
         }, OVERPASS_RETRY_AFTER_FAIL_MS);
@@ -1150,7 +1128,6 @@
       .finally(() => { fetching = false; });
   }
 
-  // próbuje kolejnych serwerów Overpass po kolei, zaczynając od tego, który ostatnio zadziałał
   function tryEndpoints(query, attemptCount){
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
@@ -1176,13 +1153,11 @@
         return r.json();
       })
       .then(data => {
-        // zapamiętaj który serwer zadziałał, żeby następnym razem zacząć od niego
         preferredEndpointIdx = OVERPASS_ENDPOINTS.indexOf(url);
         return data;
       })
       .catch(err => {
         clearTimeout(timer);
-        console.warn("Overpass endpoint nieudany:", url, err.message || err);
         return attempt(i + 1);
       });
     }
@@ -1198,8 +1173,7 @@
   }
 
   function saveUserHgvParking(){
-    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
-    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
+    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }catch(e){}
   }
 
   function loadUserReportedCameras(){
@@ -1210,12 +1184,9 @@
   }
 
   function saveUserReportedCameras(){
-    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
-    catch(e){ /* jw. */ }
+    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }catch(e){}
   }
 
-  // przelicza wynikową listę `cameras` (OSM + społeczność Supabase + lokalne zgłoszenia tego urządzenia)
-  // i odświeża warstwę na mapie — to ta lista zasila alert 200 m
   function rebuildCameraList(){
     const localOnes = userReportedCameras.map((p, i) => ({ id: "local-cam-" + i, lat: p.lat, lon: p.lon, alerted: false }));
     cameras = osmCameras.concat(localOnes);
@@ -1231,7 +1202,6 @@
     }
   }
 
-  /* ---------- Supabase — klient wspólnej bazy (opcjonalny; działa lokalnie, dopóki nie skonfigurowany) ---------- */
   function supaConfigured(){
     return !!(supaUrl && supaKey);
   }
@@ -1240,9 +1210,199 @@
     let id = localStorage.getItem(DEVICE_ID_STORAGE);
     if(!id){
       id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("dev-" + Date.now() + "-" + Math.random().toString(16).slice(2));
-      try{ localStorage.setItem(DEVICE_ID_STORAGE, id); }catch(e){ /* ignorujemy */ }
+      try{ localStorage.setItem(DEVICE_ID_STORAGE, id); }catch(e){}
     }
     return id;
+  }
+
+  function supaReportPoint(kind, lat, lon){
+    if(!supaConfigured()) return Promise.resolve(false);
+    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/rpc/report_point";
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supaKey,
+        "Authorization": "Bearer " + supaKey
+      },
+      body: JSON.stringify({ p_kind: kind, p_lat: lat, p_lon: lon, p_device: getDeviceId() })
+    }).then(r => r.ok).catch(() => false);
+  }
+
+  function fetchSupaReports(lat, lon){
+    if(!supaConfigured()) return Promise.resolve([]);
+    const latMin = lat - SUPA_FETCH_PAD_DEG, latMax = lat + SUPA_FETCH_PAD_DEG;
+    const lonMin = lon - SUPA_FETCH_PAD_DEG, lonMax = lon + SUPA_FETCH_PAD_DEG;
+    const url = supaUrl.replace(/\/+$/, "") +
+      `/rest/v1/shared_reports?select=id,kind,lat,lon,confirmations` +
+      `&lat=gte.${latMin}&lat=lte.${latMax}&lon=gte.${lonMin}&lon=lte.${lonMax}`;
+    return fetch(url, { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey } })
+      .then(r => r.ok ? r.json() : [])
+      .catch(() => []);
+  }
+
+  function renderUserHgvParking(){
+    if(map && map.getSource("hgv-parking-user")){
+      map.getSource("hgv-parking-user").setData({
+        type:"FeatureCollection",
+        features: userHgvParking.map(p => ({
+          type:"Feature",
+          properties:{ addedAt: p.addedAt },
+          geometry:{ type:"Point", coordinates:[p.lon, p.lat] }
+        }))
+      });
+    }
+  }
+
+  function reportHgvParkingHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
+    if(supaConfigured()){
+      supaReportPoint("hgv_parking", lat, lon).then(ok => {
+        if(ok){
+          showBanner("ZGŁOSZONO", "Parking HGV wysłany do wspólnej bazy", false);
+          fetchOverpassData(lat, lon);
+        } else {
+          userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+          saveUserHgvParking();
+          renderUserHgvParking();
+        }
+      });
+    } else {
+      userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+      saveUserHgvParking();
+      renderUserHgvParking();
+      showBanner("ZGŁOSZONO LOKALNIE", "Zapisano na tym urządzeniu", false);
+    }
+  }
+
+  function reportCameraHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
+    if(supaConfigured()){
+      supaReportPoint("speed_camera", lat, lon).then(ok => {
+        if(ok){
+          showBanner("ZGŁOSZONO", "Fotoradar wysłany do wspólnej bazy", false);
+          fetchOverpassData(lat, lon);
+        } else {
+          userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+          saveUserReportedCameras();
+          rebuildCameraList();
+        }
+      });
+    } else {
+      userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+      saveUserReportedCameras();
+      rebuildCameraList();
+      showBanner("ZGŁOSZONO LOKALNIE", "Zapisano na tym urządzeniu", false);
+    }
+  }
+
+  function wayCentroid(geometry){
+    let sumLat = 0, sumLon = 0;
+    geometry.forEach(g => { sumLat += g.lat; sumLon += g.lon; });
+    return { lat: sumLat / geometry.length, lon: sumLon / geometry.length };
+  }
+
+  function isHgvParkingElement(el){
+    if(!el.tags) return false;
+    if(el.tags.amenity === "parking" && (el.tags.hgv === "yes" || el.tags.hgv === "designated")) return true;
+    if(el.tags.highway === "rest_area" || el.tags.highway === "services") return true;
+    return false;
+  }
+
+  function applyOverpassResult(data, supaReports){
+    supaReports = supaReports || [];
+    const newCameras = [];
+    const newRoads = [];
+    const roadFeatures = [];
+    const hgvParkingFeatures = [];
+    const communityParkingFeatures = [];
+
+    (data.elements || []).forEach(el => {
+      if(isHgvParkingElement(el)){
+        let lat, lon;
+        if(el.type === "node"){ lat = el.lat; lon = el.lon; }
+        else if(el.type === "way" && el.geometry && el.geometry.length){
+          const c = wayCentroid(el.geometry); lat = c.lat; lon = c.lon;
+        }
+        if(lat !== undefined && lon !== undefined){
+          hgvParkingFeatures.push({
+            type:"Feature",
+            properties:{ id: el.id, name: el.tags.name || "Parking HGV" },
+            geometry:{ type:"Point", coordinates:[lon, lat] }
+          });
+        }
+      } else if(el.type === "node"){
+        newCameras.push({ id: el.id, lat: el.lat, lon: el.lon, alerted: false });
+      } else if(el.type === "way" && el.geometry && el.tags && (el.tags.maxspeed || el.tags.highway || el.tags.lanes)){
+        const ms = parseMaxspeed(el.tags.maxspeed) || 50;
+        // Obsługa liczby pasów (2 lub 3 pasy w zależności od tagów lub klasy drogi)
+        const lanes = parseInt(el.tags.lanes, 10) || (
+          el.tags.highway === "motorway" ? 3 :
+          el.tags.highway === "trunk" ? 3 :
+          el.tags.highway === "primary" ? 2 : 2
+        );
+        const coords = el.geometry.map(g => [g.lon, g.lat]);
+        for(let i=0;i<coords.length-1;i++){
+          newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: ms, lanes: lanes });
+          roadFeatures.push({
+            type:"Feature",
+            properties:{ maxspeed: ms, lanes: lanes },
+            geometry:{ type:"LineString", coordinates:[coords[i], coords[i+1]] }
+          });
+        }
+      }
+    });
+
+    supaReports.forEach(rep => {
+      if(rep.kind === "speed_camera"){
+        newCameras.push({ id: "supa-" + rep.id, lat: rep.lat, lon: rep.lon, alerted: false });
+      } else if(rep.kind === "hgv_parking"){
+        communityParkingFeatures.push({
+          type:"Feature",
+          properties:{ id: rep.id, confirmations: rep.confirmations },
+          geometry:{ type:"Point", coordinates:[rep.lon, rep.lat] }
+        });
+      }
+    });
+
+    osmCameras = newCameras;
+    rebuildCameraList();
+
+    roadSegments = newRoads;
+    if(map && map.getSource("roads-maxspeed")){
+      map.getSource("roads-maxspeed").setData({
+        type:"FeatureCollection",
+        features: roadFeatures
+      });
+    }
+
+    if(map && map.getSource("hgv-parking")){
+      map.getSource("hgv-parking").setData({
+        type:"FeatureCollection",
+        features: hgvParkingFeatures
+      });
+    }
+    if(map && map.getSource("hgv-parking-community")){
+      map.getSource("hgv-parking-community").setData({
+        type:"FeatureCollection",
+        features: communityParkingFeatures
+      });
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
+ id;
   }
 
   // zgłasza punkt do wspólnej bazy przez funkcję Postgresa `report_point` (patrz instrukcja SQL);
