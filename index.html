@@ -22,6 +22,8 @@
     --sign-ring: #E53935;
     --sign-text: #14181c;
     --map-filter: none;
+    --ctrl-active-bg: var(--accent);
+    --ctrl-active-text: #0c0f12;
   }
   body.night{
     --accent: #FFB020;
@@ -36,6 +38,8 @@
     --sign-ring: #cc4a3a;
     --sign-text: #ffd9a0;
     --map-filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95) saturate(0.7);
+    --ctrl-active-bg: #6e2c22;
+    --ctrl-active-text: #ffcdbd;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body{
@@ -106,7 +110,13 @@
     user-select:none;
   }
   .ctrl-btn:active{ transform: scale(0.92); }
-  .ctrl-btn.active{ background: var(--accent); color:#0c0f12; }
+  .ctrl-btn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); }
+  .reportSubMenu{
+    display:none;
+    flex-direction:column;
+    gap:10px;
+  }
+  .reportSubMenu.open{ display:flex; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -123,6 +133,212 @@
     box-shadow: 0 2px 6px rgba(0,0,0,.4);
   }
   .badge.zero{ display:none; }
+
+  /* ---------- Nawigator: panel wyznaczania trasy ---------- */
+  #navPanel{
+    display:none;
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    z-index:45;
+    flex-direction:column;
+    gap:8px;
+  }
+  #navPanel[data-state]{ display:flex; }
+  #navPanel[data-state="navigating"]{ display:none !important; }
+
+  /* stan "search" — mały panel przy przycisku 🧭, tak jak wcześniej */
+  #navPanel[data-state="search"]{
+    position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
+    width: min(280px, calc(100vw - 100px));
+    border-radius:16px;
+    padding:12px;
+    max-height: calc(100vh - 32px - env(safe-area-inset-top));
+    overflow-y:auto;
+  }
+
+  /* stany "confirm" i "routes" — szeroki pasek na dole ekranu, zero marginesów */
+  #navPanel[data-state="confirm"],
+  #navPanel[data-state="routes"]{
+    position:fixed; left:0; right:0; bottom:0; top:auto;
+    width:100%;
+    border-radius:16px 16px 0 0;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  #navPanel .navTitle{
+    font-size:12px; font-weight:700; letter-spacing:.04em;
+    color: var(--text-dim); text-transform:uppercase;
+  }
+  .navHeaderRow{ display:flex; align-items:center; justify-content:space-between; }
+  #navSettingsBtn{
+    width:28px; height:28px; border-radius:8px; flex:0 0 auto;
+    background: rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; cursor:pointer; color: var(--text-main);
+  }
+  #navSettingsBtn:active{ transform: scale(0.92); }
+
+  #navSearchBlock, #navConfirmBlock, #navRouteInfo{ display:none; flex-direction:column; gap:8px; }
+  #navPanel[data-state="search"] #navSearchBlock{ display:flex; }
+  #navPanel[data-state="confirm"] #navConfirmBlock{ display:flex; }
+  #navPanel[data-state="routes"] #navRouteInfo{ display:flex; }
+
+  #navConfirmLabel{ font-size:14px; font-weight:600; }
+  #navConfirmBtnRow{ display:flex; gap:8px; }
+  #navConfirmBtnRow > button{ flex:1; }
+  #navBackBtn{
+    background: rgba(255,255,255,0.08); color: var(--text-main); border:1px solid var(--panel-border);
+    padding:12px; border-radius:10px; font-weight:600; font-size:14px; font-family:'Inter',sans-serif; cursor:pointer;
+  }
+
+  .routeOption{
+    background: rgba(255,255,255,0.05);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:12px;
+    cursor:pointer;
+    transition: background .2s ease;
+  }
+  .routeOption:active{ background: rgba(255,255,255,0.1); }
+  .routeOption .roLabel{ font-weight:700; font-size:13px; margin-bottom:2px; }
+  .routeOption .roMeta{ font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; }
+  .routeOption .roTraffic{ font-size:11px; color:#f2b632; margin-top:2px; }
+  .routeOption .roTraffic.heavy{ color: var(--danger); }
+  #navCancelBtn{
+    text-align:center; font-size:12px; color: var(--text-dim); cursor:pointer; padding-top:2px;
+    background:none; border:none; font-family:'Inter',sans-serif;
+  }
+
+  /* ---------- Panel ustawień (klucze API + wspólna baza), otwierany z ⋮ ---------- */
+  #navSettingsPanel{
+    display:none;
+    position:absolute; top: calc(max(16px, env(safe-area-inset-top)) + 60px); right:16px;
+    width: min(300px, calc(100vw - 32px));
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    padding:12px;
+    z-index:46;
+    flex-direction:column;
+    gap:8px;
+    max-height: calc(100vh - 100px - env(safe-area-inset-top));
+    overflow-y:auto;
+  }
+  #navSettingsPanel.open{ display:flex; }
+  #navSettingsCloseBtn{
+    background: rgba(255,255,255,0.08); color: var(--text-main); border:1px solid var(--panel-border);
+    padding:10px; border-radius:10px; font-weight:600; font-size:13px; font-family:'Inter',sans-serif; cursor:pointer;
+    margin-top:4px;
+  }
+
+  #navDestWrap{ position:relative; }
+  #navDest{
+    width:100%;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    padding:10px 12px;
+    border-radius:10px;
+    outline:none;
+  }
+  #navDest::placeholder{ color: var(--text-dim); }
+  #navDest:focus{ border-color: var(--accent); }
+  #navSuggestions{
+    position:absolute; left:0; right:0; top: calc(100% + 6px);
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    overflow:hidden;
+    z-index:46;
+    box-shadow: 0 10px 24px rgba(0,0,0,.4);
+    display:none;
+  }
+  #navSuggestions.open{ display:block; }
+  .navSuggestion{
+    padding:10px 12px;
+    font-size:13px;
+    color: var(--text-main);
+    cursor:pointer;
+    border-bottom:1px solid var(--panel-border);
+  }
+  .navSuggestion:last-child{ border-bottom:none; }
+  .navSuggestion:active, .navSuggestion.highlight{ background: rgba(255,255,255,0.08); }
+  .navSuggestion .addr1{ font-weight:600; }
+  .navSuggestion .addr2{ font-size:11px; color: var(--text-dim); margin-top:2px; }
+  #navGoBtn{
+    background: var(--accent);
+    color:#0c0f12;
+    border:none;
+    padding:10px 12px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:14px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navGoBtn:disabled{ opacity:.4; cursor:default; }
+  #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
+  #navError{
+    font-size:12px; color: var(--danger); display:none;
+  }
+  #navError.show{ display:block; }
+  #navStatus{
+    font-size:12px; color: var(--text-dim); display:none;
+  }
+  #navStatus.show{ display:block; }
+  #navKeyToggle, .navKeyToggle{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; color: var(--text-dim);
+    cursor:pointer;
+    padding-top:2px;
+    border-top:1px solid var(--panel-border);
+    margin-top:2px;
+  }
+  #navKeyToggle .chev, .navKeyToggle .chev{ transition: transform .25s ease; display:inline-block; }
+  #navKeyToggle.open .chev, .navKeyToggle.open .chev{ transform: rotate(180deg); }
+  #navKeyRow, .navKeyRow{
+    display:none;
+    gap:6px;
+    align-items:center;
+  }
+  #navKeyRow.open, .navKeyRow.open{ display:flex; }
+  #navApiKey, .navApiKeyInput{
+    flex:1;
+    min-width:0;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    padding:8px 10px;
+    border-radius:8px;
+    outline:none;
+  }
+  #navApiKey:focus, .navApiKeyInput:focus{ border-color: var(--accent); }
+  #navKeyEye, .navKeyEye{
+    flex:0 0 auto;
+    width:32px; height:32px;
+    border-radius:8px;
+    background: rgba(255,255,255,0.08);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-size:13px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  #navKeySaved, .navKeySaved{
+    font-size:10px; color: var(--text-dim); opacity:0; transition: opacity .3s ease;
+  }
+  #navKeySaved.show, .navKeySaved.show{ opacity:1; }
+  .navKeyRowStack{ display:flex; flex-direction:column; gap:6px; }
 
   /* ---------- Bottom-left: speed cluster ---------- */
   #speedCluster{
@@ -272,15 +488,89 @@
 </div>
 
 <div id="controls">
+  <div class="ctrl-btn" id="btnNav" title="Nawigator — wyznacz trasę">🧭</div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
   <div class="ctrl-btn" id="btnDim" title="2D / 3D">
     <span id="dimIcon">3D</span>
   </div>
   <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
   <div class="ctrl-btn" id="btnLocate" title="Wyśrodkuj na mnie">🎯</div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+  <div class="reportSubMenu" id="reportSubMenu">
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+  </div>
   <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
     💾
     <span class="badge" id="exportBadge">0</span>
   </div>
+</div>
+
+<div id="navPanel">
+  <div class="navHeaderRow">
+    <div class="navTitle">Nawigator</div>
+    <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
+  </div>
+
+  <div id="navSearchBlock">
+    <div id="navDestWrap">
+      <input type="text" id="navDest" placeholder="Wpisz cel podróży…" autocomplete="off">
+      <div id="navSuggestions"></div>
+    </div>
+  </div>
+
+  <div id="navConfirmBlock">
+    <div id="navConfirmLabel"></div>
+    <div id="navConfirmBtnRow">
+      <button id="navBackBtn">← Zmień cel</button>
+      <button id="navGoBtn">Wyznacz trasę</button>
+    </div>
+  </div>
+
+  <div id="navError"></div>
+  <div id="navStatus"></div>
+
+  <div id="navRouteInfo">
+    <div class="routeOption" id="routeOptionMain">
+      <div class="roLabel">🚗 Trasa główna (TomTom)</div>
+      <div class="roMeta" id="roMainMeta">–</div>
+      <div class="roTraffic" id="roMainTraffic"></div>
+    </div>
+    <div class="routeOption" id="routeOptionAlt">
+      <div class="roLabel">🚚 Trasa alternatywna — głównymi drogami</div>
+      <div class="roMeta" id="roAltMeta">–</div>
+    </div>
+    <button id="navCancelBtn">Anuluj</button>
+  </div>
+</div>
+
+<div id="navSettingsPanel">
+  <div class="navTitle">Klucze API i wspólna baza</div>
+
+  <div id="navKeyToggle">
+    <span>🔑 Klucz API TomTom</span>
+    <span class="chev">▾</span>
+  </div>
+  <div id="navKeyRow">
+    <input type="password" id="navApiKey" placeholder="Wklej klucz API TomTom…" autocomplete="off">
+    <div id="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+  </div>
+  <div id="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+
+  <div id="navSupaToggle" class="navKeyToggle">
+    <span>🔗 Wspólna baza (Supabase)</span>
+    <span class="chev">▾</span>
+  </div>
+  <div id="navSupaRow" class="navKeyRow navKeyRowStack">
+    <input type="text" id="navSupaUrl" class="navApiKeyInput" placeholder="Adres projektu Supabase (https://xxxx.supabase.co)…" autocomplete="off">
+    <div style="display:flex; gap:6px; align-items:center;">
+      <input type="password" id="navSupaKey" class="navApiKeyInput" placeholder="Klucz anon…" autocomplete="off">
+      <div id="navSupaKeyEye" class="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+    </div>
+  </div>
+  <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+
+  <button id="navSettingsCloseBtn">Zamknij</button>
 </div>
 
 <div id="speedCluster">
@@ -316,10 +606,45 @@
   const OVERPASS_RETRY_AFTER_FAIL_MS = 15000; // po całkowitym niepowodzeniu, ponów próbę po tym czasie
   const CAMERA_RADIUS_M = 3000;      // promień pobierania fotoradarów
   const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
+  const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
+  const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
+
+  /* ---------- Supabase — wspólna, współdzielona baza fotoradarów/parkingów HGV ---------- */
+  const SUPA_URL_STORAGE = "nawigator_supabase_url";
+  const SUPA_KEY_STORAGE = "nawigator_supabase_anon_key";
+  const DEVICE_ID_STORAGE = "nawigator_device_id";
+  const CAMERA_REPORT_STORAGE = "nawigator_camera_user_reported"; // lokalny fallback (jw., dla fotoradarów)
+  const SUPA_FETCH_PAD_DEG = 0.05; // ~5-6 km promienia przy pobieraniu zgłoszeń społeczności wokół pozycji
   const REFETCH_DISTANCE_M = 600;    // od jakiego przesunięcia odświeżamy dane
   const REFETCH_INTERVAL_MS = 25000; // minimalny odstęp między zapytaniami
   const CAMERA_ALERT_M = 200;        // próg alertu dźwiękowego/wizualnego
   const CAMERA_ALERT_RESET_M = 260;  // histereza - powyżej tego znów można alarmować
+
+  /* ---------- TomTom (nawigacja: podpowiedzi adresów, trasa, ruch, limity) ---------- */
+  const TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/";
+  const TOMTOM_ROUTE_URL = "https://api.tomtom.com/routing/1/calculateRoute/";
+  const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
+  const NAV_SUGGEST_MIN_CHARS = 3;
+  const NAV_SUGGEST_DEBOUNCE_MS = 350;
+  const NAV_DEFAULT_COUNTRY = "GB"; // aplikacja działa głównie w Anglii — podpowiedzi/trasy domyślnie faworyzują UK
+
+  /* ---------- ręczna edycja trasy — lokalne trasowanie po drogach z OSM/Overpass, bez TomTom ---------- */
+  const LOCAL_ROUTE_HIGHWAY_CLASSES =
+    "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service";
+  const LOCAL_ROUTE_CLASS_WEIGHT = {
+    motorway:1, motorway_link:0.9, trunk:0.95, trunk_link:0.85,
+    primary:0.85, primary_link:0.75, secondary:0.7, secondary_link:0.6,
+    tertiary:0.55, tertiary_link:0.5, unclassified:0.35,
+    residential:0.3, living_street:0.2, service:0.12
+  };
+  const LOCAL_ROUTE_ANCHOR_M = 1200; // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
+  const LOCAL_ROUTE_BBOX_PAD_DEG = 0.012; // ~1.3 km zapasu wokół kotwic przy pobieraniu dróg
+
+  /* ---------- trasa alternatywna dla HGV — z innego źródła niż TomTom, trzyma się głównych dróg ---------- */
+  const ALT_ROUTE_HIGHWAY_CLASSES = "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link";
+  const ALT_ROUTE_MAX_STRAIGHT_KM = 150; // powyżej tego dystansu pomijamy (zbyt duże zapytanie do Overpass)
+  const ALT_ROUTE_BBOX_PAD_DEG = 0.15;   // zapas wokół prostej łączącej start-cel
+  const ALT_ROUTE_AVG_SPEED_KMH = 70;    // uproszczony szacunek czasu jazdy (brak danych o ruchu z tego źródła)
 
   /* ============================================================
      STAN
@@ -334,17 +659,64 @@
   const UNIT_CHECK_MIN_DISTANCE_M = 80000;  // ponów sprawdzenie kraju dopiero po ~80 km
   const MPH_COUNTRY_CODES = ["gb", "im", "je", "gg"]; // kraje/terytoria jeżdżące w milach
   let currentHeading = 0;
+  const STOP_SPEED_KMH = 6;       // poniżej tej prędkości kierunek GPS jest zbyt niepewny, by mu ufać
+  const MAX_HEADING_STEP_DEG = 25; // ogranicznik szybkości obrotu mapy między odczytami (chroni przed "kręceniem się")
+
+  function angleDiffDeg(a, b){
+    let d = (b - a) % 360;
+    if(d > 180) d -= 360;
+    if(d < -180) d += 360;
+    return d;
+  }
+  function smoothHeadingTo(current, target, maxStepDeg){
+    if(target === null || target === undefined || isNaN(target)) return current;
+    const diff = angleDiffDeg(current, target);
+    const clamped = Math.max(-maxStepDeg, Math.min(maxStepDeg, diff));
+    return (current + clamped + 360) % 360;
+  }
+  function routeBearingNear(lat, lon){
+    const coords = activeRoute && activeRoute.coords;
+    if(!coords || coords.length < 2) return null;
+    let bestDist = Infinity, bestIdx = -1;
+    for(let i = 0; i < coords.length - 1; i++){
+      const d = pointToSegmentMeters(lat, lon, coords[i], coords[i+1]);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    }
+    if(bestIdx === -1) return null;
+    const a = coords[bestIdx], b = coords[bestIdx+1];
+    return bearingBetween(a[1], a[0], b[1], b[0]); // coords są w formacie [lon,lat]
+  }
   let is3D = false;
   let followUser = true;
   let lastFetchPos = null;
   let lastFetchTime = 0;
   let fetching = false;
-  let cameras = [];             // [{id, lat, lon, alerted}]
+  let cameras = [];             // [{id, lat, lon, alerted}] — WYNIKOWA lista (OSM+społeczność+lokalne zgłoszenia), używana do alertu
+  let osmCameras = [];          // fotoradary z OSM/Overpass + zgłoszenia społeczności (Supabase), odświeżane co refetch
   let roadSegments = [];        // [{a:[lon,lat], b:[lon,lat], maxspeed:number}]
   let currentLimit = null;
   let preferredEndpointIdx = 0; // zapamiętujemy który serwer ostatnio zadziałał, żeby próbować go pierwszego
   let audioCtx = null;
   const collectedCameras = new Map(); // akumulowane fotoradary (id -> {id,lat,lon,firstSeen}) do eksportu JSON
+  let userHgvParking = loadUserHgvParking(); // parkingi HGV zgłoszone lokalnie (fallback, gdy brak Supabase lub request się nie uda)
+  let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
+  let supaUrl = localStorage.getItem(SUPA_URL_STORAGE) || "";
+  let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
+
+  // --- stan nawigatora ---
+  let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
+  let navSuggestAbort = null;
+  let navSuggestTimer = null;
+  let navRouteAbort = null;
+  let navSelectedDest = null;   // {lat, lon, label}
+  let navUiState = "closed";    // "closed" | "search" | "confirm" | "routes" | "navigating"
+  let pendingRoutes = { main: null, alt: null }; // obliczone, jeszcze niewybrane trasy
+  let destMarker = null;        // pinezka celu pokazywana od chwili wyboru adresu
+  let routeSpeedSegments = [];  // limity prędkości pobrane wraz z trasą z TomTom (a,b,maxspeed)
+  let routeTrafficIncidents = []; // [{lat,lon,delay,magnitude}]
+  let activeRoute = null;       // {coords, distanceM, timeS, trafficDelayS, manuallyEdited}
+  let routeEditMode = false;    // czy tryb "przeciągnij trasę" jest włączony
+  let routeDragState = null;    // stan trwającego przeciągania punktu trasy
 
   /* ============================================================
      POMOCNICZE FUNKCJE GEO
@@ -425,6 +797,27 @@
   /* ============================================================
      MAPA
   ============================================================ */
+  // Aplikacja jest głównie dla HGV — usuwamy z bazowej mapy przystanki
+  // autobusowe i parkingi dla samochodów osobowych, żeby nie zaśmiecały widoku.
+  // Styl OpenFreeMap Liberty trzyma te ikony w warstwie źródłowej "poi"
+  // (schemat OpenMapTiles), rozróżniane polem class/subclass.
+  const HGV_HIDE_POI_CLASSES = ["bus", "parking"];
+  const HGV_HIDE_POI_SUBCLASSES = ["bus_stop", "bus_station", "parking", "parking_entrance", "parking_space"];
+
+  function hideNonHgvPoi(){
+    const layers = map.getStyle().layers || [];
+    const excludeExpr = ["any",
+      ["in", ["get", "class"], ["literal", HGV_HIDE_POI_CLASSES]],
+      ["in", ["get", "subclass"], ["literal", HGV_HIDE_POI_SUBCLASSES]]
+    ];
+    layers.forEach(layer => {
+      if(layer["source-layer"] !== "poi") return;
+      const newFilter = layer.filter ? ["all", layer.filter, ["!", excludeExpr]] : ["!", excludeExpr];
+      try{ map.setFilter(layer.id, newFilter); }
+      catch(e){ console.warn("Nie udało się odfiltrować warstwy POI:", layer.id, e); }
+    });
+  }
+
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -437,6 +830,8 @@
     });
 
     map.on("load", () => {
+      hideNonHgvPoi();
+
       // źródło fotoradarów
       map.addSource("cameras", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -484,7 +879,104 @@
         }
       }, "cameras-glow");
 
+      // źródło wyznaczonej trasy (TomTom)
+      map.addSource("route-line", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"route-line-casing",
+        type:"line",
+        source:"route-line",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#0c0f12", "line-width":9, "line-opacity":0.55 }
+      }, "cameras-glow");
+      map.addLayer({
+        id:"route-line-main",
+        type:"line",
+        source:"route-line",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color": "#1FD6C1", "line-width":5 }
+      }, "cameras-glow");
+
+      // źródło trasy alternatywnej (własny router po głównych drogach z OSM/Overpass)
+      map.addSource("route-line-alt", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"route-line-alt-casing",
+        type:"line",
+        source:"route-line-alt",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#0c0f12", "line-width":8, "line-opacity":0.5 }
+      }, "cameras-glow");
+      map.addLayer({
+        id:"route-line-alt-main",
+        type:"line",
+        source:"route-line-alt",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color": "#FFB020", "line-width":4, "line-dasharray":[2,1.5] }
+      }, "cameras-glow");
+
+      // źródło utrudnień w ruchu na wyznaczonej trasie (TomTom)
+      map.addSource("route-incidents", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"route-incidents-icon",
+        type:"symbol",
+        source:"route-incidents",
+        layout:{
+          "text-field": "⚠️",
+          "text-size": 15,
+          "text-allow-overlap": true
+        }
+      });
+
+      // interakcja "przeciągnij trasę" — patrz sekcja RĘCZNA EDYCJA TRASY
+      map.on("mousedown", "route-line-main", onRouteDragStart);
+      map.on("touchstart", "route-line-main", onRouteDragStart);
+      map.on("mouseenter", "route-line-main", () => {
+        if(routeEditMode && !routeDragState) map.getCanvas().style.cursor = "grab";
+      });
+      map.on("mouseleave", "route-line-main", () => {
+        if(!routeDragState) map.getCanvas().style.cursor = "";
+      });
+
+      // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
+      map.addSource("hgv-parking", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"hgv-parking-icon",
+        type:"symbol",
+        source:"hgv-parking",
+        layout:{
+          "text-field": "🅿️",
+          "text-size": 15,
+          "text-allow-overlap": true
+        }
+      });
+
+      // źródło parkingów HGV zgłoszonych ręcznie przez użytkownika (tylko lokalnie, w tej przeglądarce)
+      map.addSource("hgv-parking-user", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"hgv-parking-user-icon",
+        type:"symbol",
+        source:"hgv-parking-user",
+        layout:{
+          "text-field": "🅿️❔", // inny symbol niż w OSM - to zgłoszenie użytkownika, niepotwierdzone
+          "text-size": 15,
+          "text-allow-overlap": true
+        }
+      });
+
+      // źródło parkingów HGV zgłoszonych przez społeczność (wspólna baza Supabase, widoczne dla wszystkich)
+      map.addSource("hgv-parking-community", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"hgv-parking-community-icon",
+        type:"symbol",
+        source:"hgv-parking-community",
+        layout:{
+          "text-field": "🅿️🤝", // zgłoszone i widoczne dla innych kierowców
+          "text-size": 15,
+          "text-allow-overlap": true
+        }
+      });
+
       addUserMarker(lat, lon);
+      renderUserHgvParking();
       fetchOverpassData(lat, lon);
     });
   }
@@ -506,16 +998,64 @@
       .addTo(map);
   }
 
+  const SNAP_MAX_M = 25; // maks. odległość od jezdni, przy której "przyciągamy" znacznik na drogę
+
+  // rzutuje punkt (lat,lon) na najbliższe miejsce odcinka a-b (oba w [lon,lat]) — lokalna aproksymacja płaska
+  function projectPointOnSegment(lat, lon, a, b){
+    const mPerDegLat = 111320;
+    const mPerDegLon = 111320 * Math.cos(toRad(lat));
+    const ax = (a[0]-lon) * mPerDegLon, ay = (a[1]-lat) * mPerDegLat;
+    const bx = (b[0]-lon) * mPerDegLon, by = (b[1]-lat) * mPerDegLat;
+    const dx = bx-ax, dy = by-ay;
+    const len2 = dx*dx + dy*dy;
+    let t = len2 === 0 ? 0 : ((-ax)*dx + (-ay)*dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t*dx, cy = ay + t*dy;
+    return { lat: lat + cy/mPerDegLat, lon: lon + cx/mPerDegLon };
+  }
+
+  // "przyciąga" pozycję GPS do najbliższej drogi — do aktywnej trasy w pierwszej kolejności,
+  // w przeciwnym razie do dróg pobranych z Overpass (roadSegments). Tylko do wizualnego
+  // ustawienia znacznika/kamery — logika (prędkość, alerty) zawsze używa surowego GPS.
+  function snapToRoad(lat, lon){
+    let bestDist = Infinity, bestA = null, bestB = null;
+    if(activeRoute && activeRoute.coords && activeRoute.coords.length > 1){
+      const coords = activeRoute.coords;
+      for(let i=0;i<coords.length-1;i++){
+        const d = pointToSegmentMeters(lat, lon, coords[i], coords[i+1]);
+        if(d < bestDist){ bestDist = d; bestA = coords[i]; bestB = coords[i+1]; }
+      }
+    } else if(roadSegments.length){
+      for(const seg of roadSegments){
+        const d = pointToSegmentMeters(lat, lon, seg.a, seg.b);
+        if(d < bestDist){ bestDist = d; bestA = seg.a; bestB = seg.b; }
+      }
+    }
+    if(bestA && bestDist <= SNAP_MAX_M) return projectPointOnSegment(lat, lon, bestA, bestB);
+    return null;
+  }
+
+  // niżej ustawiony znacznik = więcej widoku "przed" kierowcą; więcej w 3D niż w 2D
+  function cameraBottomPaddingPx(){
+    const h = map.getContainer().clientHeight;
+    return h * (is3D ? 0.46 : 0.30);
+  }
+
   function updateUserMarker(lat, lon, heading){
     if(!userMarker) return;
-    userMarker.setLngLat([lon, lat]);
+    const snapped = snapToRoad(lat, lon);
+    const dLat = snapped ? snapped.lat : lat;
+    const dLon = snapped ? snapped.lon : lon;
+
+    userMarker.setLngLat([dLon, dLat]);
     if(heading !== null && !isNaN(heading)){
       userMarkerEl.querySelector("svg").style.transform = `rotate(${heading}deg)`;
     }
     if(followUser){
       map.easeTo({
-        center: [lon, lat],
+        center: [dLon, dLat],
         bearing: (heading !== null && !isNaN(heading) && is3D) ? heading : map.getBearing(),
+        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
         duration: 600
       });
     }
@@ -535,13 +1075,19 @@
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
+        node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
 
-    tryEndpoints(query, 0)
-      .then(data => {
-        applyOverpassResult(data);
+    Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon)])
+      .then(([data, supaReports]) => {
+        applyOverpassResult(data, supaReports);
         lastFetchPos = { lat, lon };
         lastFetchTime = Date.now();
         roadDataState = "ok";
@@ -597,13 +1143,199 @@
     return attempt(0);
   }
 
-  function applyOverpassResult(data){
+  function loadUserHgvParking(){
+    try{
+      const raw = localStorage.getItem(HGV_PARKING_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserHgvParking(){
+    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
+    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
+  }
+
+  function loadUserReportedCameras(){
+    try{
+      const raw = localStorage.getItem(CAMERA_REPORT_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserReportedCameras(){
+    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
+    catch(e){ /* jw. */ }
+  }
+
+  // przelicza wynikową listę `cameras` (OSM + społeczność Supabase + lokalne zgłoszenia tego urządzenia)
+  // i odświeża warstwę na mapie — to ta lista zasila alert 200 m
+  function rebuildCameraList(){
+    const localOnes = userReportedCameras.map((p, i) => ({ id: "local-cam-" + i, lat: p.lat, lon: p.lon, alerted: false }));
+    cameras = osmCameras.concat(localOnes);
+    if(map && map.getSource("cameras")){
+      map.getSource("cameras").setData({
+        type:"FeatureCollection",
+        features: cameras.map(c => ({
+          type:"Feature",
+          properties:{ id: c.id },
+          geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
+        }))
+      });
+    }
+  }
+
+  /* ---------- Supabase — klient wspólnej bazy (opcjonalny; działa lokalnie, dopóki nie skonfigurowany) ---------- */
+  function supaConfigured(){
+    return !!(supaUrl && supaKey);
+  }
+
+  function getDeviceId(){
+    let id = localStorage.getItem(DEVICE_ID_STORAGE);
+    if(!id){
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("dev-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+      try{ localStorage.setItem(DEVICE_ID_STORAGE, id); }catch(e){ /* ignorujemy */ }
+    }
+    return id;
+  }
+
+  // zgłasza punkt do wspólnej bazy przez funkcję Postgresa `report_point` (patrz instrukcja SQL);
+  // zwraca Promise<boolean> - true jeśli się udało
+  function supaReportPoint(kind, lat, lon){
+    if(!supaConfigured()) return Promise.resolve(false);
+    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/rpc/report_point";
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supaKey,
+        "Authorization": "Bearer " + supaKey
+      },
+      body: JSON.stringify({ p_kind: kind, p_lat: lat, p_lon: lon, p_device: getDeviceId() })
+    }).then(r => r.ok).catch(() => false);
+  }
+
+  // pobiera zgłoszenia społeczności w promieniu SUPA_FETCH_PAD_DEG wokół pozycji;
+  // nigdy nie odrzuca (catch->[]), więc bezpiecznie łączy się z Promise.all obok zapytania do Overpass
+  function fetchSupaReports(lat, lon){
+    if(!supaConfigured()) return Promise.resolve([]);
+    const latMin = lat - SUPA_FETCH_PAD_DEG, latMax = lat + SUPA_FETCH_PAD_DEG;
+    const lonMin = lon - SUPA_FETCH_PAD_DEG, lonMax = lon + SUPA_FETCH_PAD_DEG;
+    const url = supaUrl.replace(/\/+$/, "") +
+      `/rest/v1/shared_reports?select=id,kind,lat,lon,confirmations` +
+      `&lat=gte.${latMin}&lat=lte.${latMax}&lon=gte.${lonMin}&lon=lte.${lonMax}`;
+    return fetch(url, { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey } })
+      .then(r => r.ok ? r.json() : [])
+      .catch(() => []);
+  }
+
+  function renderUserHgvParking(){
+    if(map && map.getSource("hgv-parking-user")){
+      map.getSource("hgv-parking-user").setData({
+        type:"FeatureCollection",
+        features: userHgvParking.map(p => ({
+          type:"Feature",
+          properties:{ addedAt: p.addedAt },
+          geometry:{ type:"Point", coordinates:[p.lon, p.lat] }
+        }))
+      });
+    }
+  }
+
+  function reportHgvParkingHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
+    if(supaConfigured()){
+      supaReportPoint("hgv_parking", lat, lon).then(ok => {
+        if(ok){
+          showBanner("ZGŁOSZONO", "Parking HGV wysłany do wspólnej bazy — zobaczą go inni kierowcy", false);
+          fetchOverpassData(lat, lon); // odśwież, żeby od razu zobaczyć zgłoszenie na mapie
+        } else {
+          userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+          saveUserHgvParking();
+          renderUserHgvParking();
+          updateExportBadge();
+          showBanner("ZAPISANO LOKALNIE", "Nie udało się wysłać do wspólnej bazy — zapisano tylko na tym urządzeniu", false);
+        }
+      });
+    } else {
+      userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+      saveUserHgvParking();
+      renderUserHgvParking();
+      updateExportBadge();
+      showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
+    }
+  }
+
+  function reportCameraHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
+    if(supaConfigured()){
+      supaReportPoint("speed_camera", lat, lon).then(ok => {
+        if(ok){
+          showBanner("ZGŁOSZONO", "Fotoradar wysłany do wspólnej bazy — zobaczą go inni kierowcy", false);
+          fetchOverpassData(lat, lon);
+        } else {
+          userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+          saveUserReportedCameras();
+          rebuildCameraList();
+          updateExportBadge();
+          showBanner("ZAPISANO LOKALNIE", "Nie udało się wysłać do wspólnej bazy — zapisano tylko na tym urządzeniu", false);
+        }
+      });
+    } else {
+      userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+      saveUserReportedCameras();
+      rebuildCameraList();
+      updateExportBadge();
+      showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
+    }
+  }
+
+  function wayCentroid(geometry){
+    let sumLat = 0, sumLon = 0;
+    geometry.forEach(g => { sumLat += g.lat; sumLon += g.lon; });
+    return { lat: sumLat / geometry.length, lon: sumLon / geometry.length };
+  }
+
+  function isHgvParkingElement(el){
+    if(!el.tags) return false;
+    if(el.tags.amenity === "parking" && (el.tags.hgv === "yes" || el.tags.hgv === "designated")) return true;
+    if(el.tags.highway === "rest_area" || el.tags.highway === "services") return true;
+    return false;
+  }
+
+  function applyOverpassResult(data, supaReports){
+    supaReports = supaReports || [];
     const newCameras = [];
     const newRoads = [];
     const roadFeatures = [];
+    const hgvParkingFeatures = [];
+    const communityParkingFeatures = [];
 
     (data.elements || []).forEach(el => {
-      if(el.type === "node"){
+      if(isHgvParkingElement(el)){
+        let lat, lon;
+        if(el.type === "node"){ lat = el.lat; lon = el.lon; }
+        else if(el.type === "way" && el.geometry && el.geometry.length){
+          const c = wayCentroid(el.geometry); lat = c.lat; lon = c.lon;
+        }
+        if(lat !== undefined && lon !== undefined){
+          hgvParkingFeatures.push({
+            type:"Feature",
+            properties:{
+              id: el.id,
+              name: el.tags.name || (el.tags.highway === "rest_area" ? "MOP / rest area" : el.tags.highway === "services" ? "MOP z usługami" : "Parking HGV")
+            },
+            geometry:{ type:"Point", coordinates:[lon, lat] }
+          });
+        }
+      } else if(el.type === "node"){
         newCameras.push({
           id: el.id,
           lat: el.lat,
@@ -626,12 +1358,27 @@
       }
     });
 
+    // dołóż zgłoszenia społeczności (Supabase) — fotoradary trafiają do tej samej listy co OSM,
+    // więc też wywołują alert 200 m; parkingi HGV dostają osobną warstwę na mapie
+    supaReports.forEach(r => {
+      if(r.kind === "speed_camera"){
+        newCameras.push({ id: "supa-" + r.id, lat: r.lat, lon: r.lon, alerted: false, community: true });
+      } else if(r.kind === "hgv_parking"){
+        communityParkingFeatures.push({
+          type:"Feature",
+          properties:{ id: r.id, confirmations: r.confirmations || 1 },
+          geometry:{ type:"Point", coordinates:[r.lon, r.lat] }
+        });
+      }
+    });
+
     // zachowaj stan "alerted" dla kamer które już były znane
     const prevAlerted = new Set(cameras.filter(c=>c.alerted).map(c=>c.id));
     newCameras.forEach(c => { if(prevAlerted.has(c.id)) c.alerted = true; });
 
-    cameras = newCameras;
+    osmCameras = newCameras;
     roadSegments = newRoads;
+    rebuildCameraList(); // scala osmCameras z lokalnymi zgłoszeniami tego urządzenia i odświeża mapę
 
     // akumulujemy fotoradary w osobnym zbiorze do eksportu — nie nadpisujemy, tylko dopisujemy nowe
     newCameras.forEach(c => {
@@ -641,18 +1388,14 @@
     });
     updateExportBadge();
 
-    if(map.getSource("cameras")){
-      map.getSource("cameras").setData({
-        type:"FeatureCollection",
-        features: cameras.map(c => ({
-          type:"Feature",
-          properties:{ id: c.id },
-          geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
-        }))
-      });
-    }
     if(map.getSource("roads-maxspeed")){
       map.getSource("roads-maxspeed").setData({ type:"FeatureCollection", features: roadFeatures });
+    }
+    if(map.getSource("hgv-parking")){
+      map.getSource("hgv-parking").setData({ type:"FeatureCollection", features: hgvParkingFeatures });
+    }
+    if(map.getSource("hgv-parking-community")){
+      map.getSource("hgv-parking-community").setData({ type:"FeatureCollection", features: communityParkingFeatures });
     }
   }
 
@@ -697,13 +1440,16 @@
   }
 
   function updateSpeedLimit(lat, lon){
-    if(roadSegments.length === 0){
+    // łączymy segmenty z OSM (Overpass) z segmentami limitów pobranymi wraz z trasą z TomTom,
+    // żeby nie trzeba było wykonywać dodatkowych zapytań o limity wzdłuż wyznaczonej trasy
+    const allSegments = roadSegments.length ? roadSegments.concat(routeSpeedSegments) : routeSpeedSegments;
+    if(allSegments.length === 0){
       currentLimit = null;
       hideLimitSign();
       return;
     }
     let best = null, bestDist = Infinity;
-    for(const seg of roadSegments){
+    for(const seg of allSegments){
       const d = pointToSegmentMeters(lat, lon, seg.a, seg.b);
       if(d < bestDist){ bestDist = d; best = seg; }
     }
@@ -770,11 +1516,25 @@
     currentSpeedKmh = Math.round(currentSpeedKmh * 0.35 + speedKmh * 0.65);
     if(currentSpeedKmh < 1.5) currentSpeedKmh = 0;
 
-    let hdg = (heading !== null && heading !== undefined && !isNaN(heading)) ? heading : currentHeading;
-    if(lastPos && (heading === null || heading === undefined || isNaN(heading))){
-      hdg = bearingBetween(lastPos.lat, lastPos.lon, lat, lon);
+    let targetHdg;
+    if(currentSpeedKmh >= STOP_SPEED_KMH){
+      // w ruchu ufamy kompasowi/kursowi GPS (jest wtedy wiarygodny)
+      if(heading !== null && heading !== undefined && !isNaN(heading)){
+        targetHdg = heading;
+      } else if(lastPos){
+        targetHdg = bearingBetween(lastPos.lat, lastPos.lon, lat, lon);
+      } else {
+        targetHdg = currentHeading;
+      }
+    } else if(activeRoute){
+      // stoimy (np. na światłach) — GPS "kurs" jest wtedy losowy, więc trzymamy kierunek trasy
+      const rb = routeBearingNear(lat, lon);
+      targetHdg = (rb !== null) ? rb : currentHeading;
+    } else {
+      // stoimy i nie ma trasy — po prostu zamrażamy ostatni znany kierunek, zamiast go zgadywać
+      targetHdg = currentHeading;
     }
-    currentHeading = hdg;
+    currentHeading = smoothHeadingTo(currentHeading, targetHdg, MAX_HEADING_STEP_DEG);
 
     lastPos = { lat, lon, t: now };
 
@@ -851,6 +1611,734 @@
   }
 
   /* ============================================================
+     NAWIGATOR — wyszukiwanie celu, trasa, ruch i limity (TomTom)
+  ============================================================ */
+  function metersToDistanceLabel(m){
+    if(unitSystem === "mph"){
+      const mi = m / 1609.344;
+      return (mi < 10 ? mi.toFixed(1) : Math.round(mi)) + " mi";
+    }
+    const km = m / 1000;
+    return (km < 10 ? km.toFixed(1) : Math.round(km)) + " km";
+  }
+
+  function secondsToTimeLabel(s){
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    if(h > 0) return `${h} godz. ${m} min`;
+    return `${m} min`;
+  }
+
+  function showNavError(msg){
+    const el = document.getElementById("navError");
+    el.textContent = msg;
+    el.classList.toggle("show", !!msg);
+  }
+
+  function showNavStatus(msg){
+    const el = document.getElementById("navStatus");
+    el.textContent = msg;
+    el.classList.toggle("show", !!msg);
+  }
+
+  function setNavKeyRowOpen(open){
+    document.getElementById("navKeyRow").classList.toggle("open", open);
+    document.getElementById("navKeyToggle").classList.toggle("open", open);
+  }
+
+  function saveApiKey(key){
+    tomtomApiKey = key.trim();
+    try{
+      if(tomtomApiKey) localStorage.setItem(TOMTOM_KEY_STORAGE, tomtomApiKey);
+      else localStorage.removeItem(TOMTOM_KEY_STORAGE);
+      const saved = document.getElementById("navKeySaved");
+      saved.classList.add("show");
+      setTimeout(()=> saved.classList.remove("show"), 1500);
+    }catch(e){ /* localStorage niedostępny - klucz zostaje tylko w pamięci sesji */ }
+  }
+
+  /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead) ---------- */
+  function clearNavSuggestions(){
+    const box = document.getElementById("navSuggestions");
+    box.innerHTML = "";
+    box.classList.remove("open");
+  }
+
+  function renderNavSuggestions(results){
+    const box = document.getElementById("navSuggestions");
+    box.innerHTML = "";
+    if(!results || results.length === 0){ box.classList.remove("open"); return; }
+    results.forEach(r => {
+      const addr = r.address || {};
+      const label = addr.freeformAddress || r.poi?.name || "Nieznany adres";
+      const sub = [addr.municipality, addr.country].filter(Boolean).join(", ");
+      const item = document.createElement("div");
+      item.className = "navSuggestion";
+      item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
+      item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
+      item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
+      item.addEventListener("click", () => selectDestination(r.position.lat, r.position.lon, label));
+      box.appendChild(item);
+    });
+    box.classList.add("open");
+  }
+
+  /* ---------- wybór celu: tylko pokazuje go na mapie, NIE liczy jeszcze trasy ---------- */
+  function showDestMarker(lat, lon){
+    if(destMarker) destMarker.remove();
+    const el = document.createElement("div");
+    el.style.width = "18px"; el.style.height = "18px"; el.style.borderRadius = "50%";
+    el.style.background = "#FF4757"; el.style.border = "3px solid #fff";
+    el.style.boxShadow = "0 2px 8px rgba(0,0,0,.5)";
+    destMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  }
+  function hideDestMarker(){
+    if(destMarker){ destMarker.remove(); destMarker = null; }
+  }
+
+  function selectDestination(lat, lon, label){
+    navSelectedDest = { lat, lon, label };
+    document.getElementById("navDest").value = label;
+    clearNavSuggestions();
+    showNavError("");
+    document.getElementById("navConfirmLabel").textContent = "Cel: " + label;
+    followUser = false;
+    showDestMarker(lat, lon);
+    if(map){
+      map.easeTo({ center: [lon, lat], zoom: 15, pitch: 0, bearing: 0, padding: {top:0,bottom:0,left:0,right:0}, duration: 800 });
+    }
+    setNavUiState("confirm");
+  }
+
+  function openNavSettingsWithKeyFocus(){
+    document.getElementById("navSettingsPanel").classList.add("open");
+    setNavKeyRowOpen(true);
+  }
+
+  function fetchNavSuggestions(query){
+    if(!tomtomApiKey){
+      showNavError("Wklej klucz API TomTom w ustawieniach (⋮ obok „Nawigator”), aby wyszukiwać adresy.");
+      openNavSettingsWithKeyFocus();
+      return;
+    }
+    showNavError("");
+    if(navSuggestAbort) navSuggestAbort.abort();
+    navSuggestAbort = new AbortController();
+
+    const params = new URLSearchParams({
+      key: tomtomApiKey,
+      typeahead: "true",
+      limit: "5",
+      countrySet: NAV_DEFAULT_COUNTRY
+    });
+    if(lastPos){
+      params.set("lat", lastPos.lat);
+      params.set("lon", lastPos.lon);
+    }
+    const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
+
+    fetch(url, { signal: navSuggestAbort.signal })
+      .then(r => {
+        if(r.status === 403) throw new Error("UNAUTHORIZED");
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(data => renderNavSuggestions(data.results))
+      .catch(err => {
+        if(err.name === "AbortError") return;
+        console.warn("TomTom search error:", err);
+        if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+        else showNavError("Nie udało się pobrać podpowiedzi adresów.");
+      });
+  }
+
+  document.getElementById("navDest").addEventListener("input", (e) => {
+    const q = e.target.value.trim();
+    navSelectedDest = null;
+    if(navSuggestTimer) clearTimeout(navSuggestTimer);
+    if(q.length < NAV_SUGGEST_MIN_CHARS){ clearNavSuggestions(); return; }
+    navSuggestTimer = setTimeout(() => fetchNavSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
+  });
+
+  document.getElementById("navDest").addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){
+      e.preventDefault();
+      // Enter wybiera pierwszą podpowiedź z listy — to tylko pokazuje cel na mapie
+      // (patrz selectDestination); trasę liczymy dopiero po kliknięciu "Wyznacz trasę"
+      const first = document.querySelector("#navSuggestions .navSuggestion");
+      if(first) first.click();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if(!e.target.closest("#navDestWrap")) clearNavSuggestions();
+  });
+
+  /* ---------- stan UI nawigatora: closed / search / confirm / routes / navigating ---------- */
+  function setNavUiState(state){
+    navUiState = state;
+    const panel = document.getElementById("navPanel");
+    if(state === "closed") panel.removeAttribute("data-state");
+    else panel.setAttribute("data-state", state);
+    document.getElementById("btnNav").classList.toggle("active", state !== "closed" && state !== "navigating");
+  }
+
+  /* ---------- wyznaczanie trasy: GŁÓWNA z TomTom + ALTERNATYWNA (inne źródło, głównymi drogami) ---------- */
+  function parseTomTomRoute(data){
+    const route = data.routes && data.routes[0];
+    if(!route) throw new Error("NO_ROUTE");
+    const coords = [];
+    (route.legs || []).forEach(leg => (leg.points || []).forEach(p => coords.push([p.longitude, p.latitude])));
+    const speedSegments = [];
+    const incidents = [];
+    (route.sections || []).forEach(sec => {
+      if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
+        for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
+          speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
+        }
+      } else if(sec.sectionType === "TRAFFIC"){
+        const midIdx = Math.round((sec.startPointIndex + sec.endPointIndex) / 2);
+        const p = coords[Math.min(midIdx, coords.length - 1)];
+        if(p) incidents.push({ lon: p[0], lat: p[1], delay: sec.delay || 0, magnitude: sec.magnitudeOfDelay || 0 });
+      }
+    });
+    return {
+      coords,
+      distanceM: route.summary.lengthInMeters,
+      timeS: route.summary.travelTimeInSeconds,
+      trafficDelayS: route.summary.trafficDelayInSeconds || 0,
+      speedSegments, incidents
+    };
+  }
+
+  // trasa alternatywna liczona lokalnie (Overpass + Dijkstra), ograniczona do głównych klas dróg —
+  // to jest "inne źródło" niż TomTom, dobre pod HGV bo unika wąskich uliczek/osiedli
+  function computeAlternativeMainRoadsRoute(originLL, destLL){
+    const straightKm = haversine(originLL[1], originLL[0], destLL[1], destLL[0]) / 1000;
+    if(straightKm > ALT_ROUTE_MAX_STRAIGHT_KM) return Promise.reject(new Error("TOO_FAR"));
+
+    const south = Math.min(originLL[1], destLL[1]) - ALT_ROUTE_BBOX_PAD_DEG;
+    const north = Math.max(originLL[1], destLL[1]) + ALT_ROUTE_BBOX_PAD_DEG;
+    const west = Math.min(originLL[0], destLL[0]) - ALT_ROUTE_BBOX_PAD_DEG;
+    const east = Math.max(originLL[0], destLL[0]) + ALT_ROUTE_BBOX_PAD_DEG;
+    const query = `
+      [out:json][timeout:40];
+      ( way["highway"~"^(${ALT_ROUTE_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
+      out geom;
+    `;
+    return tryEndpoints(query, 0).then(data => {
+      const graph = buildLocalRoadGraph(data.elements);
+      if(graph.coordOf.size === 0) throw new Error("NO_ROADS");
+      const startKey = nearestGraphNode(graph, originLL[1], originLL[0]);
+      const endKey = nearestGraphNode(graph, destLL[1], destLL[0]);
+      const path = dijkstraPath(graph, startKey, endKey);
+      if(!path || path.length < 2) throw new Error("NO_PATH");
+      const distanceM = routeLengthMeters(path);
+      const timeS = distanceM / (ALT_ROUTE_AVG_SPEED_KMH * 1000 / 3600);
+      return { coords: path, distanceM, timeS };
+    });
+  }
+
+  function calculateNavRoute(){
+    showNavError("");
+    if(!tomtomApiKey){
+      showNavError("Wklej klucz API TomTom w ustawieniach (⋮), aby wyznaczyć trasę.");
+      openNavSettingsWithKeyFocus();
+      return;
+    }
+    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
+    if(!navSelectedDest){ showNavError("Najpierw wybierz cel z listy podpowiedzi."); return; }
+
+    const goBtn = document.getElementById("navGoBtn");
+    goBtn.disabled = true;
+    goBtn.textContent = "Wyznaczam trasy…";
+    showNavStatus("Pobieram trasę główną (TomTom) i szukam alternatywnej trasy głównymi drogami…");
+
+    if(navRouteAbort) navRouteAbort.abort();
+    navRouteAbort = new AbortController();
+
+    const originLL = [lastPos.lon, lastPos.lat];
+    const destLL = [navSelectedDest.lon, navSelectedDest.lat];
+    const origin = `${lastPos.lat},${lastPos.lon}`;
+    const dest = `${navSelectedDest.lat},${navSelectedDest.lon}`;
+    const params = new URLSearchParams({
+      key: tomtomApiKey, traffic: "true", travelMode: "car", routeType: "fastest",
+      language: "pl-PL", report: "effectiveSettings"
+    });
+    const url = `${TOMTOM_ROUTE_URL}${origin}:${dest}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
+
+    const mainPromise = fetch(url, { signal: navRouteAbort.signal })
+      .then(r => {
+        if(r.status === 403) throw new Error("UNAUTHORIZED");
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(data => parseTomTomRoute(data));
+
+    const altPromise = computeAlternativeMainRoadsRoute(originLL, destLL)
+      .catch(err => { console.warn("Trasa alternatywna niedostępna:", err.message || err); return null; });
+
+    Promise.allSettled([mainPromise, altPromise]).then(([mainRes, altRes]) => {
+      pendingRoutes.main = mainRes.status === "fulfilled" ? mainRes.value : null;
+      pendingRoutes.alt = altRes.status === "fulfilled" ? altRes.value : null;
+
+      showNavStatus("");
+      goBtn.disabled = false;
+      goBtn.textContent = "Wyznacz trasę";
+
+      if(!pendingRoutes.main && !pendingRoutes.alt){
+        const reason = mainRes.status === "rejected" ? mainRes.reason : null;
+        if(reason && reason.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+        else showNavError("Nie udało się wyznaczyć żadnej trasy.");
+        return;
+      }
+      showNavError("");
+      renderRouteOptions();
+      setNavUiState("routes");
+    });
+  }
+
+  function renderRouteOptions(){
+    const mainEl = document.getElementById("routeOptionMain");
+    const altEl = document.getElementById("routeOptionAlt");
+
+    if(pendingRoutes.main){
+      mainEl.style.display = "";
+      document.getElementById("roMainMeta").textContent =
+        `${metersToDistanceLabel(pendingRoutes.main.distanceM)} · ${secondsToTimeLabel(pendingRoutes.main.timeS)}`;
+      const trafficEl = document.getElementById("roMainTraffic");
+      if(pendingRoutes.main.trafficDelayS > 60){
+        trafficEl.textContent = `⏱ Opóźnienie: ok. ${Math.round(pendingRoutes.main.trafficDelayS/60)} min`;
+        trafficEl.classList.toggle("heavy", pendingRoutes.main.trafficDelayS > 600);
+      } else {
+        trafficEl.textContent = "Brak większych utrudnień";
+        trafficEl.classList.remove("heavy");
+      }
+      if(map.getSource("route-line")){
+        map.getSource("route-line").setData({
+          type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: pendingRoutes.main.coords }
+        });
+      }
+    } else {
+      mainEl.style.display = "none";
+    }
+
+    if(pendingRoutes.alt){
+      altEl.style.display = "";
+      document.getElementById("roAltMeta").textContent =
+        `${metersToDistanceLabel(pendingRoutes.alt.distanceM)} · ${secondsToTimeLabel(pendingRoutes.alt.timeS)} (szac.)`;
+      if(map.getSource("route-line-alt")){
+        map.getSource("route-line-alt").setData({
+          type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: pendingRoutes.alt.coords }
+        });
+      }
+    } else {
+      altEl.style.display = "none";
+    }
+
+    const allCoords = [].concat(
+      pendingRoutes.main ? pendingRoutes.main.coords : [],
+      pendingRoutes.alt ? pendingRoutes.alt.coords : []
+    );
+    if(allCoords.length > 1){
+      const bounds = allCoords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(allCoords[0], allCoords[0]));
+      map.fitBounds(bounds, { padding: 60, duration: 700 });
+    }
+  }
+
+  // kierowca wybrał konkretną trasę — od tej chwili: pełny ekran + widok 3D gotowy do jazdy
+  function selectRoute(which){
+    const chosen = which === "alt" ? pendingRoutes.alt : pendingRoutes.main;
+    if(!chosen) return;
+
+    activeRoute = {
+      coords: chosen.coords,
+      distanceM: chosen.distanceM,
+      timeS: chosen.timeS,
+      trafficDelayS: chosen.trafficDelayS || 0,
+      manuallyEdited: false,
+      source: which
+    };
+    routeSpeedSegments = which === "main" ? (chosen.speedSegments || []) : [];
+    routeTrafficIncidents = which === "main" ? (chosen.incidents || []) : [];
+
+    setRouteLineCoords(activeRoute.coords);
+    if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC());
+    if(map.getSource("route-incidents")){
+      map.getSource("route-incidents").setData({
+        type: "FeatureCollection",
+        features: routeTrafficIncidents.map(inc => ({
+          type: "Feature", properties: { delay: inc.delay },
+          geometry: { type: "Point", coordinates: [inc.lon, inc.lat] }
+        }))
+      });
+    }
+
+    // pełny ekran, jeśli jeszcze nie jest włączony
+    enterFullscreen();
+
+    // widok 3D gotowy do jazdy
+    is3D = true;
+    document.getElementById("btnDim").classList.add("active");
+    document.getElementById("dimIcon").textContent = "2D";
+    followUser = true;
+    if(map){
+      map.easeTo({
+        pitch: 55,
+        bearing: currentHeading,
+        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
+        duration: 800
+      });
+    }
+
+    setNavUiState("navigating");
+  }
+
+  function clearNavRoute(){
+    navSelectedDest = null;
+    activeRoute = null;
+    pendingRoutes = { main: null, alt: null };
+    routeSpeedSegments = [];
+    routeTrafficIncidents = [];
+    routeEditMode = false;
+    routeDragState = null;
+    document.getElementById("navDest").value = "";
+    hideDestMarker();
+    clearNavSuggestions();
+    showNavError("");
+    showNavStatus("");
+    exitFullscreen();
+    followUser = true;
+    setNavUiState("closed");
+    if(map){
+      map.getCanvas().style.cursor = "";
+      map.dragPan.enable();
+      if(map.getSource("route-line")) map.getSource("route-line").setData(emptyFC());
+      if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC());
+      if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
+    }
+  }
+
+  document.getElementById("navGoBtn").addEventListener("click", calculateNavRoute);
+  document.getElementById("navCancelBtn").addEventListener("click", clearNavRoute);
+  document.getElementById("navBackBtn").addEventListener("click", () => {
+    navSelectedDest = null;
+    hideDestMarker();
+    followUser = true;
+    setNavUiState("search");
+    setTimeout(() => document.getElementById("navDest").focus(), 150);
+  });
+  document.getElementById("routeOptionMain").addEventListener("click", () => selectRoute("main"));
+  document.getElementById("routeOptionAlt").addEventListener("click", () => selectRoute("alt"));
+
+  document.getElementById("btnNav").addEventListener("click", () => {
+    // podczas aktywnej nawigacji ten sam przycisk kończy trasę
+    if(activeRoute){ clearNavRoute(); return; }
+    if(navUiState === "closed"){
+      setNavUiState("search");
+      setTimeout(() => document.getElementById("navDest").focus(), 150);
+    } else {
+      setNavUiState("closed");
+    }
+  });
+
+  document.getElementById("navSettingsBtn").addEventListener("click", () => {
+    document.getElementById("navSettingsPanel").classList.toggle("open");
+  });
+  document.getElementById("navSettingsCloseBtn").addEventListener("click", () => {
+    document.getElementById("navSettingsPanel").classList.remove("open");
+  });
+
+  // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
+  const navApiKeyInput = document.getElementById("navApiKey");
+  navApiKeyInput.value = tomtomApiKey;
+  setNavKeyRowOpen(!tomtomApiKey);
+
+  document.getElementById("navKeyToggle").addEventListener("click", () => {
+    setNavKeyRowOpen(!document.getElementById("navKeyRow").classList.contains("open"));
+  });
+
+  let navKeySaveTimer = null;
+  navApiKeyInput.addEventListener("input", (e) => {
+    if(navKeySaveTimer) clearTimeout(navKeySaveTimer);
+    navKeySaveTimer = setTimeout(() => saveApiKey(e.target.value), 500);
+  });
+
+  document.getElementById("navKeyEye").addEventListener("click", () => {
+    navApiKeyInput.type = navApiKeyInput.type === "password" ? "text" : "password";
+  });
+
+  // pola Supabase — analogicznie do klucza TomTom, zapisywane lokalnie
+  const navSupaUrlInput = document.getElementById("navSupaUrl");
+  const navSupaKeyInput = document.getElementById("navSupaKey");
+  navSupaUrlInput.value = supaUrl;
+  navSupaKeyInput.value = supaKey;
+  document.getElementById("navSupaRow").classList.toggle("open", !supaConfigured());
+  document.getElementById("navSupaToggle").classList.toggle("open", !supaConfigured());
+
+  document.getElementById("navSupaToggle").addEventListener("click", () => {
+    const open = !document.getElementById("navSupaRow").classList.contains("open");
+    document.getElementById("navSupaRow").classList.toggle("open", open);
+    document.getElementById("navSupaToggle").classList.toggle("open", open);
+  });
+
+  function saveSupaConfig(){
+    supaUrl = navSupaUrlInput.value.trim();
+    supaKey = navSupaKeyInput.value.trim();
+    try{
+      if(supaUrl) localStorage.setItem(SUPA_URL_STORAGE, supaUrl); else localStorage.removeItem(SUPA_URL_STORAGE);
+      if(supaKey) localStorage.setItem(SUPA_KEY_STORAGE, supaKey); else localStorage.removeItem(SUPA_KEY_STORAGE);
+      const saved = document.getElementById("navSupaSaved");
+      saved.classList.add("show");
+      setTimeout(() => saved.classList.remove("show"), 1500);
+    }catch(e){ /* localStorage niedostępny — konfiguracja zostaje tylko w pamięci sesji */ }
+  }
+
+  let navSupaSaveTimer = null;
+  [navSupaUrlInput, navSupaKeyInput].forEach(input => {
+    input.addEventListener("input", () => {
+      if(navSupaSaveTimer) clearTimeout(navSupaSaveTimer);
+      navSupaSaveTimer = setTimeout(saveSupaConfig, 500);
+    });
+  });
+
+  document.getElementById("navSupaKeyEye").addEventListener("click", () => {
+    navSupaKeyInput.type = navSupaKeyInput.type === "password" ? "text" : "password";
+  });
+
+  /* ============================================================
+     RĘCZNA EDYCJA TRASY — przeciąganie fragmentu trasy
+     Dopasowanie nowego przebiegu liczymy lokalnie na podstawie dróg
+     z OpenStreetMap/Overpass (Dijkstra, preferujące większe drogi),
+     żeby NIE zużywać dodatkowych zapytań do API TomTom.
+  ============================================================ */
+  function routeLengthMeters(coords){
+    let d = 0;
+    for(let i=0;i<coords.length-1;i++) d += haversine(coords[i][1], coords[i][0], coords[i+1][1], coords[i+1][0]);
+    return d;
+  }
+
+  function walkAlongRoute(coords, startIdx, meters, direction){
+    let d = 0, i = startIdx;
+    const step = direction > 0 ? 1 : -1;
+    while(i + step >= 0 && i + step <= coords.length - 1 && d < meters){
+      d += haversine(coords[i][1], coords[i][0], coords[i+step][1], coords[i+step][0]);
+      i += step;
+    }
+    return i;
+  }
+
+  function buildLocalRoadGraph(elements){
+    const coordOf = new Map();
+    const adj = new Map();
+    const nodeKey = (lat, lon) => lat.toFixed(5) + "," + lon.toFixed(5);
+    function ensureNode(lat, lon){
+      const k = nodeKey(lat, lon);
+      if(!coordOf.has(k)) coordOf.set(k, [lon, lat]);
+      if(!adj.has(k)) adj.set(k, []);
+      return k;
+    }
+    (elements || []).forEach(el => {
+      if(el.type !== "way" || !el.geometry || !el.tags || !el.tags.highway) return;
+      const classWeight = LOCAL_ROUTE_CLASS_WEIGHT[el.tags.highway] || 0.25;
+      const oneway = el.tags.oneway === "yes" || el.tags.oneway === "1" || el.tags.oneway === "true";
+      const geom = el.geometry;
+      for(let i=0;i<geom.length-1;i++){
+        if(!geom[i] || !geom[i+1]) continue;
+        const kA = ensureNode(geom[i].lat, geom[i].lon);
+        const kB = ensureNode(geom[i+1].lat, geom[i+1].lon);
+        const dist = haversine(geom[i].lat, geom[i].lon, geom[i+1].lat, geom[i+1].lon);
+        const cost = dist / classWeight;
+        adj.get(kA).push({ to:kB, cost });
+        if(!oneway) adj.get(kB).push({ to:kA, cost });
+      }
+    });
+    return { adj, coordOf, nodeKey };
+  }
+
+  function nearestGraphNode(graph, lat, lon){
+    let bestKey = null, bestDist = Infinity;
+    for(const [k, c] of graph.coordOf){
+      const d = haversine(lat, lon, c[1], c[0]);
+      if(d < bestDist){ bestDist = d; bestKey = k; }
+    }
+    return bestKey;
+  }
+
+  function dijkstraPath(graph, startKey, endKey){
+    if(!startKey || !endKey) return null;
+    const dist = new Map([[startKey, 0]]);
+    const prev = new Map();
+    const visited = new Set();
+    for(;;){
+      let u = null, best = Infinity;
+      for(const [k, d] of dist){ if(!visited.has(k) && d < best){ best = d; u = k; } }
+      if(u === null || u === endKey) break;
+      visited.add(u);
+      for(const edge of (graph.adj.get(u) || [])){
+        if(visited.has(edge.to)) continue;
+        const nd = best + edge.cost;
+        if(nd < (dist.has(edge.to) ? dist.get(edge.to) : Infinity)){
+          dist.set(edge.to, nd);
+          prev.set(edge.to, u);
+        }
+      }
+    }
+    if(!dist.has(endKey)) return null;
+    const path = [endKey];
+    let cur = endKey;
+    while(prev.has(cur)){ cur = prev.get(cur); path.unshift(cur); }
+    return path.map(k => graph.coordOf.get(k));
+  }
+
+  // liczy nowy lokalny przebieg drogi: beforeLL -> dragLL -> afterLL, trzymając się głównych dróg
+  function computeLocalDetour(beforeLL, dragLL, afterLL){
+    const lats = [beforeLL[1], dragLL[1], afterLL[1]];
+    const lons = [beforeLL[0], dragLL[0], afterLL[0]];
+    const south = Math.min(...lats) - LOCAL_ROUTE_BBOX_PAD_DEG;
+    const north = Math.max(...lats) + LOCAL_ROUTE_BBOX_PAD_DEG;
+    const west = Math.min(...lons) - LOCAL_ROUTE_BBOX_PAD_DEG;
+    const east = Math.max(...lons) + LOCAL_ROUTE_BBOX_PAD_DEG;
+    const query = `
+      [out:json][timeout:20];
+      ( way["highway"~"^(${LOCAL_ROUTE_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
+      out geom;
+    `;
+    return tryEndpoints(query, 0).then(data => {
+      const graph = buildLocalRoadGraph(data.elements);
+      if(graph.coordOf.size === 0) return null;
+      const beforeKey = nearestGraphNode(graph, beforeLL[1], beforeLL[0]);
+      const dragKey = nearestGraphNode(graph, dragLL[1], dragLL[0]);
+      const afterKey = nearestGraphNode(graph, afterLL[1], afterLL[0]);
+      const path1 = dijkstraPath(graph, beforeKey, dragKey);
+      const path2 = dijkstraPath(graph, dragKey, afterKey);
+      if(!path1 || !path2) return null;
+      return path1.concat(path2.slice(1));
+    });
+  }
+
+  function setRouteLineCoords(coords){
+    if(map && map.getSource("route-line")){
+      map.getSource("route-line").setData({
+        type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: coords }
+      });
+    }
+  }
+
+  function onRouteDragStart(e){
+    if(!routeEditMode || !activeRoute || routeDragState) return;
+    const lngLat = e.lngLat;
+    const coords = activeRoute.coords;
+    let bestIdx = 0, bestDist = Infinity;
+    for(let i=0;i<coords.length;i++){
+      const d = haversine(lngLat.lat, lngLat.lng, coords[i][1], coords[i][0]);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    }
+    const beforeIdx = walkAlongRoute(coords, bestIdx, LOCAL_ROUTE_ANCHOR_M, -1);
+    const afterIdx = walkAlongRoute(coords, bestIdx, LOCAL_ROUTE_ANCHOR_M, 1);
+    routeDragState = {
+      beforeIdx, afterIdx,
+      beforeLL: coords[beforeIdx], afterLL: coords[afterIdx],
+      currentLL: [lngLat.lng, lngLat.lat]
+    };
+    map.dragPan.disable();
+    map.getCanvas().style.cursor = "grabbing";
+    map.on("mousemove", onRouteDragMove);
+    map.on("touchmove", onRouteDragMove);
+    map.once("mouseup", onRouteDragEnd);
+    map.once("touchend", onRouteDragEnd);
+  }
+
+  function onRouteDragMove(e){
+    if(!routeDragState) return;
+    const ll = [e.lngLat.lng, e.lngLat.lat];
+    routeDragState.currentLL = ll;
+    const coords = activeRoute.coords;
+    const preview = coords.slice(0, routeDragState.beforeIdx + 1)
+      .concat([ll])
+      .concat(coords.slice(routeDragState.afterIdx));
+    setRouteLineCoords(preview);
+  }
+
+  function onRouteDragEnd(e){
+    map.off("mousemove", onRouteDragMove);
+    map.off("touchmove", onRouteDragMove);
+    map.dragPan.enable();
+    map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
+    if(!routeDragState) return;
+    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL } = routeDragState;
+    const dropLL = currentLL || [e.lngLat.lng, e.lngLat.lat];
+    routeDragState = null;
+
+    showNavStatus("Dopasowuję nowy fragment do głównych dróg…");
+    computeLocalDetour(beforeLL, dropLL, afterLL)
+      .then(newSub => {
+        showNavStatus("");
+        if(!newSub || newSub.length < 2){
+          showNavError("Nie znaleziono w pobliżu drogi — przywracam poprzedni przebieg.");
+          setRouteLineCoords(activeRoute.coords);
+          return;
+        }
+        showNavError("");
+        const newCoords = activeRoute.coords.slice(0, beforeIdx)
+          .concat(newSub)
+          .concat(activeRoute.coords.slice(afterIdx + 1));
+        activeRoute.coords = newCoords;
+        activeRoute.distanceM = routeLengthMeters(newCoords);
+        activeRoute.manuallyEdited = true;
+        setRouteLineCoords(newCoords);
+      })
+      .catch(err => {
+        console.warn("Lokalne trasowanie nie powiodło się:", err);
+        showNavStatus("");
+        showNavError("Nie udało się dopasować nowego fragmentu trasy.");
+        setRouteLineCoords(activeRoute.coords);
+      });
+  }
+
+  /* ============================================================
+     TRYB PEŁNEGO EKRANU (przydatny podczas nawigacji)
+  ============================================================ */
+  function isFullscreenActive(){
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  }
+
+  function enterFullscreen(){
+    if(isFullscreenActive()) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if(req){
+      try{ req.call(el).catch(() => {}); }catch(e){ /* np. iOS Safari nie wspiera pełnego ekranu strony */ }
+    }
+  }
+
+  function exitFullscreen(){
+    if(!isFullscreenActive()) return;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if(exit){
+      try{ const p = exit.call(document); if(p && p.catch) p.catch(() => {}); }catch(e){ /* ignorujemy */ }
+    }
+  }
+
+  function updateFullscreenBtn(){
+    document.getElementById("btnFullscreen").classList.toggle("active", isFullscreenActive());
+  }
+
+  document.getElementById("btnFullscreen").addEventListener("click", () => {
+    if(isFullscreenActive()) exitFullscreen(); else enterFullscreen();
+  });
+
+  ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
+    document.addEventListener(ev, updateFullscreenBtn)
+  );
+  ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
+    document.addEventListener(ev, () => {
+      // wysokość okna mapy zmienia się po wejściu/wyjściu z pełnego ekranu — odśwież przesunięcie kamery
+      if(map && lastPos) updateUserMarker(lastPos.lat, lastPos.lon, currentHeading);
+    })
+  );
+
+  /* ============================================================
      KONTROLKI UI
   ============================================================ */
   document.getElementById("btnDim").addEventListener("click", () => {
@@ -861,6 +2349,7 @@
       map.easeTo({
         pitch: is3D ? 55 : 0,
         bearing: is3D ? currentHeading : 0,
+        padding: { top:0, bottom: cameraBottomPaddingPx(), left:0, right:0 },
         duration: 700
       });
     }
@@ -882,39 +2371,71 @@
     setTimeout(()=> document.getElementById("btnLocate").classList.remove("active"), 400);
   });
 
+  document.getElementById("btnReportMenu").addEventListener("click", () => {
+    const menu = document.getElementById("reportSubMenu");
+    const open = menu.classList.toggle("open");
+    document.getElementById("btnReportMenu").classList.toggle("active", open);
+  });
+
+  function closeReportMenu(){
+    document.getElementById("reportSubMenu").classList.remove("open");
+    document.getElementById("btnReportMenu").classList.remove("active");
+  }
+
+  document.getElementById("btnReportParking").addEventListener("click", () => {
+    reportHgvParkingHere();
+    closeReportMenu();
+  });
+  document.getElementById("btnReportCamera").addEventListener("click", () => {
+    reportCameraHere();
+    closeReportMenu();
+  });
+
   function updateExportBadge(){
     const badge = document.getElementById("exportBadge");
-    const n = collectedCameras.size;
+    const n = collectedCameras.size + userHgvParking.length + userReportedCameras.length;
     badge.textContent = n > 999 ? "999+" : String(n);
     badge.classList.toggle("zero", n === 0);
   }
 
   document.getElementById("btnExport").addEventListener("click", () => {
-    if(collectedCameras.size === 0){
-      showBanner("EKSPORT", "Jeszcze nie zebrano żadnych fotoradarów — pojeźdź chwilę z włączoną aplikacją", false);
+    if(collectedCameras.size === 0 && userHgvParking.length === 0 && userReportedCameras.length === 0){
+      showBanner("EKSPORT", "Jeszcze nic nie zebrano — pojeźdź chwilę z włączoną aplikacją", false);
       return;
     }
     const featureCollection = {
       type: "FeatureCollection",
       generated: new Date().toISOString(),
-      count: collectedCameras.size,
-      features: Array.from(collectedCameras.values()).map(c => ({
-        type: "Feature",
-        properties: { id: c.id, firstSeen: c.firstSeen },
-        geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-      }))
+      count: collectedCameras.size + userHgvParking.length + userReportedCameras.length,
+      features: [
+        ...Array.from(collectedCameras.values()).map(c => ({
+          type: "Feature",
+          properties: { kind: "speed_camera", id: c.id, firstSeen: c.firstSeen },
+          geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+        })),
+        ...userReportedCameras.map(p => ({
+          type: "Feature",
+          properties: { kind: "speed_camera_user_reported", addedAt: p.addedAt },
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
+        })),
+        ...userHgvParking.map(p => ({
+          type: "Feature",
+          properties: { kind: "hgv_parking_user_reported", addedAt: p.addedAt },
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
+        }))
+      ]
     };
     const blob = new Blob([JSON.stringify(featureCollection, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `fotoradary-${stamp}.json`;
+    a.download = `fotoradary-i-parkingi-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    showBanner("EKSPORT ZAPISANY", `${collectedCameras.size} fotoradarów zapisano do pliku JSON`, false);
+    showBanner("EKSPORT ZAPISANY", `${collectedCameras.size + userReportedCameras.length} fotoradarów, ${userHgvParking.length} parkingów HGV`, false);
   });
 
   // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
@@ -928,6 +2449,7 @@
   let firstFixTimer = null;
   let watchId = null;
   let started = false;
+  updateExportBadge(); // odzwierciedl parkingi zapisane lokalnie z poprzednich sesji
 
   function startGeolocation(){
     if(started) return;
