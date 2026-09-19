@@ -658,6 +658,10 @@
   const CAMERA_RADIUS_M = 3000;      // promień pobierania fotoradarów
   const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
   const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
+
+  /* ---------- TEST: renderowanie M6 jako trzech równoległych linii (podgląd, tylko M6) ---------- */
+  const M6_TEST_RADIUS_M = 20000;   // zasięg pobierania odcinków M6 wokół pozycji
+  const M6_TEST_LANE_OFFSET_M = 3.7; // odstęp między liniami (typowa szerokość pasa autostrady w UK)
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
 
   /* ---------- Supabase — wspólna, współdzielona baza fotoradarów/parkingów HGV ---------- */
@@ -1083,6 +1087,16 @@
         }
       });
 
+      // TEST: podgląd renderowania M6 jako trzech równoległych linii (tylko M6, do oceny wyglądu)
+      map.addSource("m6-test-lanes", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"m6-test-lanes-line",
+        type:"line",
+        source:"m6-test-lanes",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color": "#ff2fd0", "line-width": 3 }
+      });
+
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
@@ -1154,6 +1168,7 @@
         way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="motorway"]["ref"~"(^|;)M6($|;)"](around:${M6_TEST_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
@@ -1383,6 +1398,39 @@
     return false;
   }
 
+  function isM6TestWay(el){
+    return !!(el.tags && el.tags.highway === "motorway" && /(^|;)M6($|;)/.test(el.tags.ref || ""));
+  }
+
+  // przesuwa listę punktów [lon,lat] równolegle o offsetM metrów; normalna w każdym
+  // punkcie to uśredniona, znormalizowana normalna sąsiednich odcinków (jak w skrypcie JOSM)
+  function offsetLineCoords(coords, offsetM){
+    if(coords.length < 2) return coords.slice();
+    const refLat = coords[0][1];
+    const mPerDegLat = 111320;
+    const mPerDegLon = 111320 * Math.cos(toRad(refLat));
+    const pts = coords.map(c => ({ x: c[0]*mPerDegLon, y: c[1]*mPerDegLat }));
+    const out = [];
+    for(let i=0;i<pts.length;i++){
+      let nx=0, ny=0, count=0;
+      if(i>0){
+        const dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y;
+        const len=Math.hypot(dx,dy)||1;
+        nx += dy/len; ny += -dx/len; count++;
+      }
+      if(i<pts.length-1){
+        const dx=pts[i+1].x-pts[i].x, dy=pts[i+1].y-pts[i].y;
+        const len=Math.hypot(dx,dy)||1;
+        nx += dy/len; ny += -dx/len; count++;
+      }
+      nx/=count; ny/=count;
+      const nlen=Math.hypot(nx,ny)||1;
+      nx/=nlen; ny/=nlen;
+      out.push([ (pts[i].x + nx*offsetM)/mPerDegLon, (pts[i].y + ny*offsetM)/mPerDegLat ]);
+    }
+    return out;
+  }
+
   function applyOverpassResult(data, supaReports){
     supaReports = supaReports || [];
     const newCameras = [];
@@ -1390,8 +1438,20 @@
     const roadFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
+    const m6TestFeatures = [];
 
     (data.elements || []).forEach(el => {
+      if(isM6TestWay(el) && el.geometry && el.geometry.length > 1){
+        const coords = el.geometry.map(g => [g.lon, g.lat]);
+        const left = offsetLineCoords(coords, -M6_TEST_LANE_OFFSET_M);
+        const right = offsetLineCoords(coords, M6_TEST_LANE_OFFSET_M);
+        m6TestFeatures.push(
+          { type:"Feature", properties:{ lane:"center" }, geometry:{ type:"LineString", coordinates: coords } },
+          { type:"Feature", properties:{ lane:"left" }, geometry:{ type:"LineString", coordinates: left } },
+          { type:"Feature", properties:{ lane:"right" }, geometry:{ type:"LineString", coordinates: right } }
+        );
+      }
+
       if(isHgvParkingElement(el)){
         let lat, lon;
         if(el.type === "node"){ lat = el.lat; lon = el.lon; }
@@ -1469,6 +1529,9 @@
     }
     if(map.getSource("hgv-parking-community")){
       map.getSource("hgv-parking-community").setData({ type:"FeatureCollection", features: communityParkingFeatures });
+    }
+    if(map.getSource("m6-test-lanes")){
+      map.getSource("m6-test-lanes").setData({ type:"FeatureCollection", features: m6TestFeatures });
     }
   }
 
