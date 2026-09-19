@@ -705,7 +705,6 @@
 
   /* ---------- TEST: renderowanie M6 jako trzech równoległych linii (podgląd, tylko M6) ---------- */
   const M6_TEST_RADIUS_M = 20000;   // zasięg pobierania odcinków M6 wokół pozycji
-  const MOTORWAY_JUNCTION_RADIUS_M = 20000; // zasięg pobierania numerów zjazdów autostradowych (rzadkie punkty, większy promień)
   const M6_TEST_LANE_OFFSET_M = 3.7; // odstęp między liniami (typowa szerokość pasa autostrady w UK)
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
 
@@ -1124,7 +1123,7 @@
         id:"motorway-junction-circle",
         type:"circle",
         source:"motorway-junctions",
-        minzoom: 11,
+        minzoom: 13,
         paint:{
           "circle-radius": 9,
           "circle-color": "#ffffff",
@@ -1136,7 +1135,7 @@
         id:"motorway-junction-label",
         type:"symbol",
         source:"motorway-junctions",
-        minzoom: 11,
+        minzoom: 13,
         layout:{
           "text-field": ["get","ref"],
           "text-size": 11,
@@ -1201,6 +1200,7 @@
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
+      loadUkMotorwayJunctionsOnce();
     });
   }
 
@@ -1250,6 +1250,84 @@
   }
 
   /* ============================================================
+     ZJAZDY AUTOSTRADOWE — pobierane RAZ dla całej Wielkiej Brytanii
+     (nie zależy od pozycji GPS, więc są widoczne też przy planowaniu
+     trasy z dala od aktualnego miejsca). Wynik trzymamy w localStorage,
+     żeby przy kolejnym uruchomieniu aplikacji nie odpytywać Overpass
+     od nowa — dane o zjazdach zmieniają się bardzo rzadko.
+  ============================================================ */
+  const JUNCTIONS_CACHE_KEY = "nav_uk_motorway_junctions_v1";
+  const JUNCTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
+  const JUNCTION_DEDUPE_RADIUS_M = 400; // punkty tego samego zjazdu bywają zapisane kilkoma węzłami OSM blisko siebie
+
+  function dedupeJunctions(rawFeatures){
+    const clusters = []; // { ref, lat, lon, name }
+    rawFeatures.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const ref = (f.properties.ref || "").trim();
+      const name = f.properties.name || "";
+      const existing = clusters.find(c =>
+        c.ref === ref && haversine(lat, lon, c.lat, c.lon) < JUNCTION_DEDUPE_RADIUS_M
+      );
+      if(existing){
+        if(!existing.name && name) existing.name = name;
+      } else {
+        clusters.push({ ref, lat, lon, name });
+      }
+    });
+    return clusters.map(c => ({
+      type: "Feature",
+      properties: { ref: c.ref, name: c.name },
+      geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+    }));
+  }
+
+  function loadUkMotorwayJunctionsOnce(){
+    if(!map.getSource("motorway-junctions")) return;
+
+    // 1) spróbuj z pamięci lokalnej — natychmiastowe, działa offline
+    try{
+      const cached = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
+      if(cached && cached.savedAt && (Date.now() - cached.savedAt) < JUNCTIONS_CACHE_MAX_AGE_MS && Array.isArray(cached.features)){
+        map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features: cached.features });
+        return; // mamy świeże dane z cache — nie odpytujemy Overpass
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache zjazdów:", e);
+    }
+
+    // 2) brak/nieaktualny cache — pobierz z Overpass dla całej Wielkiej Brytanii
+    const west = GB_BOUNDS[0][0], south = GB_BOUNDS[0][1];
+    const east = GB_BOUNDS[1][0], north = GB_BOUNDS[1][1];
+    const query = `
+      [out:json][timeout:90];
+      node["highway"="motorway_junction"](${south},${west},${north},${east});
+      out body;
+    `;
+
+    tryEndpoints(query, 0).then(data => {
+      const rawFeatures = (data.elements || [])
+        .filter(el => el.type === "node")
+        .map(el => ({
+          type: "Feature",
+          properties: { ref: el.tags && el.tags.ref || "", name: el.tags && el.tags.name || "" },
+          geometry: { type: "Point", coordinates: [el.lon, el.lat] }
+        }));
+      const features = dedupeJunctions(rawFeatures);
+      map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features });
+      try{
+        localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features }));
+      }catch(e){
+        console.warn("Nie udało się zapisać cache zjazdów (localStorage pełny?):", e);
+      }
+    }).catch(err => {
+      console.warn("Nie udało się pobrać zjazdów autostradowych dla całej Wielkiej Brytanii:", err);
+      // spróbuj ponownie później — jednorazowa nieudana próba nie powinna zablokować funkcji na stałe
+      setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS);
+    });
+  }
+
+  /* ============================================================
      OVERPASS API — fotoradary + drogi z maxspeed
   ============================================================ */
   function fetchOverpassData(lat, lon){
@@ -1270,7 +1348,6 @@
         node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="motorway"]["ref"~"(^|;)M6($|;)"](around:${M6_TEST_RADIUS_M},${lat},${lon});
-        node["highway"="motorway_junction"](around:${MOTORWAY_JUNCTION_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
@@ -1541,7 +1618,6 @@
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
     const m6TestFeatures = [];
-    const junctionFeatures = [];
 
     (data.elements || []).forEach(el => {
       if(isM6TestWay(el) && el.geometry && el.geometry.length > 1){
@@ -1555,17 +1631,7 @@
         );
       }
 
-      if(el.type === "node" && el.tags && el.tags.highway === "motorway_junction"){
-        junctionFeatures.push({
-          type:"Feature",
-          properties:{
-            id: el.id,
-            ref: el.tags.ref || "",
-            name: el.tags.name || ""
-          },
-          geometry:{ type:"Point", coordinates:[el.lon, el.lat] }
-        });
-      } else if(isHgvParkingElement(el)){
+      if(isHgvParkingElement(el)){
         let lat, lon;
         if(el.type === "node"){ lat = el.lat; lon = el.lon; }
         else if(el.type === "way" && el.geometry && el.geometry.length){
@@ -1645,9 +1711,6 @@
     }
     if(map.getSource("m6-test-lanes")){
       map.getSource("m6-test-lanes").setData({ type:"FeatureCollection", features: m6TestFeatures });
-    }
-    if(map.getSource("motorway-junctions")){
-      map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features: junctionFeatures });
     }
   }
 
