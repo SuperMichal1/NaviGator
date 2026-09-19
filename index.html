@@ -53,6 +53,15 @@
     filter: var(--map-filter);
     transition: filter .5s ease;
   }
+  /* Nocą mapa jest odwracana filtrem CSS, który psułby kolory tablic z numerami dróg.
+     Dlatego w nocy tablice rysuje osobna, przezroczysta mapa NAD przefiltrowaną —
+     dzięki temu wyglądają dokładnie tak samo jak w dzień. */
+  #mapShields{
+    position:absolute; inset:0; width:100%; height:100%;
+    pointer-events:none;
+    visibility:hidden;
+  }
+  #mapShields.on{ visibility:visible; }
 
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
@@ -587,6 +596,7 @@
 </div>
 
 <div id="map"></div>
+<div id="mapShields"></div>
 
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
@@ -1042,9 +1052,86 @@
 
   // Zastępuje domyślne, generyczne "tarcze" numerów dróg (jeden szary kształt
   // dla wszystkich klas dróg, powtarzany co 200 m wzdłuż trasy — stąd tłok na
-  // autostradach typu M1) własną warstwą: kolorystyka jak na brytyjskich
-  // znakach (M = niebieskie, A = zielone z żółtym, pozostałe = białe/czarne),
-  // a znaczek pojawia się raz na widoczny odcinek drogi, a nie co kawałek.
+  // autostradach typu M1) własnymi tablicami w stylu brytyjskich znaków:
+  //   M = niebieska (biały tekst), A = zielona z żółtą ramką i żółtym tekstem,
+  //   pozostałe = białe z czarną ramką i czarnym tekstem.
+  // Każda tablica ma od zewnątrz BIAŁĄ obwódkę, a znaczek pojawia się raz na
+  // widoczny odcinek drogi, a nie co kawałek.
+  //
+  // Tablica to trzy nałożone na siebie warstwy o rosnącym marginesie wokół tekstu:
+  //   biała obwódka (największa) -> cienka ramka w kolorze klasy -> wypełnienie z numerem.
+  // (Halo ikon SDF nie nadaje się na ramkę: obrazek jest jednolity, więc halo ma
+  //  ułamek piksela. Stąd osobne warstwy.)
+  const SHIELD_PAD_V = 3, SHIELD_PAD_H = 6;   // wypełnienie tablicy wokół tekstu (px)
+  const SHIELD_RING = 1.5;                    // cienka ramka w kolorze klasy drogi (px)
+  const SHIELD_WHITE = 2.5;                   // biała obwódka zewnętrzna (px)
+  const SHIELD_LAYER_IDS = ["uk-road-shields-plate", "uk-road-shields-ring", "uk-road-shields"];
+
+  function shieldColorByClass(m, a, other){
+    const first = ["slice", ["to-string", ["get", "ref"]], 0, 1];
+    return ["case", ["==", first, "M"], m, ["==", first, "A"], a, other];
+  }
+
+  function addShieldImages(m){
+    // różne promienie zaokrągleń, żeby po przeskalowaniu do tekstu ramki były równoległe
+    if(!m.hasImage("uk-shield-fill"))  m.addImage("uk-shield-fill",  createRoundedRectIcon(120, 68, 16), { sdf: true });
+    if(!m.hasImage("uk-shield-ring"))  m.addImage("uk-shield-ring",  createRoundedRectIcon(120, 68, 19), { sdf: true });
+    if(!m.hasImage("uk-shield-plate")) m.addImage("uk-shield-plate", createRoundedRectIcon(120, 68, 22), { sdf: true });
+  }
+
+  function shieldLayerSpecs(){
+    const base = {
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "transportation_name",
+      minzoom: 8,
+      filter: ["all",
+        ["<=", ["get", "ref_length"], 6],
+        ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false]
+      ]
+    };
+    const layoutFor = (image, padV, padH) => ({
+      "symbol-placement": "point", // JEDEN znaczek na widoczny odcinek drogi, nie powtarzany co 200 m
+      "icon-image": image,
+      "icon-text-fit": "both",
+      "icon-text-fit-padding": [padV, padH, padV, padH],
+      "icon-rotation-alignment": "viewport",
+      "text-rotation-alignment": "viewport",
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+      "text-field": ["to-string", ["get", "ref"]],
+      "text-font": ["Noto Sans Bold"],
+      "text-size": 11
+    });
+    const hiddenText = "rgba(0,0,0,0)"; // tekst potrzebny tylko do dopasowania rozmiaru ikony
+
+    const ringV = SHIELD_PAD_V + SHIELD_RING,  ringH = SHIELD_PAD_H + SHIELD_RING;
+    const plateV = ringV + SHIELD_WHITE,       plateH = ringH + SHIELD_WHITE;
+
+    return [
+      Object.assign({ id: "uk-road-shields-plate" }, base, {
+        layout: layoutFor("uk-shield-plate", plateV, plateH),
+        paint: { "icon-color": "#ffffff", "text-color": hiddenText }
+      }),
+      Object.assign({ id: "uk-road-shields-ring" }, base, {
+        layout: layoutFor("uk-shield-ring", ringV, ringH),
+        paint: {
+          "icon-color": shieldColorByClass("#ffffff", "#FFCC00", "#000000"),   // ramka: biała / żółta / czarna
+          "text-color": hiddenText
+        }
+      }),
+      Object.assign({ id: "uk-road-shields" }, base, {
+        layout: layoutFor("uk-shield-fill", SHIELD_PAD_V, SHIELD_PAD_H),
+        paint: {
+          "icon-color": shieldColorByClass("#0079C1", "#006633", "#ffffff"),   // tło: niebieskie / zielone / białe
+          "text-color": shieldColorByClass("#ffffff", "#FFCC00", "#000000")    // numer: biały / żółty / czarny
+        }
+      })
+    ];
+  }
+
   function setupUkRoadShields(){
     const originalShieldLayerIds = ["highway-shield-non-us", "highway-shield-us-interstate", "road_shield_us"];
     originalShieldLayerIds.forEach(id => {
@@ -1052,56 +1139,8 @@
     });
 
     try{
-      if(!map.hasImage("uk-shield-bg")){
-        map.addImage("uk-shield-bg", createRoundedRectIcon(120, 68, 22), { sdf: true });
-      }
-
-      const refFirstLetter = ["slice", ["to-string", ["get", "ref"]], 0, 1];
-
-      map.addLayer({
-        id: "uk-road-shields",
-        type: "symbol",
-        source: "openmaptiles",
-        "source-layer": "transportation_name",
-        minzoom: 8,
-        filter: ["all",
-          ["<=", ["get", "ref_length"], 6],
-          ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false]
-        ],
-        layout: {
-          "symbol-placement": "point", // JEDEN znaczek na widoczny odcinek drogi, nie powtarzany co 200 m
-          "icon-image": "uk-shield-bg",
-          "icon-text-fit": "both",
-          "icon-text-fit-padding": [3, 6, 3, 6],
-          "icon-rotation-alignment": "viewport",
-          "text-rotation-alignment": "viewport",
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
-          "text-field": ["to-string", ["get", "ref"]],
-          "text-font": ["Noto Sans Bold"],
-          "text-size": 11
-        },
-        paint: {
-          "icon-color": ["case",
-            ["==", refFirstLetter, "M"], "#0079C1",   // autostrady — niebieskie tło
-            ["==", refFirstLetter, "A"], "#006633",   // drogi główne — zielone tło
-            "#ffffff"                                  // pozostałe (B, C...) — białe tło
-          ],
-          "icon-halo-color": ["case",
-            ["==", refFirstLetter, "M"], "#ffffff",   // biała obwódka na autostradach
-            ["==", refFirstLetter, "A"], "#FFCC00",   // żółta obwódka na drogach głównych
-            "#000000"                                  // czarna obwódka na pozostałych
-          ],
-          "icon-halo-width": 1.4,
-          "text-color": ["case",
-            ["==", refFirstLetter, "M"], "#ffffff",   // biały numer na autostradach
-            ["==", refFirstLetter, "A"], "#FFCC00",   // żółty numer na drogach głównych
-            "#000000"                                  // czarny numer na pozostałych
-          ]
-        }
-      });
+      addShieldImages(map);
+      shieldLayerSpecs().forEach(spec => map.addLayer(spec));
     }catch(e){
       // coś poszło nie tak przy własnej warstwie — przywróć oryginalne tarcze,
       // żeby mapa nie została bez żadnych numerów dróg
@@ -1109,6 +1148,111 @@
         if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible");
       });
       throw e; // przekaż błąd dalej, żeby wywołujący kod mógł go pokazać/zalogować
+    }
+  }
+
+  /* ---- Tablice w trybie nocnym ----
+     Tryb nocny to filtr CSS (odwrócenie jasności + ściemnienie + odbarwienie) nałożony
+     na całą mapę, więc barwy tablic zostałyby zmienione, a części kolorów (biel, żółć,
+     nasycony niebieski) nie da się nawet skompensować. Dlatego w nocy tablice
+     rysuje druga, przezroczysta mapa leżąca NAD przefiltrowaną (poza filtrem),
+     zsynchronizowana z kamerą głównej mapy. Warstwy są identyczne jak w dzień. */
+  let shieldOverlay = null;
+  let shieldOverlayOn = false;
+
+  function setMainShieldsVisible(visible){
+    SHIELD_LAYER_IDS.forEach(id => {
+      if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+    });
+  }
+
+  function syncShieldOverlay(){
+    if(!shieldOverlay || !shieldOverlayOn) return;
+    shieldOverlay.jumpTo({
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+      padding: map.getPadding()
+    });
+  }
+
+  function createShieldOverlay(){
+    const style = map.getStyle();
+    const src = style.sources && style.sources.openmaptiles;
+    if(!src || !style.glyphs) throw new Error("Brak źródła kafelków lub czcionek w stylu mapy");
+
+    const m = new maplibregl.Map({
+      container: "mapShields",
+      style: {
+        version: 8,
+        glyphs: style.glyphs,
+        sources: { openmaptiles: Object.assign({}, src) },
+        layers: []
+      },
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+      interactive: false,
+      attributionControl: false,
+      renderWorldCopies: false,
+      fadeDuration: 0
+    });
+    m.on("load", () => {
+      try{
+        addShieldImages(m);
+        shieldLayerSpecs().forEach(spec => m.addLayer(spec));
+        syncShieldOverlay();
+      }catch(e){
+        console.warn("Nie udało się dodać tablic do nakładki nocnej:", e);
+        showOnScreenError("Błąd tablic w trybie nocnym (dotknij, aby zamknąć)", e);
+      }
+    });
+    shieldOverlay = m;
+
+    map.on("move", syncShieldOverlay);
+    map.on("resize", () => { if(shieldOverlayOn){ shieldOverlay.resize(); syncShieldOverlay(); } });
+  }
+
+  // Wywołuj po każdej zmianie trybu dzień/noc oraz po załadowaniu mapy.
+  function applyShieldMode(){
+    if(!map || !map.getLayer("uk-road-shields")) return; // mapa jeszcze się nie załadowała
+    const el = document.getElementById("mapShields");
+    const night = document.body.classList.contains("night");
+
+    if(!night){
+      shieldOverlayOn = false;
+      el.classList.remove("on");
+      setMainShieldsVisible(true);
+      return;
+    }
+
+    try{
+      if(!shieldOverlay) createShieldOverlay();
+      shieldOverlayOn = true;
+      el.classList.add("on");
+      shieldOverlay.resize();
+      syncShieldOverlay();
+
+      // Tablice z przefiltrowanej mapy chowamy dopiero, gdy nakładka je narysuje —
+      // inaczej na chwilę zniknęłyby zupełnie.
+      let done = false;
+      const hideMain = () => {
+        if(done || !shieldOverlayOn) return;
+        if(!shieldOverlay.getLayer("uk-road-shields")) return;
+        done = true;
+        setMainShieldsVisible(false);
+      };
+      if(shieldOverlay.loaded()) hideMain(); else shieldOverlay.once("idle", hideMain);
+      setTimeout(hideMain, 2500);
+    }catch(e){
+      // nakładka się nie udała — wracamy do tablic na głównej mapie (w nocy będą przefiltrowane)
+      shieldOverlayOn = false;
+      el.classList.remove("on");
+      setMainShieldsVisible(true);
+      console.warn("Nie udało się włączyć nakładki tablic w trybie nocnym:", e);
+      showOnScreenError("Błąd tablic w trybie nocnym (dotknij, aby zamknąć)", e);
     }
   }
 
@@ -1147,6 +1291,7 @@
       thickenMotorways();
       try{
         setupUkRoadShields();
+        applyShieldMode();
       }catch(e){
         console.warn("Nie udało się skonfigurować tarcz numerów dróg:", e);
         showOnScreenError("Błąd tarcz numerów dróg (dotknij, aby zamknąć)", e);
@@ -2906,6 +3051,7 @@
     const isNight = document.body.classList.contains("night");
     document.getElementById("btnNight").classList.toggle("active", isNight);
     document.getElementById("btnNight").textContent = isNight ? "☀️" : "🌙";
+    applyShieldMode();
   });
 
   document.getElementById("btnLocate").addEventListener("click", () => {
