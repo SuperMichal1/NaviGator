@@ -533,6 +533,32 @@
   }
   #splash .hint.hidden, #splash .startBtn.hidden{ display:none; }
 
+  .gpsModeToggle{
+    display:flex;
+    gap:4px;
+    background: rgba(255,255,255,.06);
+    padding:4px;
+    border-radius:12px;
+    margin-top:2px;
+  }
+  .gpsModeOpt{
+    border:none;
+    background:transparent;
+    color:#8CA0A0;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    padding:8px 12px;
+    border-radius:9px;
+    cursor:pointer;
+    transition: background .15s, color .15s;
+    white-space:nowrap;
+  }
+  .gpsModeOpt.active{
+    background: var(--accent);
+    color:#0c0f12;
+  }
+
   @media (max-width: 380px){
     #speedValue{ font-size:36px; }
     #limitSign{ width:62px; height:62px; }
@@ -546,6 +572,12 @@
   <div class="logo">nawi<span>gator</span></div>
   <div class="spinner hidden" id="splashSpinner"></div>
   <div class="sub" id="splashSub">Aplikacja potrzebuje dostępu do Twojej lokalizacji.</div>
+
+  <div class="gpsModeToggle" id="gpsModeToggle">
+    <button type="button" class="gpsModeOpt" id="gpsModeReal" data-mode="real">📡 Prawdziwy GPS</button>
+    <button type="button" class="gpsModeOpt" id="gpsModeMock" data-mode="mock">🧪 Symulator</button>
+  </div>
+
   <button class="startBtn" id="startBtn">Włącz GPS</button>
   <div class="hint hidden" id="splashHint">
     Jeśli po kliknięciu nic się nie dzieje albo przeglądarka nie pyta o zgodę,
@@ -2851,17 +2883,44 @@
   let watchId = null;
   let started = false;
 
-  // === TRYB TESTOWY (bez GPS) ===================================
-  // Ustaw na false, żeby wrócić do prawdziwej lokalizacji z przeglądarki.
-  // Gdy true, aplikacja nie pyta o pozwolenie na lokalizację ani nie
-  // wysyła żadnych zapytań do navigator.geolocation — używa jednej,
-  // stałej pozycji testowej. Ułatwia to pracę nad wyglądem w
-  // przeglądarkach/podglądach, które blokują geolokalizację.
-  const MOCK_GPS = true;
-  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — celowo blisko autostrady, do testu diagnostyki
+  // === TRYB TESTOWY / SYMULATOR GPS ===================================
+  // Użytkownik wybiera na ekranie startowym: prawdziwy GPS albo symulator.
+  // Wybór jest zapamiętywany w telefonie (localStorage), więc nie trzeba
+  // wybierać go ponownie przy każdym uruchomieniu aplikacji.
+  const GPS_MODE_KEY = "nav_gps_mode"; // "real" albo "mock"
+  function loadGpsMode(){
+    try{ return localStorage.getItem(GPS_MODE_KEY) === "mock" ? "mock" : "real"; }
+    catch(e){ return "real"; }
+  }
+  function saveGpsMode(mode){
+    try{ localStorage.setItem(GPS_MODE_KEY, mode); }catch(e){ /* ignoruj — np. tryb prywatny */ }
+  }
+  let MOCK_GPS = loadGpsMode() === "mock";
+  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — przykładowa trasa symulatora
   const MOCK_START_LON = -1.6230;
   let mockIntervalId = null;
   updateExportBadge(); // odzwierciedl parkingi zapisane lokalnie z poprzednich sesji
+
+  function updateGpsModeUI(){
+    const btnReal = document.getElementById("gpsModeReal");
+    const btnMock = document.getElementById("gpsModeMock");
+    btnReal.classList.toggle("active", !MOCK_GPS);
+    btnMock.classList.toggle("active", MOCK_GPS);
+    document.getElementById("startBtn").textContent = MOCK_GPS ? "Uruchom symulator" : "Włącz GPS";
+  }
+  document.getElementById("gpsModeReal").addEventListener("click", () => {
+    if(started) return; // nie zmieniaj trybu w trakcie działania nawigacji
+    MOCK_GPS = false;
+    saveGpsMode("real");
+    updateGpsModeUI();
+  });
+  document.getElementById("gpsModeMock").addEventListener("click", () => {
+    if(started) return;
+    MOCK_GPS = true;
+    saveGpsMode("mock");
+    updateGpsModeUI();
+  });
+  updateGpsModeUI();
 
   // Symuluje odczyt GPS bez żadnego wywołania navigator.geolocation —
   // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
