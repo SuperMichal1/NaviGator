@@ -1018,6 +1018,87 @@
     });
   }
 
+  // Rysuje pusty, zaokrąglony prostokąt (SDF) używany jako podkład pod numer drogi.
+  // Dzięki fladze sdf:true kolor tła i obramowania można później dowolnie
+  // zmieniać przez paint (icon-color / icon-halo-color) osobno dla każdej cechy.
+  function createRoundedRectIcon(w, h, r){
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.arcTo(w, 0, w, h, r);
+    ctx.arcTo(w, h, 0, h, r);
+    ctx.arcTo(0, h, 0, 0, r);
+    ctx.arcTo(0, 0, w, 0, r);
+    ctx.closePath();
+    ctx.fill();
+    return canvas;
+  }
+
+  // Zastępuje domyślne, generyczne "tarcze" numerów dróg (jeden szary kształt
+  // dla wszystkich klas dróg, powtarzany co 200 m wzdłuż trasy — stąd tłok na
+  // autostradach typu M1) własną warstwą: kolorystyka jak na brytyjskich
+  // znakach (M = niebieskie, A = zielone z żółtym, pozostałe = białe/czarne),
+  // a znaczek pojawia się raz na widoczny odcinek drogi, a nie co kawałek.
+  function setupUkRoadShields(){
+    ["highway-shield-non-us", "highway-shield-us-interstate", "road_shield_us"].forEach(id => {
+      if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+    });
+
+    if(!map.hasImage("uk-shield-bg")){
+      map.addImage("uk-shield-bg", createRoundedRectIcon(120, 68, 22), { sdf: true });
+    }
+
+    const refFirstLetter = ["slice", ["to-string", ["get", "ref"]], 0, 1];
+
+    map.addLayer({
+      id: "uk-road-shields",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "transportation_name",
+      minzoom: 8,
+      filter: ["all",
+        ["<=", ["get", "ref_length"], 6],
+        ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false]
+      ],
+      layout: {
+        "symbol-placement": "point", // JEDEN znaczek na widoczny odcinek drogi, nie powtarzany co 200 m
+        "icon-image": "uk-shield-bg",
+        "icon-text-fit": "both",
+        "icon-text-fit-padding": [3, 6, 3, 6],
+        "icon-rotation-alignment": "viewport",
+        "text-rotation-alignment": "viewport",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+        "text-field": ["to-string", ["get", "ref"]],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 11
+      },
+      paint: {
+        "icon-color": ["case",
+          ["==", refFirstLetter, "M"], "#0079C1",   // autostrady — niebieskie tło
+          ["==", refFirstLetter, "A"], "#006633",   // drogi główne — zielone tło
+          "#ffffff"                                  // pozostałe (B, C...) — białe tło
+        ],
+        "icon-halo-color": ["case",
+          ["==", refFirstLetter, "M"], "#ffffff",   // biała obwódka na autostradach
+          ["==", refFirstLetter, "A"], "#FFCC00",   // żółta obwódka na drogach głównych
+          "#000000"                                  // czarna obwódka na pozostałych
+        ],
+        "icon-halo-width": 1.4,
+        "text-color": ["case",
+          ["==", refFirstLetter, "M"], "#ffffff",   // biały numer na autostradach
+          ["==", refFirstLetter, "A"], "#FFCC00",   // żółty numer na drogach głównych
+          "#000000"                                  // czarny numer na pozostałych
+        ]
+      }
+    });
+  }
+
   // Aplikacja działa tylko w Wielkiej Brytanii (Anglia, Walia, Szkocja) —
   // ograniczamy mapę do tego obszaru: przeglądarka nie musi pobierać ani
   // renderować kafelków spoza tego regionu, co realnie przyspiesza działanie
@@ -1051,6 +1132,7 @@
     map.on("load", () => {
       hideNonHgvPoi();
       thickenMotorways();
+      setupUkRoadShields();
 
       // źródło fotoradarów
       map.addSource("cameras", { type:"geojson", data: emptyFC() });
