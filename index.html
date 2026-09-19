@@ -1034,7 +1034,10 @@
     ctx.arcTo(0, 0, w, 0, r);
     ctx.closePath();
     ctx.fill();
-    return canvas;
+    // map.addImage w tej wersji MapLibre nie obsługuje poprawnie surowego
+    // elementu <canvas> (zgłasza błąd "mismatched image size") — trzeba
+    // przekazać jawnie ImageData, które jest w pełni wspierane.
+    return ctx.getImageData(0, 0, w, h);
   }
 
   // Zastępuje domyślne, generyczne "tarcze" numerów dróg (jeden szary kształt
