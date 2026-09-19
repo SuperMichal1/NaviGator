@@ -1,1 +1,587 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Nawigator — GPS, fotoradary i limity prędkości</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent: #1FD6C1;
+    --accent-dim: #14a396;
+    --danger: #FF4757;
+    --panel-bg: rgba(18, 24, 30, 0.82);
+    --panel-bg-solid: #12181e;
+    --panel-border: rgba(255,255,255,0.08);
+    --text-main: #EAF3F1;
+    --text-dim: #8CA0A0;
+    --sign-face: #FFFFFF;
+    --sign-ring: #E53935;
+    --sign-text: #14181c;
+    --map-filter: none;
+    --ctrl-active-bg: var(--accent);
+    --ctrl-active-text: #0c0f12;
+  }
+  body.night{
+    --accent: #FFB020;
+    --accent-dim: #cc8c19;
+    --danger: #FF4B4B;
+    --panel-bg: rgba(10, 8, 6, 0.88);
+    --panel-bg-solid: #0c0a08;
+    --panel-border: rgba(255,176,32,0.15);
+    --text-main: #F5E6D0;
+    --text-dim: #9c8a72;
+    --sign-face: #1a1512;
+    --sign-ring: #cc4a3a;
+    --sign-text: #ffd9a0;
+    --map-filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95) saturate(0.7);
+    --ctrl-active-bg: #6e2c22;
+    --ctrl-active-text: #ffcdbd;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Inter', system-ui, sans-serif;
+    background:#0c0f12;
+    color: var(--text-main);
+  }
+  #map{
+    position:absolute; inset:0; width:100%; height:100%;
+    filter: var(--map-filter);
+    transition: filter .5s ease;
+  }
 
+  /* ---------- Top bar: alert banner ---------- */
+  #alertBanner{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:center;
+    pointer-events:none;
+    z-index:50;
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+  .banner-card{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:12px;
+    background: linear-gradient(135deg, #E53935, #B71C1C);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    font-weight:600;
+    font-size:15px;
+    transform: translateY(-140%);
+    opacity:0;
+    transition: transform .35s cubic-bezier(.2,.9,.3,1.3), opacity .3s ease;
+    max-width: min(92vw, 420px);
+  }
+  .banner-card.show{ transform: translateY(0); opacity:1; }
+  .banner-icon{
+    width:34px; height:34px; flex:0 0 auto;
+    border-radius:50%;
+    background:rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+  }
+  .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
+  .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
+
+  /* ---------- Top-right controls ---------- */
+  #controls{
+    position:absolute; top: max(16px, env(safe-area-inset-top)); right:16px;
+    display:flex; flex-direction:column; gap:10px;
+    z-index:40;
+  }
+  .ctrl-btn{
+    width:50px; height:50px;
+    border-radius:16px;
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--text-main);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    transition: background .3s, transform .15s, color .3s;
+    user-select:none;
+  }
+  .ctrl-btn:active{ transform: scale(0.92); }
+  .ctrl-btn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); }
+  .reportSubMenu{
+    display:none;
+    flex-direction:column;
+    gap:10px;
+  }
+  .reportSubMenu.open{ display:flex; }
+  .ctrl-btn .label{
+    position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
+  }
+  .ctrl-btn{ position:relative; }
+  .badge{
+    position:absolute; top:-6px; right:-6px;
+    min-width:20px; height:20px; padding:0 5px;
+    border-radius:10px;
+    background: var(--danger);
+    color:#fff;
+    font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    line-height:1;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .badge.zero{ display:none; }
+
+  /* ---------- Przycisk wyśrodkowania (lewy dolny róg, szkło) ---------- */
+  #btnLocate{
+    position:absolute;
+    left:16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index:40;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 18px;
+    border-radius:999px;
+    background: rgba(255,255,255,0.10);
+    border:1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:.02em;
+    cursor:pointer;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18);
+    user-select:none;
+    opacity:0;
+    transform: translateY(10px) scale(.96);
+    transition: opacity .25s ease, transform .25s ease, background .25s;
+    pointer-events:none;
+  }
+  #btnLocate.visible{
+    opacity:1;
+    transform: translateY(0) scale(1);
+    pointer-events:auto;
+  }
+  #btnLocate:active{ transform: scale(0.94); }
+  #btnLocate .locate-icon{ font-size:17px; line-height:1; }
+  body.night #btnLocate{
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,176,32,0.25);
+  }
+
+  /* ---------- Nawigator: panel wyznaczania trasy ---------- */
+  #navPanel{
+    position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
+    width: min(320px, calc(100vw - 100px));
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    padding:12px;
+    z-index:45;
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    max-height: calc(100vh - 32px - env(safe-area-inset-top));
+    overflow-y:auto;
+    transition: all .2s ease;
+  }
+  #navPanel.open{ display:flex; }
+  /* stan po wybraniu celu / dobieraniu trasy / w trakcie nawigacji: pasek na dole, na całą szerokość */
+  #navPanel[data-navstate="confirm"], #navPanel[data-navstate="picker"], #navPanel[data-navstate="nav"]{
+    top:auto; right:0; left:0; bottom:0;
+    width:100%; max-width:none;
+    border-radius:20px 20px 0 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    max-height: 60vh;
+  }
+  .navHeader{ display:flex; align-items:center; justify-content:space-between; }
+  .navTitle{
+    font-size:12px; font-weight:700; letter-spacing:.04em;
+    color: var(--text-dim); text-transform:uppercase;
+  }
+  #navSettingsBtn{
+    width:26px; height:26px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-dim); font-size:16px; cursor:pointer;
+    background: rgba(255,255,255,0.06);
+  }
+  /* pokazuj/chowaj bloki zależnie od stanu */
+  #navConfirmBlock, #navRoutePicker{ display:none; }
+  #navPanel[data-navstate="confirm"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
+  #navPanel[data-navstate="picker"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
+  #navPanel[data-navstate="picker"] #navRoutePicker{ display:flex; }
+  #navPanel[data-navstate="picker"] #navGoBtn{ display:none; }
+  #navPanel[data-navstate="confirm"] #navSearchBlock,
+  #navPanel[data-navstate="picker"] #navSearchBlock,
+  #navPanel[data-navstate="nav"] #navSearchBlock,
+  #navPanel[data-navstate="nav"] #navConfirmBlock{ display:none; }
+  #navConfirmLabel{ font-size:13px; color: var(--text-main); }
+  #navDestWrap{ position:relative; }
+  #navDest{
+    width:100%;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    padding:10px 12px;
+    border-radius:10px;
+    outline:none;
+  }
+  #navDest::placeholder{ color: var(--text-dim); }
+  #navDest:focus{ border-color: var(--accent); }
+  #navSuggestions{
+    position:fixed; left:0; top:0; width:200px;
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    overflow:hidden;
+    z-index:200;
+    box-shadow: 0 10px 24px rgba(0,0,0,.4);
+    display:none;
+  }
+  #navSuggestions.open{ display:block; }
+  .navSuggestion{
+    padding:10px 12px;
+    font-size:13px;
+    color: var(--text-main);
+    cursor:pointer;
+    border-bottom:1px solid var(--panel-border);
+  }
+  .navSuggestion:last-child{ border-bottom:none; }
+  .navSuggestion:active, .navSuggestion.highlight{ background: rgba(255,255,255,0.08); }
+  .navSuggestion .addr1{ font-weight:600; }
+  .navSuggestion .addr2{ font-size:11px; color: var(--text-dim); margin-top:2px; }
+  #navRoutePicker{ flex-direction:column; gap:8px; }
+  .navRouteChoice{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:10px 12px;
+    cursor:pointer;
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    text-align:left;
+    width:100%;
+  }
+  .navRouteChoice .rcTitle{ font-weight:700; font-size:13px; }
+  .navRouteChoice .rcSub{ font-size:12px; color: var(--text-dim); }
+  .navRouteChoice:disabled, .navRouteChoice.unavailable{ opacity:.4; cursor:default; }
+  #navGoBtn{
+    background: var(--accent);
+    color:#0c0f12;
+    border:none;
+    padding:10px 12px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:14px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navGoBtn:disabled{ opacity:.4; cursor:default; }
+  #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
+  #navCancelBtn{
+    background: rgba(255,255,255,0.08);
+    color: var(--text-main);
+    border:1px solid var(--panel-border);
+    padding:9px 12px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:13px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navEditBtn{
+    background: rgba(255,255,255,0.08);
+    color: var(--text-main);
+    border:1px solid var(--panel-border);
+    padding:9px 12px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:13px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navEditBtn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); border-color: transparent; }
+  #navRouteBtnRow{ display:flex; gap:8px; }
+  #navRouteBtnRow > button{ flex:1; }
+  #navError{
+    font-size:12px; color: var(--danger); display:none;
+  }
+  #navError.show{ display:block; }
+  #navStatus{
+    font-size:12px; color: var(--text-dim); display:none;
+  }
+  #navStatus.show{ display:block; }
+  #navRouteInfo{
+    display:none;
+    flex-direction:column;
+    gap:4px;
+    background: rgba(255,255,255,0.05);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  #navRouteInfo.show{ display:flex; }
+  #navRouteInfo .rMain{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:18px; font-weight:700;
+  }
+  #navRouteInfo .rSub{ font-size:12px; color: var(--text-dim); }
+  #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
+  #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
+
+  /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
+  #navSettingsPanel{
+    position:fixed; inset:0; z-index:80;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  #navSettingsPanel.open{ display:flex; }
+  #navSettingsBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
+  #navSettingsCard{
+    position:relative;
+    width:100%; max-width:420px;
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:20px 20px 0 0;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:10px;
+    max-height:80vh; overflow-y:auto;
+    box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+  }
+  .navSettingsHeader{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:14px; font-weight:700; color: var(--text-main);
+    padding-bottom:8px; border-bottom:1px solid var(--panel-border);
+  }
+  #navSettingsClose{
+    width:28px; height:28px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.08); cursor:pointer; color: var(--text-main);
+  }
+  .navPrefLabel{
+    display:flex; align-items:center; gap:8px;
+    font-size:13px; color: var(--text-main);
+    cursor:pointer;
+  }
+  .navPrefLabel input{ width:16px; height:16px; accent-color: var(--accent); }
+  #navKeyToggle, .navKeyToggle{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; color: var(--text-dim);
+    cursor:pointer;
+    padding-top:2px;
+    border-top:1px solid var(--panel-border);
+    margin-top:2px;
+  }
+  #navKeyToggle .chev, .navKeyToggle .chev{ transition: transform .25s ease; display:inline-block; }
+  #navKeyToggle.open .chev, .navKeyToggle.open .chev{ transform: rotate(180deg); }
+  #navKeyRow, .navKeyRow{
+    display:none;
+    gap:6px;
+    align-items:center;
+  }
+  #navKeyRow.open, .navKeyRow.open{ display:flex; }
+  #navApiKey, .navApiKeyInput{
+    flex:1;
+    min-width:0;
+    background: rgba(255,255,255,0.06);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    padding:8px 10px;
+    border-radius:8px;
+    outline:none;
+  }
+  #navApiKey:focus, .navApiKeyInput:focus{ border-color: var(--accent); }
+  #navKeyEye, .navKeyEye{
+    flex:0 0 auto;
+    width:32px; height:32px;
+    border-radius:8px;
+    background: rgba(255,255,255,0.08);
+    border:1px solid var(--panel-border);
+    color: var(--text-main);
+    font-size:13px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  #navKeySaved, .navKeySaved{
+    font-size:10px; color: var(--text-dim); opacity:0; transition: opacity .3s ease;
+  }
+  #navKeySaved.show, .navKeySaved.show{ opacity:1; }
+  .navKeyRowStack{ display:flex; flex-direction:column; gap:6px; }
+
+  /* ---------- Bottom-left: speed cluster ---------- */
+  #speedCluster{
+    position:absolute; left:16px; bottom: calc(64px + env(safe-area-inset-bottom));
+    display:flex; align-items:flex-end; gap:12px;
+    z-index:40;
+  }
+  #speedPanel{
+    text-align:center;
+    min-width:100px;
+    padding:4px 8px;
+  }
+  #speedValue{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:48px; font-weight:700; line-height:1;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 12px rgba(0,0,0,.85), 0 0 4px rgba(0,0,0,.9);
+  }
+  #speedUnit{
+    font-size:11px; letter-spacing:.08em; color: var(--text-dim); font-weight:700; margin-top:2px;
+    text-shadow: 0 1px 6px rgba(0,0,0,.9);
+  }
+
+  #limitSign{
+    width:74px; height:74px;
+    border-radius:50%;
+    background: var(--sign-face);
+    border: 7px solid var(--sign-ring);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
+    flex:0 0 auto;
+  }
+  #limitValue{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px; font-weight:700;
+    color: var(--sign-text);
+  }
+  #limitSign.blink{
+    animation: blinkSign 0.7s infinite;
+  }
+  @keyframes blinkSign{
+    0%, 100% { border-color: var(--sign-ring); box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 0 rgba(229,57,53,.6);}
+    50% { border-color: #fff200; box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 18px 6px rgba(255,71,87,.75);}
+  }
+  #limitSign.hidden{ display:none; }
+
+  /* ---------- Bottom status pill ---------- */
+  #statusPill{
+    position:absolute; left:50%; bottom: max(16px, env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px);
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:12px;
+    color: var(--text-dim);
+    z-index:35;
+    display:flex; align-items:center; gap:8px;
+    white-space:nowrap;
+  }
+  #statusPill .dot{
+    width:7px; height:7px; border-radius:50%; background: var(--accent);
+  }
+  #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
+  @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
+
+  /* Loading splash */
+  #splash{
+    position:absolute; inset:0; z-index:100;
+    background:#0c0f12;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px;
+    transition: opacity .5s ease;
+  }
+  #splash .logo{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px; font-weight:700; color:#EAF3F1; letter-spacing:.01em;
+  }
+  #splash .logo span{ color: var(--accent); }
+  #splash .sub{ color:#8CA0A0; font-size:13px; }
+  #splash .spinner{
+    width:34px; height:34px; border-radius:50%;
+    border: 3px solid rgba(255,255,255,.12);
+    border-top-color: var(--accent);
+    animation: spin 0.9s linear infinite;
+  }
+  #splash .spinner.hidden{ display:none; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  #splash .startBtn{
+    margin-top:6px;
+    background: var(--accent);
+    color:#0c0f12;
+    border:none;
+    padding:13px 26px;
+    border-radius:14px;
+    font-size:15px;
+    font-weight:700;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #splash .startBtn:active{ transform: scale(0.97); }
+  #splash .hint{
+    max-width: 320px;
+    text-align:center;
+    font-size:12px;
+    color:#6b7d7d;
+    line-height:1.5;
+    padding: 0 20px;
+  }
+  #splash .hint.hidden, #splash .startBtn.hidden{ display:none; }
+
+  @media (max-width: 380px){
+    #speedValue{ font-size:36px; }
+    #limitSign{ width:62px; height:62px; }
+    #limitValue{ font-size:22px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="logo">nawi<span>gator</span></div>
+  <div class="spinner hidden" id="splashSpinner"></div>
+  <div class="sub" id="splashSub">Aplikacja potrzebuje dostępu do Twojej lokalizacji.</div>
+  <button class="startBtn" id="startBtn">Włącz GPS</button>
+  <div class="hint hidden" id="splashHint">
+    Jeśli po kliknięciu nic się nie dzieje albo przeglądarka nie pyta o zgodę,
+    ten podgląd może blokować lokalizację. Otwórz plik bezpośrednio w przeglądarce
+    (pobierz plik i otwórz go, albo otwórz link w nowej karcie) i spróbuj ponownie.
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div id="alertBanner">
+  <div class="banner-card" id="bannerCard">
+    <div class="banner-icon">📷</div>
+    <div class="banner-text">
+      <div class="t1" id="bannerT1">FOTORADAR ZA 200 M</div>
+      <div class="t2" id="bannerT2">Zwolnij</div>
+    </div>
+  </div>
+</div>
+
+<div id="controls">
+  <div class="ctrl-btn" id="btnNav" title="Nawigator — wyznacz trasę">🧭</div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
+  <div class="ctrl-btn" id="btnDim" title="2D / 3D">
+    <span id="dimIcon">3D</span>
+  </div>
+  <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+  <div class="reportSubMenu" id="reportSubMenu">
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+  </div>
+  <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
+    💾
+    <span class="badge" id="exportBadge">0</span>
+  </div>
+</div>
+
+<div id=
