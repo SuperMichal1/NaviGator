@@ -134,6 +134,46 @@
   }
   .badge.zero{ display:none; }
 
+  /* ---------- Przycisk wyśrodkowania (lewy dolny róg, szkło) ---------- */
+  #btnLocate{
+    position:absolute;
+    left:16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index:40;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 18px;
+    border-radius:999px;
+    background: rgba(255,255,255,0.10);
+    border:1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    color: var(--text-main);
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:.02em;
+    cursor:pointer;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18);
+    user-select:none;
+    opacity:0;
+    transform: translateY(10px) scale(.96);
+    transition: opacity .25s ease, transform .25s ease, background .25s;
+    pointer-events:none;
+  }
+  #btnLocate.visible{
+    opacity:1;
+    transform: translateY(0) scale(1);
+    pointer-events:auto;
+  }
+  #btnLocate:active{ transform: scale(0.94); }
+  #btnLocate .locate-icon{ font-size:17px; line-height:1; }
+  body.night #btnLocate{
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,176,32,0.25);
+  }
+
   /* ---------- Nawigator: panel wyznaczania trasy ---------- */
   #navPanel{
     position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
@@ -533,7 +573,6 @@
     <span id="dimIcon">3D</span>
   </div>
   <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
-  <div class="ctrl-btn" id="btnLocate" title="Wyśrodkuj na mnie">🎯</div>
   <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
   <div class="reportSubMenu" id="reportSubMenu">
     <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
@@ -543,6 +582,11 @@
     💾
     <span class="badge" id="exportBadge">0</span>
   </div>
+</div>
+
+<div id="btnLocate" title="Wyśrodkuj widok na mojej pozycji">
+  <span class="locate-icon">🎯</span>
+  <span class="locate-label">Centrum</span>
 </div>
 
 <div id="navPanel" data-navstate="search">
@@ -661,6 +705,7 @@
 
   /* ---------- TEST: renderowanie M6 jako trzech równoległych linii (podgląd, tylko M6) ---------- */
   const M6_TEST_RADIUS_M = 20000;   // zasięg pobierania odcinków M6 wokół pozycji
+  const MOTORWAY_JUNCTION_RADIUS_M = 20000; // zasięg pobierania numerów zjazdów autostradowych (rzadkie punkty, większy promień)
   const M6_TEST_LANE_OFFSET_M = 3.7; // odstęp między liniami (typowa szerokość pasa autostrady w UK)
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
 
@@ -717,7 +762,7 @@
   let map, userMarkerEl, userMarker;
   let lastPos = null;           // {lat,lon,t}
   let currentSpeedKmh = 0;
-  let unitSystem = "km"; // "km" albo "mph" — wykrywane automatycznie na podstawie kraju
+  let unitSystem = "mph"; // aplikacja ograniczona do Wielkiej Brytanii — zawsze mile/h, bez zgadywania kraju
   let lastUnitCheckPos = null;
   let lastUnitCheckTime = 0;
   const UNIT_CHECK_MIN_INTERVAL_MS = 60000; // nie odpytuj Nominatim częściej niż raz na minutę
@@ -753,6 +798,12 @@
   }
   let is3D = false;
   let followUser = true;
+  function updateLocateBtnVisibility(){
+    const btn = document.getElementById("btnLocate");
+    if(!btn) return;
+    // pokaż przycisk tylko wtedy, gdy widok NIE podąża za użytkownikiem (wymaga wyśrodkowania)
+    btn.classList.toggle("visible", !followUser);
+  }
   let lastFetchPos = null;
   let lastFetchTime = 0;
   let fetching = false;
@@ -936,6 +987,21 @@
     });
   }
 
+  // Aplikacja działa tylko w Wielkiej Brytanii (Anglia, Walia, Szkocja) —
+  // ograniczamy mapę do tego obszaru: przeglądarka nie musi pobierać ani
+  // renderować kafelków spoza tego regionu, co realnie przyspiesza działanie
+  // (mniej danych do pobrania i mniej elementów do narysowania przy przesuwaniu/oddalaniu mapy).
+  // Uwaga: to prostokąt geograficzny, więc niewielki fragment wschodniej Irlandii
+  // (w tym Irlandii Północnej) mieści się w tym samym prostokącie co Szkocja/Walia —
+  // dokładne wycięcie tylko konturu Wielkiej Brytanii wymagałoby maski w postaci
+  // wielokąta, a nie prostych granic prostokąta.
+  const GB_BOUNDS = [
+    [-8.65, 49.85], // SW: Kornwalia / Wyspy Scilly
+    [ 1.85, 60.86]  // NE: Szetlandy
+  ];
+  const GB_MIN_ZOOM = 5;
+
+
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -944,7 +1010,11 @@
       zoom: 16.5,
       pitch: 0,
       bearing: 0,
-      attributionControl: false
+      attributionControl: false,
+      maxBounds: GB_BOUNDS,
+      minZoom: GB_MIN_ZOOM,
+      renderWorldCopies: false, // nie ma sensu przy mapie ograniczonej do jednego regionu
+      fadeDuration: 0           // mniej płynne pojawianie się etykiet/kafelków, ale szybsze odczucie reakcji mapy
     });
 
     map.on("load", () => {
@@ -1046,6 +1116,35 @@
       });
       map.on("mouseleave", "route-line-main", () => {
         if(!routeDragState) map.getCanvas().style.cursor = "";
+      });
+
+      // źródło numerów zjazdów autostradowych (dane z OSM/Overpass, highway=motorway_junction)
+      map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"motorway-junction-circle",
+        type:"circle",
+        source:"motorway-junctions",
+        paint:{
+          "circle-radius": 9,
+          "circle-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#1e3a8a"
+        }
+      });
+      map.addLayer({
+        id:"motorway-junction-label",
+        type:"symbol",
+        source:"motorway-junctions",
+        layout:{
+          "text-field": ["get","ref"],
+          "text-size": 11,
+          "text-font": ["Noto Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true
+        },
+        paint:{
+          "text-color": "#1e3a8a"
+        }
       });
 
       // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
@@ -1169,6 +1268,7 @@
         node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="motorway"]["ref"~"(^|;)M6($|;)"](around:${M6_TEST_RADIUS_M},${lat},${lon});
+        node["highway"="motorway_junction"](around:${MOTORWAY_JUNCTION_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
@@ -1439,6 +1539,7 @@
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
     const m6TestFeatures = [];
+    const junctionFeatures = [];
 
     (data.elements || []).forEach(el => {
       if(isM6TestWay(el) && el.geometry && el.geometry.length > 1){
@@ -1452,7 +1553,17 @@
         );
       }
 
-      if(isHgvParkingElement(el)){
+      if(el.type === "node" && el.tags && el.tags.highway === "motorway_junction"){
+        junctionFeatures.push({
+          type:"Feature",
+          properties:{
+            id: el.id,
+            ref: el.tags.ref || "",
+            name: el.tags.name || ""
+          },
+          geometry:{ type:"Point", coordinates:[el.lon, el.lat] }
+        });
+      } else if(isHgvParkingElement(el)){
         let lat, lon;
         if(el.type === "node"){ lat = el.lat; lon = el.lon; }
         else if(el.type === "way" && el.geometry && el.geometry.length){
@@ -1533,6 +1644,9 @@
     if(map.getSource("m6-test-lanes")){
       map.getSource("m6-test-lanes").setData({ type:"FeatureCollection", features: m6TestFeatures });
     }
+    if(map.getSource("motorway-junctions")){
+      map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features: junctionFeatures });
+    }
   }
 
   function maybeRefetch(lat, lon){
@@ -1553,26 +1667,10 @@
   }
 
   function detectUnitSystem(lat, lon){
-    const now = Date.now();
-    if(now - lastUnitCheckTime < UNIT_CHECK_MIN_INTERVAL_MS) return;
-    if(lastUnitCheckPos){
-      const d = haversine(lat, lon, lastUnitCheckPos.lat, lastUnitCheckPos.lon);
-      if(d < UNIT_CHECK_MIN_DISTANCE_M) return;
-    }
-    lastUnitCheckTime = now;
-    lastUnitCheckPos = { lat, lon };
-
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=3&addressdetails=1`)
-      .then(r => { if(!r.ok) throw new Error("nominatim status " + r.status); return r.json(); })
-      .then(data => {
-        const cc = data && data.address && data.address.country_code;
-        const newSystem = (cc && MPH_COUNTRY_CODES.includes(cc.toLowerCase())) ? "mph" : "km";
-        if(newSystem !== unitSystem){
-          unitSystem = newSystem;
-          renderSpeedUI();
-        }
-      })
-      .catch(err => console.warn("Nie udało się wykryć kraju do jednostek prędkości:", err));
+    // Mapa jest ograniczona do Wielkiej Brytanii, więc jednostka jest zawsze znana
+    // (mph) — pomijamy zapytanie do Nominatim, które wcześniej wykonywało się
+    // cyklicznie podczas jazdy tylko po to, żeby to potwierdzić.
+    return;
   }
 
   function updateSpeedLimit(lat, lon){
@@ -1928,6 +2026,7 @@
     if(!navSelectedDest) return;
     showNavError("");
     followUser = false;
+    updateLocateBtnVisibility();
     if(map){
       map.easeTo({ center: [navSelectedDest.lon, navSelectedDest.lat], zoom: 14, pitch: 0, bearing: 0, duration: 600 });
     }
@@ -2094,6 +2193,7 @@
 
     enterFullscreen();
     followUser = true;
+    updateLocateBtnVisibility();
     is3D = true;
     document.getElementById("btnDim").classList.add("active");
     document.getElementById("dimIcon").textContent = "2D";
@@ -2601,11 +2701,10 @@
 
   document.getElementById("btnLocate").addEventListener("click", () => {
     followUser = true;
-    document.getElementById("btnLocate").classList.add("active");
+    updateLocateBtnVisibility();
     if(map && lastPos){
       map.easeTo({ center:[lastPos.lon, lastPos.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
     }
-    setTimeout(()=> document.getElementById("btnLocate").classList.remove("active"), 400);
   });
 
   document.getElementById("btnReportMenu").addEventListener("click", () => {
@@ -2677,7 +2776,7 @@
 
   // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
   function attachDragListener(){
-    map.on("dragstart", () => { followUser = false; });
+    map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
   }
 
   /* ============================================================
@@ -2686,7 +2785,46 @@
   let firstFixTimer = null;
   let watchId = null;
   let started = false;
+
+  // === TRYB TESTOWY (bez GPS) ===================================
+  // Ustaw na false, żeby wrócić do prawdziwej lokalizacji z przeglądarki.
+  // Gdy true, aplikacja nie pyta o pozwolenie na lokalizację ani nie
+  // wysyła żadnych zapytań do navigator.geolocation — używa jednej,
+  // stałej pozycji testowej. Ułatwia to pracę nad wyglądem w
+  // przeglądarkach/podglądach, które blokują geolokalizację.
+  const MOCK_GPS = true;
+  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — celowo blisko autostrady, do testu diagnostyki
+  const MOCK_START_LON = -1.6230;
+  let mockIntervalId = null;
   updateExportBadge(); // odzwierciedl parkingi zapisane lokalnie z poprzednich sesji
+
+  // Symuluje odczyt GPS bez żadnego wywołania navigator.geolocation —
+  // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
+  // więc cała reszta aplikacji (onPosition, mapa, prędkościomierz) działa bez zmian.
+  function makeMockPosition(){
+    return {
+      coords: {
+        latitude: MOCK_START_LAT,
+        longitude: MOCK_START_LON,
+        speed: 0,
+        heading: null,
+        accuracy: 8
+      },
+      timestamp: Date.now()
+    };
+  }
+
+  function startMockGeolocation(){
+    clearTimeout(firstFixTimer);
+    onPosition(makeMockPosition());
+    attachWhenReady();
+
+    if(mockIntervalId !== null) clearInterval(mockIntervalId);
+    // odświeżanie co 2 s, żeby np. zegar/status pozostawał "żywy" podczas testów UI
+    mockIntervalId = setInterval(() => {
+      onPosition(makeMockPosition());
+    }, 2000);
+  }
 
   function startGeolocation(){
     if(started) return;
@@ -2697,6 +2835,11 @@
     document.getElementById("splashHint").classList.add("hidden");
     document.getElementById("splashSpinner").classList.remove("hidden");
     document.getElementById("splashSub").textContent = "Szukam sygnału GPS…";
+
+    if(MOCK_GPS){
+      startMockGeolocation();
+      return;
+    }
 
     if(!navigator.geolocation){
       setStatus("error", "Ta przeglądarka nie obsługuje geolokalizacji");
