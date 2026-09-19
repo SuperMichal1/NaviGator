@@ -647,6 +647,15 @@
      KONFIGURACJA
   ============================================================ */
   const OFM_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+
+  /* ---------- Ograniczenie mapy do Wielkiej Brytanii ---------- */
+  // prostokąt [zachód, południe] – [wschód, północ]: Anglia, Szkocja (z Szetlandami), Walia i Irlandia Północna
+  const UK_BOUNDS = [[-8.7, 49.8], [2.0, 61.0]];
+  const UK_FALLBACK_CENTER = [-1.5, 52.8]; // środek Anglii — start mapy, gdy GPS jest poza UK
+  const UK_MIN_ZOOM = 5;
+  function insideUkBounds(lat, lon){
+    return lon >= UK_BOUNDS[0][0] && lon <= UK_BOUNDS[1][0] && lat >= UK_BOUNDS[0][1] && lat <= UK_BOUNDS[1][1];
+  }
   const OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -938,17 +947,22 @@
   }
 
   function initMap(lat, lon){
+    const inUK = insideUkBounds(lat, lon);
+    if(!inUK) followUser = false; // pozycja poza UK — nie ciągnij kamery w miejsce, którego mapa nie pokazuje
     map = new maplibregl.Map({
       container: "map",
       style: OFM_STYLE,
-      center: [lon, lat],
-      zoom: 16.5,
+      center: inUK ? [lon, lat] : UK_FALLBACK_CENTER,
+      zoom: inUK ? 16.5 : 6,
+      maxBounds: UK_BOUNDS,
+      minZoom: UK_MIN_ZOOM,
       pitch: 0,
       bearing: 0,
       attributionControl: false
     });
 
     map.on("load", () => {
+      if(!inUK) showBanner("POZA WIELKĄ BRYTANIĄ", "Mapa obejmuje tylko UK — jesteś poza jej zasięgiem", false);
       hideNonHgvPoi();
       thickenMotorways();
 
@@ -1099,24 +1113,19 @@
       });
 
       // numery zjazdów z autostrad/dróg ekspresowych (OSM: highway=motorway_junction, tag ref)
-      addExitBadgeImage();
+      // plakietka jest w całości rysowana na canvasie (patrz "styleimagemissing" niżej) — nie wymaga czcionek z serwera map
+      map.on("styleimagemissing", onExitBadgeMissing);
       map.addSource("motorway-exits", { type:"geojson", data: emptyFC() });
       map.addLayer({
         id:"motorway-exits-badge",
         type:"symbol",
         source:"motorway-exits",
-        minzoom: 10,
+        minzoom: 9,
         layout:{
-          "icon-image": "exit-badge",
-          "icon-text-fit": "both",
-          "icon-text-fit-padding": [2, 5, 2, 5],
-          "text-field": ["get", "ref"],
-          "text-font": pickExitFont(),
-          "text-size": 13,
-          "icon-allow-overlap": false,
-          "text-allow-overlap": false
-        },
-        paint:{ "text-color": "#ffffff" }
+          "icon-image": ["concat", "exit-", ["get", "ref"]],
+          "icon-allow-overlap": true,   // bez tego etykiety stylu bazowego (tarcze dróg, nazwy) zasłaniałyby numery
+          "icon-ignore-placement": true
+        }
       });
 
       addUserMarker(lat, lon);
@@ -1125,41 +1134,39 @@
     });
   }
 
-  // niebieska, rozciągliwa plakietka (9-slice) pod numer zjazdu — dopasowuje się do długości tekstu ("3", "16A", "6/7")
-  function addExitBadgeImage(){
-    if(map.hasImage("exit-badge")) return;
-    const s = 32, r = 9, m = 2;
+  // MapLibre woła to, gdy warstwa prosi o ikonę "exit-<numer>", której jeszcze nie ma — rysujemy ją na canvasie
+  function onExitBadgeMissing(e){
+    if(!e.id || e.id.indexOf("exit-") !== 0 || map.hasImage(e.id)) return;
+    const label = e.id.slice(5);
+    const ratio = 2;
+    const font = "700 " + (13 * ratio) + "px Arial, Helvetica, sans-serif";
+    const measure = document.createElement("canvas").getContext("2d");
+    measure.font = font;
+    const textW = Math.ceil(measure.measureText(label).width);
+    const w = Math.max(28 * ratio, textW + 14 * ratio);
+    const h = 22 * ratio;
     const c = document.createElement("canvas");
-    c.width = c.height = s;
+    c.width = w; c.height = h;
     const g = c.getContext("2d");
+    const m = 2, r = 7 * ratio;
     g.beginPath();
     g.moveTo(m + r, m);
-    g.arcTo(s - m, m, s - m, s - m, r);
-    g.arcTo(s - m, s - m, m, s - m, r);
-    g.arcTo(m, s - m, m, m, r);
-    g.arcTo(m, m, s - m, m, r);
+    g.arcTo(w - m, m, w - m, h - m, r);
+    g.arcTo(w - m, h - m, m, h - m, r);
+    g.arcTo(m, h - m, m, m, r);
+    g.arcTo(m, m, w - m, m, r);
     g.closePath();
     g.fillStyle = "#0b5cad";
     g.fill();
     g.lineWidth = 2.5;
     g.strokeStyle = "#ffffff";
     g.stroke();
-    map.addImage("exit-badge", g.getImageData(0, 0, s, s), {
-      pixelRatio: 2,
-      stretchX: [[12, 20]],
-      stretchY: [[12, 20]],
-      content: [10, 10, 22, 22]
-    });
-  }
-
-  // bierzemy pogrubioną czcionkę z samego stylu mapy (serwer glifów OpenFreeMap zna tylko własne fonty)
-  function pickExitFont(){
-    const ops = ["literal","get","case","step","match","interpolate","coalesce","concat"];
-    const layers = (map.getStyle().layers) || [];
-    const usable = layers
-      .map(l => l.layout && l.layout["text-font"])
-      .filter(f => Array.isArray(f) && f.length && f.every(x => typeof x === "string") && !ops.includes(f[0]));
-    return usable.find(f => /bold/i.test(f[0])) || usable[0] || ["Noto Sans Bold"];
+    g.font = font;
+    g.fillStyle = "#ffffff";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(label, w / 2, h / 2 + 1);
+    map.addImage(e.id, g.getImageData(0, 0, w, h), { pixelRatio: ratio });
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -1198,7 +1205,7 @@
     if(heading !== null && !isNaN(heading)){
       userMarkerEl.querySelector("svg").style.transform = `rotate(${heading}deg)`;
     }
-    if(followUser){
+    if(followUser && insideUkBounds(lat, lon)){
       map.easeTo({
         center: [lon, lat],
         bearing: (heading !== null && !isNaN(heading) && is3D) ? heading : map.getBearing(),
@@ -1608,7 +1615,26 @@
       map.getSource("m6-test-lanes").setData({ type:"FeatureCollection", features: m6TestFeatures });
     }
     if(map.getSource("motorway-exits")){
-      map.getSource("motorway-exits").setData({ type:"FeatureCollection", features: junctionFeatures });
+      // w OSM każda jezdnia ma osobny węzeł zjazdu — scalamy te same numery leżące blisko siebie w jedną plakietkę
+      const merged = [];
+      junctionFeatures.forEach(f => {
+        const [lo, la] = f.geometry.coordinates;
+        const twin = merged.find(m => m.properties.ref === f.properties.ref &&
+          haversine(la, lo, m.geometry.coordinates[1], m.geometry.coordinates[0]) < 250);
+        if(twin){
+          const n = twin._n;
+          twin.geometry.coordinates = [
+            (twin.geometry.coordinates[0] * n + lo) / (n + 1),
+            (twin.geometry.coordinates[1] * n + la) / (n + 1)
+          ];
+          twin._n = n + 1;
+        } else {
+          f._n = 1;
+          merged.push(f);
+        }
+      });
+      console.info("Zjazdy z autostrad:", junctionFeatures.length, "węzłów →", merged.length, "plakietek");
+      map.getSource("motorway-exits").setData({ type:"FeatureCollection", features: merged });
     }
   }
 
