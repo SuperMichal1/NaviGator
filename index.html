@@ -60,6 +60,8 @@
     position:absolute; inset:0; width:100%; height:100%;
     pointer-events:none;
     visibility:hidden;
+    /* w nocy tablice mają być stonowane, żeby nie oślepiały — 1 = jak w dzień, niżej = ciemniej */
+    filter: brightness(0.6);
   }
   #mapShields.on{ visibility:visible; }
 
@@ -1028,108 +1030,123 @@
     });
   }
 
-  // Rysuje pusty, zaokrąglony prostokąt (SDF) używany jako podkład pod numer drogi.
-  // Dzięki fladze sdf:true kolor tła i obramowania można później dowolnie
-  // zmieniać przez paint (icon-color / icon-halo-color) osobno dla każdej cechy.
-  function createRoundedRectIcon(w, h, r){
+  /* ============================================================
+     TABLICE NUMERÓW DRÓG (jak na brytyjskich znakach)
+     ------------------------------------------------------------
+     Zastępują domyślne, generyczne "tarcze" mapy. Każda tablica ma od zewnątrz
+     białą obwódkę, pod nią cienką ramkę w kolorze klasy drogi, potem wypełnienie:
+       M = niebieska, biała ramka, biały tekst
+       A = zielona, żółta ramka, żółty tekst
+       B i pozostałe = białe, czarna ramka, czarny tekst
+     Tablica to JEDEN obrazek "rozciągany" (9-slice): rogi i ramki mają stałą grubość
+     w pikselach niezależnie od długości numeru, a obrazek dopasowuje się do tekstu.
+     Ponieważ to jeden znaczek na tablicę, mapa umie je ze sobą porównywać i nie
+     rysuje ich jednej na drugiej.
+  ============================================================ */
+  const SHIELD_WHITE_PX = 1;   // biała obwódka zewnętrzna (px ekranu)
+  const SHIELD_RING_PX  = 1;   // cienka ramka w kolorze klasy drogi (px ekranu)
+  const SHIELD_PAD_H = 4;      // odstęp tekstu od ramki: poziomo (px)
+  const SHIELD_PAD_V = 3;      // odstęp tekstu od ramki: pionowo (px)
+  const SHIELD_CORNER_PX = 4;  // zaokrąglenie rogów (px)
+
+  function shieldRoundRect(ctx, x, y, w, h, r){
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  // Rysuje tablicę: biała obwódka -> ramka w kolorze klasy -> wypełnienie.
+  // Obrazek jest 2x (ostrość na ekranach retina); wartości stretch/content
+  // są w pikselach obrazka i wyznaczają część, która rozciąga się pod tekst.
+  function createShieldImage(fill, ring){
+    const PR = 2;
+    const W = SHIELD_WHITE_PX * PR, R = SHIELD_RING_PX * PR;
+    const left = W + R + SHIELD_PAD_H * PR;
+    const top  = W + R + SHIELD_PAD_V * PR;
+    const mid = 8;                       // rozciągana środkowa część
+    const w = left * 2 + mid, h = top * 2 + mid;
+    const r = SHIELD_CORNER_PX * PR;
+
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.moveTo(r, 0);
-    ctx.arcTo(w, 0, w, h, r);
-    ctx.arcTo(w, h, 0, h, r);
-    ctx.arcTo(0, h, 0, 0, r);
-    ctx.arcTo(0, 0, w, 0, r);
-    ctx.closePath();
-    ctx.fill();
-    // map.addImage w tej wersji MapLibre nie obsługuje poprawnie surowego
-    // elementu <canvas> (zgłasza błąd "mismatched image size") — trzeba
-    // przekazać jawnie ImageData, które jest w pełni wspierane.
-    return ctx.getImageData(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";           shieldRoundRect(ctx, 0, 0, w, h, r);                       ctx.fill();
+    ctx.fillStyle = ring;                shieldRoundRect(ctx, W, W, w - 2*W, h - 2*W, r - W);       ctx.fill();
+    ctx.fillStyle = fill;                shieldRoundRect(ctx, W + R, W + R, w - 2*(W+R), h - 2*(W+R), r - W - R); ctx.fill();
+
+    return {
+      // map.addImage w tej wersji MapLibre nie obsługuje poprawnie surowego <canvas>
+      // ("mismatched image size") — trzeba przekazać ImageData.
+      data: ctx.getImageData(0, 0, w, h),
+      options: {
+        pixelRatio: PR,
+        stretchX: [[left, left + mid]],
+        stretchY: [[top, top + mid]],
+        content: [left, top, left + mid, top + mid]
+      }
+    };
   }
 
-  // Zastępuje domyślne, generyczne "tarcze" numerów dróg (jeden szary kształt
-  // dla wszystkich klas dróg, powtarzany co 200 m wzdłuż trasy — stąd tłok na
-  // autostradach typu M1) własnymi tablicami w stylu brytyjskich znaków:
-  //   M = niebieska (biały tekst), A = zielona z żółtą ramką i żółtym tekstem,
-  //   pozostałe = białe z czarną ramką i czarnym tekstem.
-  // Każda tablica ma od zewnątrz BIAŁĄ obwódkę, a znaczek pojawia się raz na
-  // widoczny odcinek drogi, a nie co kawałek.
-  //
-  // Tablica to trzy nałożone na siebie warstwy o rosnącym marginesie wokół tekstu:
-  //   biała obwódka (największa) -> cienka ramka w kolorze klasy -> wypełnienie z numerem.
-  // (Halo ikon SDF nie nadaje się na ramkę: obrazek jest jednolity, więc halo ma
-  //  ułamek piksela. Stąd osobne warstwy.)
-  const SHIELD_PAD_V = 3, SHIELD_PAD_H = 6;   // wypełnienie tablicy wokół tekstu (px)
-  const SHIELD_RING = 1.5;                    // cienka ramka w kolorze klasy drogi (px)
-  const SHIELD_WHITE = 2.5;                   // biała obwódka zewnętrzna (px)
-  const SHIELD_LAYER_IDS = ["uk-road-shields-plate", "uk-road-shields-ring", "uk-road-shields"];
-
-  function shieldColorByClass(m, a, other){
-    const first = ["slice", ["to-string", ["get", "ref"]], 0, 1];
-    return ["case", ["==", first, "M"], m, ["==", first, "A"], a, other];
-  }
+  // Kolejność: od najniższego priorytetu do najwyższego. Warstwa dodana później leży wyżej
+  // i wygrywa, gdy tablice by na siebie nachodziły (M przed A przed B).
+  const SHIELD_FIRST_LETTER = ["slice", ["to-string", ["get", "ref"]], 0, 1];
+  const SHIELD_GROUPS = [
+    { id: "uk-road-shields-b", image: "uk-shield-b", fill: "#ffffff", ring: "#000000", text: "#000000",
+      minzoom: 14,   // B i pozostałe drogi pokazujemy dopiero po większym zbliżeniu
+      textSize: 11,
+      match: ["all", ["!=", SHIELD_FIRST_LETTER, "M"], ["!=", SHIELD_FIRST_LETTER, "A"]] },
+    { id: "uk-road-shields-a", image: "uk-shield-a", fill: "#006633", ring: "#FFCC00", text: "#FFCC00",
+      minzoom: 8, textSize: 10,
+      match: ["==", SHIELD_FIRST_LETTER, "A"] },
+    { id: "uk-road-shields-m", image: "uk-shield-m", fill: "#0079C1", ring: "#ffffff", text: "#ffffff",
+      minzoom: 8, textSize: 10,
+      match: ["==", SHIELD_FIRST_LETTER, "M"] }
+  ];
+  const SHIELD_LAYER_IDS = SHIELD_GROUPS.map(g => g.id);
 
   function addShieldImages(m){
-    // różne promienie zaokrągleń, żeby po przeskalowaniu do tekstu ramki były równoległe
-    if(!m.hasImage("uk-shield-fill"))  m.addImage("uk-shield-fill",  createRoundedRectIcon(120, 68, 16), { sdf: true });
-    if(!m.hasImage("uk-shield-ring"))  m.addImage("uk-shield-ring",  createRoundedRectIcon(120, 68, 19), { sdf: true });
-    if(!m.hasImage("uk-shield-plate")) m.addImage("uk-shield-plate", createRoundedRectIcon(120, 68, 22), { sdf: true });
+    SHIELD_GROUPS.forEach(g => {
+      if(m.hasImage(g.image)) return;
+      const img = createShieldImage(g.fill, g.ring);
+      m.addImage(g.image, img.data, img.options);
+    });
   }
 
   function shieldLayerSpecs(){
-    const base = {
+    return SHIELD_GROUPS.map(g => ({
+      id: g.id,
       type: "symbol",
       source: "openmaptiles",
       "source-layer": "transportation_name",
-      minzoom: 8,
+      minzoom: g.minzoom,
       filter: ["all",
         ["<=", ["get", "ref_length"], 6],
-        ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false]
-      ]
-    };
-    const layoutFor = (image, padV, padH) => ({
-      "symbol-placement": "point", // JEDEN znaczek na widoczny odcinek drogi, nie powtarzany co 200 m
-      "icon-image": image,
-      "icon-text-fit": "both",
-      "icon-text-fit-padding": [padV, padH, padV, padH],
-      "icon-rotation-alignment": "viewport",
-      "text-rotation-alignment": "viewport",
-      "icon-allow-overlap": true,
-      "icon-ignore-placement": true,
-      "text-allow-overlap": true,
-      "text-ignore-placement": true,
-      "text-field": ["to-string", ["get", "ref"]],
-      "text-font": ["Noto Sans Bold"],
-      "text-size": 11
-    });
-    const hiddenText = "rgba(0,0,0,0)"; // tekst potrzebny tylko do dopasowania rozmiaru ikony
-
-    const ringV = SHIELD_PAD_V + SHIELD_RING,  ringH = SHIELD_PAD_H + SHIELD_RING;
-    const plateV = ringV + SHIELD_WHITE,       plateH = ringH + SHIELD_WHITE;
-
-    return [
-      Object.assign({ id: "uk-road-shields-plate" }, base, {
-        layout: layoutFor("uk-shield-plate", plateV, plateH),
-        paint: { "icon-color": "#ffffff", "text-color": hiddenText }
-      }),
-      Object.assign({ id: "uk-road-shields-ring" }, base, {
-        layout: layoutFor("uk-shield-ring", ringV, ringH),
-        paint: {
-          "icon-color": shieldColorByClass("#ffffff", "#FFCC00", "#000000"),   // ramka: biała / żółta / czarna
-          "text-color": hiddenText
-        }
-      }),
-      Object.assign({ id: "uk-road-shields" }, base, {
-        layout: layoutFor("uk-shield-fill", SHIELD_PAD_V, SHIELD_PAD_H),
-        paint: {
-          "icon-color": shieldColorByClass("#0079C1", "#006633", "#ffffff"),   // tło: niebieskie / zielone / białe
-          "text-color": shieldColorByClass("#ffffff", "#FFCC00", "#000000")    // numer: biały / żółty / czarny
-        }
-      })
-    ];
+        ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false],
+        g.match
+      ],
+      layout: {
+        "symbol-placement": "point", // jeden znaczek na widoczny odcinek drogi
+        "icon-image": g.image,
+        "icon-text-fit": "both",
+        "icon-text-fit-padding": [0, 0, 0, 0], // odstępy są już wbudowane w obrazek
+        "icon-rotation-alignment": "viewport",
+        "text-rotation-alignment": "viewport",
+        // tablice NIE mogą się nakładać: te, które by na siebie weszły, są pomijane
+        "icon-allow-overlap": false,
+        "text-allow-overlap": false,
+        "icon-ignore-placement": false,
+        "text-ignore-placement": false,
+        "text-field": ["to-string", ["get", "ref"]],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": g.textSize
+      },
+      paint: { "text-color": g.text }
+    }));
   }
 
   function setupUkRoadShields(){
@@ -1217,7 +1234,7 @@
 
   // Wywołuj po każdej zmianie trybu dzień/noc oraz po załadowaniu mapy.
   function applyShieldMode(){
-    if(!map || !map.getLayer("uk-road-shields")) return; // mapa jeszcze się nie załadowała
+    if(!map || !map.getLayer(SHIELD_LAYER_IDS[0])) return; // mapa jeszcze się nie załadowała
     const el = document.getElementById("mapShields");
     const night = document.body.classList.contains("night");
 
@@ -1240,7 +1257,7 @@
       let done = false;
       const hideMain = () => {
         if(done || !shieldOverlayOn) return;
-        if(!shieldOverlay.getLayer("uk-road-shields")) return;
+        if(!shieldOverlay.getLayer(SHIELD_LAYER_IDS[0])) return;
         done = true;
         setMainShieldsVisible(false);
       };
