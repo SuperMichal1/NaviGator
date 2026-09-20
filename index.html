@@ -241,7 +241,7 @@
   #navPanel[data-navstate="confirm"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
   #navPanel[data-navstate="picker"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
   #navPanel[data-navstate="picker"] #navRoutePicker{ display:flex; }
-  #navPanel[data-navstate="picker"] #navGoBtn{ display:none; }
+  #navPanel[data-navstate="picker"] #navGoRow{ display:none; }
   #navPanel[data-navstate="confirm"] #navSearchBlock,
   #navPanel[data-navstate="picker"] #navSearchBlock,
   #navPanel[data-navstate="nav"] #navSearchBlock,
@@ -318,20 +318,40 @@
   }
   #navGoBtn:disabled{ opacity:.4; cursor:default; }
   #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
-  #navEditBtn{
-    background: rgba(255,255,255,0.08);
-    color: var(--text-main);
-    border:1px solid var(--panel-border);
-    padding:9px 12px;
+  /* wiersz z przyciskami celu: "Wyznacz trasę" (TomTom) i "Zaplanuj trasę" (darmowy silnik dla ciężarówek) */
+  #navGoRow{ display:flex; gap:8px; }
+  #navGoRow > button{ flex:1; }
+  #navPlanBtn{
+    background: transparent;
+    color: var(--accent);
+    border:1px solid var(--accent);
+    padding:10px 12px;
     border-radius:10px;
-    font-weight:600;
-    font-size:13px;
+    font-weight:700;
+    font-size:14px;
     font-family:'Inter', sans-serif;
     cursor:pointer;
   }
-  #navEditBtn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); border-color: transparent; }
-  #navRouteBtnRow{ display:flex; gap:8px; }
+  #navPlanBtn:disabled{ opacity:.4; cursor:default; }
+  #navPlanBtn:active:not(:disabled){ transform: scale(0.98); }
+  /* podpowiedź i przycisk startu widać tylko, gdy zaplanowana trasa czeka na ewentualne poprawki */
+  #navPlanHint{ display:none; font-size:12px; line-height:1.35; color: var(--text-dim); }
+  #navRouteInfo.planning #navPlanHint{ display:block; }
+  #navRouteBtnRow{ display:none; gap:8px; }
+  #navRouteInfo.planning #navRouteBtnRow{ display:flex; }
   #navRouteBtnRow > button{ flex:1; }
+  #navStartBtn{
+    background: var(--accent);
+    color:#0c0f12;
+    border:none;
+    padding:10px 12px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:14px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+  }
+  #navStartBtn:active{ transform: scale(0.98); }
   #navError{
     font-size:12px; color: var(--danger); display:none;
   }
@@ -672,15 +692,19 @@
         <span class="rcSub" id="navChooseAltSub"></span>
       </div>
     </div>
-    <button id="navGoBtn">Wyznacz trasę</button>
+    <div id="navGoRow">
+      <button id="navGoBtn">Wyznacz trasę</button>
+      <button id="navPlanBtn">Zaplanuj trasę</button>
+    </div>
   </div>
 
   <div id="navRouteInfo">
     <div class="rMain" id="navRouteMain">–</div>
     <div class="rSub" id="navRouteSub"></div>
     <div class="rTraffic" id="navRouteTraffic"></div>
+    <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
-      <button id="navEditBtn">✋ Edytuj trasę</button>
+      <button id="navStartBtn">▶ Rozpocznij jazdę</button>
     </div>
   </div>
 </div>
@@ -785,6 +809,14 @@
   /* ---------- TomTom (nawigacja: podpowiedzi adresów, trasa, ruch, limity) ---------- */
   const TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/";
   const TOMTOM_ROUTE_URL = "https://api.tomtom.com/routing/1/calculateRoute/";
+  // Darmowy silnik tras dla ciężarówek: Valhalla (FOSSGIS, dane OSM), bez klucza API i bez TomTom.
+  // Uwzględnia wymiary i masę pojazdu (niskie mosty, zakazy dla HGV, ograniczenia masy).
+  const VALHALLA_URL = "https://valhalla1.openstreetmap.de/route";
+  const HGV_PROFILE = { // dostosuj do swojego pojazdu (metry / tony)
+    height: 4.2, width: 2.55, length: 16.5, weight: 44, axle_load: 10, hazmat: false
+  };
+  const TRUCK_ROUTE_TIMEOUT_MS = 30000;
+  const PLANNING_AUTO_START_KMH = 15; // po przekroczeniu tej prędkości planowanie kończy się i włącza widok jazdy
   const TOMTOM_REVERSE_URL = "https://api.tomtom.com/search/2/reverseGeocode/";
   const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
   const NAV_SUGGEST_MIN_CHARS = 3;
@@ -2495,6 +2527,10 @@
     // wygładzanie
     currentSpeedKmh = Math.round(currentSpeedKmh * 0.35 + speedKmh * 0.65);
     if(currentSpeedKmh < 1.5) currentSpeedKmh = 0;
+    // ruszyliśmy z zaplanowaną trasą: koniec edycji, widok jazdy
+    if(activeRoute && activeRoute.planning && currentSpeedKmh > PLANNING_AUTO_START_KMH){
+      try{ startPlannedDriving(); }catch(e){ console.warn("Auto-start jazdy nie powiódł się:", e); }
+    }
 
     let targetHdg;
     if(currentSpeedKmh >= STOP_SPEED_KMH){
@@ -3079,6 +3115,13 @@
       });
     }
 
+    enterDrivingView();
+    renderNavRouteInfo();
+    setNavUiState("nav");
+  }
+
+  // widok jazdy: pełny ekran, 3D, kamera podąża za pojazdem
+  function enterDrivingView(){
     enterFullscreen();
     followUser = true;
     updateLocateBtnVisibility();
@@ -3093,10 +3136,154 @@
       bearing: currentHeading,
       duration: 800
     });
+  }
+
+  /* ============================================================
+     ZAPLANUJ TRASĘ — darmowa trasa dla ciężarówki (Valhalla), od razu w trybie edycji
+  ============================================================ */
+  let truckRouteAbort = null;
+
+  // dekoder kodowanej linii (Valhalla używa precyzji 6); zwraca [[lon,lat],...]
+  function decodePolyline(str, precision){
+    const factor = Math.pow(10, precision);
+    const coords = [];
+    let index = 0, lat = 0, lng = 0;
+    while(index < str.length){
+      let b, shift = 0, result = 0;
+      do{ b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; }while(b >= 0x20);
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+      shift = 0; result = 0;
+      do{ b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; }while(b >= 0x20);
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+      coords.push([lng / factor, lat / factor]);
+    }
+    return coords;
+  }
+
+  function fetchTruckRoute(origin, dest){
+    if(truckRouteAbort) truckRouteAbort.abort();
+    truckRouteAbort = new AbortController();
+    const ctrl = truckRouteAbort;
+    const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
+
+    const request = {
+      locations: [
+        { lat: origin.lat, lon: origin.lon, type: "break" },
+        { lat: dest.lat, lon: dest.lon, type: "break" }
+      ],
+      costing: "truck",
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, {
+        use_highways: 1.0,        // preferuj autostrady i drogi główne
+        use_living_streets: 0,    // nie wjeżdżaj na osiedlowe uliczki
+        use_tracks: 0
+      }) },
+      directions_options: { units: "kilometers", language: "pl-PL" }
+    };
+    // GET z parametrem json= (jak robi to openstreetmap.org) — zwykłe żądanie, bez preflightu CORS
+    return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
+      .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, status: r.status, data })))
+      .then(({ ok, status, data }) => {
+        if(!ok){
+          const err = new Error("VALHALLA_" + status);
+          err.code = data && data.error_code;
+          throw err;
+        }
+        const trip = data.trip;
+        if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
+        const coords = [];
+        trip.legs.forEach(leg => decodePolyline(leg.shape, 6).forEach(c => coords.push(c)));
+        if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
+        return {
+          coords,
+          distanceM: (trip.summary.length || 0) * 1000,
+          timeS: trip.summary.time || 0
+        };
+      })
+      .finally(() => clearTimeout(timer));
+  }
+
+  function planTruckRoute(){
+    showNavError("");
+    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
+    if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
+
+    enterFullscreen(); // w reakcji na klik, żeby przeglądarka to zaakceptowała
+    const planBtn = document.getElementById("navPlanBtn");
+    const goBtn = document.getElementById("navGoBtn");
+    planBtn.disabled = true; goBtn.disabled = true;
+    showNavStatus("Planuję trasę dla ciężarówki…");
+
+    fetchTruckRoute({ lat: lastPos.lat, lon: lastPos.lon }, navSelectedDest)
+      .then(route => startPlannedRoute(route))
+      .catch(err => {
+        if(err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas. Spróbuj ponownie.");
+        else if(err.code === 171) showNavError("Nie znaleziono drogi przy pinezce. Przesuń ją bliżej drogi dostępnej dla ciężarówek.");
+        else showNavError("Nie udało się zaplanować trasy dla ciężarówki (darmowy serwer Valhalla). Spróbuj ponownie albo użyj „Wyznacz trasę”.");
+        console.warn("Valhalla:", err);
+      })
+      .finally(() => {
+        showNavStatus("");
+        planBtn.disabled = false; goBtn.disabled = false;
+      });
+  }
+
+  // pokazuje zaplanowaną trasę w całości i od razu włącza jej edycję (łapanie i przeciąganie)
+  function startPlannedRoute(route){
+    activeRoute = {
+      coords: route.coords,
+      distanceM: route.distanceM,
+      timeS: route.timeS,
+      trafficDelayS: 0,
+      manuallyEdited: false,
+      source: "truck",
+      planning: true
+    };
+    routeSpeedSegments = [];
+    routeTrafficIncidents = [];
+    pendingRoutes = { main:null, alt:null };
+
+    setRouteLineCoords(activeRoute.coords, "route-line");
+    setRouteLineCoords([], "route-line-alt");
+    if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
+
+    routeEditMode = true;
+    applyRouteEditVisuals();
+    map.getCanvas().style.cursor = "";
+
+    // widok "całość trasy": płasko, bez podążania za pojazdem
+    followUser = false;
+    updateLocateBtnVisibility();
+    is3D = false;
+    document.getElementById("btnDim").classList.remove("active");
+    document.getElementById("dimIcon").textContent = "3D";
+    applyDrivingCamera(false);
 
     renderNavRouteInfo();
     setNavUiState("nav");
+
+    const panelH = document.getElementById("navPanel").offsetHeight || 220;
+    const c = activeRoute.coords;
+    const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
+    map.fitBounds(bounds, {
+      padding: { top: 90, left: 40, right: 80, bottom: panelH + 30 },
+      pitch: 0, bearing: 0, duration: 700
+    });
   }
+
+  // koniec planowania: wyłącz edycję, włącz widok jazdy
+  function startPlannedDriving(){
+    if(!activeRoute || !activeRoute.planning) return;
+    activeRoute.planning = false;
+    routeEditMode = false;
+    routeDragState = null;
+    applyRouteEditVisuals();
+    if(map){ map.dragPan.enable(); map.getCanvas().style.cursor = ""; }
+    if(lastPos) enterDrivingView();
+    renderNavRouteInfo();
+  }
+
+  document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
+  document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
     if(pendingRoutes.main) selectRoute("main");
@@ -3108,7 +3295,9 @@
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
     if(!activeRoute){ info.classList.remove("show"); return; }
-    const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna" : "";
+    const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
+      : activeRoute.source === "truck" ? " · trasa dla ciężarówki" : "";
+    info.classList.toggle("planning", !!activeRoute.planning);
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
       : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
@@ -3117,6 +3306,9 @@
     const trafficEl = document.getElementById("navRouteTraffic");
     if(activeRoute.manuallyEdited){
       trafficEl.textContent = "Czas przejazdu i limity dla zmienionego odcinka mogą być nieaktualne";
+      trafficEl.classList.remove("heavy");
+    } else if(activeRoute.source === "truck"){
+      trafficEl.textContent = "Trasa dla ciężarówek — bez danych o ruchu na żywo";
       trafficEl.classList.remove("heavy");
     } else if(activeRoute.trafficDelayS > 60){
       trafficEl.textContent = `⏱ Opóźnienie w ruchu: ok. ${Math.round(activeRoute.trafficDelayS/60)} min`;
@@ -3140,11 +3332,8 @@
     routeEditMode = false;
     routeDragState = null;
     applyRouteEditVisuals();
-    const editBtn = document.getElementById("navEditBtn");
-    editBtn.classList.remove("active");
-    editBtn.textContent = "✋ Edytuj trasę";
     document.getElementById("navDest").value = "";
-    document.getElementById("navRouteInfo").classList.remove("show");
+    document.getElementById("navRouteInfo").classList.remove("show", "planning");
     clearNavSuggestions();
     showNavError("");
     showNavStatus("");
@@ -3648,7 +3837,10 @@
           .concat(newSub)
           .concat(activeRoute.coords.slice(afterIdx + 1));
         activeRoute.coords = newCoords;
-        activeRoute.distanceM = routeLengthMeters(newCoords);
+        const oldLen = activeRoute.distanceM || routeLengthMeters(activeRoute.coords);
+        const newLen = routeLengthMeters(newCoords);
+        if(oldLen > 0 && activeRoute.timeS) activeRoute.timeS = activeRoute.timeS * (newLen / oldLen);
+        activeRoute.distanceM = newLen;
         activeRoute.manuallyEdited = true;
         setRouteLineCoords(newCoords);
         renderNavRouteInfo();
@@ -3667,15 +3859,6 @@
     map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
     map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
   }
-
-  document.getElementById("navEditBtn").addEventListener("click", () => {
-    routeEditMode = !routeEditMode;
-    applyRouteEditVisuals();
-    const btn = document.getElementById("navEditBtn");
-    btn.classList.toggle("active", routeEditMode);
-    btn.textContent = routeEditMode ? "✋ Kliknij i przeciągnij trasę" : "✋ Edytuj trasę";
-    if(map) map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
-  });
 
   /* ============================================================
      TRYB PEŁNEGO EKRANU (przydatny podczas nawigacji)
