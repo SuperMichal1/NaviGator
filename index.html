@@ -224,6 +224,18 @@
     color: var(--text-dim); font-size:16px; cursor:pointer;
     background: rgba(255,255,255,0.06);
   }
+  .navHeaderActions{ display:flex; align-items:center; gap:6px; }
+  #navCloseBtn{
+    width:26px; height:26px; border-radius:8px;
+    display:none; align-items:center; justify-content:center;
+    color: var(--text-main); font-size:14px; cursor:pointer;
+    background: rgba(255,255,255,0.10);
+  }
+  #navCloseBtn:active{ transform: scale(0.94); }
+  /* X pojawia się, gdy jest co zamknąć: cel, wybór trasy albo trwająca nawigacja */
+  #navPanel[data-navstate="confirm"] #navCloseBtn,
+  #navPanel[data-navstate="picker"] #navCloseBtn,
+  #navPanel[data-navstate="nav"] #navCloseBtn{ display:flex; }
   /* pokazuj/chowaj bloki zależnie od stanu */
   #navConfirmBlock, #navRoutePicker{ display:none; }
   #navPanel[data-navstate="confirm"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
@@ -306,17 +318,6 @@
   }
   #navGoBtn:disabled{ opacity:.4; cursor:default; }
   #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
-  #navCancelBtn{
-    background: rgba(255,255,255,0.08);
-    color: var(--text-main);
-    border:1px solid var(--panel-border);
-    padding:9px 12px;
-    border-radius:10px;
-    font-weight:600;
-    font-size:13px;
-    font-family:'Inter', sans-serif;
-    cursor:pointer;
-  }
   #navEditBtn{
     background: rgba(255,255,255,0.08);
     color: var(--text-main);
@@ -642,7 +643,10 @@
 <div id="navPanel" data-navstate="search">
   <div class="navHeader">
     <div class="navTitle">Nawigator</div>
-    <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
+    <div class="navHeaderActions">
+      <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
+      <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
+    </div>
   </div>
 
   <div id="navSearchBlock">
@@ -677,7 +681,6 @@
     <div class="rTraffic" id="navRouteTraffic"></div>
     <div id="navRouteBtnRow">
       <button id="navEditBtn">✋ Edytuj trasę</button>
-      <button id="navCancelBtn">Anuluj trasę</button>
     </div>
   </div>
 </div>
@@ -789,16 +792,26 @@
   const NAV_DEFAULT_COUNTRY = "GB"; // aplikacja działa głównie w Anglii — podpowiedzi/trasy domyślnie faworyzują UK
 
   /* ---------- ręczna edycja trasy — lokalne trasowanie po drogach z OSM/Overpass, bez TomTom ---------- */
+  // Edycja trasy korzysta wyłącznie z głównych dróg (bez osiedli, dojazdów i dróg serwisowych),
+  // a drogi zamknięte dla HGV/prywatne są pomijane.
   const LOCAL_ROUTE_HIGHWAY_CLASSES =
-    "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service";
+    "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link";
+  const LOCAL_ROUTE_ACCESS_FILTER = '["hgv"!~"^(no)$"]["access"!~"^(no|private)$"]';
+  // im większa waga, tym chętniej trasa wybiera daną klasę drogi (koszt = dystans / waga)
   const LOCAL_ROUTE_CLASS_WEIGHT = {
     motorway:1, motorway_link:0.9, trunk:0.95, trunk_link:0.85,
-    primary:0.85, primary_link:0.75, secondary:0.7, secondary_link:0.6,
-    tertiary:0.55, tertiary_link:0.5, unclassified:0.35,
-    residential:0.3, living_street:0.2, service:0.12
+    primary:0.85, primary_link:0.75, secondary:0.6, secondary_link:0.5,
+    tertiary:0.4, tertiary_link:0.35, unclassified:0.15,
+    residential:0.08, living_street:0.05, service:0.05
   };
-  const LOCAL_ROUTE_ANCHOR_M = 1200; // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
-  const LOCAL_ROUTE_BBOX_PAD_DEG = 0.012; // ~1.3 km zapasu wokół kotwic przy pobieraniu dróg
+  const LOCAL_ROUTE_ANCHOR_M = 1800;      // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
+  const LOCAL_ROUTE_BBOX_PAD_DEG = 0.015; // zapas wokół kotwic przy pobieraniu dróg
+  const LOCAL_ROUTE_ANCHOR_SNAP_M = 150;  // maks. odległość kotwicy od drogi w grafie
+  const LOCAL_ROUTE_DRAG_SNAP_M = 600;    // maks. odległość upuszczonego punktu od głównej drogi
+  const LOCAL_ROUTE_SPIKE_ANGLE_DEG = 150; // zawrotka ostrzejsza niż to na krótkim odcinku = "kolec", usuwamy
+  const LOCAL_ROUTE_SPIKE_LEG_M = 80;
+  const LOCAL_ROUTE_MAX_DETOUR_FACTOR = 3; // nowy fragment nie może być dłuższy niż tyle razy stary (+1,5 km zapasu)
+  const ROUTE_HIT_WIDTH_PX = 44;          // szerokość "pola łapania" trasy w trybie edycji
   const LOCAL_ROUTE_SPEED_KMH = { // założone prędkości do szacowania czasu przejazdu trasy alternatywnej
     motorway:100, motorway_link:70, trunk:90, trunk_link:60,
     primary:80, primary_link:50, secondary:60, secondary_link:45,
@@ -1467,13 +1480,23 @@
         }
       });
 
+      // Niewidoczna, szeroka warstwa tylko do łapania trasy w trybie edycji: palec/kursor nie
+      // musi trafić w cienką linię — wystarczy być w jej pobliżu (ok. 22 px z każdej strony).
+      map.addLayer({
+        id:"route-line-hit",
+        type:"line",
+        source:"route-line",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#000000", "line-width": ROUTE_HIT_WIDTH_PX, "line-opacity": 0.01 }
+      }, "cameras-glow");
+
       // interakcja "przeciągnij trasę" — patrz sekcja RĘCZNA EDYCJA TRASY
-      map.on("mousedown", "route-line-main", onRouteDragStart);
-      map.on("touchstart", "route-line-main", onRouteDragStart);
-      map.on("mouseenter", "route-line-main", () => {
+      map.on("mousedown", "route-line-hit", onRouteDragStart);
+      map.on("touchstart", "route-line-hit", onRouteDragStart);
+      map.on("mouseenter", "route-line-hit", () => {
         if(routeEditMode && !routeDragState) map.getCanvas().style.cursor = "grab";
       });
-      map.on("mouseleave", "route-line-main", () => {
+      map.on("mouseleave", "route-line-hit", () => {
         if(!routeDragState) map.getCanvas().style.cursor = "";
       });
 
@@ -3116,6 +3139,7 @@
     routeTrafficIncidents = [];
     routeEditMode = false;
     routeDragState = null;
+    applyRouteEditVisuals();
     const editBtn = document.getElementById("navEditBtn");
     editBtn.classList.remove("active");
     editBtn.textContent = "✋ Edytuj trasę";
@@ -3137,7 +3161,7 @@
   }
 
   document.getElementById("navGoBtn").addEventListener("click", planRoutes);
-  document.getElementById("navCancelBtn").addEventListener("click", clearNavRoute);
+  document.getElementById("navCloseBtn").addEventListener("click", clearNavRoute);
 
   document.getElementById("btnNav").addEventListener("click", () => {
     const panel = document.getElementById("navPanel");
@@ -3250,11 +3274,13 @@
   function buildLocalRoadGraph(elements){
     const coordOf = new Map();
     const adj = new Map();
+    const inBearings = new Map(); // kierunki krawędzi WCHODZĄCYCH do węzła (do dopasowania kotwic)
     const nodeKey = (lat, lon) => lat.toFixed(5) + "," + lon.toFixed(5);
     function ensureNode(lat, lon){
       const k = nodeKey(lat, lon);
       if(!coordOf.has(k)) coordOf.set(k, [lon, lat]);
       if(!adj.has(k)) adj.set(k, []);
+      if(!inBearings.has(k)) inBearings.set(k, []);
       return k;
     }
     (elements || []).forEach(el => {
@@ -3270,11 +3296,17 @@
         const kB = ensureNode(geom[i+1].lat, geom[i+1].lon);
         const dist = haversine(geom[i].lat, geom[i].lon, geom[i+1].lat, geom[i+1].lon);
         const cost = dist / classWeight;
-        adj.get(kA).push({ to:kB, cost, distM:dist, speedKmh });
-        if(!oneway) adj.get(kB).push({ to:kA, cost, distM:dist, speedKmh });
+        const brg = bearingBetween(geom[i].lat, geom[i].lon, geom[i+1].lat, geom[i+1].lon);
+        const brgBack = (brg + 180) % 360;
+        adj.get(kA).push({ to:kB, cost, distM:dist, speedKmh, bearing: brg });
+        inBearings.get(kB).push(brg);
+        if(!oneway){
+          adj.get(kB).push({ to:kA, cost, distM:dist, speedKmh, bearing: brgBack });
+          inBearings.get(kA).push(brgBack);
+        }
       }
     });
-    return { adj, coordOf, nodeKey };
+    return { adj, coordOf, nodeKey, inBearings };
   }
 
   function nearestGraphNode(graph, lat, lon){
@@ -3361,8 +3393,122 @@
     return { coords: keys.map(k => graph.coordOf.get(k)), distM, timeS };
   }
 
-  // liczy nowy lokalny przebieg drogi: beforeLL -> dragLL -> afterLL, trzymając się głównych dróg
-  function computeLocalDetour(beforeLL, dragLL, afterLL){
+  // Najbliższy węzeł grafu w promieniu maxM. Jeśli znamy kierunek trasy, węzły, przy których
+  // nie da się jechać zgodnie z nim (np. druga jezdnia autostrady), dostają karę — inaczej trasa
+  // zaczynałaby się zawrotką.  mode: "out" = wyjazd z węzła, "in" = wjazd do węzła.
+  function nearestGraphNodeAligned(graph, lat, lon, routeBearing, mode, maxM){
+    let bestKey = null, bestScore = Infinity;
+    for(const [k, c] of graph.coordOf){
+      const d = haversine(lat, lon, c[1], c[0]);
+      if(d > maxM) continue;
+      let penalty = 0;
+      if(routeBearing !== null && routeBearing !== undefined){
+        const bearings = mode === "out"
+          ? (graph.adj.get(k) || []).map(e => e.bearing)
+          : (graph.inBearings.get(k) || []);
+        if(!bearings.some(b => Math.abs(angleDiffDeg(routeBearing, b)) < 60)) penalty = 80;
+      }
+      if(d + penalty < bestScore){ bestScore = d + penalty; bestKey = k; }
+    }
+    return bestKey;
+  }
+
+  function nearestGraphNodeWithin(graph, lat, lon, maxM){
+    return nearestGraphNodeAligned(graph, lat, lon, null, "out", maxM);
+  }
+
+  // Punkt upuszczenia trasy "przyklejamy" do najbliższego PUNKTU NA DRODZE (a nie tylko do najbliższego
+  // węzła): na długich prostych odcinkach najbliższy węzeł bywa na zupełnie innej drodze.
+  // W razie potrzeby dzieli krawędź grafu, wstawiając nowy węzeł. Zwraca klucz węzła albo null.
+  function snapPointToGraph(graph, lat, lon, maxM){
+    const kx = Math.cos(lat * Math.PI / 180);
+    let best = null;
+    for(const [ka, edges] of graph.adj){
+      const a = graph.coordOf.get(ka);
+      for(const e of edges){
+        const b = graph.coordOf.get(e.to);
+        if(!b) continue;
+        const ax = a[0] * kx, ay = a[1], bx = b[0] * kx, by = b[1];
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        let t = len2 ? (((lon * kx) - ax) * dx + (lat - ay) * dy) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const pt = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        const d = haversine(lat, lon, pt[1], pt[0]);
+        if(d <= maxM && (!best || d < best.d)) best = { d, ka, e, t, pt };
+      }
+    }
+    if(!best) return null;
+    if(best.t < 0.05) return best.ka;   // praktycznie w istniejącym węźle
+    if(best.t > 0.95) return best.e.to;
+
+    const newKey = "snap:" + best.pt[1].toFixed(6) + "," + best.pt[0].toFixed(6);
+    if(graph.coordOf.has(newKey)) return newKey;
+    graph.coordOf.set(newKey, best.pt);
+    graph.adj.set(newKey, []);
+    graph.inBearings.set(newKey, []);
+    const { ka, e, t } = best;
+    const part = (to, f, bearing) => ({ to, cost: e.cost * f, distM: e.distM * f, speedKmh: e.speedKmh, bearing });
+    graph.adj.get(ka).push(part(newKey, t, e.bearing));
+    graph.adj.get(newKey).push(part(e.to, 1 - t, e.bearing));
+    // droga dwukierunkowa: krawędź powrotna też istnieje
+    const back = (graph.adj.get(e.to) || []).find(x => x.to === ka);
+    if(back){
+      graph.adj.get(e.to).push(part(newKey, 1 - t, back.bearing));
+      graph.adj.get(newKey).push(part(ka, t, back.bearing));
+    }
+    return newKey;
+  }
+
+  // usuwa pętle: jeśli ścieżka wraca do węzła, w którym już była, wycinamy wszystko pomiędzy
+  // (to usuwa też "kolce", czyli wjazd w boczną drogę i powrót tą samą)
+  function eraseLoops(keys){
+    const out = [];
+    const pos = new Map();
+    keys.forEach(k => {
+      if(pos.has(k)){
+        const i = pos.get(k);
+        for(let j = i + 1; j < out.length; j++) pos.delete(out[j]);
+        out.length = i + 1;
+      } else {
+        pos.set(k, out.length);
+        out.push(k);
+      }
+    });
+    return out;
+  }
+
+  // usuwa punkty tworzące ostrą zawrotkę na krótkim odcinku (zawijasy)
+  function removeSpikes(coords){
+    let pts = coords.slice();
+    for(let pass = 0; pass < 10; pass++){
+      let changed = false;
+      const next = [pts[0]];
+      for(let i = 1; i < pts.length - 1; i++){
+        const a = next[next.length - 1], b = pts[i], c = pts[i + 1];
+        const d1 = haversine(a[1], a[0], b[1], b[0]);
+        const d2 = haversine(b[1], b[0], c[1], c[0]);
+        if(d1 > 0 && d2 > 0){
+          const turn = Math.abs(angleDiffDeg(
+            bearingBetween(a[1], a[0], b[1], b[0]), bearingBetween(b[1], b[0], c[1], c[0])));
+          if(turn > LOCAL_ROUTE_SPIKE_ANGLE_DEG && Math.min(d1, d2) < LOCAL_ROUTE_SPIKE_LEG_M){
+            changed = true;
+            continue; // pomijamy punkt b
+          }
+        }
+        next.push(b);
+      }
+      next.push(pts[pts.length - 1]);
+      pts = next;
+      if(!changed) break;
+    }
+    return pts;
+  }
+
+  // Liczy nowy lokalny przebieg: beforeLL -> dragLL -> afterLL wyłącznie głównymi drogami.
+  // opts: { beforeBearing, afterBearing, origLenM } — kierunki trasy w kotwicach i długość starego fragmentu.
+  // Zwraca listę [lon,lat] zaczynającą się w beforeLL i kończącą w afterLL albo null.
+  function computeLocalDetour(beforeLL, dragLL, afterLL, opts){
+    opts = opts || {};
     const lats = [beforeLL[1], dragLL[1], afterLL[1]];
     const lons = [beforeLL[0], dragLL[0], afterLL[0]];
     const south = Math.min(...lats) - LOCAL_ROUTE_BBOX_PAD_DEG;
@@ -3371,19 +3517,31 @@
     const east = Math.max(...lons) + LOCAL_ROUTE_BBOX_PAD_DEG;
     const query = `
       [out:json][timeout:20];
-      ( way["highway"~"^(${LOCAL_ROUTE_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
+      ( way["highway"~"^(${LOCAL_ROUTE_HIGHWAY_CLASSES})$"]${LOCAL_ROUTE_ACCESS_FILTER}(${south},${west},${north},${east}); );
       out geom;
     `;
     return tryEndpoints(query, 0).then(data => {
       const graph = buildLocalRoadGraph(data.elements);
       if(graph.coordOf.size === 0) return null;
-      const beforeKey = nearestGraphNode(graph, beforeLL[1], beforeLL[0]);
-      const dragKey = nearestGraphNode(graph, dragLL[1], dragLL[0]);
-      const afterKey = nearestGraphNode(graph, afterLL[1], afterLL[0]);
-      const path1 = dijkstraPath(graph, beforeKey, dragKey);
-      const path2 = dijkstraPath(graph, dragKey, afterKey);
-      if(!path1 || !path2) return null;
-      return path1.concat(path2.slice(1));
+
+      const beforeKey = nearestGraphNodeAligned(graph, beforeLL[1], beforeLL[0], opts.beforeBearing, "out", LOCAL_ROUTE_ANCHOR_SNAP_M);
+      const afterKey  = nearestGraphNodeAligned(graph, afterLL[1],  afterLL[0],  opts.afterBearing,  "in",  LOCAL_ROUTE_ANCHOR_SNAP_M);
+      const dragKey   = snapPointToGraph(graph, dragLL[1], dragLL[0], LOCAL_ROUTE_DRAG_SNAP_M);
+      if(!beforeKey || !afterKey || !dragKey) return null;
+
+      const keys1 = dijkstraKeys(graph, beforeKey, dragKey);
+      const keys2 = dijkstraKeys(graph, dragKey, afterKey);
+      if(!keys1 || !keys2) return null;
+
+      // połącz, wytnij pętle i kolce, dołącz dokładne punkty styku ze starą trasą
+      const keys = eraseLoops(keys1.concat(keys2.slice(1)));
+      let sub = [beforeLL].concat(keys.map(k => graph.coordOf.get(k)), [afterLL]);
+      sub = removeSpikes(sub);
+      if(sub.length < 2) return null;
+
+      // zbyt długi objazd to zwykle błąd (np. zawijas przez pół miasta) — odrzucamy
+      if(opts.origLenM && routeLengthMeters(sub) > opts.origLenM * LOCAL_ROUTE_MAX_DETOUR_FACTOR + 1500) return null;
+      return sub;
     });
   }
 
@@ -3399,7 +3557,7 @@
     const east = Math.max(originLL[0], destLL[0]) + LOCAL_ALT_BBOX_PAD_DEG;
     const query = `
       [out:json][timeout:25];
-      ( way["highway"~"^(${LOCAL_ALT_HIGHWAY_CLASSES})$"](${south},${west},${north},${east}); );
+      ( way["highway"~"^(${LOCAL_ALT_HIGHWAY_CLASSES})$"]${LOCAL_ROUTE_ACCESS_FILTER}(${south},${west},${north},${east}); );
       out geom;
     `;
     return tryEndpoints(query, 0).then(data => {
@@ -3436,9 +3594,15 @@
     }
     const beforeIdx = walkAlongRoute(coords, bestIdx, LOCAL_ROUTE_ANCHOR_M, -1);
     const afterIdx = walkAlongRoute(coords, bestIdx, LOCAL_ROUTE_ANCHOR_M, 1);
+    // kierunek jazdy trasy w kotwicach — pozwala wybrać właściwą jezdnię przy drogach dwujezdniowych
+    const bearingAt = (i, j) => (i === j || !coords[i] || !coords[j]) ? null
+      : bearingBetween(coords[i][1], coords[i][0], coords[j][1], coords[j][0]);
     routeDragState = {
       beforeIdx, afterIdx,
       beforeLL: coords[beforeIdx], afterLL: coords[afterIdx],
+      beforeBearing: bearingAt(beforeIdx, Math.min(beforeIdx + 1, coords.length - 1)),
+      afterBearing: bearingAt(Math.max(afterIdx - 1, 0), afterIdx),
+      origLenM: routeLengthMeters(coords.slice(beforeIdx, afterIdx + 1)),
       currentLL: [lngLat.lng, lngLat.lat]
     };
     map.dragPan.disable();
@@ -3466,16 +3630,16 @@
     map.dragPan.enable();
     map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
     if(!routeDragState) return;
-    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL } = routeDragState;
+    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL, beforeBearing, afterBearing, origLenM } = routeDragState;
     const dropLL = currentLL || [e.lngLat.lng, e.lngLat.lat];
     routeDragState = null;
 
     showNavStatus("Dopasowuję nowy fragment do głównych dróg…");
-    computeLocalDetour(beforeLL, dropLL, afterLL)
+    computeLocalDetour(beforeLL, dropLL, afterLL, { beforeBearing, afterBearing, origLenM })
       .then(newSub => {
         showNavStatus("");
         if(!newSub || newSub.length < 2){
-          showNavError("Nie znaleziono w pobliżu drogi — przywracam poprzedni przebieg.");
+          showNavError("Nie znaleziono sensownego przebiegu głównymi drogami — przywracam poprzedni.");
           setRouteLineCoords(activeRoute.coords);
           return;
         }
@@ -3497,8 +3661,16 @@
       });
   }
 
+  // w trybie edycji trasa jest grubsza, żeby było widać, że można ją złapać
+  function applyRouteEditVisuals(){
+    if(!map || !map.getLayer("route-line-main")) return;
+    map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
+    map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
+  }
+
   document.getElementById("navEditBtn").addEventListener("click", () => {
     routeEditMode = !routeEditMode;
+    applyRouteEditVisuals();
     const btn = document.getElementById("navEditBtn");
     btn.classList.toggle("active", routeEditMode);
     btn.textContent = routeEditMode ? "✋ Kliknij i przeciągnij trasę" : "✋ Edytuj trasę";
