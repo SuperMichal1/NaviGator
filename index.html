@@ -99,33 +99,40 @@
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
 
-  /* ---------- Top-right controls ---------- */
-  #controls{
-    position:absolute; top: max(16px, env(safe-area-inset-top)); right:16px;
-    display:flex; flex-direction:column; gap:10px;
-    z-index:40;
+  /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
+  #navIconRow{
+    position:fixed; left:0; right:0; bottom:0;
+    z-index:47;
+    display:flex; align-items:center; justify-content:space-evenly;
+    gap:6px;
+    padding: 8px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom));
+    background: rgba(255,255,255,0.07);
+    border-top:1px solid rgba(255,255,255,0.14);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.28);
   }
+  .navIconWrap{ position:relative; display:flex; }
   .ctrl-btn{
-    width:50px; height:50px;
-    border-radius:16px;
-    background: var(--panel-bg);
-    border:1px solid var(--panel-border);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    width:44px; height:44px;
+    border-radius:14px;
+    background: rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.14);
     color: var(--text-main);
     display:flex; align-items:center; justify-content:center;
-    font-size:20px;
+    font-size:18px;
     cursor:pointer;
-    box-shadow: 0 6px 18px rgba(0,0,0,.25);
     transition: background .3s, transform .15s, color .3s;
     user-select:none;
   }
   .ctrl-btn:active{ transform: scale(0.92); }
   .ctrl-btn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); }
+  /* menu zgłoszeń (fotoradar/parking) wyskakuje TERAZ W GÓRĘ, znad flagi, bo pasek ikon jest na dole ekranu */
   .reportSubMenu{
     display:none;
-    flex-direction:column;
-    gap:10px;
+    position:absolute; bottom: calc(100% + 8px); left:50%; transform: translateX(-50%);
+    flex-direction:row;
+    gap:8px;
   }
   .reportSubMenu.open{ display:flex; }
   .ctrl-btn .label{
@@ -149,7 +156,7 @@
   #btnLocate{
     position:absolute;
     left:16px;
-    bottom: max(16px, env(safe-area-inset-bottom));
+    bottom: calc(var(--nav-icon-row-h, 64px) + 14px);
     z-index:40;
     display:flex;
     align-items:center;
@@ -170,7 +177,7 @@
     user-select:none;
     opacity:0;
     transform: translateY(10px) scale(.96);
-    transition: opacity .25s ease, transform .25s ease, background .25s;
+    transition: opacity .25s ease, transform .25s ease, background .25s, bottom .25s ease;
     pointer-events:none;
   }
   #btnLocate.visible{
@@ -185,34 +192,48 @@
     border-color: rgba(255,176,32,0.25);
   }
 
-  /* ---------- Nawigator: panel wyznaczania trasy ---------- */
+  /* ---------- Nawigator: panel wyznaczania trasy ----------
+     Szklana karta zadokowana nad paskiem ikon (#navIconRow). Chowa się w dół (za pasek ikon)
+     po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
+     wtedy widoczny zostaje tylko pasek ikon. */
   #navPanel{
-    position:absolute; top: max(16px, env(safe-area-inset-top)); right:74px;
-    width: min(320px, calc(100vw - 100px));
-    background: var(--panel-bg);
-    border:1px solid var(--panel-border);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-radius:16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    padding:12px;
+    position:fixed; left:0; right:0;
+    bottom: var(--nav-icon-row-h, 64px);
+    width:100%;
+    background: rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.16);
+    border-bottom:none;
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border-radius:20px 20px 0 0;
+    box-shadow: 0 -10px 34px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.16);
+    padding:0 14px 14px;
     z-index:45;
-    display:none;
+    display:flex;
     flex-direction:column;
     gap:8px;
-    max-height: calc(100vh - 32px - env(safe-area-inset-top));
+    max-height: min(74vh, 640px);
     overflow-y:auto;
-    transition: all .2s ease;
+    transform: translateY(0);
+    transition: transform .32s cubic-bezier(.2,.85,.3,1);
   }
-  #navPanel.open{ display:flex; }
-  /* stan po wybraniu celu / dobieraniu trasy / w trakcie nawigacji: pasek na dole, na całą szerokość */
-  #navPanel[data-navstate="confirm"], #navPanel[data-navstate="picker"], #navPanel[data-navstate="nav"]{
-    top:auto; right:0; left:0; bottom:0;
-    width:100%; max-width:none;
-    border-radius:20px 20px 0 0;
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-    max-height: 60vh;
+  #navPanel.dragging{ transition:none; }
+  /* Zwinięcie NIE chowa całej karty poza ekran — zostawia widoczny uchwyt + nagłówek tuż nad
+     paskiem ikon (żeby dało się złapać kartę z powrotem gestem, a nie tylko przyciskiem 🧭).
+     --nav-collapsed-shift wylicza JS na podstawie realnej wysokości uchwytu+nagłówka. */
+  #navPanel.collapsed{ transform: translateY(var(--nav-collapsed-shift, 220px)); }
+  #navDragHandle{
+    position:sticky; top:0;
+    display:flex; justify-content:center;
+    padding:9px 0 6px;
+    margin:0 -14px 0;
+    background: inherit;
+    cursor:grab;
+    touch-action:none;
+    z-index:1;
   }
+  #navDragHandle:active{ cursor:grabbing; }
+  .navGrip{ width:38px; height:4px; border-radius:2px; background: rgba(255,255,255,0.38); box-shadow:0 1px 4px rgba(0,0,0,.3); }
   .navHeader{ display:flex; align-items:center; justify-content:space-between; }
   .navTitle{
     font-size:12px; font-weight:700; letter-spacing:.04em;
@@ -268,14 +289,12 @@
   #navDest::placeholder{ color: var(--text-dim); }
   #navDest:focus{ border-color: var(--accent); }
   #navSuggestions{
-    position:fixed; left:0; top:0; width:200px;
-    background: var(--panel-bg-solid);
+    display:none;
+    background: rgba(255,255,255,0.05);
     border:1px solid var(--panel-border);
     border-radius:10px;
     overflow:hidden;
-    z-index:200;
-    box-shadow: 0 10px 24px rgba(0,0,0,.4);
-    display:none;
+    margin-top:8px;
   }
   #navSuggestions.open{ display:block; }
   .navSuggestion{
@@ -651,30 +670,13 @@
   </div>
 </div>
 
-<div id="controls">
-  <div class="ctrl-btn" id="btnNav" title="Nawigator — wyznacz trasę">🧭</div>
-  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
-  <div class="ctrl-btn" id="btnDim" title="2D / 3D">
-    <span id="dimIcon">3D</span>
-  </div>
-  <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
-  <div class="reportSubMenu" id="reportSubMenu">
-    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
-    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
-  </div>
-  <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
-    💾
-    <span class="badge" id="exportBadge">0</span>
-  </div>
-</div>
-
 <div id="btnLocate" title="Wyśrodkuj widok na mojej pozycji">
   <span class="locate-icon">🎯</span>
   <span class="locate-label">Centrum</span>
 </div>
 
-<div id="navPanel" data-navstate="search">
+<div id="navPanel" data-navstate="search" class="collapsed">
+  <div id="navDragHandle" title="Przeciągnij lub dotknij, żeby zwinąć/rozwinąć"><span class="navGrip"></span></div>
   <div class="navHeader">
     <div class="navTitle">Nawigator</div>
     <div class="navHeaderActions">
@@ -721,6 +723,26 @@
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
       <button id="navStartBtn">▶ Rozpocznij jazdę</button>
     </div>
+  </div>
+</div>
+
+<div id="navIconRow">
+  <div class="ctrl-btn" id="btnNav" title="Rozwiń / zwiń okno nawigatora">🧭</div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
+  <div class="ctrl-btn" id="btnDim" title="2D / 3D">
+    <span id="dimIcon">3D</span>
+  </div>
+  <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
+  <div class="navIconWrap">
+    <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+    <div class="reportSubMenu" id="reportSubMenu">
+      <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
+      <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+    </div>
+  </div>
+  <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
+    💾
+    <span class="badge" id="exportBadge">0</span>
   </div>
 </div>
 
@@ -2746,15 +2768,6 @@
     box.classList.remove("open");
   }
 
-  function positionNavSuggestions(){
-    const input = document.getElementById("navDest");
-    const box = document.getElementById("navSuggestions");
-    const rect = input.getBoundingClientRect();
-    box.style.left = Math.round(rect.left) + "px";
-    box.style.top = Math.round(rect.bottom + 6) + "px";
-    box.style.width = Math.round(rect.width) + "px";
-  }
-
   function navResultLabel(r){
     const addr = r.address || {};
     return addr.freeformAddress || r.poi?.name || "Nieznany adres";
@@ -2789,7 +2802,6 @@
       item.addEventListener("click", () => selectNavResult(r));
       box.appendChild(item);
     });
-    positionNavSuggestions();
     box.classList.add("open");
   }
 
@@ -2862,18 +2874,32 @@
     }
   });
 
-  window.addEventListener("resize", () => {
-    if(document.getElementById("navSuggestions").classList.contains("open")) positionNavSuggestions();
-  });
-
   document.addEventListener("click", (e) => {
     if(!e.target.closest("#navDestWrap")) clearNavSuggestions();
   });
 
+  function setNavPanelCollapsed(collapsed){
+    const panel = document.getElementById("navPanel");
+    panel.classList.toggle("collapsed", collapsed);
+    document.getElementById("btnNav").classList.toggle("active", !collapsed);
+  }
+
+  // ile miejsca u dołu ekranu realnie zasłania nasz interfejs: pasek ikon jest zawsze widoczny,
+  // karta nawigatora dolicza się do tego tylko wtedy, gdy jest rozwinięta
+  function getNavBottomChromeHeight(){
+    const row = document.getElementById("navIconRow");
+    const panel = document.getElementById("navPanel");
+    const rowH = row ? row.offsetHeight : 0;
+    const panelH = (panel && !panel.classList.contains("collapsed")) ? panel.offsetHeight : 0;
+    return rowH + panelH;
+  }
+
   function setNavUiState(state){
     navUiState = state;
     document.getElementById("navPanel").dataset.navstate = state;
+    setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
+    if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
   }
 
   /* ---------- pinezka celu: podgląd, przeciąganie, przesuwanie dwukrotnym kliknięciem ---------- */
@@ -3005,8 +3031,8 @@
     showDestPin();
     setNavUiState("confirm");
     if(map){
-      // dolny panel zasłania część mapy, więc pinezkę ustawiamy nad nim
-      const panelH = document.getElementById("navPanel").offsetHeight || 0;
+      // dolny panel (i pasek ikon pod nim) zasłaniają część mapy, więc pinezkę ustawiamy nad nimi
+      const panelH = getNavBottomChromeHeight() || 0;
       map.easeTo({
         center: [navSelectedDest.lon, navSelectedDest.lat],
         zoom: 16, pitch: 0, bearing: 0,
@@ -3320,7 +3346,7 @@
     renderNavRouteInfo();
     setNavUiState("nav");
 
-    const panelH = document.getElementById("navPanel").offsetHeight || 220;
+    const panelH = getNavBottomChromeHeight() || 220;
     const c = activeRoute.coords;
     const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
     map.fitBounds(bounds, {
@@ -3427,10 +3453,102 @@
 
   document.getElementById("btnNav").addEventListener("click", () => {
     const panel = document.getElementById("navPanel");
-    const open = panel.classList.toggle("open");
-    document.getElementById("btnNav").classList.toggle("active", open);
-    if(open) setTimeout(() => document.getElementById("navDest").focus(), 150);
+    const willCollapse = !panel.classList.contains("collapsed");
+    setNavPanelCollapsed(willCollapse);
+    if(!willCollapse && navUiState === "search"){
+      setTimeout(() => document.getElementById("navDest").focus(), 220);
+    }
   });
+
+  // Ile pikseli chowamy przy zwinięciu: cała wysokość karty MINUS uchwyt+nagłówek, które mają
+  // zostać widoczne jako "uchwyt" tuż nad paskiem ikon. Liczone na bieżąco, bo wysokość karty
+  // zależy od tego, który blok (wyszukiwanie/potwierdzenie/trasa) jest akurat pokazany.
+  function updateNavPanelPeek(){
+    const panel = document.getElementById("navPanel");
+    const handle = document.getElementById("navDragHandle");
+    const header = panel.querySelector(".navHeader");
+    const panelH = panel.offsetHeight; // transform nie zmienia offsetHeight, więc to zawsze "pełna" wysokość
+    const peekH = (handle ? handle.offsetHeight : 0) + (header ? header.offsetHeight : 0);
+    panel.style.setProperty("--nav-collapsed-shift", Math.max(panelH - peekH, 40) + "px");
+  }
+  function getNavCollapsedShiftPx(){
+    const v = parseFloat(getComputedStyle(document.getElementById("navPanel")).getPropertyValue("--nav-collapsed-shift"));
+    return isNaN(v) ? 220 : v;
+  }
+
+  /* ---------- Karta nawigatora: przeciąganie uchwytu w dół chowa ją za pasek ikon ---------- */
+  (function setupNavPanelDrag(){
+    const panel = document.getElementById("navPanel");
+    const handle = document.getElementById("navDragHandle");
+    const DRAG_COLLAPSE_THRESHOLD_PX = 70;
+    const TAP_MAX_MOVE_PX = 6;
+    let dragState = null;
+
+    function clientY(e){ return (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY; }
+
+    function onDragStart(e){
+      dragState = {
+        startY: clientY(e),
+        shiftPx: getNavCollapsedShiftPx(),
+        wasCollapsed: panel.classList.contains("collapsed"),
+        moved: false,
+        lastPx: 0
+      };
+      panel.classList.add("dragging");
+      document.addEventListener("mousemove", onDragMove);
+      document.addEventListener("touchmove", onDragMove, { passive:false });
+      document.addEventListener("mouseup", onDragEnd);
+      document.addEventListener("touchend", onDragEnd);
+    }
+
+    function onDragMove(e){
+      if(!dragState) return;
+      const dy = clientY(e) - dragState.startY;
+      if(Math.abs(dy) > TAP_MAX_MOVE_PX) dragState.moved = true;
+      if(!dragState.moved) return;
+      e.preventDefault();
+      // baza: 0 gdy rozwinięta, "shiftPx" gdy zwinięta — plus bieżące przesunięcie palca
+      const basePx = dragState.wasCollapsed ? dragState.shiftPx : 0;
+      const px = Math.min(Math.max(basePx + dy, 0), dragState.shiftPx);
+      dragState.lastPx = px;
+      panel.style.transform = `translateY(${px}px)`;
+    }
+
+    function onDragEnd(){
+      document.removeEventListener("mousemove", onDragMove);
+      document.removeEventListener("touchmove", onDragMove);
+      document.removeEventListener("mouseup", onDragEnd);
+      document.removeEventListener("touchend", onDragEnd);
+      panel.classList.remove("dragging");
+      panel.style.transform = "";
+      if(!dragState) return;
+      const { wasCollapsed, moved, shiftPx, lastPx } = dragState;
+      dragState = null;
+      if(!moved){
+        // zwykłe dotknięcie uchwytu (bez przeciągania) = przełącz zwinięcie/rozwinięcie
+        setNavPanelCollapsed(!wasCollapsed);
+        return;
+      }
+      // przeciągnięto: próg proporcjonalny do dystansu zwijania (na wypadek, gdy karta jest niska)
+      const threshold = Math.min(DRAG_COLLAPSE_THRESHOLD_PX, shiftPx * 0.5);
+      const collapseNow = wasCollapsed ? (lastPx > shiftPx - threshold) : (lastPx > threshold);
+      setNavPanelCollapsed(collapseNow);
+    }
+
+    handle.addEventListener("mousedown", onDragStart);
+    handle.addEventListener("touchstart", onDragStart, { passive:true });
+  })();
+
+  // wysokość paska ikon jako zmienna CSS — potrzebna, żeby karta nawigatora dokowała się
+  // dokładnie nad nim (safe-area-inset-bottom bywa różny na różnych telefonach)
+  function updateNavIconRowHeightVar(){
+    const row = document.getElementById("navIconRow");
+    if(row) document.documentElement.style.setProperty("--nav-icon-row-h", row.offsetHeight + "px");
+    updateNavPanelPeek();
+  }
+  updateNavIconRowHeightVar();
+  window.addEventListener("resize", updateNavIconRowHeightVar);
+  setTimeout(updateNavIconRowHeightVar, 400); // po doładowaniu fontów wysokości bywają inne
 
   document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
   document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
