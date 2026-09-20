@@ -118,7 +118,7 @@
     border-radius:14px;
     background: rgba(255,255,255,0.08);
     border:1px solid rgba(255,255,255,0.14);
-    color: var(--text-main);
+    color: #14181c;
     display:flex; align-items:center; justify-content:center;
     font-size:18px;
     cursor:pointer;
@@ -127,6 +127,9 @@
   }
   .ctrl-btn:active{ transform: scale(0.92); }
   .ctrl-btn.active{ background: var(--ctrl-active-bg); color: var(--ctrl-active-text); }
+  /* w nocy pasek jest widoczny na tle odwróconej (ciemnej) mapy — wraca jasna czcionka */
+  body.night .ctrl-btn{ color: var(--text-main); }
+  body.night .ctrl-btn.active{ color: var(--ctrl-active-text); }
   /* menu zgłoszeń (fotoradar/parking) wyskakuje TERAZ W GÓRĘ, znad flagi, bo pasek ikon jest na dole ekranu */
   .reportSubMenu{
     display:none;
@@ -168,7 +171,7 @@
     border:1px solid rgba(255,255,255,0.28);
     backdrop-filter: blur(22px) saturate(180%);
     -webkit-backdrop-filter: blur(22px) saturate(180%);
-    color: var(--text-main);
+    color: #14181c;
     font-family:'Inter', sans-serif;
     font-size:14px;
     font-weight:600;
@@ -193,6 +196,7 @@
   body.night #btnLocate, body.night #btnFitRoute{
     background: rgba(255,255,255,0.05);
     border-color: rgba(255,176,32,0.25);
+    color: var(--text-main);
   }
 
   /* ---------- Nawigator: panel wyznaczania trasy ----------
@@ -690,8 +694,8 @@
 </div>
 
 <div id="btnLocate" title="Wyśrodkuj widok na mojej pozycji">
-  <span class="locate-icon">🎯</span>
-  <span class="locate-label">Centrum</span>
+  <svg class="locate-icon" viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 2.2 4 21l8-5.1 8 5.1z"/></svg>
+  <span class="locate-label">Centruj</span>
 </div>
 
 <div id="btnFitRoute" title="Pokaż całą trasę">
@@ -751,7 +755,7 @@
 </div>
 
 <div id="navIconRow">
-  <div class="ctrl-btn" id="btnNav" title="Rozwiń / zwiń okno nawigatora">🧭</div>
+  <div class="ctrl-btn" id="btnNav" title="Rozwiń / zwiń okno nawigatora">🔍</div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
   <div class="ctrl-btn" id="btnDim" title="2D / 3D">
     <span id="dimIcon">3D</span>
