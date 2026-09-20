@@ -1061,6 +1061,11 @@
   const SHIELD_PAD_H = 4;      // odstęp tekstu od ramki: poziomo (px)
   const SHIELD_PAD_V = 3;      // odstęp tekstu od ramki: pionowo (px)
   const SHIELD_CORNER_PX = 4;  // zaokrąglenie rogów (px)
+  // Jak często powtarza się tablica wzdłuż drogi. Od tego zoomu tablice są powtarzane co
+  // SHIELD_SPACING_PX pikseli (niżej: jedna na odcinek). Mniejsza liczba = częściej.
+  // Zderzające się tablice i tablice zasłaniające numer zjazdu są i tak pomijane.
+  const SHIELD_LINE_FROM_ZOOM = 10;
+  const SHIELD_SPACING_PX = 350;
 
   function shieldRoundRect(ctx, x, y, w, h, r){
     r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -1144,8 +1149,10 @@
           "text-field": ["get", "ref"],
           "text-size": 11,
           "text-font": ["Noto Sans Bold"],
+          // numer zjazdu zawsze się wyświetla, ale zajmuje miejsce (z zapasem na kółko wokół niego),
+          // dzięki czemu tablice numerów dróg nie nachodzą na niego
           "text-allow-overlap": true,
-          "text-ignore-placement": true
+          "text-padding": 5
         },
         paint: { "text-color": "#1e3a8a" }
       }
@@ -1183,7 +1190,9 @@
         g.match
       ],
       layout: {
-        "symbol-placement": "point", // jeden znaczek na widoczny odcinek drogi
+        // przy dalekim widoku jedna tablica na odcinek, po zbliżeniu powtarzane wzdłuż drogi
+        "symbol-placement": ["step", ["zoom"], "point", SHIELD_LINE_FROM_ZOOM, "line"],
+        "symbol-spacing": SHIELD_SPACING_PX,
         "icon-image": g.image,
         "icon-text-fit": "both",
         "icon-text-fit-padding": [0, 0, 0, 0], // odstępy są już wbudowane w obrazek
