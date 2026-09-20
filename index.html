@@ -860,6 +860,7 @@
   const LOCAL_ROUTE_MAX_DETOUR_FACTOR = 2.2; // nowy fragment nie może być dłuższy niż tyle razy stary (+1,5 km zapasu)
   const LOCAL_ROUTE_MAX_STRAIGHT_FACTOR = 2.5; // ...ani dłuższy niż tyle razy odcinek "na wprost" między kotwicami — to właśnie łapie zawijasy/pętle, które factor powyżej mógłby przepuścić na krótkich, już powyginanych odcinkach
   const LOCAL_ROUTE_MAX_STRAIGHT_PAD_M = 800;
+  const LOCAL_ROUTE_REANCHOR_MAX_SPAN_M = 25000; // powyżej tylu metrów "rozciągania" okna edycji przy puszczeniu trasy nie ufamy już dynamicznemu dopasowaniu kotwic (zbyt duży obszar do zapytania Overpass) i wracamy do stałych 1800 m z miejsca złapania
   // Kara za skręt w trasowaniu lokalnym (Dijkstra): bez niej algorytm liczy tylko dystans/klasę drogi
   // i "nie widzi", że proponowany przebieg kluczy tam i z powrotem, byle był statystycznie krótszy —
   // to dokładnie ten efekt "uliczka koło uliczki" i pętle widoczne po ręcznym przeciągnięciu trasy.
@@ -933,6 +934,7 @@
   let lastFetchPos = null;
   let lastFetchTime = 0;
   let fetching = false;
+  let queuedRefetchPos = null; // gdy fetchOverpassData() wywołano w trakcie innego zapytania (np. zaraz po zgłoszeniu fotoradaru/parkingu) — zamiast po cichu je gubić, odpalamy je ponownie zaraz po zakończeniu bieżącego
   let cameras = [];             // [{id, lat, lon, alerted}] — WYNIKOWA lista (OSM+społeczność+lokalne zgłoszenia), używana do alertu
   let osmCameras = [];          // fotoradary z OSM/Overpass + zgłoszenia społeczności (Supabase), odświeżane co refetch
   let roadSegments = [];        // [{a:[lon,lat], b:[lon,lat], maxspeed:number}]
@@ -2034,7 +2036,13 @@
      OVERPASS API — fotoradary + drogi z maxspeed
   ============================================================ */
   function fetchOverpassData(lat, lon){
-    if(fetching) return;
+    if(fetching){
+      // Zapytanie już leci — zapamiętujemy tę (najnowszą) pozycję i odpalimy je ponownie zaraz po
+      // zakończeniu bieżącego, zamiast po cichu je gubić. To właśnie gubiło wymuszone odświeżenie
+      // mapy zaraz po zgłoszeniu fotoradaru/parkingu, jeśli akurat leciało zapytanie w tle.
+      queuedRefetchPos = { lat, lon };
+      return;
+    }
     fetching = true;
     roadDataState = "searching";
 
@@ -2070,7 +2078,14 @@
           if(lastPos) fetchOverpassData(lastPos.lat, lastPos.lon);
         }, OVERPASS_RETRY_AFTER_FAIL_MS);
       })
-      .finally(() => { fetching = false; });
+      .finally(() => {
+        fetching = false;
+        if(queuedRefetchPos){
+          const q = queuedRefetchPos;
+          queuedRefetchPos = null;
+          fetchOverpassData(q.lat, q.lon);
+        }
+      });
   }
 
   // próbuje kolejnych serwerów Overpass po kolei, zaczynając od tego, który ostatnio zadziałał
@@ -2217,24 +2232,25 @@
       return;
     }
     const lat = lastPos.lat, lon = lastPos.lon;
+    // Zgłoszenie pokazujemy na mapie OD RAZU, niezależnie od tego, co dalej stanie się z Supabase.
+    // Wcześniej przy udanym wysłaniu do wspólnej bazy nic nie rysowaliśmy lokalnie — liczyliśmy, że
+    // zaraz uda się je odczytać z powrotem z serwera. Jeśli ten odczyt po cichu zawiódł (brakująca
+    // tabela/funkcja po stronie Supabase, RLS, albo zwyczajnie inne zapytanie do Overpass leciało
+    // akurat w tle), zgłoszenie znikało — było wysłane, ale kierowca nigdy go nie widział.
+    userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+    saveUserHgvParking();
+    renderUserHgvParking();
+    updateExportBadge();
     if(supaConfigured()){
       supaReportPoint("hgv_parking", lat, lon).then(ok => {
         if(ok){
           showBanner("ZGŁOSZONO", "Parking HGV wysłany do wspólnej bazy — zobaczą go inni kierowcy", false);
-          fetchOverpassData(lat, lon); // odśwież, żeby od razu zobaczyć zgłoszenie na mapie
+          fetchOverpassData(lat, lon); // odśwież, żeby dociągnąć potwierdzenie społeczności (usunie "❔" i pokaże "🤝")
         } else {
-          userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
-          saveUserHgvParking();
-          renderUserHgvParking();
-          updateExportBadge();
           showBanner("ZAPISANO LOKALNIE", "Nie udało się wysłać do wspólnej bazy — zapisano tylko na tym urządzeniu", false);
         }
       });
     } else {
-      userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
-      saveUserHgvParking();
-      renderUserHgvParking();
-      updateExportBadge();
       showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
     }
   }
@@ -2245,24 +2261,21 @@
       return;
     }
     const lat = lastPos.lat, lon = lastPos.lon;
+    // jw. (patrz komentarz w reportHgvParkingHere): rysujemy natychmiast, niezależnie od Supabase
+    userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+    saveUserReportedCameras();
+    rebuildCameraList();
+    updateExportBadge();
     if(supaConfigured()){
       supaReportPoint("speed_camera", lat, lon).then(ok => {
         if(ok){
           showBanner("ZGŁOSZONO", "Fotoradar wysłany do wspólnej bazy — zobaczą go inni kierowcy", false);
           fetchOverpassData(lat, lon);
         } else {
-          userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
-          saveUserReportedCameras();
-          rebuildCameraList();
-          updateExportBadge();
           showBanner("ZAPISANO LOKALNIE", "Nie udało się wysłać do wspólnej bazy — zapisano tylko na tym urządzeniu", false);
         }
       });
     } else {
-      userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
-      saveUserReportedCameras();
-      rebuildCameraList();
-      updateExportBadge();
       showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
     }
   }
@@ -2410,6 +2423,24 @@
         });
       }
     });
+
+    // Jeśli wspólna baza właśnie potwierdziła TO SAMO miejsce, które zgłosiliśmy lokalnie z tego
+    // urządzenia — usuwamy lokalny "niepotwierdzony" pinezkę (🅿️❔), żeby nie dublować się z
+    // potwierdzonym znacznikiem społeczności (🅿️🤝) w tym samym miejscu.
+    const CONFIRM_DEDUPE_M = 60;
+    const stillUnconfirmedParking = userHgvParking.filter(p =>
+      !communityParkingFeatures.some(f => haversine(p.lat, p.lon, f.geometry.coordinates[1], f.geometry.coordinates[0]) < CONFIRM_DEDUPE_M));
+    if(stillUnconfirmedParking.length !== userHgvParking.length){
+      userHgvParking = stillUnconfirmedParking;
+      saveUserHgvParking();
+    }
+    const stillUnconfirmedCameras = userReportedCameras.filter(p =>
+      !supaReports.some(r => r.kind === "speed_camera" && haversine(p.lat, p.lon, r.lat, r.lon) < CONFIRM_DEDUPE_M));
+    if(stillUnconfirmedCameras.length !== userReportedCameras.length){
+      userReportedCameras = stillUnconfirmedCameras;
+      saveUserReportedCameras();
+    }
+    renderUserHgvParking();
 
     // zachowaj stan "alerted" dla kamer które już były znane
     const prevAlerted = new Set(cameras.filter(c=>c.alerted).map(c=>c.id));
@@ -3906,7 +3937,7 @@
     const bearingAt = (i, j) => (i === j || !coords[i] || !coords[j]) ? null
       : bearingBetween(coords[i][1], coords[i][0], coords[j][1], coords[j][0]);
     routeDragState = {
-      beforeIdx, afterIdx,
+      beforeIdx, afterIdx, grabIdx: bestIdx,
       beforeLL: coords[beforeIdx], afterLL: coords[afterIdx],
       beforeBearing: bearingAt(beforeIdx, Math.min(beforeIdx + 1, coords.length - 1)),
       afterBearing: bearingAt(Math.max(afterIdx - 1, 0), afterIdx),
@@ -3938,12 +3969,50 @@
     map.dragPan.enable();
     map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
     if(!routeDragState) return;
-    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL, beforeBearing, afterBearing, origLenM } = routeDragState;
+    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL, beforeBearing, afterBearing, origLenM, grabIdx } = routeDragState;
     const dropLL = currentLL || [e.lngLat.lng, e.lngLat.lat];
     routeDragState = null;
 
+    // Kotwice policzone przy ZŁAPANIU trasy (1800 m w obie strony) świetnie sprawdzają się przy
+    // drobnych poprawkach. Ale gdy kierowca przeciągnie punkt daleko wzdłuż planowanej trasy (np.
+    // żeby ominąć całą pętlę), "dalsza" kotwica zostaje w starym, nieruszonym miejscu — i nowy
+    // fragment musi najpierw dojechać do miejsca upuszczenia, a potem ZAWRÓCIĆ do tamtej odległej
+    // kotwicy, żeby połączyć się z resztą trasy. Stąd charakterystyczny kształt "V".
+    // Dlatego przy puszczeniu dopasowujemy kotwice jeszcze raz: szukamy punktu na ORYGINALNEJ
+    // trasie najbliższego miejscu upuszczenia i rozciągamy okno edycji tak, by objęło zarówno
+    // miejsce złapania, jak i miejsce upuszczenia — bez zawracania do tego, co zostało "z tyłu".
+    const coords = activeRoute.coords;
+    let dropIdx = grabIdx, bestDropDist = Infinity;
+    for(let i = 0; i < coords.length; i++){
+      const d = haversine(dropLL[1], dropLL[0], coords[i][1], coords[i][0]);
+      if(d < bestDropDist){ bestDropDist = d; dropIdx = i; }
+    }
+    const spanStartIdx = Math.min(grabIdx, dropIdx);
+    const spanEndIdx = Math.max(grabIdx, dropIdx);
+    const spanM = routeLengthMeters(coords.slice(spanStartIdx, spanEndIdx + 1));
+
+    let finalBeforeIdx = beforeIdx, finalAfterIdx = afterIdx;
+    let finalBeforeLL = beforeLL, finalAfterLL = afterLL;
+    let finalBeforeBearing = beforeBearing, finalAfterBearing = afterBearing;
+    let finalOrigLenM = origLenM;
+    if(spanM <= LOCAL_ROUTE_REANCHOR_MAX_SPAN_M){
+      const bearingAt = (i, j) => (i === j || !coords[i] || !coords[j]) ? null
+        : bearingBetween(coords[i][1], coords[i][0], coords[j][1], coords[j][0]);
+      finalBeforeIdx = walkAlongRoute(coords, spanStartIdx, LOCAL_ROUTE_ANCHOR_M, -1);
+      finalAfterIdx = walkAlongRoute(coords, spanEndIdx, LOCAL_ROUTE_ANCHOR_M, 1);
+      finalBeforeLL = coords[finalBeforeIdx];
+      finalAfterLL = coords[finalAfterIdx];
+      finalBeforeBearing = bearingAt(finalBeforeIdx, Math.min(finalBeforeIdx + 1, coords.length - 1));
+      finalAfterBearing = bearingAt(Math.max(finalAfterIdx - 1, 0), finalAfterIdx);
+      finalOrigLenM = routeLengthMeters(coords.slice(finalBeforeIdx, finalAfterIdx + 1));
+    }
+    // (span zbyt duży: zostajemy przy pierwotnych, stałych kotwicach z chwili złapania trasy —
+    // sanity-checki długości w computeLocalDetour i tak odrzucą bezsensowny wynik)
+
     showNavStatus("Dopasowuję nowy fragment do głównych dróg…");
-    computeLocalDetour(beforeLL, dropLL, afterLL, { beforeBearing, afterBearing, origLenM })
+    computeLocalDetour(finalBeforeLL, dropLL, finalAfterLL, {
+      beforeBearing: finalBeforeBearing, afterBearing: finalAfterBearing, origLenM: finalOrigLenM
+    })
       .then(newSub => {
         showNavStatus("");
         if(!newSub || newSub.length < 2){
@@ -3958,9 +4027,9 @@
           coords: activeRoute.coords, distanceM: activeRoute.distanceM,
           timeS: activeRoute.timeS, manuallyEdited: activeRoute.manuallyEdited
         };
-        const newCoords = activeRoute.coords.slice(0, beforeIdx)
+        const newCoords = activeRoute.coords.slice(0, finalBeforeIdx)
           .concat(newSub)
-          .concat(activeRoute.coords.slice(afterIdx + 1));
+          .concat(activeRoute.coords.slice(finalAfterIdx + 1));
         activeRoute.coords = newCoords;
         const oldLen = activeRoute.distanceM || routeLengthMeters(activeRoute.coords);
         const newLen = routeLengthMeters(newCoords);
