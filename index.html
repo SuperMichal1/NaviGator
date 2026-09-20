@@ -152,11 +152,12 @@
   }
   .badge.zero{ display:none; }
 
-  /* ---------- Przycisk wyśrodkowania (lewy dolny róg, szkło) ---------- */
-  #btnLocate{
+  /* ---------- Przyciski nad kartą nawigatora: "Centrum" (lewo) i "Cała trasa" (prawo) ----------
+     Trzymają się dokładnie nad tym, co aktualnie widać na dole ekranu (pasek ikon + ewentualnie
+     rozwinięta karta) — --side-widgets-bottom liczy to na bieżąco w JS. */
+  #btnLocate, #btnFitRoute{
     position:absolute;
-    left:16px;
-    bottom: calc(var(--nav-icon-row-h, 64px) + 14px);
+    bottom: var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px));
     z-index:40;
     display:flex;
     align-items:center;
@@ -180,14 +181,16 @@
     transition: opacity .25s ease, transform .25s ease, background .25s, bottom .25s ease;
     pointer-events:none;
   }
-  #btnLocate.visible{
+  #btnLocate{ left:16px; }
+  #btnFitRoute{ right:16px; }
+  #btnLocate.visible, #btnFitRoute.visible{
     opacity:1;
     transform: translateY(0) scale(1);
     pointer-events:auto;
   }
-  #btnLocate:active{ transform: scale(0.94); }
-  #btnLocate .locate-icon{ font-size:17px; line-height:1; }
-  body.night #btnLocate{
+  #btnLocate:active, #btnFitRoute:active{ transform: scale(0.94); }
+  #btnLocate .locate-icon, #btnFitRoute .locate-icon{ font-size:17px; line-height:1; }
+  body.night #btnLocate, body.night #btnFitRoute{
     background: rgba(255,255,255,0.05);
     border-color: rgba(255,176,32,0.25);
   }
@@ -277,21 +280,21 @@
   #navDestWrap{ position:relative; }
   #navDest{
     width:100%;
-    background: rgba(255,255,255,0.06);
-    border:1px solid var(--panel-border);
-    color: var(--text-main);
+    background: rgba(255,255,255,0.88);
+    border:1px solid rgba(0,0,0,0.12);
+    color: #14181c;
     font-family:'Inter', sans-serif;
     font-size:14px;
     padding:10px 12px;
     border-radius:10px;
     outline:none;
   }
-  #navDest::placeholder{ color: var(--text-dim); }
+  #navDest::placeholder{ color:#5b6570; }
   #navDest:focus{ border-color: var(--accent); }
   #navSuggestions{
     display:none;
-    background: rgba(255,255,255,0.05);
-    border:1px solid var(--panel-border);
+    background: rgba(255,255,255,0.92);
+    border:1px solid rgba(0,0,0,0.10);
     border-radius:10px;
     overflow:hidden;
     margin-top:8px;
@@ -300,14 +303,28 @@
   .navSuggestion{
     padding:10px 12px;
     font-size:13px;
-    color: var(--text-main);
+    color:#14181c;
     cursor:pointer;
-    border-bottom:1px solid var(--panel-border);
+    border-bottom:1px solid rgba(0,0,0,0.08);
   }
   .navSuggestion:last-child{ border-bottom:none; }
-  .navSuggestion:active, .navSuggestion.highlight{ background: rgba(255,255,255,0.08); }
+  .navSuggestion:active, .navSuggestion.highlight{ background: rgba(0,0,0,0.06); }
   .navSuggestion .addr1{ font-weight:600; }
-  .navSuggestion .addr2{ font-size:11px; color: var(--text-dim); margin-top:2px; }
+  .navSuggestion .addr2{ font-size:11px; color:#5b6570; margin-top:2px; }
+  /* W nocy panel jest widoczny na tle odwróconej (ciemnej) mapy, więc zostaje ciemne szkło + jasna czcionka */
+  body.night #navDest{
+    background: rgba(20,16,10,0.55);
+    border-color: rgba(255,176,32,0.18);
+    color: var(--text-main);
+  }
+  body.night #navDest::placeholder{ color: var(--text-dim); }
+  body.night #navSuggestions{
+    background: rgba(20,16,10,0.72);
+    border-color: rgba(255,176,32,0.14);
+  }
+  body.night .navSuggestion{ color: var(--text-main); border-bottom-color: rgba(255,176,32,0.10); }
+  body.night .navSuggestion:active, body.night .navSuggestion.highlight{ background: rgba(255,255,255,0.06); }
+  body.night .navSuggestion .addr2{ color: var(--text-dim); }
   #navRoutePicker{ flex-direction:column; gap:8px; }
   .navRouteChoice{
     display:flex; flex-direction:column; align-items:flex-start; gap:2px;
@@ -492,9 +509,11 @@
 
   /* ---------- Bottom-left: speed cluster ---------- */
   #speedCluster{
-    position:absolute; left:16px; bottom: calc(64px + env(safe-area-inset-bottom));
+    position:absolute; left:16px;
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 62px);
     display:flex; align-items:flex-end; gap:12px;
     z-index:40;
+    transition: bottom .25s ease;
   }
   #speedPanel{
     text-align:center;
@@ -673,6 +692,11 @@
 <div id="btnLocate" title="Wyśrodkuj widok na mojej pozycji">
   <span class="locate-icon">🎯</span>
   <span class="locate-label">Centrum</span>
+</div>
+
+<div id="btnFitRoute" title="Pokaż całą trasę">
+  <span class="locate-icon">🔎</span>
+  <span class="locate-label">Cała trasa</span>
 </div>
 
 <div id="navPanel" data-navstate="search" class="collapsed">
@@ -2882,16 +2906,25 @@
     const panel = document.getElementById("navPanel");
     panel.classList.toggle("collapsed", collapsed);
     document.getElementById("btnNav").classList.toggle("active", !collapsed);
+    if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar();
+  }
+
+  // ile miejsca u dołu ekranu realnie zasłania karta nawigatora: gdy jest zwinięta, to tylko
+  // widoczny "peek" (uchwyt+nagłówek), gdy rozwinięta — cała jej wysokość
+  function getNavPanelVisibleHeight(){
+    const panel = document.getElementById("navPanel");
+    if(!panel) return 0;
+    const panelH = panel.offsetHeight;
+    if(!panel.classList.contains("collapsed")) return panelH;
+    return Math.max(panelH - getNavCollapsedShiftPx(), 0);
   }
 
   // ile miejsca u dołu ekranu realnie zasłania nasz interfejs: pasek ikon jest zawsze widoczny,
-  // karta nawigatora dolicza się do tego tylko wtedy, gdy jest rozwinięta
+  // karta nawigatora dolicza się do tego w całości lub jako sam "peek" (patrz wyżej)
   function getNavBottomChromeHeight(){
     const row = document.getElementById("navIconRow");
-    const panel = document.getElementById("navPanel");
     const rowH = row ? row.offsetHeight : 0;
-    const panelH = (panel && !panel.classList.contains("collapsed")) ? panel.offsetHeight : 0;
-    return rowH + panelH;
+    return rowH + getNavPanelVisibleHeight();
   }
 
   function setNavUiState(state){
@@ -3345,7 +3378,16 @@
 
     renderNavRouteInfo();
     setNavUiState("nav");
+    fitActiveRouteToView();
+  }
 
+  // Pokazuje całą wyznaczoną trasę na mapie na płasko (bez pochylenia/obrotu), z odstępem na
+  // pasek ikon i kartę nawigatora u dołu — używane zarówno tuż po zaplanowaniu trasy, jak i
+  // przez szklany przycisk 🔎 (widoczny nad kartą, gdy trasa jest wyznaczona).
+  function fitActiveRouteToView(){
+    if(!map || !activeRoute || !activeRoute.coords || activeRoute.coords.length < 2) return;
+    followUser = false;
+    updateLocateBtnVisibility();
     const panelH = getNavBottomChromeHeight() || 220;
     const c = activeRoute.coords;
     const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
@@ -3390,6 +3432,7 @@
 
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
+    document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
     if(!activeRoute){ info.classList.remove("show"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · trasa dla ciężarówki" : "";
@@ -3433,6 +3476,7 @@
     applyRouteEditVisuals();
     document.getElementById("navDest").value = "";
     document.getElementById("navRouteInfo").classList.remove("show", "planning");
+    document.getElementById("btnFitRoute").classList.remove("visible");
     clearNavSuggestions();
     showNavError("");
     showNavStatus("");
@@ -3540,11 +3584,13 @@
   })();
 
   // wysokość paska ikon jako zmienna CSS — potrzebna, żeby karta nawigatora dokowała się
-  // dokładnie nad nim (safe-area-inset-bottom bywa różny na różnych telefonach)
+  // dokładnie nad nim (safe-area-inset-bottom bywa różny na różnych telefonach). Liczy też
+  // --side-widgets-bottom: nad czym mają "pływać" przyciski Centrum / Cała trasa i prędkościomierz.
   function updateNavIconRowHeightVar(){
     const row = document.getElementById("navIconRow");
     if(row) document.documentElement.style.setProperty("--nav-icon-row-h", row.offsetHeight + "px");
     updateNavPanelPeek();
+    document.documentElement.style.setProperty("--side-widgets-bottom", (getNavBottomChromeHeight() + 14) + "px");
   }
   updateNavIconRowHeightVar();
   window.addEventListener("resize", updateNavIconRowHeightVar);
@@ -4241,6 +4287,8 @@
       map.easeTo({ center:[lastPos.lon, lastPos.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
     }
   });
+
+  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
 
   document.getElementById("btnReportMenu").addEventListener("click", () => {
     const menu = document.getElementById("reportSubMenu");
