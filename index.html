@@ -4045,19 +4045,23 @@
   const TRUCK_EDIT_REJOIN_TOL_M = 20;       // tyle metrów różnicy = "to ta sama droga"
   const TRUCK_EDIT_REJOIN_CHECK_M = 300;    // tyle metrów obie trasy muszą iść razem, żeby uznać połączenie
 
-  function fetchTruckEditRoute(beforeLL, beforeBearing, dragLL, destLL, minClass, useHeading){
+  function fetchTruckEditRoute(beforeLL, beforeBearing, dragLL, dragHeading, destLL, minClass, useHeading){
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
     const from = { lat: beforeLL[1], lon: beforeLL[0], type: "break" };
     if(useHeading && beforeBearing != null) from.heading = Math.round((beforeBearing + 360) % 360);
+    // "through": trasa MUSI przejść przez ten punkt, ale bez zawracania w nim.
+    // min_road_class: punkt przyciąga się tylko do dróg głównych (nie do osiedli/dojazdów).
+    // heading: KIERUNEK jazdy w tym punkcie — przy drogach dwujezdniowych (M45, A45…) to on decyduje, że
+    // punkt trafia na jezdnię "w naszą stronę". Bez niego punkt lądował na jezdni przeciwnej i trasa musiała
+    // dojechać do końca drogi, zawrócić i wracać (stąd "haczyk" i powrót na M1).
+    const through = { lat: dragLL[1], lon: dragLL[0], type: "through", search_filter: { min_road_class: minClass } };
+    if(dragHeading != null){
+      through.heading = Math.round((dragHeading + 360) % 360);
+      through.heading_tolerance = 100;
+    }
     const request = {
-      locations: [
-        from,
-        // "through": trasa MUSI przejść przez ten punkt, ale bez zawracania w nim
-        // min_road_class: punkt przyciąga się tylko do dróg głównych (nie do osiedli/dojazdów)
-        { lat: dragLL[1], lon: dragLL[0], type: "through", search_filter: { min_road_class: minClass } },
-        { lat: destLL[1], lon: destLL[0], type: "break" }
-      ],
+      locations: [ from, through, { lat: destLL[1], lon: destLL[0], type: "break" } ],
       costing: "truck",
       costing_options: { truck: Object.assign({}, HGV_PROFILE, {
         use_highways: 1.0, use_living_streets: 0, use_tracks: 0
@@ -4147,34 +4151,89 @@
     return null;
   }
 
+  // Czy nowy fragment przejeżdża drugi raz po tej samej drodze (zawracanie, "haczyk", powrót na M1)?
+  // Sprawdzamy punkty z zakresu wierzchołków [fromIdx, toIdx] względem CAŁEJ trasy: jeśli któryś leży
+  // (prawie) w tym samym miejscu co punkt oddalony o >2 km jazdy — to zawrotka.
+  // Jezdnie dwujezdniowe są od siebie dalej niż tolerancja, więc nie są traktowane jako to samo miejsce.
+  function routeRevisitsItself(coords, fromIdx, toIdx){
+    const STEP = 10, TOL = 10, GAP = 200, CELL = 0.0004;
+    const d = densifyRoute(coords, STEP);
+    const grid = new Map();
+    const keyOf = p => Math.floor(p[0] / CELL) + "," + Math.floor(p[1] / CELL);
+    for(let i = 0; i < d.pts.length; i++){
+      const k = keyOf(d.pts[i]);
+      let arr = grid.get(k);
+      if(!arr){ arr = []; grid.set(k, arr); }
+      arr.push(i);
+    }
+    for(let i = 0; i < d.pts.length; i++){
+      if(d.parent[i] < fromIdx || d.parent[i] > toIdx) continue;
+      const p = d.pts[i];
+      const cx = Math.floor(p[0] / CELL), cy = Math.floor(p[1] / CELL);
+      for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
+        const arr = grid.get((cx + dx) + "," + (cy + dy));
+        if(!arr) continue;
+        for(const j of arr){
+          if(Math.abs(i - j) <= GAP) continue;
+          if(haversine(p[1], p[0], d.pts[j][1], d.pts[j][0]) <= TOL) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   // Zwraca: pełną nową listę współrzędnych trasy, null (brak sensownego wyniku) albo rzuca błąd (sieć/serwer).
   async function computeEditViaDestination(beforeIdx, dropLL, beforeBearing, origCoords, spanStartIdx){
     const beforeLL = origCoords[beforeIdx];
     const destLL = origCoords[origCoords.length - 1];
-    // najpierw tylko drogi min. klasy "tertiary" (z kierunkiem jazdy), potem łagodniej — ale nadal bez osiedli
-    const attempts = [["tertiary", true], ["tertiary", false], ["unclassified", false]];
-    for(const [minClass, useHeading] of attempts){
-      let coords;
-      try{
-        coords = await fetchTruckEditRoute(beforeLL, beforeBearing, dropLL, destLL, minClass, useHeading);
-      }catch(err){
-        if(err && err.status >= 400 && err.status < 500) continue; // np. brak drogi w pobliżu — próbujemy łagodniej
-        throw err; // timeout / błąd serwera — wtedy zadziała stary algorytm
-      }
-      // gdzie nowa trasa przechodzi przez upuszczony punkt (najbliższy wierzchołek)
-      let dragIdx = 0, dMin = Infinity;
-      for(let i = 0; i < coords.length; i++){
-        const d = haversine(dropLL[1], dropLL[0], coords[i][1], coords[i][0]);
-        if(d < dMin){ dMin = d; dragIdx = i; }
-      }
-      if(dMin > TRUCK_EDIT_DRAG_MAX_SNAP_M) continue; // najbliższa główna droga jest za daleko od miejsca upuszczenia
+    // Kierunek jazdy w upuszczonym punkcie: najpierw "w stronę celu", potem "od miejsca złapania trasy do
+    // punktu", na końcu bez kierunku (wtedy chroni nas jeszcze sprawdzenie zawracania poniżej).
+    const headToDest = bearingBetween(dropLL[1], dropLL[0], destLL[1], destLL[0]);
+    const headFromAnchor = bearingBetween(beforeLL[1], beforeLL[0], dropLL[1], dropLL[0]);
+    // Tylko drogi główne: najpierw autostrady/trunk/primary (M, A) w promieniu do 2 km, potem "secondary"
+    // (część dróg A) tylko jeśli leży bardzo blisko punktu. Żadnych B-road-ów i osiedli.
+    const attempts = [
+      { minClass: "primary",   maxSnapM: 2000, headings: [headToDest, headFromAnchor, null] },
+      { minClass: "secondary", maxSnapM: 400,  headings: [headToDest, headFromAnchor] }
+    ];
+    for(const att of attempts){
+      for(const dragHeading of att.headings){
+        let coords;
+        try{
+          try{
+            coords = await fetchTruckEditRoute(beforeLL, beforeBearing, dropLL, dragHeading, destLL, att.minClass, true);
+          }catch(err){
+            // kierunek na starcie mógł nie pasować do żadnej drogi — ponawiamy bez niego
+            if(err && err.status >= 400 && err.status < 500)
+              coords = await fetchTruckEditRoute(beforeLL, beforeBearing, dropLL, dragHeading, destLL, att.minClass, false);
+            else throw err;
+          }
+        }catch(err){
+          if(err && err.status >= 400 && err.status < 500) continue; // brak drogi w pobliżu — próbujemy inaczej
+          throw err; // timeout / błąd serwera — wtedy zadziała stary algorytm
+        }
+        // gdzie nowa trasa przechodzi przez upuszczony punkt (najbliższy wierzchołek)
+        let dragIdx = 0, dMin = Infinity;
+        for(let i = 0; i < coords.length; i++){
+          const d = haversine(dropLL[1], dropLL[0], coords[i][1], coords[i][0]);
+          if(d < dMin){ dMin = d; dragIdx = i; }
+        }
+        if(dMin > att.maxSnapM) continue; // najbliższa taka droga jest za daleko od miejsca upuszczenia
 
-      const rejoin = findRejoinWithOriginal(coords, dragIdx, origCoords, spanStartIdx);
-      const head = origCoords.slice(0, beforeIdx);
-      if(rejoin){
-        return head.concat(coords.slice(0, rejoin.newIdx + 1), origCoords.slice(rejoin.origIdx));
+        const head = origCoords.slice(0, beforeIdx);
+        const rejoin = findRejoinWithOriginal(coords, dragIdx, origCoords, spanStartIdx);
+        let result, newEndIdx;
+        if(rejoin){
+          result = head.concat(coords.slice(0, rejoin.newIdx + 1), origCoords.slice(rejoin.origIdx));
+          newEndIdx = head.length + rejoin.newIdx + 1;
+        } else {
+          result = head.concat(coords); // brak wspólnego odcinka — nowa trasa aż do celu
+          newEndIdx = result.length - 1;
+        }
+        // zawracanie / powrót po tej samej drodze = zły wynik; próbujemy kolejnego wariantu
+        if(routeRevisitsItself(result, Math.max(0, head.length - 1), newEndIdx)) continue;
+        return result;
       }
-      return head.concat(coords); // brak wspólnego odcinka — nowa trasa aż do celu
     }
     return null;
   }
@@ -4347,7 +4406,7 @@
         showNavStatus("");
         if(!activeRoute || activeRoute.coords !== coords) return; // trasa zmieniła się w międzyczasie
         if(!newCoords || newCoords.length < 2){
-          showNavError("Nie znaleziono sensownego przebiegu głównymi drogami — przywracam poprzedni.");
+          showNavError("Nie znalazłem przejazdu głównymi drogami (M/A) bez zawracania przez ten punkt — przeciągnij bliżej autostrady/drogi A albo dalej wzdłuż niej. Przywracam poprzednią trasę.");
           setRouteLineCoords(activeRoute.coords);
           return;
         }
