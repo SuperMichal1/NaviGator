@@ -4034,6 +4034,151 @@
     });
   }
 
+  /* ---------- edycja trasy: nowy fragment prowadzi przez upuszczony punkt aż do CELU (Valhalla) ----------
+     Wcześniej nowy fragment MUSIAŁ wrócić do starej trasy w stałym punkcie z tyłu ("kotwica"),
+     więc gdy przeciągnąłeś trasę na inną, równoległą drogę, algorytm zawracał do starego punktu
+     (kształt "V") albo odrzucał zmianę. Teraz: początek fragmentu (kotwica PRZED) -> upuszczony
+     punkt (przyciągnięty do głównej drogi) -> cel. Trasa sama wraca na starą, gdy tylko obie
+     trasy się spotkają — bez zawracania do "starego punktu". */
+  const TRUCK_EDIT_DRAG_MAX_SNAP_M = 1500;  // maks. odległość upuszczonego punktu od głównej drogi
+  const TRUCK_EDIT_DENSE_STEP_M = 20;       // co ile metrów próbkujemy trasy przy szukaniu miejsca połączenia
+  const TRUCK_EDIT_REJOIN_TOL_M = 20;       // tyle metrów różnicy = "to ta sama droga"
+  const TRUCK_EDIT_REJOIN_CHECK_M = 300;    // tyle metrów obie trasy muszą iść razem, żeby uznać połączenie
+
+  function fetchTruckEditRoute(beforeLL, beforeBearing, dragLL, destLL, minClass, useHeading){
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
+    const from = { lat: beforeLL[1], lon: beforeLL[0], type: "break" };
+    if(useHeading && beforeBearing != null) from.heading = Math.round((beforeBearing + 360) % 360);
+    const request = {
+      locations: [
+        from,
+        // "through": trasa MUSI przejść przez ten punkt, ale bez zawracania w nim
+        // min_road_class: punkt przyciąga się tylko do dróg głównych (nie do osiedli/dojazdów)
+        { lat: dragLL[1], lon: dragLL[0], type: "through", search_filter: { min_road_class: minClass } },
+        { lat: destLL[1], lon: destLL[0], type: "break" }
+      ],
+      costing: "truck",
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, {
+        use_highways: 1.0, use_living_streets: 0, use_tracks: 0
+      }) },
+      directions_options: { units: "kilometers", language: "pl-PL" }
+    };
+    return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
+      .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, status: r.status, data })))
+      .then(({ ok, status, data }) => {
+        if(!ok){
+          const err = new Error("VALHALLA_" + status);
+          err.status = status; err.code = data && data.error_code;
+          throw err;
+        }
+        const trip = data.trip;
+        if(!trip || !trip.legs || !trip.legs.length) throw Object.assign(new Error("VALHALLA_EMPTY"), { status: 400 });
+        const coords = [];
+        trip.legs.forEach(leg => decodePolyline(leg.shape, 6).forEach(c => coords.push(c)));
+        if(coords.length < 2) throw Object.assign(new Error("VALHALLA_EMPTY"), { status: 400 });
+        return coords;
+      })
+      .finally(() => clearTimeout(timer));
+  }
+
+  // zagęszcza trasę do punktów co ~stepM; parent[i] = indeks wierzchołka oryginału, od którego zaczyna się dany odcinek
+  function densifyRoute(coords, stepM){
+    const pts = [], parent = [];
+    for(let i = 0; i < coords.length - 1; i++){
+      const a = coords[i], b = coords[i + 1];
+      const n = Math.max(1, Math.ceil(haversine(a[1], a[0], b[1], b[0]) / stepM));
+      for(let k = 0; k < n; k++){
+        const t = k / n;
+        pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        parent.push(i);
+      }
+    }
+    pts.push(coords[coords.length - 1]);
+    parent.push(coords.length - 1);
+    return { pts, parent };
+  }
+
+  // Szuka miejsca, w którym nowa trasa (po punkcie przeciągania) dołącza z powrotem do starej i dalej
+  // jedzie już tą samą drogą. Zwraca { newIdx, origIdx } albo null (wtedy bierzemy nową trasę do końca).
+  function findRejoinWithOriginal(newCoords, newStartIdx, origCoords, minOrigIdx){
+    const STEP = TRUCK_EDIT_DENSE_STEP_M, TOL = TRUCK_EDIT_REJOIN_TOL_M;
+    const CELL = 0.0005; // ~35-55 m, większe niż tolerancja
+    const orig = densifyRoute(origCoords, STEP);
+    const grid = new Map();
+    for(let i = 0; i < orig.pts.length; i++){
+      if(orig.parent[i] <= minOrigIdx) continue; // tylko część trasy PO miejscu edycji
+      const k = Math.floor(orig.pts[i][0] / CELL) + "," + Math.floor(orig.pts[i][1] / CELL);
+      let arr = grid.get(k);
+      if(!arr){ arr = []; grid.set(k, arr); }
+      arr.push(i);
+    }
+    const nearestOrig = p => {
+      const cx = Math.floor(p[0] / CELL), cy = Math.floor(p[1] / CELL);
+      let best = -1, bestD = TOL;
+      for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
+        const arr = grid.get((cx + dx) + "," + (cy + dy));
+        if(!arr) continue;
+        for(const i of arr){
+          const d = haversine(p[1], p[0], orig.pts[i][1], orig.pts[i][0]);
+          if(d <= bestD){ bestD = d; best = i; }
+        }
+      }
+      return best;
+    };
+    const nw = densifyRoute(newCoords, STEP);
+    const cache = new Array(nw.pts.length).fill(undefined);
+    const matchAt = j => (cache[j] === undefined ? (cache[j] = nearestOrig(nw.pts[j])) : cache[j]);
+    const need = Math.ceil(TRUCK_EDIT_REJOIN_CHECK_M / STEP);
+    let start = nw.parent.findIndex(v => v >= newStartIdx);
+    if(start < 0) return null;
+    for(let j = start; j < nw.pts.length; j++){
+      const m = matchAt(j);
+      if(m < 0) continue;
+      let ok = true;
+      for(let q = 1; q <= need && j + q < nw.pts.length; q++){
+        if(matchAt(j + q) < 0){ ok = false; break; }
+      }
+      if(ok) return {
+        newIdx: nw.parent[j],
+        origIdx: Math.min(orig.parent[m] + 1, origCoords.length - 1)
+      };
+    }
+    return null;
+  }
+
+  // Zwraca: pełną nową listę współrzędnych trasy, null (brak sensownego wyniku) albo rzuca błąd (sieć/serwer).
+  async function computeEditViaDestination(beforeIdx, dropLL, beforeBearing, origCoords, spanStartIdx){
+    const beforeLL = origCoords[beforeIdx];
+    const destLL = origCoords[origCoords.length - 1];
+    // najpierw tylko drogi min. klasy "tertiary" (z kierunkiem jazdy), potem łagodniej — ale nadal bez osiedli
+    const attempts = [["tertiary", true], ["tertiary", false], ["unclassified", false]];
+    for(const [minClass, useHeading] of attempts){
+      let coords;
+      try{
+        coords = await fetchTruckEditRoute(beforeLL, beforeBearing, dropLL, destLL, minClass, useHeading);
+      }catch(err){
+        if(err && err.status >= 400 && err.status < 500) continue; // np. brak drogi w pobliżu — próbujemy łagodniej
+        throw err; // timeout / błąd serwera — wtedy zadziała stary algorytm
+      }
+      // gdzie nowa trasa przechodzi przez upuszczony punkt (najbliższy wierzchołek)
+      let dragIdx = 0, dMin = Infinity;
+      for(let i = 0; i < coords.length; i++){
+        const d = haversine(dropLL[1], dropLL[0], coords[i][1], coords[i][0]);
+        if(d < dMin){ dMin = d; dragIdx = i; }
+      }
+      if(dMin > TRUCK_EDIT_DRAG_MAX_SNAP_M) continue; // najbliższa główna droga jest za daleko od miejsca upuszczenia
+
+      const rejoin = findRejoinWithOriginal(coords, dragIdx, origCoords, spanStartIdx);
+      const head = origCoords.slice(0, beforeIdx);
+      if(rejoin){
+        return head.concat(coords.slice(0, rejoin.newIdx + 1), origCoords.slice(rejoin.origIdx));
+      }
+      return head.concat(coords); // brak wspólnego odcinka — nowa trasa aż do celu
+    }
+    return null;
+  }
+
   function setRouteLineCoords(coords, sourceId){
     sourceId = sourceId || "route-line";
     if(map && map.getSource(sourceId)){
@@ -4178,12 +4323,30 @@
     // sanity-checki długości w computeLocalDetour i tak odrzucą bezsensowny wynik)
 
     showNavStatus("Dopasowuję nowy fragment do głównych dróg…");
-    computeLocalDetour(finalBeforeLL, dropLL, finalAfterLL, {
+
+    // Główna metoda: przez upuszczony punkt do celu (kotwica z tyłu, ale BEZ zawracania do kotwicy z przodu).
+    // Rozciągnięcie okna edycji wstecz (spanStartIdx) działa tak samo jak wcześniej.
+    const anchorBackIdx = (spanM <= LOCAL_ROUTE_REANCHOR_MAX_SPAN_M) ? spanStartIdx : grabIdx;
+    const editBeforeIdx = walkAlongRoute(coords, anchorBackIdx, LOCAL_ROUTE_ANCHOR_M, -1);
+    const editBeforeBearing = (editBeforeIdx === coords.length - 1) ? null
+      : bearingBetween(coords[editBeforeIdx][1], coords[editBeforeIdx][0],
+                       coords[editBeforeIdx + 1][1], coords[editBeforeIdx + 1][0]);
+
+    // Awaryjnie (np. serwer Valhalla nie odpowiada): stary algorytm oparty o Overpass
+    const oldStyleFallback = () => computeLocalDetour(finalBeforeLL, dropLL, finalAfterLL, {
       beforeBearing: finalBeforeBearing, afterBearing: finalAfterBearing, origLenM: finalOrigLenM
-    })
-      .then(newSub => {
+    }).then(newSub => (!newSub || newSub.length < 2) ? null
+      : coords.slice(0, finalBeforeIdx).concat(newSub).concat(coords.slice(finalAfterIdx + 1)));
+
+    computeEditViaDestination(editBeforeIdx, dropLL, editBeforeBearing, coords, anchorBackIdx)
+      .catch(err => {
+        console.warn("Edycja trasy przez Valhalla nie powiodła się, próbuję metody awaryjnej:", err);
+        return oldStyleFallback();
+      })
+      .then(newCoords => {
         showNavStatus("");
-        if(!newSub || newSub.length < 2){
+        if(!activeRoute || activeRoute.coords !== coords) return; // trasa zmieniła się w międzyczasie
+        if(!newCoords || newCoords.length < 2){
           showNavError("Nie znaleziono sensownego przebiegu głównymi drogami — przywracam poprzedni.");
           setRouteLineCoords(activeRoute.coords);
           return;
@@ -4195,11 +4358,8 @@
           coords: activeRoute.coords, distanceM: activeRoute.distanceM,
           timeS: activeRoute.timeS, manuallyEdited: activeRoute.manuallyEdited
         };
-        const newCoords = activeRoute.coords.slice(0, finalBeforeIdx)
-          .concat(newSub)
-          .concat(activeRoute.coords.slice(finalAfterIdx + 1));
         activeRoute.coords = newCoords;
-        const oldLen = activeRoute.distanceM || routeLengthMeters(activeRoute.coords);
+        const oldLen = activeRoute.distanceM || routeLengthMeters(coords);
         const newLen = routeLengthMeters(newCoords);
         if(oldLen > 0 && activeRoute.timeS) activeRoute.timeS = activeRoute.timeS * (newLen / oldLen);
         activeRoute.distanceM = newLen;
@@ -4211,7 +4371,7 @@
         console.warn("Lokalne trasowanie nie powiodło się:", err);
         showNavStatus("");
         showNavError("Nie udało się dopasować nowego fragmentu trasy.");
-        setRouteLineCoords(activeRoute.coords);
+        if(activeRoute) setRouteLineCoords(activeRoute.coords);
       });
   }
 
