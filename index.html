@@ -235,6 +235,12 @@
   #navPanel[data-navstate="nav"] #navSearchBlock,
   #navPanel[data-navstate="nav"] #navConfirmBlock{ display:none; }
   #navConfirmLabel{ font-size:13px; color: var(--text-main); }
+  #navConfirmHint{ display:none; font-size:11px; line-height:1.35; color: var(--text-dim); }
+  #navPanel[data-navstate="confirm"] #navConfirmHint{ display:block; }
+  /* pinezka celu podróży */
+  .dest-pin{ width:36px; height:48px; cursor:grab; touch-action:none; }
+  .dest-pin:active{ cursor:grabbing; }
+  .dest-pin svg{ display:block; overflow:visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
   #navDestWrap{ position:relative; }
   #navDest{
     width:100%;
@@ -651,6 +657,7 @@
 
   <div id="navConfirmBlock">
     <div id="navConfirmLabel"></div>
+    <div id="navConfirmHint">📍 Pinezka pokazuje, dokąd dokładnie poprowadzi GPS. Przeciągnij ją albo kliknij dwukrotnie w mapę, żeby zmienić to miejsce.</div>
     <div id="navRoutePicker">
       <div class="navRouteChoice" id="navChooseMain">
         <span class="rcTitle">Trasa TomTom</span>
@@ -775,6 +782,7 @@
   /* ---------- TomTom (nawigacja: podpowiedzi adresów, trasa, ruch, limity) ---------- */
   const TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/";
   const TOMTOM_ROUTE_URL = "https://api.tomtom.com/routing/1/calculateRoute/";
+  const TOMTOM_REVERSE_URL = "https://api.tomtom.com/search/2/reverseGeocode/";
   const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
   const NAV_SUGGEST_MIN_CHARS = 3;
   const NAV_SUGGEST_DEBOUNCE_MS = 350;
@@ -1447,6 +1455,25 @@
         }
       });
 
+      // fotoradary na autostradach (pobierane raz dla całej Wielkiej Brytanii i zapisywane lokalnie).
+      // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
+      // z okolicy pozycji, więc te większe je przykrywają, zamiast się dublować.
+      map.addSource("motorway-cameras", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"motorway-cameras-dot",
+        type:"circle",
+        source:"motorway-cameras",
+        minzoom: 14,
+        paint:{
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2, 16, 3.5, 18, 5],
+          "circle-color": "#E5484D",
+          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75]
+        }
+      }, "cameras-glow");
+
       // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
       map.addSource("hgv-parking", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -1493,11 +1520,21 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw pasów autostrady:", e);
       }
+      try{
+        setupDestinationPinInteractions();
+      }catch(e){
+        console.warn("Nie udało się włączyć przesuwania pinezki celu:", e);
+      }
 
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
       loadUkMotorwayJunctionsOnce();
+      try{
+        loadMotorwayCamerasOnce();
+      }catch(e){
+        console.warn("Nie udało się uruchomić ładowania fotoradarów autostradowych:", e);
+      }
     });
   }
 
@@ -1703,6 +1740,174 @@
   }
 
   /* ============================================================
+     FOTORADARY NA AUTOSTRADACH (cała Wielka Brytania, pobierane raz)
+     ------------------------------------------------------------
+     Kolejność źródeł:
+       1) pamięć lokalna urządzenia (localStorage) — natychmiast, działa offline;
+       2) wspólna baza Supabase (jeśli skonfigurowana) — tabela motorway_cameras,
+          dzięki temu dane ściąga z Overpass tylko pierwszy kierowca;
+       3) Overpass (pasami szerokości geograficznej, bo całość naraz jest za ciężka);
+          wynik jest zapisywany lokalnie i, jeśli jest Supabase, wysyłany do wspólnej bazy.
+
+     SQL dla Supabase (wklej w SQL Editor):
+       create table if not exists public.motorway_cameras (
+         osm_id bigint primary key,
+         lat double precision not null,
+         lon double precision not null,
+         updated_at timestamptz not null default now()
+       );
+       alter table public.motorway_cameras enable row level security;
+       create policy "motorway_cameras read"   on public.motorway_cameras for select to anon using (true);
+       create policy "motorway_cameras insert" on public.motorway_cameras for insert to anon with check (true);
+  ============================================================ */
+  const MW_CAMERA_CACHE_KEY = "nav_uk_motorway_cameras_v1";
+  const MW_CAMERA_CACHE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 dni (fotoradary zmieniają się rzadko)
+  const MW_CAMERA_SNAP_M = 25;          // fotoradar należy do autostrady, jeśli leży w tej odległości od jej jezdni
+  const MW_CAMERA_LAT_BANDS = [49.85, 51.3, 52.4, 53.5, 54.8, 60.86]; // pasy pobierane po kolei
+  const MW_CAMERA_ATTEMPT_TIMEOUT_MS = 90000; // pojedyncze zapytanie jest większe niż zwykłe
+  const MW_CAMERA_MAX_RETRIES = 3;
+  let mwCameraRetries = 0;
+
+  function showMotorwayCameras(cams){
+    const src = map && map.getSource("motorway-cameras");
+    if(!src) return;
+    src.setData({
+      type: "FeatureCollection",
+      features: cams.map(c => ({
+        type: "Feature",
+        properties: { id: c.id },
+        geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+      }))
+    });
+  }
+
+  function readMotorwayCameraCache(){
+    try{
+      const c = JSON.parse(localStorage.getItem(MW_CAMERA_CACHE_KEY) || "null");
+      if(c && c.savedAt && Array.isArray(c.cams)){
+        return { savedAt: c.savedAt, cams: c.cams.map(a => ({ id: a[0], lat: a[1], lon: a[2] })) };
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache fotoradarów autostradowych:", e);
+    }
+    return null;
+  }
+
+  function saveMotorwayCameraCache(cams){
+    try{
+      // zapis zwarty: [id, lat, lon] — kilka tysięcy punktów to ok. 100 kB
+      localStorage.setItem(MW_CAMERA_CACHE_KEY, JSON.stringify({
+        savedAt: Date.now(),
+        cams: cams.map(c => [c.id, +c.lat.toFixed(6), +c.lon.toFixed(6)])
+      }));
+    }catch(e){
+      console.warn("Nie udało się zapisać cache fotoradarów autostradowych (localStorage pełny?):", e);
+    }
+  }
+
+  // wspólna baza: zwraca listę kamer albo null (brak konfiguracji / brak tabeli / błąd)
+  function fetchMotorwayCamerasFromSupabase(){
+    if(!supaConfigured()) return Promise.resolve(null);
+    const base = supaUrl.replace(/\/+$/, "") + "/rest/v1/motorway_cameras?select=osm_id,lat,lon&order=osm_id.asc";
+    const PAGE = 1000; // tyle wierszy na raz zwraca Supabase domyślnie
+    const out = [];
+    function page(offset){
+      return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
+        headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
+      })
+        .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(rows => {
+          rows.forEach(r => out.push({ id: r.osm_id, lat: r.lat, lon: r.lon }));
+          if(rows.length === PAGE && out.length < 50000) return page(offset + PAGE);
+          return out;
+        });
+    }
+    return page(0).catch(err => {
+      console.warn("Nie udało się pobrać fotoradarów autostradowych z Supabase:", err);
+      return null;
+    });
+  }
+
+  // wysyła świeżo pobrane dane do wspólnej bazy (istniejące wiersze są pomijane); błąd nie przeszkadza
+  function uploadMotorwayCamerasToSupabase(cams){
+    if(!supaConfigured() || !cams.length) return;
+    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/motorway_cameras?on_conflict=osm_id";
+    const BATCH = 500;
+    let chain = Promise.resolve();
+    for(let i = 0; i < cams.length; i += BATCH){
+      const batch = cams.slice(i, i + BATCH).map(c => ({ osm_id: c.id, lat: c.lat, lon: c.lon }));
+      chain = chain.then(() => fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supaKey,
+          "Authorization": "Bearer " + supaKey,
+          "Prefer": "resolution=ignore-duplicates,return=minimal"
+        },
+        body: JSON.stringify(batch)
+      }).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); }));
+    }
+    chain.catch(err => console.warn("Nie udało się wysłać fotoradarów autostradowych do Supabase:", err));
+  }
+
+  // Overpass: pasami szerokości, po kolei; zwraca Promise<[{id,lat,lon}]>
+  function downloadMotorwayCameras(){
+    const west = GB_BOUNDS[0][0], east = GB_BOUNDS[1][0];
+    const found = new Map();
+    let chain = Promise.resolve();
+    for(let i = 0; i < MW_CAMERA_LAT_BANDS.length - 1; i++){
+      const south = MW_CAMERA_LAT_BANDS[i], north = MW_CAMERA_LAT_BANDS[i + 1];
+      chain = chain.then(() => {
+        const query = `
+          [out:json][timeout:120];
+          way["highway"="motorway"](${south},${west},${north},${east})->.mw;
+          (
+            node(around.mw:${MW_CAMERA_SNAP_M})["highway"="speed_camera"];
+            node(around.mw:${MW_CAMERA_SNAP_M})["hazard"="speed_camera"];
+          );
+          out body;
+        `;
+        return tryEndpoints(query, 0, MW_CAMERA_ATTEMPT_TIMEOUT_MS).then(data => {
+          (data.elements || []).forEach(el => {
+            if(el.type === "node") found.set(el.id, { id: el.id, lat: el.lat, lon: el.lon });
+          });
+        });
+      });
+    }
+    return chain.then(() => Array.from(found.values()));
+  }
+
+  function loadMotorwayCamerasOnce(){
+    if(!map.getSource("motorway-cameras")) return;
+
+    // 1) pamięć lokalna: pokaż od razu (także stare dane, dopóki nie ma nowych)
+    const cached = readMotorwayCameraCache();
+    if(cached){
+      showMotorwayCameras(cached.cams);
+      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS) return; // świeże — nic nie pobieramy
+    }
+
+    // 2) wspólna baza, a gdy jej nie ma albo jest pusta — 3) Overpass
+    fetchMotorwayCamerasFromSupabase()
+      .then(shared => {
+        if(shared && shared.length) return { cams: shared, fromShared: true };
+        return downloadMotorwayCameras().then(cams => ({ cams, fromShared: false }));
+      })
+      .then(({ cams, fromShared }) => {
+        if(!cams.length) return; // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
+        showMotorwayCameras(cams);
+        saveMotorwayCameraCache(cams);
+        if(!fromShared) uploadMotorwayCamerasToSupabase(cams);
+      })
+      .catch(err => {
+        console.warn("Nie udało się pobrać fotoradarów autostradowych:", err);
+        if(mwCameraRetries++ < MW_CAMERA_MAX_RETRIES){
+          setTimeout(loadMotorwayCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
+        }
+      });
+  }
+
+  /* ============================================================
      OVERPASS API — fotoradary + drogi z maxspeed
   ============================================================ */
   function fetchOverpassData(lat, lon){
@@ -1746,7 +1951,7 @@
   }
 
   // próbuje kolejnych serwerów Overpass po kolei, zaczynając od tego, który ostatnio zadziałał
-  function tryEndpoints(query, attemptCount){
+  function tryEndpoints(query, attemptCount, timeoutMs){
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
       order.push(OVERPASS_ENDPOINTS[(preferredEndpointIdx + i) % OVERPASS_ENDPOINTS.length]);
@@ -1758,7 +1963,7 @@
       }
       const url = order[i];
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), OVERPASS_ATTEMPT_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), timeoutMs || OVERPASS_ATTEMPT_TIMEOUT_MS);
 
       return fetch(url, {
         method: "POST",
@@ -2392,32 +2597,46 @@
     box.style.width = Math.round(rect.width) + "px";
   }
 
+  function navResultLabel(r){
+    const addr = r.address || {};
+    return addr.freeformAddress || r.poi?.name || "Nieznany adres";
+  }
+
+  // Użytkownik wybrał wynik (kliknięcie podpowiedzi albo Enter). Pinezka staje tam, dokąd
+  // GPS faktycznie ma doprowadzić: jeśli TomTom podaje punkt wjazdu/dojazdu ("main entry point"),
+  // używamy jego, w przeciwnym razie środka adresu.
+  function selectNavResult(r){
+    const label = navResultLabel(r);
+    const entry = (r.entryPoints || []).find(e => e.type === "main");
+    const pos = (entry && entry.position) || r.position;
+    navSelectedDest = { lat: pos.lat, lon: pos.lon, label };
+    document.getElementById("navDest").value = label;
+    clearNavSuggestions();
+    confirmDestination();
+  }
+
   function renderNavSuggestions(results){
     const box = document.getElementById("navSuggestions");
     box.innerHTML = "";
     if(!results || results.length === 0){ box.classList.remove("open"); return; }
     results.forEach(r => {
       const addr = r.address || {};
-      const label = addr.freeformAddress || r.poi?.name || "Nieznany adres";
+      const label = navResultLabel(r);
       const sub = [addr.municipality, addr.country].filter(Boolean).join(", ");
       const item = document.createElement("div");
       item.className = "navSuggestion";
       item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
       item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
       item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
-      item.addEventListener("click", () => {
-        navSelectedDest = { lat: r.position.lat, lon: r.position.lon, label };
-        document.getElementById("navDest").value = label;
-        clearNavSuggestions();
-        confirmDestination();
-      });
+      item.addEventListener("click", () => selectNavResult(r));
       box.appendChild(item);
     });
     positionNavSuggestions();
     box.classList.add("open");
   }
 
-  function fetchNavSuggestions(query){
+  let navSuggestionsFor = "";   // dla jakiego tekstu pobrano aktualnie wyświetlane podpowiedzi
+  function fetchNavSuggestions(query, autoPick){
     if(!tomtomApiKey){
       showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
       setNavKeyRowOpen(true);
@@ -2429,7 +2648,7 @@
 
     const params = new URLSearchParams({
       key: tomtomApiKey,
-      typeahead: "true",
+      typeahead: autoPick ? "false" : "true",
       limit: "5",
       countrySet: NAV_DEFAULT_COUNTRY
     });
@@ -2445,7 +2664,16 @@
         if(!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
-      .then(data => renderNavSuggestions(data.results))
+      .then(data => {
+        if(autoPick){
+          // Enter bez czekania na podpowiedzi: bierzemy najlepszy wynik
+          if(data.results && data.results.length) selectNavResult(data.results[0]);
+          else showNavError("Nie znaleziono takiego adresu.");
+          return;
+        }
+        navSuggestionsFor = query;
+        renderNavSuggestions(data.results);
+      })
       .catch(err => {
         if(err.name === "AbortError") return;
         console.warn("TomTom search error:", err);
@@ -2457,6 +2685,7 @@
   document.getElementById("navDest").addEventListener("input", (e) => {
     const q = e.target.value.trim();
     navSelectedDest = null;
+    removeDestPin();
     if(navSuggestTimer) clearTimeout(navSuggestTimer);
     if(q.length < NAV_SUGGEST_MIN_CHARS){ clearNavSuggestions(); return; }
     navSuggestTimer = setTimeout(() => fetchNavSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
@@ -2465,10 +2694,13 @@
   document.getElementById("navDest").addEventListener("keydown", (e) => {
     if(e.key === "Enter"){
       e.preventDefault();
-      // jeśli użytkownik nie kliknął podpowiedzi, spróbuj użyć pierwszej dostępnej
+      if(navSuggestTimer) clearTimeout(navSuggestTimer);
+      const q = e.target.value.trim();
       const first = document.querySelector("#navSuggestions .navSuggestion");
-      if(first && !navSelectedDest) first.click();
-      else if(navSelectedDest) confirmDestination();
+      if(navSelectedDest) confirmDestination();
+      // podpowiedzi muszą pasować do wpisanego tekstu (inaczej są nieaktualne)
+      else if(first && navSuggestionsFor === q) first.click();
+      else if(q.length >= NAV_SUGGEST_MIN_CHARS) fetchNavSuggestions(q, true);
     }
   });
 
@@ -2483,19 +2715,147 @@
   function setNavUiState(state){
     navUiState = state;
     document.getElementById("navPanel").dataset.navstate = state;
+    updateDestPinInteractivity();
   }
 
-  // krok 1: użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie, ale jeszcze nie licz trasy
+  /* ---------- pinezka celu: podgląd, przeciąganie, przesuwanie dwukrotnym kliknięciem ---------- */
+  let destMarker = null;
+  let destMarkerEl = null;
+  let destRevAbort = null;
+  let destMoveSeq = 0;
+  let lastMapTap = null;
+  const DOUBLE_TAP_MS = 400;     // maks. odstęp między dwoma kliknięciami
+  const DOUBLE_TAP_PX = 30;      // maks. odległość między nimi (px)
+
+  // pinezkę można poprawiać, dopóki nie wybrano trasy (potwierdzanie celu i wybór trasy)
+  function destPinEditable(){
+    return !!navSelectedDest && (navUiState === "confirm" || navUiState === "picker");
+  }
+
+  function updateDestPinInteractivity(){
+    if(destMarker) destMarker.setDraggable(destPinEditable());
+    if(destMarkerEl) destMarkerEl.style.cursor = destPinEditable() ? "" : "default";
+    // dwuklik/dwuklik-dotyk przesuwa pinezkę, więc w tym czasie nie może przybliżać mapy
+    if(map){
+      if(destPinEditable()) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
+    }
+  }
+
+  function ensureDestMarker(){
+    if(destMarker) return destMarker;
+    destMarkerEl = document.createElement("div");
+    destMarkerEl.className = "dest-pin";
+    destMarkerEl.innerHTML = `
+      <svg width="36" height="48" viewBox="0 0 36 48">
+        <path d="M18 48 C18 48 3 31 3 18 A15 15 0 0 1 33 18 C33 31 18 48 18 48 Z"
+              fill="#e5484d" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="18" cy="18" r="5.5" fill="#ffffff"/>
+      </svg>`;
+    // ostrze pinezki (dół elementu) wskazuje dokładny punkt celu
+    destMarker = new maplibregl.Marker({
+      element: destMarkerEl, anchor: "bottom", draggable: true,
+      pitchAlignment: "viewport", rotationAlignment: "viewport"
+    });
+    destMarker.on("dragend", () => {
+      const ll = destMarker.getLngLat();
+      moveDestination(ll.lat, ll.lng, true);
+    });
+    return destMarker;
+  }
+
+  function showDestPin(){
+    if(!map || !navSelectedDest) return;
+    ensureDestMarker().setLngLat([navSelectedDest.lon, navSelectedDest.lat]).addTo(map);
+    updateDestPinInteractivity();
+  }
+
+  function removeDestPin(){
+    if(destMarker){ destMarker.remove(); }
+    if(destRevAbort){ destRevAbort.abort(); destRevAbort = null; }
+    lastMapTap = null;
+    if(map) map.doubleClickZoom.enable();
+  }
+
+  function setConfirmLabel(){
+    if(!navSelectedDest) return;
+    document.getElementById("navConfirmLabel").textContent = "Cel: " + navSelectedDest.label;
+  }
+
+  // Nowy adres dla przesuniętej pinezki (odwrotne geokodowanie). Jeśli się nie uda,
+  // zostaje opis "punkt wskazany na mapie" — trasa i tak liczona jest do pinezki.
+  function reverseGeocodeDest(lat, lon, seq){
+    if(!tomtomApiKey) return;
+    if(destRevAbort) destRevAbort.abort();
+    destRevAbort = new AbortController();
+    const params = new URLSearchParams({ key: tomtomApiKey, language: "pl-PL" });
+    fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?${params.toString()}`, { signal: destRevAbort.signal })
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(data => {
+        if(seq !== destMoveSeq || !navSelectedDest) return; // pinezka przesunięta ponownie / anulowano
+        const a = data.addresses && data.addresses[0] && data.addresses[0].address;
+        if(a && a.freeformAddress){
+          navSelectedDest.label = a.freeformAddress;
+          setConfirmLabel();
+        }
+      })
+      .catch(err => { if(err.name !== "AbortError") console.warn("TomTom reverse geocode:", err); });
+  }
+
+  // Cel zmieniony ręcznie (przeciągnięcie albo dwuklik). Trasy policzone do starego celu są nieaktualne.
+  function moveDestination(lat, lon, fromDrag){
+    if(!destPinEditable()) return;
+    navSelectedDest.lat = lat;
+    navSelectedDest.lon = lon;
+    navSelectedDest.label = "Punkt wskazany na mapie";
+    if(!fromDrag && destMarker) destMarker.setLngLat([lon, lat]);
+    showNavError("");
+    if(navUiState === "picker"){
+      pendingRoutes = { main:null, alt:null };
+      setRouteLineCoords([], "route-line");
+      setRouteLineCoords([], "route-line-alt");
+      setNavUiState("confirm");
+    }
+    setConfirmLabel();
+    destMoveSeq++;
+    reverseGeocodeDest(lat, lon, destMoveSeq);
+  }
+
+  // Dwukrotne kliknięcie/dotknięcie mapy przesuwa pinezkę. Własne wykrywanie, bo mapa
+  // nie zgłasza zdarzenia "dblclick" przy dotyku.
+  function setupDestinationPinInteractions(){
+    map.on("click", (e) => {
+      if(!destPinEditable()) { lastMapTap = null; return; }
+      const t = e.originalEvent && e.originalEvent.target;
+      if(t && t.closest && t.closest(".dest-pin")) return;   // kliknięcie w samą pinezkę
+      const now = Date.now();
+      const prev = lastMapTap;
+      lastMapTap = { t: now, x: e.point.x, y: e.point.y };
+      if(prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(e.point.x - prev.x, e.point.y - prev.y) < DOUBLE_TAP_PX){
+        lastMapTap = null;
+        moveDestination(e.lngLat.lat, e.lngLat.lng, false);
+      }
+    });
+  }
+
+  // krok 1: użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie z pinezką, ale jeszcze nie licz trasy
   function confirmDestination(){
     if(!navSelectedDest) return;
     showNavError("");
     followUser = false;
     updateLocateBtnVisibility();
-    if(map){
-      map.easeTo({ center: [navSelectedDest.lon, navSelectedDest.lat], zoom: 14, pitch: 0, bearing: 0, duration: 600 });
-    }
-    document.getElementById("navConfirmLabel").textContent = "Cel: " + navSelectedDest.label;
+    setConfirmLabel();
+    showDestPin();
     setNavUiState("confirm");
+    if(map){
+      // dolny panel zasłania część mapy, więc pinezkę ustawiamy nad nim
+      const panelH = document.getElementById("navPanel").offsetHeight || 0;
+      map.easeTo({
+        center: [navSelectedDest.lon, navSelectedDest.lat],
+        zoom: 16, pitch: 0, bearing: 0,
+        offset: [0, -Math.round(panelH / 2)],
+        duration: 600
+      });
+    }
   }
 
   /* ---------- wyznaczanie trasy + limity + ruch (TomTom Routing) ---------- */
@@ -2708,6 +3068,7 @@
 
   function clearNavRoute(){
     navSelectedDest = null;
+    removeDestPin();
     activeRoute = null;
     pendingRoutes = { main:null, alt:null };
     routeSpeedSegments = [];
