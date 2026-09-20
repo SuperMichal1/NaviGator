@@ -352,6 +352,20 @@
     cursor:pointer;
   }
   #navStartBtn:active{ transform: scale(0.98); }
+  #navUndoEditBtn{
+    background: transparent;
+    color: var(--text-main);
+    border:1px solid var(--panel-border);
+    padding:10px 12px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:14px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+    display:none;
+  }
+  #navUndoEditBtn.show{ display:block; }
+  #navUndoEditBtn:active{ transform: scale(0.98); }
   #navError{
     font-size:12px; color: var(--danger); display:none;
   }
@@ -704,6 +718,7 @@
     <div class="rTraffic" id="navRouteTraffic"></div>
     <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
+      <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
       <button id="navStartBtn">▶ Rozpocznij jazdę</button>
     </div>
   </div>
@@ -842,8 +857,18 @@
   const LOCAL_ROUTE_DRAG_SNAP_M = 600;    // maks. odległość upuszczonego punktu od głównej drogi
   const LOCAL_ROUTE_SPIKE_ANGLE_DEG = 150; // zawrotka ostrzejsza niż to na krótkim odcinku = "kolec", usuwamy
   const LOCAL_ROUTE_SPIKE_LEG_M = 80;
-  const LOCAL_ROUTE_MAX_DETOUR_FACTOR = 3; // nowy fragment nie może być dłuższy niż tyle razy stary (+1,5 km zapasu)
-  const ROUTE_HIT_WIDTH_PX = 44;          // szerokość "pola łapania" trasy w trybie edycji
+  const LOCAL_ROUTE_MAX_DETOUR_FACTOR = 2.2; // nowy fragment nie może być dłuższy niż tyle razy stary (+1,5 km zapasu)
+  const LOCAL_ROUTE_MAX_STRAIGHT_FACTOR = 2.5; // ...ani dłuższy niż tyle razy odcinek "na wprost" między kotwicami — to właśnie łapie zawijasy/pętle, które factor powyżej mógłby przepuścić na krótkich, już powyginanych odcinkach
+  const LOCAL_ROUTE_MAX_STRAIGHT_PAD_M = 800;
+  // Kara za skręt w trasowaniu lokalnym (Dijkstra): bez niej algorytm liczy tylko dystans/klasę drogi
+  // i "nie widzi", że proponowany przebieg kluczy tam i z powrotem, byle był statystycznie krótszy —
+  // to dokładnie ten efekt "uliczka koło uliczki" i pętle widoczne po ręcznym przeciągnięciu trasy.
+  const ROUTE_TURN_PENALTY_PER_DEG = 3;    // "koszt" (w metrach ekwiwalentnych) za każdy stopień skrętu
+  const ROUTE_UTURN_ANGLE_DEG = 150;       // powyżej tego kąta traktujemy skręt jak zawrotkę
+  const ROUTE_UTURN_EXTRA_PENALTY = 400;   // dodatkowa kara za zawrotkę, żeby jej realnie unikać
+  const ROUTE_HIT_WIDTH_PX = 34;          // szerokość "pola łapania" trasy w trybie edycji
+  const ROUTE_DRAG_HOLD_MS = 320;   // ile trzeba przytrzymać nieruchomo na trasie, żeby ZACZĄĆ ją przeciągać
+  const ROUTE_DRAG_CANCEL_PX = 9;   // jeśli w tym czasie palec/kursor przesunie się dalej — to zwykłe przewijanie mapy, nie edycja trasy
   const LOCAL_ROUTE_SPEED_KMH = { // założone prędkości do szacowania czasu przejazdu trasy alternatywnej
     motorway:100, motorway_link:70, trunk:90, trunk_link:60,
     primary:80, primary_link:50, secondary:60, secondary_link:45,
@@ -935,6 +960,8 @@
   let pendingRoutes = { main:null, alt:null }; // obliczone, ale jeszcze nie wybrane trasy
   let routeEditMode = false;    // czy tryb "przeciągnij trasę" jest włączony
   let routeDragState = null;    // stan trwającego przeciągania punktu trasy
+  let pendingRouteDrag = null;  // stan "przytrzymania" trasy, zanim faktycznie zacznie się przeciąganie
+  let routeBeforeEdit = null;   // migawka trasy sprzed ostatniej ręcznej edycji (do przycisku "Cofnij")
 
   /* ============================================================
      POMOCNICZE FUNKCJE GEO
@@ -3204,6 +3231,7 @@
 
   function planTruckRoute(){
     showNavError("");
+    routeBeforeEdit = null;
     if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
     if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
 
@@ -3276,6 +3304,7 @@
     activeRoute.planning = false;
     routeEditMode = false;
     routeDragState = null;
+    cancelPendingRouteDrag();
     applyRouteEditVisuals();
     if(map){ map.dragPan.enable(); map.getCanvas().style.cursor = ""; }
     if(lastPos) enterDrivingView();
@@ -3284,6 +3313,16 @@
 
   document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
   document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
+  document.getElementById("navUndoEditBtn").addEventListener("click", () => {
+    if(!routeBeforeEdit || !activeRoute) return;
+    activeRoute.coords = routeBeforeEdit.coords;
+    activeRoute.distanceM = routeBeforeEdit.distanceM;
+    activeRoute.timeS = routeBeforeEdit.timeS;
+    activeRoute.manuallyEdited = routeBeforeEdit.manuallyEdited;
+    routeBeforeEdit = null;
+    setRouteLineCoords(activeRoute.coords);
+    renderNavRouteInfo();
+  });
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
     if(pendingRoutes.main) selectRoute("main");
@@ -3303,6 +3342,7 @@
       : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
     document.getElementById("navRouteSub").textContent =
       navSelectedDest ? `Cel: ${navSelectedDest.label}` : "";
+    document.getElementById("navUndoEditBtn").classList.toggle("show", !!routeBeforeEdit);
     const trafficEl = document.getElementById("navRouteTraffic");
     if(activeRoute.manuallyEdited){
       trafficEl.textContent = "Czas przejazdu i limity dla zmienionego odcinka mogą być nieaktualne";
@@ -3331,6 +3371,8 @@
     routeTrafficIncidents = [];
     routeEditMode = false;
     routeDragState = null;
+    cancelPendingRouteDrag();
+    routeBeforeEdit = null;
     applyRouteEditVisuals();
     document.getElementById("navDest").value = "";
     document.getElementById("navRouteInfo").classList.remove("show", "planning");
@@ -3509,12 +3551,24 @@
 
   // Dijkstra z kolejką priorytetową (kopiec binarny) — potrzebne dla większych grafów
   // (trasa alternatywna od A do B), gdzie naiwne O(V^2) byłoby zbyt wolne w przeglądarce.
-  function dijkstraKeys(graph, startKey, endKey){
+  //
+  // UWAGA: stan to nie sam węzeł, tylko (węzeł + kierunek, z jakiego się do niego wjechało).
+  // Dzięki temu każdy skręt ma swój koszt (ROUTE_TURN_PENALTY_PER_DEG za stopień, plus spora
+  // dodatkowa kara za zawrotkę) — bez tego algorytm licząc tylko dystans/klasę drogi potrafił
+  // wybrać "statystycznie krótszy" przebieg, który w rzeczywistości kluczy tam i z powrotem
+  // po bocznych drogach (dokładnie te bezsensowne zawijasy/pętle po ręcznej edycji trasy).
+  // startBearing (opcjonalny) to kierunek, z jakiego "wjeżdżamy" w start — pozwala ukarać
+  // od razu ostry skręt w bok tuż po miejscu zaczepienia trasy.
+  function dijkstraKeys(graph, startKey, endKey, startBearing){
     if(!startKey || !endKey || !graph.adj.has(startKey)) return null;
-    const dist = new Map([[startKey, 0]]);
+    const bucket = b => (b === null || b === undefined) ? "s" : Math.round(b / 15) * 15;
+    const startState = startKey + "|" + bucket(startBearing);
+    const dist = new Map([[startState, 0]]);
     const prev = new Map();
+    const nodeOf = new Map([[startState, startKey]]);
+    const bearingOf = new Map([[startState, (startBearing === undefined) ? null : startBearing]]);
     const visited = new Set();
-    const heap = [[0, startKey]];
+    const heap = [[0, startState]];
     function heapPush(item){
       heap.push(item);
       let i = heap.length - 1;
@@ -3543,36 +3597,48 @@
       }
       return top;
     }
+    let endState = null;
     while(heap.length){
-      const [d, u] = heapPop();
-      if(visited.has(u)) continue;
-      visited.add(u);
-      if(u === endKey) break;
+      const [d, state] = heapPop();
+      if(visited.has(state)) continue;
+      visited.add(state);
+      const u = nodeOf.get(state);
+      if(u === endKey){ endState = state; break; } // pierwsze dotarcie do celu = globalnie najtańsze (Dijkstra)
+      const bIn = bearingOf.get(state);
       for(const edge of (graph.adj.get(u) || [])){
-        if(visited.has(edge.to)) continue;
-        const nd = d + edge.cost;
-        if(nd < (dist.has(edge.to) ? dist.get(edge.to) : Infinity)){
-          dist.set(edge.to, nd);
-          prev.set(edge.to, u);
-          heapPush([nd, edge.to]);
+        let turnCost = 0;
+        if(bIn !== null && bIn !== undefined){
+          const turn = Math.abs(angleDiffDeg(bIn, edge.bearing));
+          turnCost = ROUTE_TURN_PENALTY_PER_DEG * turn;
+          if(turn > ROUTE_UTURN_ANGLE_DEG) turnCost += ROUTE_UTURN_EXTRA_PENALTY;
+        }
+        const nd = d + edge.cost + turnCost;
+        const toState = edge.to + "|" + bucket(edge.bearing);
+        if(visited.has(toState)) continue;
+        if(nd < (dist.has(toState) ? dist.get(toState) : Infinity)){
+          dist.set(toState, nd);
+          prev.set(toState, state);
+          nodeOf.set(toState, edge.to);
+          bearingOf.set(toState, edge.bearing);
+          heapPush([nd, toState]);
         }
       }
     }
-    if(!dist.has(endKey)) return null;
-    const path = [endKey];
-    let cur = endKey;
+    if(endState === null) return null;
+    const path = [endState];
+    let cur = endState;
     while(prev.has(cur)){ cur = prev.get(cur); path.unshift(cur); }
-    return path;
+    return path.map(s => nodeOf.get(s));
   }
 
-  function dijkstraPath(graph, startKey, endKey){
-    const keys = dijkstraKeys(graph, startKey, endKey);
+  function dijkstraPath(graph, startKey, endKey, startBearing){
+    const keys = dijkstraKeys(graph, startKey, endKey, startBearing);
     return keys ? keys.map(k => graph.coordOf.get(k)) : null;
   }
 
   // jak wyżej, ale sumuje też realny dystans i szacowany czas (do trasy alternatywnej od A do B)
-  function dijkstraWithMetrics(graph, startKey, endKey){
-    const keys = dijkstraKeys(graph, startKey, endKey);
+  function dijkstraWithMetrics(graph, startKey, endKey, startBearing){
+    const keys = dijkstraKeys(graph, startKey, endKey, startBearing);
     if(!keys) return null;
     let distM = 0, timeS = 0;
     for(let i=0;i<keys.length-1;i++){
@@ -3718,7 +3784,7 @@
       const dragKey   = snapPointToGraph(graph, dragLL[1], dragLL[0], LOCAL_ROUTE_DRAG_SNAP_M);
       if(!beforeKey || !afterKey || !dragKey) return null;
 
-      const keys1 = dijkstraKeys(graph, beforeKey, dragKey);
+      const keys1 = dijkstraKeys(graph, beforeKey, dragKey, opts.beforeBearing);
       const keys2 = dijkstraKeys(graph, dragKey, afterKey);
       if(!keys1 || !keys2) return null;
 
@@ -3728,8 +3794,14 @@
       sub = removeSpikes(sub);
       if(sub.length < 2) return null;
 
-      // zbyt długi objazd to zwykle błąd (np. zawijas przez pół miasta) — odrzucamy
-      if(opts.origLenM && routeLengthMeters(sub) > opts.origLenM * LOCAL_ROUTE_MAX_DETOUR_FACTOR + 1500) return null;
+      // zbyt długi objazd to zwykle błąd (np. zawijas przez pół miasta) — odrzucamy.
+      // Dwa niezależne progi: względem starego odcinka ORAZ względem linii prostej między
+      // kotwicami — ten drugi łapie akurat pętle/zawijasy, bo nie zależy od tego, jak długi
+      // (i już wcześniej powyginany) był stary fragment.
+      const subLenM = routeLengthMeters(sub);
+      if(opts.origLenM && subLenM > opts.origLenM * LOCAL_ROUTE_MAX_DETOUR_FACTOR + 1500) return null;
+      const straightM = haversine(beforeLL[1], beforeLL[0], afterLL[1], afterLL[0]);
+      if(subLenM > straightM * LOCAL_ROUTE_MAX_STRAIGHT_FACTOR + LOCAL_ROUTE_MAX_STRAIGHT_PAD_M) return null;
       return sub;
     });
   }
@@ -3772,9 +3844,56 @@
     }
   }
 
+  // Krok 1: dotknięcie/kliknięcie trasy NIE zaczyna od razu jej przeciągania — tylko je "zgłasza".
+  // Wcześniej każdy dotyk w polu łapania trasy (a jest ono szerokie, żeby łatwo było ją złapać)
+  // natychmiast wyłączał przewijanie mapy i zaczynał edycję — więc zwykła próba przesunięcia/
+  // powiększenia mapy w pobliżu trasy (a trasa zajmuje dużą część ekranu) w praktyce ciągle
+  // przypadkowo "przeciągała" fragment trasy, co dawało bezsensowne zawijasy. Teraz trzeba
+  // przytrzymać palec/kursor w miejscu przez chwilę (ROUTE_DRAG_HOLD_MS) — ruch większy niż
+  // ROUTE_DRAG_CANCEL_PX w tym czasie jest traktowany jak zwykłe przewijanie mapy i anuluje próbę.
   function onRouteDragStart(e){
-    if(!routeEditMode || !activeRoute || routeDragState) return;
+    if(!routeEditMode || !activeRoute || routeDragState || pendingRouteDrag) return;
+    const startPoint = e.point;
     const lngLat = e.lngLat;
+
+    function onMoveCheck(ev){
+      const dx = ev.point.x - startPoint.x, dy = ev.point.y - startPoint.y;
+      if(Math.hypot(dx, dy) > ROUTE_DRAG_CANCEL_PX) cancelPendingRouteDrag();
+    }
+    function onEndCheck(){ cancelPendingRouteDrag(); }
+
+    pendingRouteDrag = {
+      onMoveCheck, onEndCheck,
+      timer: setTimeout(() => {
+        cleanupPendingRouteDragListeners();
+        pendingRouteDrag = null;
+        beginRouteDrag(lngLat);
+      }, ROUTE_DRAG_HOLD_MS)
+    };
+    map.on("mousemove", onMoveCheck);
+    map.on("touchmove", onMoveCheck);
+    map.once("mouseup", onEndCheck);
+    map.once("touchend", onEndCheck);
+  }
+
+  function cleanupPendingRouteDragListeners(){
+    if(!pendingRouteDrag) return;
+    map.off("mousemove", pendingRouteDrag.onMoveCheck);
+    map.off("touchmove", pendingRouteDrag.onMoveCheck);
+    map.off("mouseup", pendingRouteDrag.onEndCheck);
+    map.off("touchend", pendingRouteDrag.onEndCheck);
+  }
+
+  function cancelPendingRouteDrag(){
+    if(!pendingRouteDrag) return;
+    clearTimeout(pendingRouteDrag.timer);
+    cleanupPendingRouteDragListeners();
+    pendingRouteDrag = null;
+  }
+
+  // Krok 2: przytrzymanie potwierdzone — dopiero teraz naprawdę zaczynamy przeciąganie trasy
+  // (dawny cały kod onRouteDragStart trafia tutaj, bez zmian w logice wyznaczania kotwic).
+  function beginRouteDrag(lngLat){
     const coords = activeRoute.coords;
     let bestIdx = 0, bestDist = Infinity;
     for(let i=0;i<coords.length;i++){
@@ -3833,6 +3952,12 @@
           return;
         }
         showNavError("");
+        // migawka SPRZED tej edycji — jeśli nowy przebieg okaże się bezsensowny (zawijas/pętla),
+        // kierowca może to cofnąć jednym dotknięciem zamiast zaczynać planowanie od nowa
+        routeBeforeEdit = {
+          coords: activeRoute.coords, distanceM: activeRoute.distanceM,
+          timeS: activeRoute.timeS, manuallyEdited: activeRoute.manuallyEdited
+        };
         const newCoords = activeRoute.coords.slice(0, beforeIdx)
           .concat(newSub)
           .concat(activeRoute.coords.slice(afterIdx + 1));
