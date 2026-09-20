@@ -1122,6 +1122,46 @@
   ];
   const SHIELD_LAYER_IDS = SHIELD_GROUPS.map(g => g.id);
 
+  /* Numery zjazdów autostradowych. Ta sama specyfikacja służy głównej mapie i nakładce nocnej
+     (w nocy nakładka rysuje też zjazdy, żeby tablice M/A nie zasłaniały ich numerów). */
+  const JUNCTION_LAYER_IDS = ["motorway-junction-circle", "motorway-junction-label"];
+  let junctionData = { type: "FeatureCollection", features: [] };
+
+  function junctionLayerSpecs(){
+    return [
+      {
+        id: "motorway-junction-circle", type: "circle", source: "motorway-junctions", minzoom: 13,
+        paint: {
+          "circle-radius": 9,
+          "circle-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#1e3a8a"
+        }
+      },
+      {
+        id: "motorway-junction-label", type: "symbol", source: "motorway-junctions", minzoom: 13,
+        layout: {
+          "text-field": ["get", "ref"],
+          "text-size": 11,
+          "text-font": ["Noto Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true
+        },
+        paint: { "text-color": "#1e3a8a" }
+      }
+    ];
+  }
+
+  function setJunctionData(features){
+    junctionData = { type: "FeatureCollection", features };
+    if(map && map.getSource("motorway-junctions")) map.getSource("motorway-junctions").setData(junctionData);
+    try{
+      if(shieldOverlay && shieldOverlay.getSource("motorway-junctions")){
+        shieldOverlay.getSource("motorway-junctions").setData(junctionData);
+      }
+    }catch(e){ /* nakładka jeszcze się nie zainicjowała — dostanie dane przy tworzeniu */ }
+  }
+
   function addShieldImages(m){
     SHIELD_GROUPS.forEach(g => {
       if(m.hasImage(g.image)) return;
@@ -1191,7 +1231,7 @@
   let shieldOverlayOn = false;
 
   function setMainShieldsVisible(visible){
-    SHIELD_LAYER_IDS.forEach(id => {
+    SHIELD_LAYER_IDS.concat(JUNCTION_LAYER_IDS).forEach(id => {
       if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     });
   }
@@ -1217,7 +1257,10 @@
       style: {
         version: 8,
         glyphs: style.glyphs,
-        sources: { openmaptiles: Object.assign({}, src) },
+        sources: {
+          openmaptiles: Object.assign({}, src),
+          "motorway-junctions": { type: "geojson", data: junctionData }
+        },
         layers: []
       },
       center: map.getCenter(),
@@ -1233,6 +1276,7 @@
       try{
         addShieldImages(m);
         shieldLayerSpecs().forEach(spec => m.addLayer(spec));
+        junctionLayerSpecs().forEach(spec => m.addLayer(spec)); // na wierzchu, jak w dzień
         syncShieldOverlay();
       }catch(e){
         console.warn("Nie udało się dodać tablic do nakładki nocnej:", e);
@@ -1426,34 +1470,7 @@
 
       // źródło numerów zjazdów autostradowych (dane z OSM/Overpass, highway=motorway_junction)
       map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
-      map.addLayer({
-        id:"motorway-junction-circle",
-        type:"circle",
-        source:"motorway-junctions",
-        minzoom: 13,
-        paint:{
-          "circle-radius": 9,
-          "circle-color": "#ffffff",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#1e3a8a"
-        }
-      });
-      map.addLayer({
-        id:"motorway-junction-label",
-        type:"symbol",
-        source:"motorway-junctions",
-        minzoom: 13,
-        layout:{
-          "text-field": ["get","ref"],
-          "text-size": 11,
-          "text-font": ["Noto Sans Bold"],
-          "text-allow-overlap": true,
-          "text-ignore-placement": true
-        },
-        paint:{
-          "text-color": "#1e3a8a"
-        }
-      });
+      junctionLayerSpecs().forEach(spec => map.addLayer(spec));
 
       // fotoradary na autostradach (pobierane raz dla całej Wielkiej Brytanii i zapisywane lokalnie).
       // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
@@ -1520,6 +1537,12 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw pasów autostrady:", e);
       }
+      // zabezpieczenie: numery zjazdów zawsze nad wszystkim, co rysujemy na drogach
+      try{
+        JUNCTION_LAYER_IDS.forEach(id => { if(map.getLayer(id)) map.moveLayer(id); });
+      }catch(e){
+        console.warn("Nie udało się przenieść warstwy zjazdów na wierzch:", e);
+      }
       try{
         setupDestinationPinInteractions();
       }catch(e){
@@ -1563,9 +1586,18 @@
   function setupMotorwayLanes(){
     map.addSource("motorway-lanes", { type:"geojson", data: emptyFC() });
 
-    // pod pierwszą warstwą tekstową, żeby nazwy i tablice zostały na wierzchu
-    const firstSymbol = (map.getStyle().layers || []).find(l => l.type === "symbol");
-    const before = firstSymbol ? firstSymbol.id : undefined;
+    // Pasy leżą pod pierwszą warstwą tekstową mapy ORAZ pod każdą naszą warstwą (tablice, trasa,
+    // fotoradary, numery zjazdów, parkingi) — wybieramy tę, która jest najniżej w stosie.
+    // Bez tego asfalt mógłby przykryć numery zjazdów.
+    const styleLayers = map.getStyle().layers || [];
+    const stackIdx = id => styleLayers.findIndex(l => l.id === id);
+    const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "route-line-casing", "motorway-cameras-dot",
+      "cameras-glow", "motorway-junction-circle", "motorway-junction-label",
+      "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
+    const firstSymbol = styleLayers.find(l => l.type === "symbol");
+    const anchors = [firstSymbol && firstSymbol.id].concat(ownLayerIds).filter(id => id && stackIdx(id) >= 0);
+    anchors.sort((x, y) => stackIdx(x) - stackIdx(y));
+    const before = anchors.length ? anchors[0] : undefined;
     const isRole = role => ["==", ["get", "role"], role];
     const c = LANE_COLORS[document.body.classList.contains("night") ? "night" : "day"];
 
@@ -1701,7 +1733,7 @@
     try{
       const cached = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
       if(cached && cached.savedAt && (Date.now() - cached.savedAt) < JUNCTIONS_CACHE_MAX_AGE_MS && Array.isArray(cached.features)){
-        map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features: cached.features });
+        setJunctionData(cached.features);
         return; // mamy świeże dane z cache — nie odpytujemy Overpass
       }
     }catch(e){
@@ -1726,7 +1758,7 @@
           geometry: { type: "Point", coordinates: [el.lon, el.lat] }
         }));
       const features = dedupeJunctions(rawFeatures);
-      map.getSource("motorway-junctions").setData({ type:"FeatureCollection", features });
+      setJunctionData(features);
       try{
         localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features }));
       }catch(e){
