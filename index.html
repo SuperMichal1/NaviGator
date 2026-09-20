@@ -747,9 +747,14 @@
   const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
   const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
 
-  /* ---------- TEST: renderowanie M6 jako trzech równoległych linii (podgląd, tylko M6) ---------- */
-  const M6_TEST_RADIUS_M = 20000;   // zasięg pobierania odcinków M6 wokół pozycji
-  const M6_TEST_LANE_OFFSET_M = 3.7; // odstęp między liniami (typowa szerokość pasa autostrady w UK)
+  /* ---------- Autostrady rysowane "pasami" (szary asfalt + białe linie) ----------
+     Rysujemy tylko drogi z tej listy (ref z OSM). Kolejne autostrady dopisz tutaj. */
+  const LANE_RENDER_REFS = ["M6", "M40"];
+  const LANE_RENDER_RADIUS_M = 20000;   // zasięg pobierania odcinków tych dróg wokół pozycji
+  const LANE_WIDTH_M = 3.65;            // szerokość pasa (typowa dla autostrad w UK)
+  const LANE_DEFAULT_COUNT = 3;         // gdy w OSM brak tagu lanes
+  const LANE_SHOULDER_M = 0.6;          // pobocze asfaltu poza skrajną linią
+  const LANE_RENDER_MINZOOM = 15;       // od tego zoomu pokazujemy pasy
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
 
   /* ---------- Supabase — wspólna, współdzielona baza fotoradarów/parkingów HGV ---------- */
@@ -1481,15 +1486,13 @@
         }
       });
 
-      // TEST: podgląd renderowania M6 jako trzech równoległych linii (tylko M6, do oceny wyglądu)
-      map.addSource("m6-test-lanes", { type:"geojson", data: emptyFC() });
-      map.addLayer({
-        id:"m6-test-lanes-line",
-        type:"line",
-        source:"m6-test-lanes",
-        layout:{ "line-cap":"round", "line-join":"round" },
-        paint:{ "line-color": "#ff2fd0", "line-width": 3 }
-      });
+      // Autostrady z listy LANE_RENDER_REFS rysowane pasami: szary asfalt, ciągłe linie
+      // krawędziowe i przerywane linie między pasami.
+      try{
+        setupMotorwayLanes();
+      }catch(e){
+        console.warn("Nie udało się dodać warstw pasów autostrady:", e);
+      }
 
       addUserMarker(lat, lon);
       renderUserHgvParking();
@@ -1499,6 +1502,72 @@
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
+
+  /* ============================================================
+     AUTOSTRADY Z PASAMI (LANE_RENDER_REFS)
+     ------------------------------------------------------------
+     Dane: ways z Overpass (highway=motorway + ref z listy). Z linii środkowej każdej
+     jezdni liczymy równoległe linie: asfalt (wielokąt), krawędzie i podziały pasów.
+     Geometria jest w metrach, więc sama skaluje się razem z zoomem mapy.
+  ============================================================ */
+  // Kolory. Tryb nocny to filtr CSS, który odwraca jasność całej mapy, więc w nocy
+  // podajemy kolory "sprzed filtra", tak aby PO filtrze wyszedł ciemny asfalt i jasne pasy.
+  // (wartości przeliczone dla filtra z --map-filter; jeśli go zmienisz, przelicz je ponownie)
+  const LANE_COLORS = {
+    day:   { asphalt: "#6f7378", marking: "#ffffff" },
+    night: { asphalt: "#cbcbcb", marking: "#000000" }
+  };
+
+  // szerokość linii w px dla 0,2 m rzeczywistej szerokości (rośnie ~2x na każdy zoom),
+  // z dolnym ograniczeniem, żeby przy małym zoomie linie nie znikały
+  const LANE_MARKING_WIDTH = ["interpolate", ["exponential", 2], ["zoom"],
+    12, 0.4, 17, 0.9, 18, 1.2, 20, 4.3, 22, 17.4];
+
+  function setupMotorwayLanes(){
+    map.addSource("motorway-lanes", { type:"geojson", data: emptyFC() });
+
+    // pod pierwszą warstwą tekstową, żeby nazwy i tablice zostały na wierzchu
+    const firstSymbol = (map.getStyle().layers || []).find(l => l.type === "symbol");
+    const before = firstSymbol ? firstSymbol.id : undefined;
+    const isRole = role => ["==", ["get", "role"], role];
+    const c = LANE_COLORS[document.body.classList.contains("night") ? "night" : "day"];
+
+    map.addLayer({
+      id: "motorway-lanes-asphalt", type: "fill", source: "motorway-lanes",
+      minzoom: LANE_RENDER_MINZOOM, filter: isRole("asphalt"),
+      paint: { "fill-color": c.asphalt, "fill-antialias": true }
+    }, before);
+    // cienki obrys w kolorze asfaltu zasłania szwy między kolejnymi odcinkami dróg
+    map.addLayer({
+      id: "motorway-lanes-asphalt-seam", type: "line", source: "motorway-lanes",
+      minzoom: LANE_RENDER_MINZOOM, filter: isRole("asphalt"),
+      layout: { "line-join": "round" },
+      paint: { "line-color": c.asphalt, "line-width": 1.5 }
+    }, before);
+    map.addLayer({
+      id: "motorway-lanes-edge", type: "line", source: "motorway-lanes",
+      minzoom: LANE_RENDER_MINZOOM, filter: isRole("edge"),
+      layout: { "line-join": "round" },
+      paint: { "line-color": c.marking, "line-width": LANE_MARKING_WIDTH }
+    }, before);
+    map.addLayer({
+      id: "motorway-lanes-divider", type: "line", source: "motorway-lanes",
+      minzoom: LANE_RENDER_MINZOOM, filter: isRole("divider"),
+      layout: { "line-join": "round" },
+      // dasharray liczone jest w szerokościach linii (0,2 m): kreska ok. 2 m, przerwa ok. 7 m
+      paint: { "line-color": c.marking, "line-width": LANE_MARKING_WIDTH, "line-dasharray": [10, 35] }
+    }, before);
+  }
+
+  // Wywołuj po zmianie trybu dzień/noc.
+  function applyMotorwayLaneColors(){
+    if(!map || !map.getLayer("motorway-lanes-asphalt")) return;
+    const c = LANE_COLORS[document.body.classList.contains("night") ? "night" : "day"];
+    map.setPaintProperty("motorway-lanes-asphalt", "fill-color", c.asphalt);
+    map.setPaintProperty("motorway-lanes-asphalt-seam", "line-color", c.asphalt);
+    map.setPaintProperty("motorway-lanes-edge", "line-color", c.marking);
+    map.setPaintProperty("motorway-lanes-divider", "line-color", c.marking);
+  }
 
   // Pokazuje błąd na ekranie telefonu (bez potrzeby konsoli deweloperskiej) —
   // czarno-czerwony pasek na górze, znika po dotknięciu.
@@ -1653,7 +1722,7 @@
         way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        way["highway"="motorway"]["ref"~"(^|;)M6($|;)"](around:${M6_TEST_RADIUS_M},${lat},${lon});
+        way["highway"="motorway"]["ref"~"(^|;)(${LANE_RENDER_REFS.join("|")})($|;)"](around:${LANE_RENDER_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
@@ -1883,8 +1952,10 @@
     return false;
   }
 
-  function isM6TestWay(el){
-    return !!(el.tags && el.tags.highway === "motorway" && /(^|;)M6($|;)/.test(el.tags.ref || ""));
+  function isLaneRenderWay(el){
+    if(!el.tags || el.tags.highway !== "motorway") return false;
+    const refs = String(el.tags.ref || "").split(";").map(r => r.trim());
+    return refs.some(r => LANE_RENDER_REFS.indexOf(r) !== -1);
   }
 
   // przesuwa listę punktów [lon,lat] równolegle o offsetM metrów; normalna w każdym
@@ -1916,6 +1987,34 @@
     return out;
   }
 
+  // Z linii środkowej jezdni buduje: asfalt (wielokąt), linie krawędziowe i podziały pasów.
+  function buildLaneFeatures(coords, lanesTag){
+    let lanes = parseInt(lanesTag, 10);
+    if(!(lanes >= 1)) lanes = LANE_DEFAULT_COUNT;
+    lanes = Math.min(lanes, 6);
+
+    const half = lanes * LANE_WIDTH_M / 2;
+    const feats = [];
+    const line = (role, offset) => feats.push({
+      type:"Feature", properties:{ role },
+      geometry:{ type:"LineString", coordinates: offsetLineCoords(coords, offset) }
+    });
+
+    // asfalt: wielokąt między lewą i prawą krawędzią (z poboczem)
+    const left  = offsetLineCoords(coords, -(half + LANE_SHOULDER_M));
+    const right = offsetLineCoords(coords,  (half + LANE_SHOULDER_M));
+    feats.push({
+      type:"Feature", properties:{ role:"asphalt" },
+      geometry:{ type:"Polygon", coordinates:[ left.concat(right.slice().reverse(), [left[0]]) ] }
+    });
+
+    // ciągłe linie krawędziowe (lekko od skraju asfaltu)
+    line("edge", -half); line("edge", half);
+    // przerywane linie między pasami
+    for(let k = 1; k < lanes; k++) line("divider", -half + k * LANE_WIDTH_M);
+    return feats;
+  }
+
   function applyOverpassResult(data, supaReports){
     supaReports = supaReports || [];
     const newCameras = [];
@@ -1923,18 +2022,12 @@
     const roadFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
-    const m6TestFeatures = [];
+    const laneFeatures = [];
 
     (data.elements || []).forEach(el => {
-      if(isM6TestWay(el) && el.geometry && el.geometry.length > 1){
+      if(isLaneRenderWay(el) && el.geometry && el.geometry.length > 1){
         const coords = el.geometry.map(g => [g.lon, g.lat]);
-        const left = offsetLineCoords(coords, -M6_TEST_LANE_OFFSET_M);
-        const right = offsetLineCoords(coords, M6_TEST_LANE_OFFSET_M);
-        m6TestFeatures.push(
-          { type:"Feature", properties:{ lane:"center" }, geometry:{ type:"LineString", coordinates: coords } },
-          { type:"Feature", properties:{ lane:"left" }, geometry:{ type:"LineString", coordinates: left } },
-          { type:"Feature", properties:{ lane:"right" }, geometry:{ type:"LineString", coordinates: right } }
-        );
+        buildLaneFeatures(coords, el.tags.lanes).forEach(f => laneFeatures.push(f));
       }
 
       if(isHgvParkingElement(el)){
@@ -2015,8 +2108,8 @@
     if(map.getSource("hgv-parking-community")){
       map.getSource("hgv-parking-community").setData({ type:"FeatureCollection", features: communityParkingFeatures });
     }
-    if(map.getSource("m6-test-lanes")){
-      map.getSource("m6-test-lanes").setData({ type:"FeatureCollection", features: m6TestFeatures });
+    if(map.getSource("motorway-lanes")){
+      map.getSource("motorway-lanes").setData({ type:"FeatureCollection", features: laneFeatures });
     }
   }
 
@@ -3069,6 +3162,7 @@
     document.getElementById("btnNight").classList.toggle("active", isNight);
     document.getElementById("btnNight").textContent = isNight ? "☀️" : "🌙";
     applyShieldMode();
+    applyMotorwayLaneColors();
   });
 
   document.getElementById("btnLocate").addEventListener("click", () => {
