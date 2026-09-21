@@ -37,7 +37,7 @@
     --sign-face: #1a1512;
     --sign-ring: #cc4a3a;
     --sign-text: #ffd9a0;
-    --map-filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95) saturate(0.7);
+    --map-filter: invert(1) hue-rotate(180deg) contrast(1.06) saturate(0.9); /* parametry muszą zgadzać się z NIGHT_FILTER w skrypcie */
     --ctrl-active-bg: #6e2c22;
     --ctrl-active-text: #ffcdbd;
   }
@@ -60,9 +60,9 @@
     position:absolute; inset:0; width:100%; height:100%;
     pointer-events:none;
     visibility:hidden;
-    /* w nocy tablice mają być stonowane, żeby nie oślepiały — 1 = jak w dzień, niżej = ciemniej
-       (45% — tyle samo co drogi, patrz NIGHT_ROAD_BRIGHTNESS w skrypcie) */
-    filter: brightness(0.45);
+    /* w nocy tablice wyglądają dokładnie jak w dzień (bez ściemniania). Gdyby były za jasne: np.
+       filter: brightness(0.7) — 1 = jak w dzień, niżej = ciemniej */
+    filter: none;
   }
   #mapShields.on{ visibility:visible; }
 
@@ -1414,6 +1414,7 @@
       bearing: map.getBearing(),
       pitch: map.getPitch(),
       interactive: false,
+      antialias: true,
       attributionControl: false,
       renderWorldCopies: false,
       fadeDuration: 0
@@ -1493,29 +1494,33 @@
 
   /* ---------- Kolor tła mapy w trybie nocnym: #144043 (jak w Google Maps) ----------
      Nocna mapa to zwykła jasna mapa odwrócona filtrem CSS (--map-filter: invert → hue-rotate(180°) →
-     brightness(.92) → contrast(.95) → saturate(.7)). Żeby po filtrze tło wyszło dokładnie #144043,
+     contrast → saturate, parametry w NIGHT_FILTER). Żeby po filtrze tło wyszło dokładnie #144043,
      warstwie "background" nadajemy kolor "sprzed filtra", policzony odwrotnie do filtru.
      Zmienia się TYLKO ta jedna warstwa (ziemia/tło) — drogi, woda, parki, budynki, etykiety zostają jak były.
      Jeśli zmienisz --map-filter w CSS, zaktualizuj tu też macierze poniżej. */
   const NIGHT_MAP_BG_HEX = "#144043";
-  // Drogi (i tablice) w nocy: kolor jak w dzień, tylko ściemniony do 45% jasności
-  const NIGHT_ROAD_BRIGHTNESS = 0.45;
+  // Parametry filtra nocnego (--map-filter w CSS) — dawniej brightness .92 / contrast .95 / saturate .7,
+  // co spłaszczało obraz (biel wychodziła szara, kolory blade). Teraz filtr tylko odwraca jasność
+  // (invert + hue-rotate) i lekko podbija kontrast. Jeśli zmienisz je tu, zmień też --map-filter w CSS.
+  const NIGHT_FILTER = { brightness: 1, contrast: 1.06, saturate: 0.9 };
+  // Drogi (i tablice) w nocy: 1 = kolory jak w dzień (0.45 = ściemnione do 45%)
+  const NIGHT_ROAD_BRIGHTNESS = 1;
 
   // Odwrotność filtra nocnego: dla koloru, jaki ma być WIDOCZNY na ekranie (r,g,b w 0..1), zwraca kolor
   // "sprzed filtra" (r,g,b w 0..255), który po przejściu przez filtr da dokładnie ten wynik.
   const nightFilterInverse = (function(){
     const mul = (m, c) => [0, 1, 2].map(i => m[i][0] * c[0] + m[i][1] * c[1] + m[i][2] * c[2]);
     const HUE180 = [[-0.574, 1.43, 0.144], [0.426, 0.430, 0.144], [0.426, 1.430, -0.856]];
-    const S = 0.7;
+    const S = NIGHT_FILTER.saturate;
     const SAT = [[0.213 + 0.787 * S, 0.715 - 0.715 * S, 0.072 - 0.072 * S],
                  [0.213 - 0.213 * S, 0.715 + 0.285 * S, 0.072 - 0.072 * S],
                  [0.213 - 0.213 * S, 0.715 - 0.715 * S, 0.072 + 0.928 * S]];
     const forward = c => {
       let x = c.map(v => 1 - v);                       // invert(1)
       x = mul(HUE180, x);                              // hue-rotate(180deg)
-      x = x.map(v => v * 0.92);                        // brightness(.92)
-      x = x.map(v => (v - 0.5) * 0.95 + 0.5);          // contrast(.95)
-      return mul(SAT, x);                              // saturate(.7)
+      x = x.map(v => v * NIGHT_FILTER.brightness);     // brightness
+      x = x.map(v => (v - 0.5) * NIGHT_FILTER.contrast + 0.5); // contrast
+      return mul(SAT, x);                              // saturate
     };
     // filtr jest przekształceniem afinicznym: F(c) = A·c + b  ->  odwracamy je
     const b = forward([0, 0, 0]);
@@ -1594,6 +1599,26 @@
     return spec;
   }
 
+  // Mniejsze drogi (osiedlowe, serwisowe, dojazdy, ścieżki) pokazujemy dopiero o MINOR_ROAD_ZOOM_DELAY
+  // poziomu zoomu później niż w bazowym stylu — mapa jest przejrzystsza, a drogi główne lepiej widać.
+  // (1 = "trochę większy zoom"; 0 = jak w bazowym stylu; 2 = jeszcze później). Dotyczy dnia i nocy.
+  const MINOR_ROAD_ZOOM_DELAY = 1;
+  function delayMinorRoads(){
+    if(!map || !MINOR_ROAD_ZOOM_DELAY) return;
+    try{
+      map.getStyle().layers.forEach(l => {
+        if(l["source-layer"] !== "transportation" || l.type !== "line") return;
+        if(!/^(road|bridge|tunnel)_/.test(l.id) || /rail|transit|ferry|aerialway/.test(l.id)) return;
+        if(!/minor|service|track|path|pedestrian|living|residential/.test(l.id)) return;
+        const layer = map.getLayer(l.id);
+        const orig = (layer && layer.minzoom) || 0;
+        map.setLayerZoomRange(l.id, (orig || 12) + MINOR_ROAD_ZOOM_DELAY, layer && layer.maxzoom !== undefined ? layer.maxzoom : 24);
+      });
+    }catch(e){
+      console.warn("Nie udało się opóźnić pokazywania małych dróg:", e);
+    }
+  }
+
   // Warstwy dróg bazowej mapy (jezdnie i ich obrzeża: road_*, bridge_*, tunnel_*), bez kolei i promów
   let roadColorOriginals = null; // { idWarstwy: oryginalny line-color } — do przywrócenia w dzień
   function isBaseRoadLineLayer(l){
@@ -1643,6 +1668,7 @@
     map = new maplibregl.Map({
       container: "map",
       style: OFM_STYLE,
+      antialias: true,          // MSAA: gładsze krawędzie dróg, budynków i ikon (domyślnie w MapLibre wyłączone)
       center: [lon, lat],
       zoom: 16.5,
       pitch: 0,
@@ -1657,6 +1683,7 @@
     map.on("load", () => {
       applyNightMapBackground();
       applyNightRoadColors();
+      delayMinorRoads();
       hideNonHgvPoi();
       thickenMotorways();
       try{
@@ -1878,7 +1905,7 @@
   ============================================================ */
   // Kolory. Tryb nocny to filtr CSS, który odwraca jasność całej mapy, więc w nocy
   // podajemy kolory "sprzed filtra", tak aby PO filtrze wyszedł ciemny asfalt i jasne pasy.
-  // (wartości przeliczone dla filtra z --map-filter; jeśli go zmienisz, przelicz je ponownie)
+  // (wartości liczone automatycznie z NIGHT_FILTER, więc zmiana filtra nie wymaga ręcznych poprawek)
   const LANE_COLORS = {
     day:   { asphalt: "#6f7378", marking: "#ffffff" },
     // nocą: kolory dzienne × NIGHT_ROAD_BRIGHTNESS (45%), przeliczone na kolor "sprzed filtra"
