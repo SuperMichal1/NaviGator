@@ -1083,6 +1083,42 @@
     return v;
   }
 
+  /* ---------- Znaki wysokości (wiadukty/przejazdy) i tonażu ----------
+     Tagi OSM: "maxheight" (metry, czasem stopy'cale, np. 13'6") i "maxweight"
+     (tony, czasem z jednostką "t"). Wartości typu "none"/"default"/"unsigned"
+     oznaczają brak faktycznego ograniczenia — pomijamy je. */
+  function parseMaxheightMeters(tag){
+    if(!tag) return null;
+    const s = String(tag).trim().toLowerCase();
+    if(!s || s === "none" || s === "default" || s === "unsigned" || s === "no") return null;
+    const ftIn = s.match(/^(\d+)\s*'\s*(\d+(?:\.\d+)?)?\s*"?$/);
+    if(ftIn){
+      const ft = parseFloat(ftIn[1]);
+      const inch = ftIn[2] ? parseFloat(ftIn[2]) : 0;
+      const meters = (ft * 12 + inch) * 0.0254;
+      return Math.round(meters * 100) / 100;
+    }
+    const m = parseFloat(s.replace(",", ".").replace(/[^0-9.]/g, ""));
+    if(isNaN(m) || m <= 0 || m > 10) return null; // poza sensownym zakresem dla drogi
+    return Math.round(m * 100) / 100;
+  }
+  function formatHeightLabel(m){
+    const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    return v + "m";
+  }
+  function parseMaxweightTonnes(tag){
+    if(!tag) return null;
+    const s = String(tag).trim().toLowerCase();
+    if(!s || s === "none" || s === "default" || s === "unsigned" || s === "no") return null;
+    const t = parseFloat(s.replace(",", ".").replace(/[^0-9.]/g, ""));
+    if(isNaN(t) || t <= 0 || t > 100) return null; // poza sensownym zakresem
+    return Math.round(t * 10) / 10;
+  }
+  function formatWeightLabel(t){
+    const v = (Math.round(t * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    return v + "t";
+  }
+
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -1286,6 +1322,98 @@
         shieldOverlay.getSource("motorway-junctions").setData(junctionData);
       }
     }catch(e){ /* nakładka jeszcze się nie zainicjowała — dostanie dane przy tworzeniu */ }
+  }
+
+  /* ============================================================
+     ZNAKI WYSOKOŚCI I TONAŻU (na mapie)
+     ------------------------------------------------------------
+     Wizualnie nawiązują do istniejącego znaku limitu prędkości (#limitSign):
+     biała tarcza + kolorowy pierścień. Kolor pierścienia rozróżnia kategorię
+     (wysokość / tonaż) i jest spójny z kolorem podświetlenia drogi na mapie.
+     To JEDEN obrazek na kategorię — konkretna wartość (np. "4.4m") dopisywana
+     jest osobną warstwą tekstową na wierzchu, więc nie trzeba renderować
+     osobnego obrazka dla każdej możliwej wysokości/wagi.
+  ============================================================ */
+  const RESTRICTION_SIGN_COLORS = {
+    height: "#FFB020", // bursztynowy pierścień — znaki wysokości wiaduktów/przejazdów
+    weight: "#B15CFF"  // fioletowy pierścień — znaki ograniczeń tonażowych
+  };
+
+  function createRestrictionSignImage(ringColor){
+    const PR = 2;
+    const d = 30 * PR;     // średnica całego znaku
+    const ring = 4 * PR;   // grubość kolorowego pierścienia
+    const canvas = document.createElement("canvas");
+    canvas.width = d; canvas.height = d;
+    const ctx = canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.arc(d/2, d/2, d/2 - 0.5*PR, 0, Math.PI*2);
+    ctx.fillStyle = ringColor;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(d/2, d/2, d/2 - ring, 0, Math.PI*2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    return { data: ctx.getImageData(0, 0, d, d), options: { pixelRatio: PR } };
+  }
+
+  function addRestrictionSignImages(m){
+    Object.keys(RESTRICTION_SIGN_COLORS).forEach(kind => {
+      const id = "restriction-sign-" + kind;
+      if(m.hasImage(id)) return;
+      const img = createRestrictionSignImage(RESTRICTION_SIGN_COLORS[kind]);
+      m.addImage(id, img.data, img.options);
+    });
+  }
+
+  // źródła + warstwy dróg/znaków wysokości i tonażu — dodawane razem z resztą warstw własnych
+  function setupRestrictionLayers(){
+    addRestrictionSignImages(map);
+
+    map.addSource("roads-maxheight", { type:"geojson", data: emptyFC() });
+    map.addLayer({
+      id: "roads-maxheight-line", type: "line", source: "roads-maxheight",
+      minzoom: 12,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": RESTRICTION_SIGN_COLORS.height,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 5, 18, 7],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.35, 15, 0.8]
+      }
+    }, "cameras-glow");
+
+    map.addSource("roads-maxweight", { type:"geojson", data: emptyFC() });
+    map.addLayer({
+      id: "roads-maxweight-line", type: "line", source: "roads-maxweight",
+      minzoom: 12,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": RESTRICTION_SIGN_COLORS.weight,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 5, 18, 7],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.35, 15, 0.8]
+      }
+    }, "cameras-glow");
+
+    // punktowe znaki (jeden na drogę, w jej środku) — widoczne dopiero po większym zbliżeniu,
+    // żeby nie zaśmiecać widoku przy oddaleniu
+    map.addSource("restriction-signs", { type:"geojson", data: emptyFC() });
+    map.addLayer({
+      id: "restriction-signs-icon", type: "symbol", source: "restriction-signs",
+      minzoom: 14,
+      layout: {
+        "icon-image": ["match", ["get", "kind"], "weight", "restriction-sign-weight", "restriction-sign-height"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 19, 1.15],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "text-field": ["get", "label"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 8, 16, 10, 19, 13],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+        "text-anchor": "center"
+      },
+      paint: { "text-color": "#14181c" }
+    }, "cameras-glow");
   }
 
   function addShieldImages(m){
@@ -1801,6 +1929,13 @@
         }
       }, "cameras-glow");
 
+      // źródła/warstwy znaków wysokości wiaduktów/przejazdów i ograniczeń tonażowych
+      try{
+        setupRestrictionLayers();
+      }catch(e){
+        console.warn("Nie udało się dodać warstw znaków wysokości/tonażu:", e);
+      }
+
       // źródło wyznaczonej trasy (TomTom)
       map.addSource("route-line", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -1982,7 +2117,8 @@
     // Bez tego asfalt mógłby przykryć numery zjazdów.
     const styleLayers = map.getStyle().layers || [];
     const stackIdx = id => styleLayers.findIndex(l => l.id === id);
-    const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "route-line-casing", "motorway-cameras-dot",
+    const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line",
+      "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot",
       "cameras-glow", "motorway-junction-circle", "motorway-junction-label",
       "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
@@ -2350,6 +2486,8 @@
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
+        way["maxheight"](around:${ROAD_RADIUS_M},${lat},${lon});
+        way["maxweight"](around:${ROAD_RADIUS_M},${lat},${lon});
         node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
@@ -2659,6 +2797,9 @@
     const newCameras = [];
     const newRoads = [];
     const roadFeatures = [];
+    const heightRoadFeatures = [];
+    const weightRoadFeatures = [];
+    const restrictionSignFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
     const laneFeatures = [];
@@ -2704,6 +2845,45 @@
             properties:{ maxspeed: ms },
             geometry:{ type:"LineString", coordinates: coords }
           });
+        }
+      }
+
+      // Znaki wysokości (wiadukty/przejazdy) i ograniczeń tonażowych — niezależne od gałęzi
+      // powyżej, bo ta sama droga może jednocześnie mieć maxspeed ORAZ maxheight/maxweight.
+      if(el.type === "way" && el.geometry && el.geometry.length > 1 && el.tags){
+        if(el.tags.maxheight){
+          const hm = parseMaxheightMeters(el.tags.maxheight);
+          if(hm){
+            const coords = el.geometry.map(g => [g.lon, g.lat]);
+            heightRoadFeatures.push({
+              type:"Feature",
+              properties:{ maxheight: hm },
+              geometry:{ type:"LineString", coordinates: coords }
+            });
+            const c = wayCentroid(el.geometry);
+            restrictionSignFeatures.push({
+              type:"Feature",
+              properties:{ kind:"height", label: formatHeightLabel(hm) },
+              geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
+            });
+          }
+        }
+        if(el.tags.maxweight){
+          const wt = parseMaxweightTonnes(el.tags.maxweight);
+          if(wt){
+            const coords = el.geometry.map(g => [g.lon, g.lat]);
+            weightRoadFeatures.push({
+              type:"Feature",
+              properties:{ maxweight: wt },
+              geometry:{ type:"LineString", coordinates: coords }
+            });
+            const c = wayCentroid(el.geometry);
+            restrictionSignFeatures.push({
+              type:"Feature",
+              properties:{ kind:"weight", label: formatWeightLabel(wt) },
+              geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
+            });
+          }
         }
       }
     });
@@ -2758,6 +2938,15 @@
 
     if(map.getSource("roads-maxspeed")){
       map.getSource("roads-maxspeed").setData({ type:"FeatureCollection", features: roadFeatures });
+    }
+    if(map.getSource("roads-maxheight")){
+      map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightRoadFeatures });
+    }
+    if(map.getSource("roads-maxweight")){
+      map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightRoadFeatures });
+    }
+    if(map.getSource("restriction-signs")){
+      map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: restrictionSignFeatures });
     }
     if(map.getSource("hgv-parking")){
       map.getSource("hgv-parking").setData({ type:"FeatureCollection", features: hgvParkingFeatures });
