@@ -572,6 +572,68 @@
   #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
   @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
 
+  /* ---------- Konsola debugowania ---------- */
+  #debugConsole{
+    position:fixed; left:10px; right:10px;
+    bottom: calc(var(--nav-icon-row-h, 64px) + 10px);
+    max-height:52vh;
+    z-index:90;
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    box-shadow: 0 -10px 34px rgba(0,0,0,.45);
+    display:flex; flex-direction:column;
+    transform: translateY(12px) scale(.98);
+    opacity:0;
+    pointer-events:none;
+    transition: transform .22s ease, opacity .22s ease;
+  }
+  #debugConsole.open{
+    opacity:1; transform: translateY(0) scale(1); pointer-events:auto;
+  }
+  #debugConsoleHeader{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px;
+    font-weight:700; font-size:14px;
+    color: var(--text-main);
+    border-bottom:1px solid var(--panel-border);
+  }
+  #debugConsoleHeader #debugCloseBtn{
+    width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,.08);
+    cursor:pointer; font-size:13px; color: var(--text-dim);
+  }
+  #debugConsoleBody{
+    margin:0; padding:10px 14px;
+    overflow-y:auto;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size:11px; line-height:1.5;
+    color: var(--text-dim);
+    white-space:pre-wrap; word-break:break-word;
+    flex:1 1 auto;
+  }
+  #debugConsoleActions{
+    display:flex; gap:8px;
+    padding:10px 14px;
+    border-top:1px solid var(--panel-border);
+  }
+  #debugConsoleActions button{
+    flex:1 1 auto;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid var(--panel-border);
+    background: var(--accent);
+    color: var(--ctrl-active-text);
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  #debugConsoleActions button.secondary{
+    background: rgba(255,255,255,.08);
+    color: var(--text-main);
+  }
+
   /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
 
   /* Loading splash */
@@ -766,6 +828,19 @@
     💾
     <span class="badge" id="exportBadge">0</span>
   </div>
+  <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
+</div>
+
+<div id="debugConsole">
+  <div id="debugConsoleHeader">
+    <span>Konsola debugowania</span>
+    <div id="debugCloseBtn" role="button" aria-label="Zamknij">✕</div>
+  </div>
+  <pre id="debugConsoleBody"></pre>
+  <div id="debugConsoleActions">
+    <button id="debugCopyBtn" type="button">Kopiuj</button>
+    <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
+  </div>
 </div>
 
 <div id="navSettingsPanel">
@@ -823,6 +898,107 @@
 <script>
 (function(){
   "use strict";
+
+  /* ============================================================
+     WBUDOWANA KONSOLA DEBUGOWANIA (dla telefonu, bez devtools)
+     ------------------------------------------------------------
+     Przechwytuje console.log/warn/error, błędy JS (window.onerror) oraz
+     odrzucone Promise, i pokazuje je w podręcznym okienku w aplikacji
+     (przycisk 🐞 w pasku ikon), z przyciskiem "Kopiuj", żeby łatwo wkleić
+     treść błędu bez podłączania telefonu do komputera.
+  ============================================================ */
+  const DEBUG_LOG_MAX = 500;
+  const debugLogs = [];
+  let debugConsoleOpen = false;
+
+  function debugFormatArg(a){
+    if(a instanceof Error) return (a.stack || a.message || String(a));
+    if(typeof a === "object"){
+      try{ return JSON.stringify(a); }catch(e){ return String(a); }
+    }
+    return String(a);
+  }
+
+  function debugLog(level, ...args){
+    const time = new Date().toLocaleTimeString("pl-PL", { hour12:false });
+    const msg = args.map(debugFormatArg).join(" ");
+    debugLogs.push(`[${time}] ${level.toUpperCase()}: ${msg}`);
+    if(debugLogs.length > DEBUG_LOG_MAX) debugLogs.shift();
+    if(debugConsoleOpen) renderDebugConsole();
+  }
+
+  const _origConsole = { log: console.log.bind(console), warn: console.warn.bind(console), error: console.error.bind(console) };
+  console.log   = function(...args){ _origConsole.log(...args);   debugLog("log", ...args); };
+  console.warn  = function(...args){ _origConsole.warn(...args);  debugLog("warn", ...args); };
+  console.error = function(...args){ _origConsole.error(...args); debugLog("error", ...args); };
+
+  window.addEventListener("error", ev => {
+    debugLog("error", `${ev.message} (${ev.filename}:${ev.lineno}:${ev.colno})`);
+  });
+  window.addEventListener("unhandledrejection", ev => {
+    debugLog("error", "Unhandled promise rejection: " + debugFormatArg(ev.reason));
+  });
+
+  function renderDebugConsole(){
+    const box = document.getElementById("debugConsoleBody");
+    if(!box) return;
+    box.textContent = debugLogs.length ? debugLogs.join("\n") : "(brak logów — jeszcze nic się nie zdarzyło)";
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function toggleDebugConsole(force){
+    const panel = document.getElementById("debugConsole");
+    if(!panel) return;
+    debugConsoleOpen = typeof force === "boolean" ? force : !debugConsoleOpen;
+    panel.classList.toggle("open", debugConsoleOpen);
+    if(debugConsoleOpen) renderDebugConsole();
+  }
+
+  function copyDebugLogs(){
+    const text = debugLogs.length ? debugLogs.join("\n") : "(brak logów)";
+    const done = ok => {
+      const btn = document.getElementById("debugCopyBtn");
+      if(btn){
+        const old = btn.textContent;
+        btn.textContent = ok ? "Skopiowano ✓" : "Nie udało się";
+        setTimeout(() => { btn.textContent = old; }, 1500);
+      }
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(() => done(true)).catch(() => copyDebugLogsFallback(text, done));
+    } else {
+      copyDebugLogsFallback(text, done);
+    }
+  }
+  function copyDebugLogsFallback(text, done){
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      done(ok);
+    }catch(e){
+      done(false);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("btnDebugConsole");
+    const closeBtn = document.getElementById("debugCloseBtn");
+    const copyBtn = document.getElementById("debugCopyBtn");
+    const clearBtn = document.getElementById("debugClearBtn");
+    if(btn) btn.addEventListener("click", () => toggleDebugConsole());
+    if(closeBtn) closeBtn.addEventListener("click", () => toggleDebugConsole(false));
+    if(copyBtn) copyBtn.addEventListener("click", copyDebugLogs);
+    if(clearBtn) clearBtn.addEventListener("click", () => { debugLogs.length = 0; renderDebugConsole(); });
+  });
+
+  debugLog("info", "Konsola debugowania uruchomiona.");
 
   /* ============================================================
      KONFIGURACJA
@@ -2114,6 +2290,11 @@
       }catch(e){
         console.warn("Nie udało się uruchomić ładowania fotoradarów autostradowych:", e);
       }
+      try{
+        loadUkRestrictionsOnce();
+      }catch(e){
+        console.warn("Nie udało się uruchomić ładowania znaków wysokości/tonażu:", e);
+      }
     });
   }
 
@@ -2495,6 +2676,162 @@
   }
 
   /* ============================================================
+     ZNAKI WYSOKOŚCI (WIADUKTY/PRZEJAZDY) I TONAŻU — pobierane RAZ
+     dla całej Wielkiej Brytanii, tak jak zjazdy autostradowe i fotoradary
+     autostradowe. Dzięki temu widać je zawsze, niezależnie od tego, jak
+     daleko jest aktualna pozycja GPS — nie trzeba podjeżdżać pod wiadukt,
+     żeby dane w ogóle zostały pobrane.
+
+     Zapytanie leci pasami szerokości geograficznej (tak jak fotoradary
+     autostradowe), bo cała Wielka Brytania naraz byłaby za dużym zapytaniem.
+     W każdym pasie: pobieramy drogi z maxheight/maxweight ORAZ (tylko!) te
+     odcinki kolei, które leżą w promieniu 60 m od dróg z maxheight — dzięki
+     temu NIE ściągamy całej sieci kolejowej UK, tylko tyle, ile potrzeba,
+     żeby wykryć dokładne miejsce przejazdu pod wiaduktem.
+  ============================================================ */
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
+  const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
+  const RESTRICTIONS_LAT_BANDS = MW_CAMERA_LAT_BANDS; // te same pasy co fotoradary autostradowe
+  const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
+  const RESTRICTIONS_MAX_RETRIES = 3;
+  let restrictionsRetries = 0;
+
+  function downloadUkRestrictions(){
+    const west = GB_BOUNDS[0][0], east = GB_BOUNDS[1][0];
+    const heightWays = new Map();
+    const weightWays = new Map();
+    const signs = new Map();
+    let chain = Promise.resolve();
+
+    for(let i = 0; i < RESTRICTIONS_LAT_BANDS.length - 1; i++){
+      const south = RESTRICTIONS_LAT_BANDS[i], north = RESTRICTIONS_LAT_BANDS[i + 1];
+      chain = chain.then(() => {
+        const query = `
+          [out:json][timeout:120];
+          way["maxheight"](${south},${west},${north},${east})->.h;
+          way["maxweight"](${south},${west},${north},${east})->.w;
+          (
+            way.h;
+            way.w;
+            way["railway"](around.h:60);
+          );
+          out geom;
+        `;
+        return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS).then(data => {
+          const railwayLines = (data.elements || [])
+            .filter(el => el.type === "way" && el.tags && el.tags.railway && el.geometry && el.geometry.length > 1)
+            .map(el => el.geometry.map(g => [g.lon, g.lat]));
+
+          (data.elements || []).forEach(el => {
+            if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
+
+            if(el.tags.maxheight && !heightWays.has(el.id)){
+              const hm = parseMaxheightMeters(el.tags.maxheight);
+              if(hm){
+                const coords = el.geometry.map(g => [g.lon, g.lat]);
+                heightWays.set(el.id, {
+                  type: "Feature",
+                  properties: { maxheight: hm },
+                  geometry: { type: "LineString", coordinates: coords }
+                });
+                // dokładne miejsce pod wiaduktem (przecięcie z torami), a w braku danych
+                // o kolei w pobliżu — środek oznaczonego odcinka jako rozwiązanie zapasowe
+                const crossing = findRailwayCrossingPoint(coords, railwayLines);
+                const c = wayCentroid(el.geometry);
+                const anchor = crossing || [c.lon, c.lat];
+                signs.set("h" + el.id, {
+                  type: "Feature",
+                  properties: { kind: "height", label: formatHeightLabel(hm) },
+                  geometry: { type: "Point", coordinates: anchor }
+                });
+              }
+            }
+
+            if(el.tags.maxweight && !weightWays.has(el.id)){
+              const wt = parseMaxweightTonnes(el.tags.maxweight);
+              if(wt){
+                const coords = el.geometry.map(g => [g.lon, g.lat]);
+                weightWays.set(el.id, {
+                  type: "Feature",
+                  properties: { maxweight: wt },
+                  geometry: { type: "LineString", coordinates: coords }
+                });
+                const c = wayCentroid(el.geometry);
+                signs.set("w" + el.id, {
+                  type: "Feature",
+                  properties: { kind: "weight", label: formatWeightLabel(wt) },
+                  geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+                });
+              }
+            }
+          });
+        });
+      });
+    }
+
+    return chain.then(() => ({
+      heightFeatures: Array.from(heightWays.values()),
+      weightFeatures: Array.from(weightWays.values()),
+      signFeatures: Array.from(signs.values())
+    }));
+  }
+
+  // ogranicza precyzję współrzędnych przed zapisem do localStorage (żeby zmieścić więcej w limicie)
+  function roundCoordsForCache(features){
+    return features.map(f => {
+      const g = f.geometry;
+      const round = c => [Math.round(c[0]*1e6)/1e6, Math.round(c[1]*1e6)/1e6];
+      const coords = g.type === "Point" ? round(g.coordinates) : g.coordinates.map(round);
+      return { type:"Feature", properties: f.properties, geometry:{ type: g.type, coordinates: coords } };
+    });
+  }
+
+  function setRestrictionsData(heightFeatures, weightFeatures, signFeatures){
+    if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
+    if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
+    if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
+  }
+
+  function loadUkRestrictionsOnce(){
+    if(!map.getSource("roads-maxheight")) return;
+
+    // 1) pamięć lokalna — natychmiast, działa offline
+    try{
+      const cached = JSON.parse(localStorage.getItem(RESTRICTIONS_CACHE_KEY) || "null");
+      if(cached && cached.savedAt && Array.isArray(cached.heightFeatures)){
+        setRestrictionsData(cached.heightFeatures, cached.weightFeatures || [], cached.signFeatures || []);
+        debugLog("info", `Znaki wysokości/tonażu: ${cached.heightFeatures.length} wys. / ${(cached.weightFeatures||[]).length} tonaż z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        if(Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS) return; // świeże — nie pobieraj ponownie
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu:", e);
+    }
+
+    // 2) brak/nieaktualny cache — pobierz z Overpass dla całej Wielkiej Brytanii
+    debugLog("info", "Znaki wysokości/tonażu: pobieranie z Overpass dla całej UK…");
+    downloadUkRestrictions().then(({ heightFeatures, weightFeatures, signFeatures }) => {
+      setRestrictionsData(heightFeatures, weightFeatures, signFeatures);
+      debugLog("info", `Znaki wysokości/tonażu: pobrano ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${signFeatures.length} znaków`);
+      try{
+        localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          heightFeatures: roundCoordsForCache(heightFeatures),
+          weightFeatures: roundCoordsForCache(weightFeatures),
+          signFeatures: roundCoordsForCache(signFeatures)
+        }));
+      }catch(e){
+        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu (localStorage pełny?):", e);
+      }
+    }).catch(err => {
+      console.warn("Nie udało się pobrać znaków wysokości/tonażu dla całej Wielkiej Brytanii:", err);
+      debugLog("error", "Znaki wysokości/tonażu — błąd pobierania: " + (err && err.message || err));
+      if(restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
+        setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
+      }
+    });
+  }
+
+  /* ============================================================
      OVERPASS API — fotoradary + drogi z maxspeed
   ============================================================ */
   function fetchOverpassData(lat, lon){
@@ -2514,9 +2851,6 @@
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
-        way["maxheight"](around:${ROAD_RADIUS_M},${lat},${lon});
-        way["maxweight"](around:${ROAD_RADIUS_M},${lat},${lon});
-        way["railway"](around:${ROAD_RADIUS_M},${lat},${lon});
         node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
@@ -2826,18 +3160,9 @@
     const newCameras = [];
     const newRoads = [];
     const roadFeatures = [];
-    const heightRoadFeatures = [];
-    const weightRoadFeatures = [];
-    const restrictionSignFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
     const laneFeatures = [];
-
-    // geometria linii kolejowych w okolicy — do wykrywania dokładnego miejsca,
-    // w którym droga przebiega pod wiaduktem kolejowym (patrz findRailwayCrossingPoint)
-    const railwayLines = (data.elements || [])
-      .filter(el => el.type === "way" && el.tags && el.tags.railway && el.geometry && el.geometry.length > 1)
-      .map(el => el.geometry.map(g => [g.lon, g.lat]));
 
     (data.elements || []).forEach(el => {
       if(isLaneRenderWay(el) && el.geometry && el.geometry.length > 1){
@@ -2880,49 +3205,6 @@
             properties:{ maxspeed: ms },
             geometry:{ type:"LineString", coordinates: coords }
           });
-        }
-      }
-
-      // Znaki wysokości (wiadukty/przejazdy) i ograniczeń tonażowych — niezależne od gałęzi
-      // powyżej, bo ta sama droga może jednocześnie mieć maxspeed ORAZ maxheight/maxweight.
-      if(el.type === "way" && el.geometry && el.geometry.length > 1 && el.tags){
-        if(el.tags.maxheight){
-          const hm = parseMaxheightMeters(el.tags.maxheight);
-          if(hm){
-            const coords = el.geometry.map(g => [g.lon, g.lat]);
-            heightRoadFeatures.push({
-              type:"Feature",
-              properties:{ maxheight: hm },
-              geometry:{ type:"LineString", coordinates: coords }
-            });
-            // najpierw spróbuj dokładnego miejsca pod wiaduktem (przecięcie z torami);
-            // gdy w pobliżu nie ma śladu kolei w danych, wróć do środka oznaczonego odcinka
-            const crossing = findRailwayCrossingPoint(coords, railwayLines);
-            const c = wayCentroid(el.geometry);
-            const anchor = crossing || [c.lon, c.lat];
-            restrictionSignFeatures.push({
-              type:"Feature",
-              properties:{ kind:"height", label: formatHeightLabel(hm) },
-              geometry:{ type:"Point", coordinates: anchor }
-            });
-          }
-        }
-        if(el.tags.maxweight){
-          const wt = parseMaxweightTonnes(el.tags.maxweight);
-          if(wt){
-            const coords = el.geometry.map(g => [g.lon, g.lat]);
-            weightRoadFeatures.push({
-              type:"Feature",
-              properties:{ maxweight: wt },
-              geometry:{ type:"LineString", coordinates: coords }
-            });
-            const c = wayCentroid(el.geometry);
-            restrictionSignFeatures.push({
-              type:"Feature",
-              properties:{ kind:"weight", label: formatWeightLabel(wt) },
-              geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
-            });
-          }
         }
       }
     });
@@ -2977,15 +3259,6 @@
 
     if(map.getSource("roads-maxspeed")){
       map.getSource("roads-maxspeed").setData({ type:"FeatureCollection", features: roadFeatures });
-    }
-    if(map.getSource("roads-maxheight")){
-      map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightRoadFeatures });
-    }
-    if(map.getSource("roads-maxweight")){
-      map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightRoadFeatures });
-    }
-    if(map.getSource("restriction-signs")){
-      map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: restrictionSignFeatures });
     }
     if(map.getSource("hgv-parking")){
       map.getSource("hgv-parking").setData({ type:"FeatureCollection", features: hgvParkingFeatures });
