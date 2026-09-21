@@ -1394,19 +1394,44 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = kolory JAK W DZIEŃ (NIGHT_THEME.roadBrightness: 1 = bez zmian, 0.45 = ściemnione)
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady ciepły pomarańcz, drogi A ochra,
+                          drogi średnie grafit, lokalne bardzo subtelne — wszystkie z jaśniejszym obrysem
+       • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
+       • zabudowa mieszkaniowa, budynki i drogi lokalne = ukryte przy oddaleniu, pojawiają się przy
+                          przybliżeniu (NIGHT_DETAIL), żeby nie zaśmiecać widoku na trasie przelotowej
        • woda, budynki  = stałe, dobrane do tła kolory
-       • lasy, parki, zabudowa… = kolor dzienny przeliczony względem tła (zachowuje odcień, ciemnieje)
+       • lasy, parki…   = kolor dzienny przeliczony względem tła (zachowuje odcień, ciemnieje)
        • etykiety       = jasny tekst z ciemną obwódką
-     W dzień wszystkie oryginalne kolory stylu wracają bez zmian. Wszystko do dostrojenia jest w NIGHT_THEME. */
+     W dzień wszystkie oryginalne kolory stylu wracają bez zmian. Wszystko do dostrojenia jest w stałych poniżej. */
   const NIGHT_THEME = {
     background: "#144043",   // ziemia / tło mapy
     water: "#0a2b3f",        // jeziora, morze, szerokie rzeki
     waterway: "#12405c",     // wąskie rzeki i strumienie
     building: "#1b4d51",     // budynki (także 3D)
     buildingOutline: "#255b5f",
-    halo: "#0c2b2e",         // obwódka etykiet
-    roadBrightness: 1        // 1 = drogi dokładnie jak w dzień; np. 0.6 = ciemniejsze
+    halo: "#0c2b2e"          // obwódka etykiet
+  };
+  // Drogi w nocy: wypełnienie + jaśniejszy obrys (casing). Klasy: motorway = autostrady, major = trunk/primary
+  // (drogi A), mid = secondary/tertiary i zjazdy, minor = lokalne/osiedlowe/serwisowe/ścieżki.
+  const NIGHT_ROADS = {
+    motorway: { fill: "#c8832e", casing: "#efbd77" },  // ciepły, stonowany pomarańcz
+    major:    { fill: "#a98a3f", casing: "#d6bb78" },  // stonowana żółć/ochra
+    mid:      { fill: "#4c5d60", casing: "#7f9497" },  // grafit
+    minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
+  };
+  // Strefy przemysłowe i logistyczne (ważne dla HGV) — delikatnie wyróżnione na tle mapy
+  const NIGHT_ZONES = {
+    classes: ["industrial", "warehouse", "logistics"], // klasy landuse z kafelków; dodaj "commercial"/"retail", jeśli chcesz
+    fill: "#2f2a48",      // matowy ciemny fiolet
+    outline: "#4b4370",
+    opacity: 0.8,         // przy pełnym przybliżeniu (od zoomu 13); niżej narasta od 0
+    minZoom: 8
+  };
+  // Szczegóły, które w nocy pojawiają się dopiero po przybliżeniu (zoom mapy)
+  const NIGHT_DETAIL = {
+    minorRoadsZoom: 14,          // drogi lokalne/osiedlowe/serwisowe/ścieżki — od tego zoomu
+    residentialFade: [12, 14],   // zabudowa mieszkaniowa: 0% przy pierwszej wartości, 100% przy drugiej
+    buildingsFade: [14.5, 15.5]  // obrysy budynków: 0% -> 100%
   };
 
   // --- narzędzia do kolorów CSS ---
@@ -1512,10 +1537,21 @@
     const h = parseCssColor(NIGHT_THEME.halo);
     return colorToCss(h.r, h.g, h.b, c.a);
   }
-  function nightRoadDim(str){
-    const c = parseCssColor(str); if(!c) return str;
-    const k = NIGHT_THEME.roadBrightness;
-    return colorToCss(c.r * k, c.g * k, c.b * k, c.a);
+  // Klasa drogi z warstwy stylu: "motorway" | "major" | "mid" | "minor" (null = nie jezdnia: tory, promy…).
+  // Najpierw po nazwie warstwy, a gdy nazwa nic nie mówi — po klasach użytych w filtrze warstwy.
+  function nightRoadClass(id, filterStr){
+    id = String(id).toLowerCase();
+    if(/rail|transit|ferry|aerialway|pier/.test(id)) return null;
+    if(/motorway/.test(id)) return "motorway";
+    if(/trunk|primary/.test(id)) return "major";
+    if(/secondary|tertiary|link/.test(id)) return "mid";
+    if(/minor|service|track|path|pedestrian|living|street|residential|unclassified/.test(id)) return "minor";
+    const f = String(filterStr || "").toLowerCase();
+    if(/motorway/.test(f)) return "motorway";
+    if(/trunk|primary/.test(f)) return "major";
+    if(/secondary|tertiary/.test(f)) return "mid";
+    if(/minor|service|track|path/.test(f)) return "minor";
+    return "mid";
   }
 
   // Zwraca nocną wartość właściwości koloru danej warstwy (orig = wartość dzienna ze stylu)
@@ -1525,7 +1561,11 @@
     if(/halo-color$/.test(prop)) return mapStyleColors(orig, nightHaloColor);
     if(prop === "text-color" || prop === "icon-color") return mapStyleColors(orig, nightTextColor);
     if(type === "line"){
-      if(sl === "transportation") return NIGHT_THEME.roadBrightness === 1 ? orig : mapStyleColors(orig, nightRoadDim); // drogi jak w dzień
+      if(sl === "transportation"){
+        const cls = nightRoadClass(info.id, info.filter);
+        if(cls) return NIGHT_ROADS[cls][/casing/.test(info.id) ? "casing" : "fill"];
+        return mapStyleColors(orig, nightLineColor); // tory, promy itp.
+      }
       if(sl === "waterway") return NIGHT_THEME.waterway;
       return mapStyleColors(orig, nightLineColor);
     }
@@ -1538,13 +1578,18 @@
   }
 
   let nightOriginals = null;   // { idWarstwy: { "fill-color": wartość dzienna, ... } } — zapamiętane przy starcie
-  let nightLayerInfo = {};     // { idWarstwy: { type, sl } }
+  let nightLayerInfo = {};     // { idWarstwy: { type, sl, id, filter } }
+  let nightOpacityLayers = []; // warstwy, którym w nocy zmieniamy krycie zależnie od zoomu: { id, prop, kind, orig }
   // Zapamiętuje dzienne kolory WSZYSTKICH warstw bazowej mapy (wołane raz, zanim dodamy własne warstwy).
   function initNightTheme(){
     if(!map || nightOriginals) return;
     try{
-      const originals = {}, info = {};
+      const originals = {}, info = {}, opac = [];
       (map.getStyle().layers || []).forEach(l => {
+        if(l.type === "fill" && l["source-layer"] === "landuse" && /residential/.test(l.id))
+          opac.push({ id: l.id, prop: "fill-opacity", kind: "residential", orig: l.paint ? l.paint["fill-opacity"] : undefined });
+        if(l.type === "fill" && l["source-layer"] === "building")
+          opac.push({ id: l.id, prop: "fill-opacity", kind: "building", orig: l.paint ? l.paint["fill-opacity"] : undefined });
         if(!l.paint) return;
         const props = {};
         Object.keys(l.paint).forEach(k => {
@@ -1552,13 +1597,13 @@
         });
         if(!Object.keys(props).length) return;
         originals[l.id] = props;
-        info[l.id] = { type: l.type, sl: l["source-layer"] };
+        info[l.id] = { type: l.type, sl: l["source-layer"], id: l.id, filter: JSON.stringify(l.filter || "") };
         if(l.type === "background"){
           const c = parseCssColor(props["background-color"]);
           if(c) nightCtx.dayBgL = rgbToHsl(c.r, c.g, c.b).l;
         }
       });
-      nightOriginals = originals; nightLayerInfo = info;
+      nightOriginals = originals; nightLayerInfo = info; nightOpacityLayers = opac;
     }catch(e){
       console.warn("Nie udało się zapamiętać dziennych kolorów mapy:", e);
     }
@@ -1581,26 +1626,83 @@
         }
       });
     });
+    applyNightDetail(night);
+    applyNightZones(night);
+    applyMinorRoadZoom(night);
   }
 
-  // Mniejsze drogi (osiedlowe, serwisowe, dojazdy, ścieżki) pokazujemy dopiero o MINOR_ROAD_ZOOM_DELAY
-  // poziomu zoomu później niż w bazowym stylu — mapa jest przejrzystsza, a drogi główne lepiej widać.
-  // (1 = "trochę większy zoom"; 0 = jak w bazowym stylu; 2 = jeszcze później). Dotyczy dnia i nocy.
-  const MINOR_ROAD_ZOOM_DELAY = 1;
-  function delayMinorRoads(){
-    if(!map || !MINOR_ROAD_ZOOM_DELAY) return;
+  // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu)
+  function applyNightDetail(night){
+    nightOpacityLayers.forEach(o => {
+      try{
+        if(!map.getLayer(o.id)) return;
+        const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
+        const value = night ? ["interpolate", ["linear"], ["zoom"], fade[0], 0, fade[1], 1] : (o.orig === undefined ? null : o.orig);
+        map.setPaintProperty(o.id, o.prop, value);
+      }catch(e){ console.warn("Nie udało się ustawić krycia warstwy", o.id, e); }
+    });
+  }
+
+  // Strefy przemysłowe/logistyczne: własna warstwa widoczna tylko w nocy, pod drogami i budynkami
+  function setupNightZones(){
+    if(!map || map.getLayer("night-industrial")) return;
     try{
+      const layers = map.getStyle().layers;
+      const ref = layers.find(l => l["source-layer"] === "landuse");
+      const first = layers.find(l => l["source-layer"] === "transportation" || l["source-layer"] === "building");
+      map.addLayer({
+        id: "night-industrial", type: "fill",
+        source: ref ? ref.source : "openmaptiles", "source-layer": "landuse",
+        minzoom: NIGHT_ZONES.minZoom,
+        filter: ["match", ["get", "class"], NIGHT_ZONES.classes, true, false],
+        layout: { visibility: "none" },
+        paint: {
+          "fill-color": NIGHT_ZONES.fill,
+          "fill-outline-color": NIGHT_ZONES.outline,
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], NIGHT_ZONES.minZoom, 0, 10, NIGHT_ZONES.opacity * 0.6, 13, NIGHT_ZONES.opacity]
+        }
+      }, first ? first.id : undefined);
+      applyNightZones(document.body.classList.contains("night"));
+    }catch(e){
+      console.warn("Nie udało się dodać warstwy stref przemysłowych:", e);
+    }
+  }
+  function applyNightZones(night){
+    if(map && map.getLayer("night-industrial")) map.setLayoutProperty("night-industrial", "visibility", night ? "visible" : "none");
+  }
+
+  // Mniejsze drogi (osiedlowe, serwisowe, dojazdy, ścieżki) pokazujemy później niż w bazowym stylu:
+  // w dzień o MINOR_ROAD_ZOOM_DELAY poziomu zoomu, a w nocy dopiero od NIGHT_DETAIL.minorRoadsZoom —
+  // mapa jest przejrzysta, a drogi główne lepiej widać.
+  const MINOR_ROAD_ZOOM_DELAY = 1;
+  let minorRoadLayers = []; // { id, dayMin, max }
+  function delayMinorRoads(){
+    if(!map) return;
+    try{
+      minorRoadLayers = [];
       map.getStyle().layers.forEach(l => {
         if(l["source-layer"] !== "transportation" || l.type !== "line") return;
         if(!/^(road|bridge|tunnel)_/.test(l.id) || /rail|transit|ferry|aerialway/.test(l.id)) return;
-        if(!/minor|service|track|path|pedestrian|living|residential/.test(l.id)) return;
+        if(nightRoadClass(l.id, JSON.stringify(l.filter || "")) !== "minor") return;
         const layer = map.getLayer(l.id);
         const orig = (layer && layer.minzoom) || 0;
-        map.setLayerZoomRange(l.id, (orig || 12) + MINOR_ROAD_ZOOM_DELAY, layer && layer.maxzoom !== undefined ? layer.maxzoom : 24);
+        minorRoadLayers.push({
+          id: l.id,
+          dayMin: (orig || 12) + MINOR_ROAD_ZOOM_DELAY,
+          max: layer && layer.maxzoom !== undefined ? layer.maxzoom : 24
+        });
       });
+      applyMinorRoadZoom(document.body.classList.contains("night"));
     }catch(e){
       console.warn("Nie udało się opóźnić pokazywania małych dróg:", e);
     }
+  }
+  function applyMinorRoadZoom(night){
+    minorRoadLayers.forEach(r => {
+      try{
+        if(map.getLayer(r.id)) map.setLayerZoomRange(r.id, night ? Math.max(r.dayMin, NIGHT_DETAIL.minorRoadsZoom) : r.dayMin, r.max);
+      }catch(e){ console.warn("Nie udało się ustawić zoomu drogi", r.id, e); }
+    });
   }
 
   function initMap(lat, lon){
@@ -1622,6 +1724,7 @@
     map.on("load", () => {
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
+      setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
       try{
@@ -1841,10 +1944,10 @@
      jezdni liczymy równoległe linie: asfalt (wielokąt), krawędzie i podziały pasów.
      Geometria jest w metrach, więc sama skaluje się razem z zoomem mapy.
   ============================================================ */
-  // Kolory pasów: w nocy te same co w dzień (mapa nie jest już odwracana filtrem, więc nic nie trzeba przeliczać).
+  // Kolory pasów: w nocy ciemny grafit i przygaszone linie, żeby nie oślepiały (dzień bez zmian).
   const LANE_COLORS = {
     day:   { asphalt: "#6f7378", marking: "#ffffff" },
-    night: { asphalt: "#6f7378", marking: "#ffffff" }
+    night: { asphalt: "#3f4a4d", marking: "#b8c4c5" }
   };
 
   // szerokość linii w px dla 0,2 m rzeczywistej szerokości (rośnie ~2x na każdy zoom),
