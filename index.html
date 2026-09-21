@@ -21,7 +21,6 @@
     --sign-face: #FFFFFF;
     --sign-ring: #E53935;
     --sign-text: #14181c;
-    --map-filter: none;
     --ctrl-active-bg: var(--accent);
     --ctrl-active-text: #0c0f12;
   }
@@ -37,7 +36,6 @@
     --sign-face: #1a1512;
     --sign-ring: #cc4a3a;
     --sign-text: #ffd9a0;
-    --map-filter: invert(1) hue-rotate(180deg) contrast(1.06) saturate(0.9); /* parametry muszą zgadzać się z NIGHT_FILTER w skrypcie */
     --ctrl-active-bg: #6e2c22;
     --ctrl-active-text: #ffcdbd;
   }
@@ -50,22 +48,7 @@
   }
   #map{
     position:absolute; inset:0; width:100%; height:100%;
-    filter: var(--map-filter);
-    transition: filter .5s ease;
   }
-  /* Nocą mapa jest odwracana filtrem CSS, który psułby kolory tablic z numerami dróg.
-     Dlatego w nocy tablice rysuje osobna, przezroczysta mapa NAD przefiltrowaną —
-     dzięki temu wyglądają dokładnie tak samo jak w dzień. */
-  #mapShields{
-    position:absolute; inset:0; width:100%; height:100%;
-    pointer-events:none;
-    visibility:hidden;
-    /* w nocy tablice wyglądają dokładnie jak w dzień (bez ściemniania). Gdyby były za jasne: np.
-       filter: brightness(0.7) — 1 = jak w dzień, niżej = ciemniej */
-    filter: none;
-  }
-  #mapShields.on{ visibility:visible; }
-
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -690,7 +673,6 @@
 </div>
 
 <div id="map"></div>
-<div id="mapShields"></div>
 
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
@@ -1373,8 +1355,9 @@
      nasycony niebieski) nie da się nawet skompensować. Dlatego w nocy tablice
      rysuje druga, przezroczysta mapa leżąca NAD przefiltrowaną (poza filtrem),
      zsynchronizowana z kamerą głównej mapy. Warstwy są identyczne jak w dzień. */
-  let shieldOverlay = null;
-  let shieldOverlayOn = false;
+  // Tablice numerów dróg rysuje bezpośrednio główna mapa — w dzień i w nocy. Tryb nocny to własny ciemny styl
+  // (a nie filtr CSS), więc kolory tablic nie są zniekształcane i nie trzeba już osobnej nakładki.
+  let shieldOverlay = null; // pozostałość po dawnej nakładce; zostaje, bo odwołuje się do niej setJunctionData
 
   function setMainShieldsVisible(visible){
     SHIELD_LAYER_IDS.concat(JUNCTION_LAYER_IDS).forEach(id => {
@@ -1382,99 +1365,10 @@
     });
   }
 
-  function syncShieldOverlay(){
-    if(!shieldOverlay || !shieldOverlayOn) return;
-    shieldOverlay.jumpTo({
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-      padding: map.getPadding()
-    });
-  }
-
-  function createShieldOverlay(){
-    const style = map.getStyle();
-    const src = style.sources && style.sources.openmaptiles;
-    if(!src || !style.glyphs) throw new Error("Brak źródła kafelków lub czcionek w stylu mapy");
-
-    const m = new maplibregl.Map({
-      container: "mapShields",
-      style: {
-        version: 8,
-        glyphs: style.glyphs,
-        sources: {
-          openmaptiles: Object.assign({}, src),
-          "motorway-junctions": { type: "geojson", data: junctionData }
-        },
-        layers: []
-      },
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-      interactive: false,
-      antialias: true,
-      attributionControl: false,
-      renderWorldCopies: false,
-      fadeDuration: 0
-    });
-    m.on("load", () => {
-      try{
-        addShieldImages(m);
-        shieldLayerSpecs().forEach(spec => m.addLayer(spec));
-        junctionLayerSpecs().forEach(spec => m.addLayer(spec)); // na wierzchu, jak w dzień
-        syncShieldOverlay();
-      }catch(e){
-        console.warn("Nie udało się dodać tablic do nakładki nocnej:", e);
-        showOnScreenError("Błąd tablic w trybie nocnym (dotknij, aby zamknąć)", e);
-      }
-    });
-    shieldOverlay = m;
-
-    map.on("move", syncShieldOverlay);
-    map.on("resize", () => { if(shieldOverlayOn){ shieldOverlay.resize(); syncShieldOverlay(); } });
-  }
-
-  // Wywołuj po każdej zmianie trybu dzień/noc oraz po załadowaniu mapy.
+  // Wywoływane po załadowaniu mapy i przy zmianie trybu dzień/noc.
   function applyShieldMode(){
     if(!map || !map.getLayer(SHIELD_LAYER_IDS[0])) return; // mapa jeszcze się nie załadowała
-    const el = document.getElementById("mapShields");
-    const night = document.body.classList.contains("night");
-
-    if(!night){
-      shieldOverlayOn = false;
-      el.classList.remove("on");
-      setMainShieldsVisible(true);
-      return;
-    }
-
-    try{
-      if(!shieldOverlay) createShieldOverlay();
-      shieldOverlayOn = true;
-      el.classList.add("on");
-      shieldOverlay.resize();
-      syncShieldOverlay();
-
-      // Tablice z przefiltrowanej mapy chowamy dopiero, gdy nakładka je narysuje —
-      // inaczej na chwilę zniknęłyby zupełnie.
-      let done = false;
-      const hideMain = () => {
-        if(done || !shieldOverlayOn) return;
-        if(!shieldOverlay.getLayer(SHIELD_LAYER_IDS[0])) return;
-        done = true;
-        setMainShieldsVisible(false);
-      };
-      if(shieldOverlay.loaded()) hideMain(); else shieldOverlay.once("idle", hideMain);
-      setTimeout(hideMain, 2500);
-    }catch(e){
-      // nakładka się nie udała — wracamy do tablic na głównej mapie (w nocy będą przefiltrowane)
-      shieldOverlayOn = false;
-      el.classList.remove("on");
-      setMainShieldsVisible(true);
-      console.warn("Nie udało się włączyć nakładki tablic w trybie nocnym:", e);
-      showOnScreenError("Błąd tablic w trybie nocnym (dotknij, aby zamknąć)", e);
-    }
+    setMainShieldsVisible(true);
   }
 
   // Aplikacja działa tylko w Wielkiej Brytanii (Anglia, Walia, Szkocja) —
@@ -1492,64 +1386,37 @@
   const GB_MIN_ZOOM = 5;
 
 
-  /* ---------- Kolor tła mapy w trybie nocnym: #144043 (jak w Google Maps) ----------
-     Nocna mapa to zwykła jasna mapa odwrócona filtrem CSS (--map-filter: invert → hue-rotate(180°) →
-     contrast → saturate, parametry w NIGHT_FILTER). Żeby po filtrze tło wyszło dokładnie #144043,
-     warstwie "background" nadajemy kolor "sprzed filtra", policzony odwrotnie do filtru.
-     Zmienia się TYLKO ta jedna warstwa (ziemia/tło) — drogi, woda, parki, budynki, etykiety zostają jak były.
-     Jeśli zmienisz --map-filter w CSS, zaktualizuj tu też macierze poniżej. */
-  const NIGHT_MAP_BG_HEX = "#144043";
-  // Parametry filtra nocnego (--map-filter w CSS) — dawniej brightness .92 / contrast .95 / saturate .7,
-  // co spłaszczało obraz (biel wychodziła szara, kolory blade). Teraz filtr tylko odwraca jasność
-  // (invert + hue-rotate) i lekko podbija kontrast. Jeśli zmienisz je tu, zmień też --map-filter w CSS.
-  const NIGHT_FILTER = { brightness: 1, contrast: 1.06, saturate: 0.9 };
-  // Drogi (i tablice) w nocy: 1 = kolory jak w dzień (0.45 = ściemnione do 45%)
-  const NIGHT_ROAD_BRIGHTNESS = 1;
+  /* ============================================================
+     TRYB NOCNY — prawdziwy ciemny styl mapy (bez filtra CSS)
+     ------------------------------------------------------------
+     Wcześniej nocna mapa była jasną mapą odwróconą filtrem CSS: filtr spłaszczał kontrast i kolory,
+     zniekształcał wszystko na mapie (tablice, trasę, ikony) i kosztował wydajność. Teraz nocą
+     przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
+     jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
+       • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
+       • drogi          = kolory JAK W DZIEŃ (NIGHT_THEME.roadBrightness: 1 = bez zmian, 0.45 = ściemnione)
+       • woda, budynki  = stałe, dobrane do tła kolory
+       • lasy, parki, zabudowa… = kolor dzienny przeliczony względem tła (zachowuje odcień, ciemnieje)
+       • etykiety       = jasny tekst z ciemną obwódką
+     W dzień wszystkie oryginalne kolory stylu wracają bez zmian. Wszystko do dostrojenia jest w NIGHT_THEME. */
+  const NIGHT_THEME = {
+    background: "#144043",   // ziemia / tło mapy
+    water: "#0a2b3f",        // jeziora, morze, szerokie rzeki
+    waterway: "#12405c",     // wąskie rzeki i strumienie
+    building: "#1b4d51",     // budynki (także 3D)
+    buildingOutline: "#255b5f",
+    halo: "#0c2b2e",         // obwódka etykiet
+    roadBrightness: 1        // 1 = drogi dokładnie jak w dzień; np. 0.6 = ciemniejsze
+  };
 
-  // Odwrotność filtra nocnego: dla koloru, jaki ma być WIDOCZNY na ekranie (r,g,b w 0..1), zwraca kolor
-  // "sprzed filtra" (r,g,b w 0..255), który po przejściu przez filtr da dokładnie ten wynik.
-  const nightFilterInverse = (function(){
-    const mul = (m, c) => [0, 1, 2].map(i => m[i][0] * c[0] + m[i][1] * c[1] + m[i][2] * c[2]);
-    const HUE180 = [[-0.574, 1.43, 0.144], [0.426, 0.430, 0.144], [0.426, 1.430, -0.856]];
-    const S = NIGHT_FILTER.saturate;
-    const SAT = [[0.213 + 0.787 * S, 0.715 - 0.715 * S, 0.072 - 0.072 * S],
-                 [0.213 - 0.213 * S, 0.715 + 0.285 * S, 0.072 - 0.072 * S],
-                 [0.213 - 0.213 * S, 0.715 - 0.715 * S, 0.072 + 0.928 * S]];
-    const forward = c => {
-      let x = c.map(v => 1 - v);                       // invert(1)
-      x = mul(HUE180, x);                              // hue-rotate(180deg)
-      x = x.map(v => v * NIGHT_FILTER.brightness);     // brightness
-      x = x.map(v => (v - 0.5) * NIGHT_FILTER.contrast + 0.5); // contrast
-      return mul(SAT, x);                              // saturate
-    };
-    // filtr jest przekształceniem afinicznym: F(c) = A·c + b  ->  odwracamy je
-    const b = forward([0, 0, 0]);
-    const cols = [0, 1, 2].map(j => { const e = [0, 0, 0]; e[j] = 1; const f = forward(e); return [0, 1, 2].map(i => f[i] - b[i]); });
-    const M = [0, 1, 2].map(i => [0, 1, 2].map(j => cols[j][i]));
-    const [[a, bb, cc], [d, e, f], [g, h, i]] = M;
-    const det = a * (e * i - f * h) - bb * (d * i - f * g) + cc * (d * h - e * g);
-    const inv = [[(e * i - f * h) / det, (cc * h - bb * i) / det, (bb * f - cc * e) / det],
-                 [(f * g - d * i) / det, (a * i - cc * g) / det, (cc * d - a * f) / det],
-                 [(d * h - e * g) / det, (bb * g - a * h) / det, (a * e - bb * d) / det]];
-    return target => mul(inv, target.map((v, k) => v - b[k]))
-      .map(v => Math.round(Math.min(1, Math.max(0, v)) * 2550) / 10); // 0..255, jedna cyfra po przecinku
-  })();
-
-  function nightBgPrefilterColor(hex){
-    const target = [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16) / 255);
-    return ["rgb"].concat(nightFilterInverse(target));
-  }
-  // kolor DZIENNY (hex) ściemniony do NIGHT_ROAD_BRIGHTNESS i przeliczony na kolor "sprzed filtra"
-  function nightDimmedFromDayHex(hex){
-    const target = [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16) / 255 * NIGHT_ROAD_BRIGHTNESS);
-    return ["rgb"].concat(nightFilterInverse(target));
-  }
-
-  // --- kolory dróg z bazowego stylu mapy (OpenFreeMap "liberty") ---
-  // Parsuje kolor CSS (#hex, rgb[a], hsl[a]) -> {r,g,b,a} w 0..1; dla czegokolwiek innego zwraca null.
+  // --- narzędzia do kolorów CSS ---
+  // Parsuje kolor CSS (#hex, rgb[a], hsl[a], white/black/transparent) -> {r,g,b,a} w 0..1; inaczej null.
   function parseCssColor(str){
     if(typeof str !== "string") return null;
     const t = str.trim().toLowerCase();
+    if(t === "white") return { r: 1, g: 1, b: 1, a: 1 };
+    if(t === "black") return { r: 0, g: 0, b: 0, a: 1 };
+    if(t === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
     let m = t.match(/^#([0-9a-f]+)$/);
     if(m){
       let h = m[1];
@@ -1567,26 +1434,42 @@
     if(m[1].startsWith("rgb")){
       return { r: num(p[0], 255) / 255, g: num(p[1], 255) / 255, b: num(p[2], 255) / 255, a: alpha };
     }
-    const hh = (((parseFloat(p[0]) % 360) + 360) % 360) / 360;
-    const ss = Math.min(1, Math.max(0, num(p[1], 1))), ll = Math.min(1, Math.max(0, num(p[2], 1)));
-    const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss, pp = 2 * ll - q;
-    const hue2rgb = tt => {
-      if(tt < 0) tt += 1; if(tt > 1) tt -= 1;
-      if(tt < 1 / 6) return pp + (q - pp) * 6 * tt;
-      if(tt < 1 / 2) return q;
-      if(tt < 2 / 3) return pp + (q - pp) * (2 / 3 - tt) * 6;
-      return pp;
+    const c = hslToRgb((((parseFloat(p[0]) % 360) + 360) % 360) / 360,
+                       Math.min(1, Math.max(0, num(p[1], 1))), Math.min(1, Math.max(0, num(p[2], 1))));
+    return { r: c.r, g: c.g, b: c.b, a: alpha };
+  }
+  function hslToRgb(h, s, l){
+    if(s === 0) return { r: l, g: l, b: l };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = t => {
+      if(t < 0) t += 1; if(t > 1) t -= 1;
+      if(t < 1 / 6) return p + (q - p) * 6 * t;
+      if(t < 1 / 2) return q;
+      if(t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
     };
-    return { r: hue2rgb(hh + 1 / 3), g: hue2rgb(hh), b: hue2rgb(hh - 1 / 3), a: alpha };
+    return { r: f(h + 1 / 3), g: f(h), b: f(h - 1 / 3) };
   }
-  // kolor dzienny (tekst CSS) -> kolor "sprzed filtra", po którym na ekranie wyjdzie dzienny kolor × 45%
-  function nightRoadColorString(dayColorStr){
-    const c = parseCssColor(dayColorStr);
-    if(!c) return dayColorStr;
-    const px = nightFilterInverse([c.r, c.g, c.b].map(v => v * NIGHT_ROAD_BRIGHTNESS)).map(v => Math.round(v));
-    const alpha = Math.round(c.a * 1000) / 1000;
-    return alpha >= 1 ? `rgb(${px[0]},${px[1]},${px[2]})` : `rgba(${px[0]},${px[1]},${px[2]},${alpha})`;
+  function rgbToHsl(r, g, b){
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+    let h = 0, s = 0;
+    if(max !== min){
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if(max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if(max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return { h, s, l };
   }
+  function colorToCss(r, g, b, a){
+    const c = v => Math.round(Math.min(1, Math.max(0, v)) * 255);
+    return a >= 1 ? `rgb(${c(r)},${c(g)},${c(b)})` : `rgba(${c(r)},${c(g)},${c(b)},${Math.round(a * 1000) / 1000})`;
+  }
+  function hslaToCss(h, s, l, a){ const c = hslToRgb(h, s, l); return colorToCss(c.r, c.g, c.b, a); }
+  const clamp01 = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
   // przechodzi po wyrażeniu/funkcji stylu (tablice, obiekty ze "stops") i zamienia same kolory-teksty
   function mapStyleColors(spec, fn){
     if(typeof spec === "string") return parseCssColor(spec) ? fn(spec) : spec;
@@ -1597,6 +1480,107 @@
       return out;
     }
     return spec;
+  }
+
+  // --- reguły przemalowania (kolor dzienny -> nocny) ---
+  const nightCtx = { dayBgL: 0.96 }; // jasność dziennego tła mapy — wyznaczana z oryginalnego stylu
+  const nightBg = (() => { const c = parseCssColor(NIGHT_THEME.background); return rgbToHsl(c.r, c.g, c.b); })();
+
+  // tereny (lasy, parki, zabudowa, lotniska…): ciemnieją względem tła, zachowując odcień, jeśli był wyraźny
+  function nightFillColor(str){
+    const c = parseCssColor(str); if(!c) return str;
+    const hsl = rgbToHsl(c.r, c.g, c.b);
+    const l = clamp01(nightBg.l + (nightCtx.dayBgL - hsl.l) * 0.42, 0.07, 0.34);
+    const colored = hsl.s >= 0.18;
+    return hslaToCss(colored ? hsl.h : nightBg.h, colored ? Math.min(0.42, hsl.s) : 0.35, l, c.a);
+  }
+  // linie inne niż drogi (granice, tory…): odwrócona jasność w rozsądnych granicach
+  function nightLineColor(str){
+    const c = parseCssColor(str); if(!c) return str;
+    const hsl = rgbToHsl(c.r, c.g, c.b);
+    return hslaToCss(hsl.h, Math.min(0.6, hsl.s), clamp01(1 - hsl.l, 0.32, 0.8), c.a);
+  }
+  // tekst: zawsze jasny, żeby był czytelny na ciemnym tle
+  function nightTextColor(str){
+    const c = parseCssColor(str); if(!c) return str;
+    const hsl = rgbToHsl(c.r, c.g, c.b);
+    return hslaToCss(hsl.h, Math.min(0.6, hsl.s), Math.max(0.74, 1 - hsl.l), c.a);
+  }
+  // obwódka etykiet: ciemna, z zachowaniem przezroczystości
+  function nightHaloColor(str){
+    const c = parseCssColor(str); if(!c) return str;
+    const h = parseCssColor(NIGHT_THEME.halo);
+    return colorToCss(h.r, h.g, h.b, c.a);
+  }
+  function nightRoadDim(str){
+    const c = parseCssColor(str); if(!c) return str;
+    const k = NIGHT_THEME.roadBrightness;
+    return colorToCss(c.r * k, c.g * k, c.b * k, c.a);
+  }
+
+  // Zwraca nocną wartość właściwości koloru danej warstwy (orig = wartość dzienna ze stylu)
+  function nightThemeValue(info, prop, orig){
+    const type = info.type, sl = info.sl;
+    if(type === "background") return NIGHT_THEME.background;
+    if(/halo-color$/.test(prop)) return mapStyleColors(orig, nightHaloColor);
+    if(prop === "text-color" || prop === "icon-color") return mapStyleColors(orig, nightTextColor);
+    if(type === "line"){
+      if(sl === "transportation") return NIGHT_THEME.roadBrightness === 1 ? orig : mapStyleColors(orig, nightRoadDim); // drogi jak w dzień
+      if(sl === "waterway") return NIGHT_THEME.waterway;
+      return mapStyleColors(orig, nightLineColor);
+    }
+    if(type === "fill" || type === "fill-extrusion"){
+      if(sl === "water") return NIGHT_THEME.water;
+      if(sl === "building") return prop === "fill-outline-color" ? NIGHT_THEME.buildingOutline : NIGHT_THEME.building;
+      return mapStyleColors(orig, nightFillColor);
+    }
+    return mapStyleColors(orig, nightLineColor);
+  }
+
+  let nightOriginals = null;   // { idWarstwy: { "fill-color": wartość dzienna, ... } } — zapamiętane przy starcie
+  let nightLayerInfo = {};     // { idWarstwy: { type, sl } }
+  // Zapamiętuje dzienne kolory WSZYSTKICH warstw bazowej mapy (wołane raz, zanim dodamy własne warstwy).
+  function initNightTheme(){
+    if(!map || nightOriginals) return;
+    try{
+      const originals = {}, info = {};
+      (map.getStyle().layers || []).forEach(l => {
+        if(!l.paint) return;
+        const props = {};
+        Object.keys(l.paint).forEach(k => {
+          if(/-color$/.test(k)) props[k] = JSON.parse(JSON.stringify(l.paint[k]));
+        });
+        if(!Object.keys(props).length) return;
+        originals[l.id] = props;
+        info[l.id] = { type: l.type, sl: l["source-layer"] };
+        if(l.type === "background"){
+          const c = parseCssColor(props["background-color"]);
+          if(c) nightCtx.dayBgL = rgbToHsl(c.r, c.g, c.b).l;
+        }
+      });
+      nightOriginals = originals; nightLayerInfo = info;
+    }catch(e){
+      console.warn("Nie udało się zapamiętać dziennych kolorów mapy:", e);
+    }
+  }
+
+  // Ustawia kolory mapy zgodnie z aktualnym trybem (dzień = oryginał, noc = ciemny styl)
+  function applyNightTheme(){
+    if(!map) return;
+    initNightTheme();
+    if(!nightOriginals) return;
+    const night = document.body.classList.contains("night");
+    Object.keys(nightOriginals).forEach(id => {
+      if(!map.getLayer(id)) return;
+      Object.keys(nightOriginals[id]).forEach(prop => {
+        try{
+          const orig = nightOriginals[id][prop];
+          map.setPaintProperty(id, prop, night ? nightThemeValue(nightLayerInfo[id], prop, orig) : orig);
+        }catch(e){
+          console.warn("Nie udało się przemalować warstwy", id, prop, e);
+        }
+      });
+    });
   }
 
   // Mniejsze drogi (osiedlowe, serwisowe, dojazdy, ścieżki) pokazujemy dopiero o MINOR_ROAD_ZOOM_DELAY
@@ -1619,51 +1603,6 @@
     }
   }
 
-  // Warstwy dróg bazowej mapy (jezdnie i ich obrzeża: road_*, bridge_*, tunnel_*), bez kolei i promów
-  let roadColorOriginals = null; // { idWarstwy: oryginalny line-color } — do przywrócenia w dzień
-  function isBaseRoadLineLayer(l){
-    return l.type === "line" && l["source-layer"] === "transportation"
-      && /^(road|bridge|tunnel)_/.test(l.id) && !/rail|transit|ferry|aerialway/.test(l.id);
-  }
-  function applyNightRoadColors(){
-    if(!map) return;
-    try{
-      if(!roadColorOriginals){
-        roadColorOriginals = {};
-        map.getStyle().layers.filter(isBaseRoadLineLayer).forEach(l => {
-          const v = map.getPaintProperty(l.id, "line-color");
-          if(v !== undefined) roadColorOriginals[l.id] = JSON.parse(JSON.stringify(v)); // dzienny kolor ze stylu
-        });
-      }
-      const night = document.body.classList.contains("night");
-      Object.keys(roadColorOriginals).forEach(id => {
-        if(!map.getLayer(id)) return;
-        const orig = roadColorOriginals[id];
-        map.setPaintProperty(id, "line-color", night ? mapStyleColors(orig, nightRoadColorString) : orig);
-      });
-    }catch(e){
-      console.warn("Nie udało się przyciemnić kolorów dróg:", e);
-    }
-  }
-
-  let mapBgLayerId = null, mapBgOriginalColor;
-  function applyNightMapBackground(){
-    if(!map) return;
-    try{
-      if(!mapBgLayerId){
-        const bg = map.getStyle().layers.find(l => l.type === "background");
-        if(!bg) return;
-        mapBgLayerId = bg.id;
-        mapBgOriginalColor = map.getPaintProperty(bg.id, "background-color"); // dzienny kolor tła ze stylu
-      }
-      const night = document.body.classList.contains("night");
-      map.setPaintProperty(mapBgLayerId, "background-color",
-        night ? nightBgPrefilterColor(NIGHT_MAP_BG_HEX) : mapBgOriginalColor);
-    }catch(e){
-      console.warn("Nie udało się ustawić koloru tła mapy:", e);
-    }
-  }
-
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -1681,8 +1620,7 @@
     });
 
     map.on("load", () => {
-      applyNightMapBackground();
-      applyNightRoadColors();
+      applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
       hideNonHgvPoi();
       thickenMotorways();
@@ -1903,13 +1841,10 @@
      jezdni liczymy równoległe linie: asfalt (wielokąt), krawędzie i podziały pasów.
      Geometria jest w metrach, więc sama skaluje się razem z zoomem mapy.
   ============================================================ */
-  // Kolory. Tryb nocny to filtr CSS, który odwraca jasność całej mapy, więc w nocy
-  // podajemy kolory "sprzed filtra", tak aby PO filtrze wyszedł ciemny asfalt i jasne pasy.
-  // (wartości liczone automatycznie z NIGHT_FILTER, więc zmiana filtra nie wymaga ręcznych poprawek)
+  // Kolory pasów: w nocy te same co w dzień (mapa nie jest już odwracana filtrem, więc nic nie trzeba przeliczać).
   const LANE_COLORS = {
     day:   { asphalt: "#6f7378", marking: "#ffffff" },
-    // nocą: kolory dzienne × NIGHT_ROAD_BRIGHTNESS (45%), przeliczone na kolor "sprzed filtra"
-    night: { asphalt: nightDimmedFromDayHex("#6f7378"), marking: nightDimmedFromDayHex("#ffffff") }
+    night: { asphalt: "#6f7378", marking: "#ffffff" }
   };
 
   // szerokość linii w px dla 0,2 m rzeczywistej szerokości (rośnie ~2x na każdy zoom),
@@ -4704,8 +4639,7 @@
     document.getElementById("btnNight").textContent = isNight ? "☀️" : "🌙";
     applyShieldMode();
     applyMotorwayLaneColors();
-    applyNightMapBackground();
-    applyNightRoadColors();
+    applyNightTheme();
   });
 
   document.getElementById("btnLocate").addEventListener("click", () => {
