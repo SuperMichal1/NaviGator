@@ -1119,6 +1119,34 @@
     return v + "t";
   }
 
+  // Przecięcie dwóch odcinków [lon,lat] (metoda parametryczna, płaska aproksymacja —
+  // wystarczająco dokładna w skali pojedynczej drogi/torów). Zwraca punkt [lon,lat] albo null.
+  function segmentIntersection(p1, p2, p3, p4){
+    const x1=p1[0], y1=p1[1], x2=p2[0], y2=p2[1], x3=p3[0], y3=p3[1], x4=p4[0], y4=p4[1];
+    const d = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4);
+    if(Math.abs(d) < 1e-12) return null; // równoległe / pokrywające się
+    const t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / d;
+    const u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / d;
+    if(t < 0 || t > 1 || u < 0 || u > 1) return null;
+    return [x1 + t*(x2-x1), y1 + t*(y2-y1)];
+  }
+
+  // Szuka miejsca, w którym droga (coords) faktycznie przecina linię kolejową (railwayLines) —
+  // to dokładnie ten punkt, w którym wiadukt kolejowy przebiega nad drogą. Dzięki temu znak
+  // wysokości staje dokładnie pod wiaduktem, a nie gdzieś przypadkowo wzdłuż całego
+  // oznaczonego tagiem maxheight odcinka drogi.
+  function findRailwayCrossingPoint(coords, railwayLines){
+    for(let i=0; i<coords.length-1; i++){
+      for(const line of railwayLines){
+        for(let j=0; j<line.length-1; j++){
+          const ip = segmentIntersection(coords[i], coords[i+1], line[j], line[j+1]);
+          if(ip) return ip;
+        }
+      }
+    }
+    return null;
+  }
+
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -2488,6 +2516,7 @@
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
         way["maxheight"](around:${ROAD_RADIUS_M},${lat},${lon});
         way["maxweight"](around:${ROAD_RADIUS_M},${lat},${lon});
+        way["railway"](around:${ROAD_RADIUS_M},${lat},${lon});
         node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
@@ -2804,6 +2833,12 @@
     const communityParkingFeatures = [];
     const laneFeatures = [];
 
+    // geometria linii kolejowych w okolicy — do wykrywania dokładnego miejsca,
+    // w którym droga przebiega pod wiaduktem kolejowym (patrz findRailwayCrossingPoint)
+    const railwayLines = (data.elements || [])
+      .filter(el => el.type === "way" && el.tags && el.tags.railway && el.geometry && el.geometry.length > 1)
+      .map(el => el.geometry.map(g => [g.lon, g.lat]));
+
     (data.elements || []).forEach(el => {
       if(isLaneRenderWay(el) && el.geometry && el.geometry.length > 1){
         const coords = el.geometry.map(g => [g.lon, g.lat]);
@@ -2860,11 +2895,15 @@
               properties:{ maxheight: hm },
               geometry:{ type:"LineString", coordinates: coords }
             });
+            // najpierw spróbuj dokładnego miejsca pod wiaduktem (przecięcie z torami);
+            // gdy w pobliżu nie ma śladu kolei w danych, wróć do środka oznaczonego odcinka
+            const crossing = findRailwayCrossingPoint(coords, railwayLines);
             const c = wayCentroid(el.geometry);
+            const anchor = crossing || [c.lon, c.lat];
             restrictionSignFeatures.push({
               type:"Feature",
               properties:{ kind:"height", label: formatHeightLabel(hm) },
-              geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
+              geometry:{ type:"Point", coordinates: anchor }
             });
           }
         }
