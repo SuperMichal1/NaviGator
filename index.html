@@ -1259,10 +1259,9 @@
     return v;
   }
 
-  /* ---------- Znaki wysokości (wiadukty/przejazdy) i tonażu ----------
-     Tagi OSM: "maxheight" (metry, czasem stopy'cale, np. 13'6") i "maxweight"
-     (tony, czasem z jednostką "t"). Wartości typu "none"/"default"/"unsigned"
-     oznaczają brak faktycznego ograniczenia — pomijamy je. */
+  /* ---------- Znaki wysokości (wiadukty/przejazdy) ----------
+     Tag OSM: "maxheight" (metry, czasem stopy'cale, np. 13'6"). Wartości typu
+     "none"/"default"/"unsigned" oznaczają brak faktycznego ograniczenia — pomijamy je. */
   function parseMaxheightMeters(tag){
     if(!tag) return null;
     const s = String(tag).trim().toLowerCase();
@@ -1282,47 +1281,6 @@
     const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
     return v + "m";
   }
-  function parseMaxweightTonnes(tag){
-    if(!tag) return null;
-    const s = String(tag).trim().toLowerCase();
-    if(!s || s === "none" || s === "default" || s === "unsigned" || s === "no") return null;
-    const t = parseFloat(s.replace(",", ".").replace(/[^0-9.]/g, ""));
-    if(isNaN(t) || t <= 0 || t > 100) return null; // poza sensownym zakresem
-    return Math.round(t * 10) / 10;
-  }
-  function formatWeightLabel(t){
-    const v = (Math.round(t * 10) / 10).toFixed(1).replace(/\.0$/, "");
-    return v + "t";
-  }
-
-  // Przecięcie dwóch odcinków [lon,lat] (metoda parametryczna, płaska aproksymacja —
-  // wystarczająco dokładna w skali pojedynczej drogi/torów). Zwraca punkt [lon,lat] albo null.
-  function segmentIntersection(p1, p2, p3, p4){
-    const x1=p1[0], y1=p1[1], x2=p2[0], y2=p2[1], x3=p3[0], y3=p3[1], x4=p4[0], y4=p4[1];
-    const d = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4);
-    if(Math.abs(d) < 1e-12) return null; // równoległe / pokrywające się
-    const t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / d;
-    const u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / d;
-    if(t < 0 || t > 1 || u < 0 || u > 1) return null;
-    return [x1 + t*(x2-x1), y1 + t*(y2-y1)];
-  }
-
-  // Szuka miejsca, w którym droga (coords) faktycznie przecina linię kolejową (railwayLines) —
-  // to dokładnie ten punkt, w którym wiadukt kolejowy przebiega nad drogą. Dzięki temu znak
-  // wysokości staje dokładnie pod wiaduktem, a nie gdzieś przypadkowo wzdłuż całego
-  // oznaczonego tagiem maxheight odcinka drogi.
-  function findRailwayCrossingPoint(coords, railwayLines){
-    for(let i=0; i<coords.length-1; i++){
-      for(const line of railwayLines){
-        for(let j=0; j<line.length-1; j++){
-          const ip = segmentIntersection(coords[i], coords[i+1], line[j], line[j+1]);
-          if(ip) return ip;
-        }
-      }
-    }
-    return null;
-  }
-
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -2684,10 +2642,7 @@
 
      Zapytanie leci pasami szerokości geograficznej (tak jak fotoradary
      autostradowe), bo cała Wielka Brytania naraz byłaby za dużym zapytaniem.
-     W każdym pasie: pobieramy drogi z maxheight/maxweight ORAZ (tylko!) te
-     odcinki kolei, które leżą w promieniu 60 m od dróg z maxheight — dzięki
-     temu NIE ściągamy całej sieci kolejowej UK, tylko tyle, ile potrzeba,
-     żeby wykryć dokładne miejsce przejazdu pod wiaduktem.
+     W każdym pasie: pobieramy wyłącznie drogi oznaczone tagiem maxheight.
   ============================================================ */
   const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
@@ -2708,20 +2663,10 @@
       chain = chain.then(() => {
         const query = `
           [out:json][timeout:120];
-          way["maxheight"](${south},${west},${north},${east})->.h;
-          way["maxweight"](${south},${west},${north},${east})->.w;
-          (
-            way.h;
-            way.w;
-            way["railway"](around.h:60);
-          );
+          way["maxheight"](${south},${west},${north},${east});
           out geom;
         `;
         return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS).then(data => {
-          const railwayLines = (data.elements || [])
-            .filter(el => el.type === "way" && el.tags && el.tags.railway && el.geometry && el.geometry.length > 1)
-            .map(el => el.geometry.map(g => [g.lon, g.lat]));
-
           (data.elements || []).forEach(el => {
             if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
 
@@ -2734,32 +2679,10 @@
                   properties: { maxheight: hm },
                   geometry: { type: "LineString", coordinates: coords }
                 });
-                // dokładne miejsce pod wiaduktem (przecięcie z torami), a w braku danych
-                // o kolei w pobliżu — środek oznaczonego odcinka jako rozwiązanie zapasowe
-                const crossing = findRailwayCrossingPoint(coords, railwayLines);
                 const c = wayCentroid(el.geometry);
-                const anchor = crossing || [c.lon, c.lat];
                 signs.set("h" + el.id, {
                   type: "Feature",
                   properties: { kind: "height", label: formatHeightLabel(hm) },
-                  geometry: { type: "Point", coordinates: anchor }
-                });
-              }
-            }
-
-            if(el.tags.maxweight && !weightWays.has(el.id)){
-              const wt = parseMaxweightTonnes(el.tags.maxweight);
-              if(wt){
-                const coords = el.geometry.map(g => [g.lon, g.lat]);
-                weightWays.set(el.id, {
-                  type: "Feature",
-                  properties: { maxweight: wt },
-                  geometry: { type: "LineString", coordinates: coords }
-                });
-                const c = wayCentroid(el.geometry);
-                signs.set("w" + el.id, {
-                  type: "Feature",
-                  properties: { kind: "weight", label: formatWeightLabel(wt) },
                   geometry: { type: "Point", coordinates: [c.lon, c.lat] }
                 });
               }
