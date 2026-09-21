@@ -1397,8 +1397,8 @@
        • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady ciepły pomarańcz, drogi A ochra,
                           drogi średnie grafit, lokalne bardzo subtelne — wszystkie z jaśniejszym obrysem
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
-       • zabudowa mieszkaniowa, budynki i drogi lokalne = ukryte przy oddaleniu, pojawiają się przy
-                          przybliżeniu (NIGHT_DETAIL), żeby nie zaśmiecać widoku na trasie przelotowej
+       • drogi A niewidoczne z daleka, wtapiają się w tło w średnim zoomie; drogi B i lokalne, zabudowa mieszkaniowa
+                          i budynki pojawiają się dopiero po przybliżeniu (NIGHT_DETAIL)
        • woda, budynki  = stałe, dobrane do tła kolory
        • lasy, parki…   = kolor dzienny przeliczony względem tła (zachowuje odcień, ciemnieje)
        • etykiety       = jasny tekst z ciemną obwódką
@@ -1414,8 +1414,8 @@
   // Drogi w nocy: wypełnienie + jaśniejszy obrys (casing). Klasy: motorway = autostrady, major = trunk/primary
   // (drogi A), mid = secondary/tertiary i zjazdy, minor = lokalne/osiedlowe/serwisowe/ścieżki.
   const NIGHT_ROADS = {
-    motorway: { fill: "#c8832e", casing: "#efbd77" },  // ciepły, stonowany pomarańcz
-    major:    { fill: "#a98a3f", casing: "#d6bb78" },  // stonowana żółć/ochra
+    motorway: { fill: "#b5691f", casing: "#6a3b10" },  // ciemny pomarańcz, ciemniejszy obrys
+    major:    { fill: "#87794a", casing: "#54492c" },  // drogi A: stonowana ochra wtopiona w tło
     mid:      { fill: "#4c5d60", casing: "#7f9497" },  // grafit
     minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
   };
@@ -1424,13 +1424,15 @@
     classes: ["industrial", "warehouse", "logistics"], // klasy landuse z kafelków; dodaj "commercial"/"retail", jeśli chcesz
     fill: "#2f2a48",      // matowy ciemny fiolet
     outline: "#4b4370",
-    opacity: 0.8,         // przy pełnym przybliżeniu (od zoomu 13); niżej narasta od 0
-    minZoom: 8
+    opacity: 0.8,         // pełne krycie 5 poziomów zoomu po minZoom; niżej narasta od 0
+    minZoom: 6            // było 8 — strefy widać o 2 poziomy zoomu wcześniej
   };
   // Szczegóły, które w nocy pojawiają się dopiero po przybliżeniu (zoom mapy)
   const NIGHT_DETAIL = {
     minorRoadsZoom: 14,          // drogi lokalne/osiedlowe/serwisowe/ścieżki — od tego zoomu
-    residentialFade: [12, 14],   // zabudowa mieszkaniowa: 0% przy pierwszej wartości, 100% przy drugiej
+    midRoadsZoomDelay: 2,        // drogi B (secondary/tertiary): o tyle poziomów zoomu później niż w bazowym stylu
+    majorRoadsFade: [[8, 0], [10, 0.3], [12, 0.55], [13.5, 1]], // drogi A: [zoom, krycie] — z daleka niewidoczne, potem wtopione, po przybliżeniu w pełni
+    residentialFade: [11, 13],   // zabudowa mieszkaniowa: 0% przy pierwszej wartości, 100% przy drugiej (było 12–14)
     buildingsFade: [14.5, 15.5]  // obrysy budynków: 0% -> 100%
   };
 
@@ -1588,6 +1590,9 @@
       (map.getStyle().layers || []).forEach(l => {
         if(l.type === "fill" && l["source-layer"] === "landuse" && /residential/.test(l.id))
           opac.push({ id: l.id, prop: "fill-opacity", kind: "residential", orig: l.paint ? l.paint["fill-opacity"] : undefined });
+        if(l.type === "line" && l["source-layer"] === "transportation" && /^(road|bridge|tunnel)_/.test(l.id)
+           && nightRoadClass(l.id, JSON.stringify(l.filter || "")) === "major")
+          opac.push({ id: l.id, prop: "line-opacity", kind: "aroad", orig: l.paint ? l.paint["line-opacity"] : undefined });
         if(l.type === "fill" && l["source-layer"] === "building")
           opac.push({ id: l.id, prop: "fill-opacity", kind: "building", orig: l.paint ? l.paint["fill-opacity"] : undefined });
         if(!l.paint) return;
@@ -1631,13 +1636,20 @@
     applyMinorRoadZoom(night);
   }
 
-  // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu)
+  // Drogi A, zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu)
   function applyNightDetail(night){
     nightOpacityLayers.forEach(o => {
       try{
         if(!map.getLayer(o.id)) return;
-        const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
-        const value = night ? ["interpolate", ["linear"], ["zoom"], fade[0], 0, fade[1], 1] : (o.orig === undefined ? null : o.orig);
+        let expr;
+        if(o.kind === "aroad"){
+          expr = ["interpolate", ["linear"], ["zoom"]];
+          NIGHT_DETAIL.majorRoadsFade.forEach(p => expr.push(p[0], p[1]));
+        } else {
+          const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
+          expr = ["interpolate", ["linear"], ["zoom"], fade[0], 0, fade[1], 1];
+        }
+        const value = night ? expr : (o.orig === undefined ? null : o.orig);
         map.setPaintProperty(o.id, o.prop, value);
       }catch(e){ console.warn("Nie udało się ustawić krycia warstwy", o.id, e); }
     });
@@ -1659,7 +1671,7 @@
         paint: {
           "fill-color": NIGHT_ZONES.fill,
           "fill-outline-color": NIGHT_ZONES.outline,
-          "fill-opacity": ["interpolate", ["linear"], ["zoom"], NIGHT_ZONES.minZoom, 0, 10, NIGHT_ZONES.opacity * 0.6, 13, NIGHT_ZONES.opacity]
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], NIGHT_ZONES.minZoom, 0, NIGHT_ZONES.minZoom + 2, NIGHT_ZONES.opacity * 0.6, NIGHT_ZONES.minZoom + 5, NIGHT_ZONES.opacity]
         }
       }, first ? first.id : undefined);
       applyNightZones(document.body.classList.contains("night"));
@@ -1671,36 +1683,43 @@
     if(map && map.getLayer("night-industrial")) map.setLayoutProperty("night-industrial", "visibility", night ? "visible" : "none");
   }
 
-  // Mniejsze drogi (osiedlowe, serwisowe, dojazdy, ścieżki) pokazujemy później niż w bazowym stylu:
-  // w dzień o MINOR_ROAD_ZOOM_DELAY poziomu zoomu, a w nocy dopiero od NIGHT_DETAIL.minorRoadsZoom —
-  // mapa jest przejrzysta, a drogi główne lepiej widać.
+  // Zoom pokazywania dróg:
+  //  • lokalne (osiedlowe, serwisowe, dojazdy, ścieżki): w dzień +MINOR_ROAD_ZOOM_DELAY względem bazowego stylu,
+  //    w nocy dopiero od NIGHT_DETAIL.minorRoadsZoom
+  //  • drogi B (secondary/tertiary, bez zjazdów): w nocy +NIGHT_DETAIL.midRoadsZoomDelay względem bazowego stylu
   const MINOR_ROAD_ZOOM_DELAY = 1;
-  let minorRoadLayers = []; // { id, dayMin, max }
+  let roadZoomLayers = []; // { id, dayMin, nightMin, max }
   function delayMinorRoads(){
     if(!map) return;
     try{
-      minorRoadLayers = [];
+      roadZoomLayers = [];
       map.getStyle().layers.forEach(l => {
         if(l["source-layer"] !== "transportation" || l.type !== "line") return;
         if(!/^(road|bridge|tunnel)_/.test(l.id) || /rail|transit|ferry|aerialway/.test(l.id)) return;
-        if(nightRoadClass(l.id, JSON.stringify(l.filter || "")) !== "minor") return;
+        const cls = nightRoadClass(l.id, JSON.stringify(l.filter || ""));
         const layer = map.getLayer(l.id);
         const orig = (layer && layer.minzoom) || 0;
-        minorRoadLayers.push({
-          id: l.id,
-          dayMin: (orig || 12) + MINOR_ROAD_ZOOM_DELAY,
-          max: layer && layer.maxzoom !== undefined ? layer.maxzoom : 24
-        });
+        const max = layer && layer.maxzoom !== undefined ? layer.maxzoom : 24;
+        if(cls === "minor"){
+          const dayMin = (orig || 12) + MINOR_ROAD_ZOOM_DELAY;
+          roadZoomLayers.push({ id: l.id, dayMin, nightMin: Math.max(dayMin, NIGHT_DETAIL.minorRoadsZoom), max });
+        } else if(cls === "mid" && !/link/.test(l.id)){
+          roadZoomLayers.push({ id: l.id, dayMin: orig, nightMin: orig, max, mid: true });
+        }
       });
+      // drogi B: obrys i wypełnienie muszą zmieniać zoom razem — warstwa bez minzoom bierze wartość z pozostałych
+      const positive = roadZoomLayers.filter(r => r.mid && r.dayMin > 0).map(r => r.dayMin);
+      const midBase = positive.length ? Math.min.apply(null, positive) : 8;
+      roadZoomLayers.forEach(r => { if(r.mid) r.nightMin = (r.dayMin || midBase) + NIGHT_DETAIL.midRoadsZoomDelay; });
       applyMinorRoadZoom(document.body.classList.contains("night"));
     }catch(e){
-      console.warn("Nie udało się opóźnić pokazywania małych dróg:", e);
+      console.warn("Nie udało się ustawić zoomu dróg:", e);
     }
   }
   function applyMinorRoadZoom(night){
-    minorRoadLayers.forEach(r => {
+    roadZoomLayers.forEach(r => {
       try{
-        if(map.getLayer(r.id)) map.setLayerZoomRange(r.id, night ? Math.max(r.dayMin, NIGHT_DETAIL.minorRoadsZoom) : r.dayMin, r.max);
+        if(map.getLayer(r.id)) map.setLayerZoomRange(r.id, night ? r.nightMin : r.dayMin, r.max);
       }catch(e){ console.warn("Nie udało się ustawić zoomu drogi", r.id, e); }
     });
   }
