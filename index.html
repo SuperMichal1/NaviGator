@@ -1282,6 +1282,21 @@
     const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
     return v + "m";
   }
+  /* ---------- Znaki tonażu ----------
+     Tag OSM: "maxweight" (tony, czasem z jednostką "t"). Wartości typu
+     "none"/"default"/"unsigned" oznaczają brak faktycznego ograniczenia — pomijamy je. */
+  function parseMaxweightTonnes(tag){
+    if(!tag) return null;
+    const s = String(tag).trim().toLowerCase();
+    if(!s || s === "none" || s === "default" || s === "unsigned" || s === "no") return null;
+    const t = parseFloat(s.replace(",", ".").replace(/[^0-9.]/g, ""));
+    if(isNaN(t) || t <= 0 || t > 100) return null; // poza sensownym zakresem
+    return Math.round(t * 10) / 10;
+  }
+  function formatWeightLabel(t){
+    const v = (Math.round(t * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    return v + "t";
+  }
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -2398,6 +2413,9 @@
   const JUNCTIONS_CACHE_KEY = "nav_uk_motorway_junctions_v1";
   const JUNCTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const JUNCTION_DEDUPE_RADIUS_M = 400; // punkty tego samego zjazdu bywają zapisane kilkoma węzłami OSM blisko siebie
+  const JUNCTIONS_BAND_RETRIES = 2; // ile razy ponowić POJEDYNCZY fragment (kraj), zanim zostanie pominięty
+  const JUNCTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
+  let junctionsRetries = 0;
 
   function dedupeJunctions(rawFeatures){
     const clusters = []; // { ref, lat, lon, name }
@@ -2421,48 +2439,112 @@
     }));
   }
 
-  function loadUkMotorwayJunctionsOnce(){
-    if(!map.getSource("motorway-junctions")) return;
-
-    // 1) spróbuj z pamięci lokalnej — natychmiastowe, działa offline
-    try{
-      const cached = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
-      if(cached && cached.savedAt && (Date.now() - cached.savedAt) < JUNCTIONS_CACHE_MAX_AGE_MS && Array.isArray(cached.features)){
-        setJunctionData(cached.features);
-        return; // mamy świeże dane z cache — nie odpytujemy Overpass
-      }
-    }catch(e){
-      console.warn("Nie udało się odczytać cache zjazdów:", e);
-    }
-
-    // 2) brak/nieaktualny cache — pobierz z Overpass dla całej Wielkiej Brytanii
-    const west = GB_BOUNDS[0][0], south = GB_BOUNDS[0][1];
-    const east = GB_BOUNDS[1][0], north = GB_BOUNDS[1][1];
+  // Pobiera zjazdy dla jednego fragmentu {name, box}. Fragmenty to te same podziały na
+  // Anglię/Walię/Szkocję co znaki wysokości (flattenRestrictionsRegions) — jedno duże
+  // zapytanie o całą UK naraz łatwo trafiało w timeout, więc dzielimy je tak samo.
+  function fetchJunctionsBand(box){
+    const [south, west, north, east] = box;
     const query = `
       [out:json][timeout:90];
       node["highway"="motorway_junction"](${south},${west},${north},${east});
       out body;
     `;
+    return tryEndpoints(query, 0);
+  }
 
-    tryEndpoints(query, 0).then(data => {
-      const rawFeatures = (data.elements || [])
-        .filter(el => el.type === "node")
-        .map(el => ({
-          type: "Feature",
-          properties: { ref: el.tags && el.tags.ref || "", name: el.tags && el.tags.name || "" },
-          geometry: { type: "Point", coordinates: [el.lon, el.lat] }
-        }));
-      const features = dedupeJunctions(rawFeatures);
+  function downloadJunctionsBands(bands, onBandDone){
+    const nodes = new Map();
+    const failedBands = [];
+    let chain = Promise.resolve();
+
+    bands.forEach(({ name, box }) => {
+      chain = chain.then(() => {
+        function attempt(retriesLeft){
+          return fetchJunctionsBand(box)
+            .then(data => {
+              (data.elements || []).forEach(el => {
+                if(el.type === "node" && !nodes.has(el.id)){
+                  nodes.set(el.id, {
+                    type: "Feature",
+                    properties: { ref: el.tags && el.tags.ref || "", name: el.tags && el.tags.name || "" },
+                    geometry: { type: "Point", coordinates: [el.lon, el.lat] }
+                  });
+                }
+              });
+              return true;
+            })
+            .catch(err => {
+              if(retriesLeft > 0) return attempt(retriesLeft - 1);
+              console.warn(`Zjazdy ${name} [${box.join(",")}]: pominięto po nieudanych próbach:`, err.message || err);
+              debugLog("warn", `Zjazdy autostradowe: ${name} pominięta (błąd Overpass), spróbuję ponownie później`);
+              failedBands.push({ name, box });
+              return false;
+            });
+        }
+        return attempt(JUNCTIONS_BAND_RETRIES).then(success => {
+          if(typeof onBandDone === "function"){
+            onBandDone({ rawFeatures: Array.from(nodes.values()), name, box, success });
+          }
+        });
+      });
+    });
+
+    return chain.then(() => ({
+      rawFeatures: Array.from(nodes.values()),
+      failedBands
+    }));
+  }
+
+  function loadUkMotorwayJunctionsOnce(){
+    if(!map.getSource("motorway-junctions")) return;
+
+    let baseRaw = [];
+    let bandsToFetch = null;
+
+    // 1) spróbuj z pamięci lokalnej — natychmiastowe, działa offline
+    try{
+      const cached = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
+      if(cached && cached.savedAt && Array.isArray(cached.features)){
+        setJunctionData(cached.features);
+        debugLog("info", `Zjazdy autostradowe: ${cached.features.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        baseRaw = Array.isArray(cached.rawFeatures) ? cached.rawFeatures : cached.features;
+        const fresh = Date.now() - cached.savedAt < JUNCTIONS_CACHE_MAX_AGE_MS;
+        const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
+        if(fresh && !hasGaps) return; // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
+        if(hasGaps) bandsToFetch = cached.failedBands;
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache zjazdów:", e);
+    }
+
+    const bands = bandsToFetch || flattenRestrictionsRegions();
+    debugLog("info", bandsToFetch
+      ? `Zjazdy autostradowe: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Zjazdy autostradowe: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
+
+    // 2) pobieramy fragment po fragmencie; po każdym od razu pokazujemy to, co już mamy
+    downloadJunctionsBands(bands, ({ rawFeatures }) => {
+      setJunctionData(dedupeJunctions(baseRaw.concat(rawFeatures)));
+    }).then(({ rawFeatures, failedBands }) => {
+      const allRaw = baseRaw.concat(rawFeatures);
+      const features = dedupeJunctions(allRaw);
       setJunctionData(features);
+      debugLog("info", `Zjazdy autostradowe: łącznie ${features.length}` +
+        (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
       try{
-        localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features }));
+        localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          features,
+          rawFeatures: allRaw,
+          failedBands
+        }));
       }catch(e){
         console.warn("Nie udało się zapisać cache zjazdów (localStorage pełny?):", e);
+        debugLog("warn", "Zjazdy autostradowe: NIE udało się zapisać cache (localStorage pełny?)");
       }
-    }).catch(err => {
-      console.warn("Nie udało się pobrać zjazdów autostradowych dla całej Wielkiej Brytanii:", err);
-      // spróbuj ponownie później — jednorazowa nieudana próba nie powinna zablokować funkcji na stałe
-      setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS);
+      if(failedBands.length && junctionsRetries++ < JUNCTIONS_MAX_RETRIES){
+        setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
+      }
     });
   }
 
@@ -2644,7 +2726,7 @@
 
      Zapytanie leci pasami szerokości geograficznej (tak jak fotoradary
      autostradowe), bo cała Wielka Brytania naraz byłaby za dużym zapytaniem.
-     W każdym pasie: pobieramy wyłącznie drogi oznaczone tagiem maxheight.
+     W każdym pasie: pobieramy drogi oznaczone tagiem maxheight LUB maxweight.
   ============================================================ */
   const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
@@ -2688,14 +2770,17 @@
     const [south, west, north, east] = box;
     const query = `
       [out:json][timeout:120];
-      way["maxheight"](${south},${west},${north},${east});
+      (
+        way["maxheight"](${south},${west},${north},${east});
+        way["maxweight"](${south},${west},${north},${east});
+      );
       out geom;
     `;
     return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
   }
 
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
-  function applyRestrictionsBandData(data, heightWays, signs){
+  function applyRestrictionsBandData(data, heightWays, weightWays, signs){
     (data.elements || []).forEach(el => {
       if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
 
@@ -2716,6 +2801,24 @@
           });
         }
       }
+
+      if(el.tags.maxweight && !weightWays.has(el.id)){
+        const wt = parseMaxweightTonnes(el.tags.maxweight);
+        if(wt){
+          const coords = el.geometry.map(g => [g.lon, g.lat]);
+          weightWays.set(el.id, {
+            type: "Feature",
+            properties: { maxweight: wt },
+            geometry: { type: "LineString", coordinates: coords }
+          });
+          const c = wayCentroid(el.geometry);
+          signs.set("w" + el.id, {
+            type: "Feature",
+            properties: { kind: "weight", label: formatWeightLabel(wt) },
+            geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+          });
+        }
+      }
     });
   }
 
@@ -2728,6 +2831,7 @@
   // mapie etapami, a nie dopiero po ściągnięciu całej Wielkiej Brytanii.
   function downloadRestrictionsBands(bands, onBandDone){
     const heightWays = new Map();
+    const weightWays = new Map();
     const signs = new Map();
     const failedBands = [];
     let chain = Promise.resolve();
@@ -2737,13 +2841,13 @@
         function attempt(retriesLeft){
           return fetchRestrictionsBand(box)
             .then(data => {
-              applyRestrictionsBandData(data, heightWays, signs);
+              applyRestrictionsBandData(data, heightWays, weightWays, signs);
               return true;
             })
             .catch(err => {
               if(retriesLeft > 0) return attempt(retriesLeft - 1);
               console.warn(`${name} [${box.join(",")}]: pominięto po nieudanych próbach:`, err.message || err);
-              debugLog("warn", `Znaki wysokości: ${name} (pas ${box[0]}–${box[2]}) pominięty (błąd Overpass), spróbuję ponownie później`);
+              debugLog("warn", `Znaki wysokości/tonażu: ${name} (pas ${box[0]}–${box[2]}) pominięty (błąd Overpass), spróbuję ponownie później`);
               failedBands.push({ name, box });
               return false;
             });
@@ -2752,6 +2856,7 @@
           if(typeof onBandDone === "function"){
             onBandDone({
               heightFeatures: Array.from(heightWays.values()),
+              weightFeatures: Array.from(weightWays.values()),
               signFeatures: Array.from(signs.values()),
               name, box, success
             });
@@ -2762,6 +2867,7 @@
 
     return chain.then(() => ({
       heightFeatures: Array.from(heightWays.values()),
+      weightFeatures: Array.from(weightWays.values()),
       signFeatures: Array.from(signs.values()),
       failedBands
     }));
@@ -2787,6 +2893,7 @@
     if(!map.getSource("roads-maxheight")) return;
 
     let baseHeight = [];
+    let baseWeight = [];
     let baseSigns = [];
     let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie fragmenty od zera
 
@@ -2794,43 +2901,57 @@
     try{
       const cached = JSON.parse(localStorage.getItem(RESTRICTIONS_CACHE_KEY) || "null");
       if(cached && cached.savedAt && Array.isArray(cached.heightFeatures)){
-        baseHeight = cached.heightFeatures;
-        baseSigns = cached.signFeatures || [];
-        setRestrictionsData(baseHeight, [], baseSigns);
-        debugLog("info", `Znaki wysokości: ${baseHeight.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        const cachedHeight = cached.heightFeatures;
+        const cachedWeight = cached.weightFeatures || [];
+        const cachedSigns = cached.signFeatures || [];
+        setRestrictionsData(cachedHeight, cachedWeight, cachedSigns); // pokaż od razu, choćby stare
+        debugLog("info", `Znaki wysokości/tonażu: ${cachedHeight.length} wys. / ${cachedWeight.length} tonaż z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps) return; // pełny i świeży cache — nic więcej do zrobienia
-        if(hasGaps) bandsToFetch = cached.failedBands; // dociągamy TYLKO brakujące fragmenty
+        const hasWeightData = cached.hasWeight === true; // starszy cache (sprzed dodania tonażu) tego nie ma
+        if(fresh && !hasGaps && hasWeightData) return; // pełny, świeży cache z tonażem — nic więcej do zrobienia
+        if(hasGaps){
+          // dociągamy TYLKO brakujące fragmenty, dokładając je do tego, co już mamy
+          bandsToFetch = cached.failedBands;
+          baseHeight = cachedHeight;
+          baseWeight = cachedWeight;
+          baseSigns = cachedSigns;
+        }
+        // w pozostałych przypadkach (cache nieświeży albo bez tonażu) — pełne pobranie od zera,
+        // żeby nie dublować znaków wysokości; stare dane są już wyświetlone i podmienią się,
+        // gdy przyjdą nowe (patrz setRestrictionsData wyżej i w onBandDone/then niżej)
       }
     }catch(e){
-      console.warn("Nie udało się odczytać cache znaków wysokości:", e);
+      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu:", e);
     }
 
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
-      ? `Znaki wysokości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
-      : "Znaki wysokości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
+      ? `Znaki wysokości/tonażu: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Znaki wysokości/tonażu: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
 
     // 2) pobieramy fragment po fragmencie; po każdym od razu pokazujemy to, co już mamy
-    downloadRestrictionsBands(bands, ({ heightFeatures, signFeatures }) => {
-      setRestrictionsData(baseHeight.concat(heightFeatures), [], baseSigns.concat(signFeatures));
-    }).then(({ heightFeatures, signFeatures, failedBands }) => {
+    downloadRestrictionsBands(bands, ({ heightFeatures, weightFeatures, signFeatures }) => {
+      setRestrictionsData(baseHeight.concat(heightFeatures), baseWeight.concat(weightFeatures), baseSigns.concat(signFeatures));
+    }).then(({ heightFeatures, weightFeatures, signFeatures, failedBands }) => {
       const allHeight = baseHeight.concat(heightFeatures);
+      const allWeight = baseWeight.concat(weightFeatures);
       const allSigns = baseSigns.concat(signFeatures);
-      setRestrictionsData(allHeight, [], allSigns);
-      debugLog("info", `Znaki wysokości: łącznie ${allHeight.length} znaków` +
+      setRestrictionsData(allHeight, allWeight, allSigns);
+      debugLog("info", `Znaki wysokości/tonażu: łącznie ${allHeight.length} wys. / ${allWeight.length} tonaż` +
         (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
       try{
         localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
           heightFeatures: roundCoordsForCache(allHeight),
+          weightFeatures: roundCoordsForCache(allWeight),
           signFeatures: roundCoordsForCache(allSigns),
-          failedBands
+          failedBands,
+          hasWeight: true
         }));
       }catch(e){
-        console.warn("Nie udało się zapisać cache znaków wysokości (localStorage pełny?):", e);
-        debugLog("warn", "Znaki wysokości: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
+        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu (localStorage pełny?):", e);
+        debugLog("warn", "Znaki wysokości/tonażu: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
       }
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
