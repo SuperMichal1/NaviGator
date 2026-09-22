@@ -2862,8 +2862,28 @@
       });
   }
 
+  // Globalna kolejka dla WSZYSTKICH zapytań do Overpass (zjazdy, fotoradary, dane przy GPS,
+  // znaki wysokości itd.) — bez niej różne funkcje strzelały do tych samych 4 darmowych
+  // serwerów RÓWNOLEGLE (np. przy starcie aplikacji naraz), co serwery odbierały jako
+  // spam i odpowiadały błędem 429 albo w ogóle nie zdążały odpowiedzieć. Teraz każde
+  // zapytanie czeka w kolejce na poprzednie i jest między nimi krótki odstęp.
+  let overpassQueue = Promise.resolve();
+  const OVERPASS_QUEUE_GAP_MS = 1200;
+
+  function queueOverpassRequest(run){
+    const result = overpassQueue.then(run, run);
+    overpassQueue = result.then(() => {}, () => {}).then(
+      () => new Promise(res => setTimeout(res, OVERPASS_QUEUE_GAP_MS))
+    );
+    return result;
+  }
+
   // próbuje kolejnych serwerów Overpass po kolei, zaczynając od tego, który ostatnio zadziałał
   function tryEndpoints(query, attemptCount, timeoutMs){
+    return queueOverpassRequest(() => tryEndpointsNow(query, attemptCount, timeoutMs));
+  }
+
+  function tryEndpointsNow(query, attemptCount, timeoutMs){
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
       order.push(OVERPASS_ENDPOINTS[(preferredEndpointIdx + i) % OVERPASS_ENDPOINTS.length]);
