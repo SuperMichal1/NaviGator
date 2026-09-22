@@ -1155,6 +1155,7 @@
   let lastFetchPos = null;
   let lastFetchTime = 0;
   let fetching = false;
+  let overpassFetchFailStreak = 0; // rosnące opóźnienie ponawiania po kolejnych nieudanych próbach — inaczej ta funkcja co 15 s na okrągło dobijała się do przeciążonych serwerów Overpass, blokując kolejkę innym pobieraniom (np. znakom wysokości)
   let queuedRefetchPos = null; // gdy fetchOverpassData() wywołano w trakcie innego zapytania (np. zaraz po zgłoszeniu fotoradaru/parkingu) — zamiast po cichu je gubić, odpalamy je ponownie zaraz po zakończeniu bieżącego
   let cameras = [];             // [{id, lat, lon, alerted}] — WYNIKOWA lista (OSM+społeczność+lokalne zgłoszenia), używana do alertu
   let osmCameras = [];          // fotoradary z OSM/Overpass + zgłoszenia społeczności (Supabase), odświeżane co refetch
@@ -2843,14 +2844,19 @@
         lastFetchPos = { lat, lon };
         lastFetchTime = Date.now();
         roadDataState = "ok";
+        overpassFetchFailStreak = 0; // udało się — resetujemy narastające opóźnienie
       })
       .catch(err => {
         console.warn("Overpass — wszystkie serwery zawiodły:", err);
         roadDataState = "retrying";
-        // ponów automatycznie po krótkiej przerwie, żeby nie czekać na duży przejazd
+        // ponawiamy z rosnącą przerwą (15 s, 30 s, 60 s, maks. 2 min) zamiast co 15 s w kółko —
+        // inaczej to zapytanie non-stop dobijało się do przeciążonych serwerów i blokowało
+        // kolejkę innym pobieraniom (np. znakom wysokości), które nigdy nie dostawały szansy.
+        const delay = Math.min(OVERPASS_RETRY_AFTER_FAIL_MS * Math.pow(2, overpassFetchFailStreak), 120000);
+        overpassFetchFailStreak++;
         setTimeout(() => {
           if(lastPos) fetchOverpassData(lastPos.lat, lastPos.lon);
-        }, OVERPASS_RETRY_AFTER_FAIL_MS);
+        }, delay);
       })
       .finally(() => {
         fetching = false;
