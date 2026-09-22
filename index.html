@@ -2094,6 +2094,46 @@
         }
       });
 
+      // odcinkowy pomiar prędkości (SPECS) na drogach A — pobierany raz dla całej Wielkiej
+      // Brytanii i zapisywany lokalnie (patrz loadAvgSpeedCamerasOnce), tak jak fotoradary
+      // autostradowe i numery zjazdów. Inny kolor (niebieski) i inna ikonka (⏱️) niż zwykłe
+      // fotoradary punktowe (📷), żeby kierowca od razu widział, że to inny rodzaj pomiaru.
+      map.addSource("avg-speed-cameras", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"avg-speed-cameras-glow",
+        type:"circle",
+        source:"avg-speed-cameras",
+        minzoom: 10,
+        paint:{
+          "circle-radius": 14,
+          "circle-color": "#2F80ED",
+          "circle-opacity": 0.18
+        }
+      });
+      map.addLayer({
+        id:"avg-speed-cameras-core",
+        type:"circle",
+        source:"avg-speed-cameras",
+        minzoom: 10,
+        paint:{
+          "circle-radius": 6,
+          "circle-color": "#2F80ED",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff"
+        }
+      });
+      map.addLayer({
+        id:"avg-speed-cameras-icon",
+        type:"symbol",
+        source:"avg-speed-cameras",
+        minzoom: 10,
+        layout:{
+          "text-field": "⏱️",
+          "text-size": 12,
+          "text-allow-overlap": true
+        }
+      });
+
       // źródło dróg z ograniczeniem prędkości (do celów wizualnych - opcjonalne podświetlenie)
       map.addSource("roads-maxspeed", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -2265,6 +2305,11 @@
         console.warn("Nie udało się uruchomić ładowania fotoradarów autostradowych:", e);
       }
       try{
+        loadAvgSpeedCamerasOnce();
+      }catch(e){
+        console.warn("Nie udało się uruchomić ładowania odcinkowego pomiaru prędkości:", e);
+      }
+      try{
         loadUkRestrictionsOnce();
       }catch(e){
         console.warn("Nie udało się uruchomić ładowania znaków wysokości/tonażu:", e);
@@ -2302,7 +2347,7 @@
     const stackIdx = id => styleLayers.findIndex(l => l.id === id);
     const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line",
       "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot",
-      "cameras-glow", "motorway-junction-circle", "motorway-junction-label",
+      "cameras-glow", "avg-speed-cameras-glow", "motorway-junction-circle", "motorway-junction-label",
       "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
     const anchors = [firstSymbol && firstSymbol.id].concat(ownLayerIds).filter(id => id && stackIdx(id) >= 0);
@@ -2715,6 +2760,129 @@
           setTimeout(loadMotorwayCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
         }
       });
+  }
+
+  /* ============================================================
+     ODCINKOWY POMIAR PRĘDKOŚCI (SPECS) NA DROGACH A — pobierany RAZ dla całej
+     Wielkiej Brytanii, tym samym mechanizmem co znaki wysokości/tonażu (podział
+     na Anglię/Walię/Szkocję, retry per-fragment, cache z failedBands).
+     Tag OSM: węzeł na drodze (lub tuż przy niej) z "enforcement"="average_speed" —
+     to właśnie kamera/urządzenie odcinkowego pomiaru, w odróżnieniu od zwykłego
+     punktowego fotoradaru ("highway"="speed_camera").
+  ============================================================ */
+  const AVG_SPEED_CAMERA_CACHE_KEY = "nav_uk_avg_speed_cameras_v1";
+  const AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 dni — zmieniają się rzadko
+  const AVG_SPEED_CAMERA_SNAP_M = 30; // urządzenie należy do drogi A, jeśli leży w tej odległości od jej jezdni
+  const AVG_SPEED_CAMERA_BAND_RETRIES = 2;
+  const AVG_SPEED_CAMERA_MAX_RETRIES = 3;
+  let avgSpeedCameraRetries = 0;
+
+  function setAvgSpeedCameraData(features){
+    if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features });
+  }
+
+  function fetchAvgSpeedCamerasBand(box){
+    const [south, west, north, east] = box;
+    const query = `
+      [out:json][timeout:120];
+      way["highway"~"^(primary|trunk)$"](${south},${west},${north},${east})->.ar;
+      node(around.ar:${AVG_SPEED_CAMERA_SNAP_M})["enforcement"="average_speed"];
+      out body;
+    `;
+    return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
+  }
+
+  function downloadAvgSpeedCamerasBands(bands, onBandDone){
+    const nodes = new Map();
+    const failedBands = [];
+    let chain = Promise.resolve();
+
+    bands.forEach(({ name, box }) => {
+      chain = chain.then(() => {
+        function attempt(retriesLeft){
+          return fetchAvgSpeedCamerasBand(box)
+            .then(data => {
+              (data.elements || []).forEach(el => {
+                if(el.type === "node" && !nodes.has(el.id)){
+                  nodes.set(el.id, {
+                    type: "Feature",
+                    properties: { id: el.id },
+                    geometry: { type: "Point", coordinates: [el.lon, el.lat] }
+                  });
+                }
+              });
+              return true;
+            })
+            .catch(err => {
+              if(retriesLeft > 0) return attempt(retriesLeft - 1);
+              console.warn(`Odcinkowy pomiar ${name} [${box.join(",")}]: pominięto po nieudanych próbach:`, err.message || err);
+              debugLog("warn", `Odcinkowy pomiar prędkości: ${name} pominięty (błąd Overpass), spróbuję ponownie później`);
+              failedBands.push({ name, box });
+              return false;
+            });
+        }
+        return attempt(AVG_SPEED_CAMERA_BAND_RETRIES).then(success => {
+          if(typeof onBandDone === "function"){
+            onBandDone({ features: Array.from(nodes.values()), name, box, success });
+          }
+        });
+      });
+    });
+
+    return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
+  }
+
+  function loadAvgSpeedCamerasOnce(){
+    if(!map.getSource("avg-speed-cameras")) return;
+
+    let baseFeatures = [];
+    let bandsToFetch = null;
+
+    try{
+      const cached = JSON.parse(localStorage.getItem(AVG_SPEED_CAMERA_CACHE_KEY) || "null");
+      if(cached && cached.savedAt && Array.isArray(cached.features)){
+        baseFeatures = cached.features;
+        setAvgSpeedCameraData(baseFeatures);
+        debugLog("info", `Odcinkowy pomiar prędkości: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        const fresh = Date.now() - cached.savedAt < AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS;
+        const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
+        if(fresh && !hasGaps) return;
+        if(hasGaps){
+          bandsToFetch = cached.failedBands;
+        } else {
+          baseFeatures = []; // pełne odświeżenie od zera, żeby nic się nie zdublowało
+        }
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache odcinkowego pomiaru prędkości:", e);
+    }
+
+    const bands = bandsToFetch || flattenRestrictionsRegions();
+    debugLog("info", bandsToFetch
+      ? `Odcinkowy pomiar prędkości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Odcinkowy pomiar prędkości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
+
+    downloadAvgSpeedCamerasBands(bands, ({ features }) => {
+      setAvgSpeedCameraData(baseFeatures.concat(features));
+    }).then(({ features, failedBands }) => {
+      const all = baseFeatures.concat(features);
+      setAvgSpeedCameraData(all);
+      debugLog("info", `Odcinkowy pomiar prędkości: łącznie ${all.length}` +
+        (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
+      try{
+        localStorage.setItem(AVG_SPEED_CAMERA_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          features: roundCoordsForCache(all),
+          failedBands
+        }));
+      }catch(e){
+        console.warn("Nie udało się zapisać cache odcinkowego pomiaru prędkości (localStorage pełny?):", e);
+        debugLog("warn", "Odcinkowy pomiar prędkości: NIE udało się zapisać cache (localStorage pełny?)");
+      }
+      if(failedBands.length && avgSpeedCameraRetries++ < AVG_SPEED_CAMERA_MAX_RETRIES){
+        setTimeout(loadAvgSpeedCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
+      }
+    });
   }
 
   /* ============================================================
