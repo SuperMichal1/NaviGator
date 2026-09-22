@@ -2648,54 +2648,91 @@
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_LAT_BANDS = MW_CAMERA_LAT_BANDS; // te same pasy co fotoradary autostradowe
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
-  const RESTRICTIONS_MAX_RETRIES = 3;
+  const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących pasów
+  const RESTRICTIONS_BAND_RETRIES = 2; // ile razy ponowić POJEDYNCZY pas, zanim zostanie pominięty
   let restrictionsRetries = 0;
 
-  function downloadUkRestrictions(){
+  // Pobiera surowe dane Overpass dla jednego pasa szerokości geograficznej.
+  function fetchRestrictionsBand(south, north, west, east){
+    const query = `
+      [out:json][timeout:120];
+      way["maxheight"](${south},${west},${north},${east});
+      out geom;
+    `;
+    return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
+  }
+
+  // Wpisuje dane jednego pasa do wspólnych map (dedupe po id drogi z OSM).
+  function applyRestrictionsBandData(data, heightWays, signs){
+    (data.elements || []).forEach(el => {
+      if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
+
+      if(el.tags.maxheight && !heightWays.has(el.id)){
+        const hm = parseMaxheightMeters(el.tags.maxheight);
+        if(hm){
+          const coords = el.geometry.map(g => [g.lon, g.lat]);
+          heightWays.set(el.id, {
+            type: "Feature",
+            properties: { maxheight: hm },
+            geometry: { type: "LineString", coordinates: coords }
+          });
+          const c = wayCentroid(el.geometry);
+          signs.set("h" + el.id, {
+            type: "Feature",
+            properties: { kind: "height", label: formatHeightLabel(hm) },
+            geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+          });
+        }
+      }
+    });
+  }
+
+  // Pobiera podaną listę pasów [south, north] JEDEN PO DRUGIM — kolejny pas zaczyna się
+  // dopiero, gdy poprzedni się zakończy (udanie albo ostatecznie pominięty po kilku
+  // próbach). Nieudany pas NIE przerywa całości: jest ponawiany do RESTRICTIONS_BAND_RETRIES
+  // razy, a jeśli nadal się nie uda — zostaje pominięty i zapamiętany w failedBands, żeby
+  // dociągnąć go osobno przy kolejnej okazji, bez ściągania od nowa tego, co już się udało.
+  // Po KAŻDYM pasie wywołuje onBandDone z danymi zebranymi dotychczas, dzięki czemu znaki
+  // mogą pojawiać się na mapie etapami, a nie dopiero po ściągnięciu całej Wielkiej Brytanii.
+  function downloadRestrictionsBands(bands, onBandDone){
     const west = GB_BOUNDS[0][0], east = GB_BOUNDS[1][0];
     const heightWays = new Map();
-    const weightWays = new Map();
     const signs = new Map();
+    const failedBands = [];
     let chain = Promise.resolve();
 
-    for(let i = 0; i < RESTRICTIONS_LAT_BANDS.length - 1; i++){
-      const south = RESTRICTIONS_LAT_BANDS[i], north = RESTRICTIONS_LAT_BANDS[i + 1];
+    bands.forEach(([south, north]) => {
       chain = chain.then(() => {
-        const query = `
-          [out:json][timeout:120];
-          way["maxheight"](${south},${west},${north},${east});
-          out geom;
-        `;
-        return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS).then(data => {
-          (data.elements || []).forEach(el => {
-            if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
-
-            if(el.tags.maxheight && !heightWays.has(el.id)){
-              const hm = parseMaxheightMeters(el.tags.maxheight);
-              if(hm){
-                const coords = el.geometry.map(g => [g.lon, g.lat]);
-                heightWays.set(el.id, {
-                  type: "Feature",
-                  properties: { maxheight: hm },
-                  geometry: { type: "LineString", coordinates: coords }
-                });
-                const c = wayCentroid(el.geometry);
-                signs.set("h" + el.id, {
-                  type: "Feature",
-                  properties: { kind: "height", label: formatHeightLabel(hm) },
-                  geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-                });
-              }
-            }
-          });
+        function attempt(retriesLeft){
+          return fetchRestrictionsBand(south, north, west, east)
+            .then(data => {
+              applyRestrictionsBandData(data, heightWays, signs);
+              return true;
+            })
+            .catch(err => {
+              if(retriesLeft > 0) return attempt(retriesLeft - 1);
+              console.warn(`Pas ${south}-${north}: pominięto po nieudanych próbach:`, err.message || err);
+              debugLog("warn", `Znaki wysokości: pas ${south}–${north} pominięty (błąd Overpass), spróbuję ponownie później`);
+              failedBands.push([south, north]);
+              return false;
+            });
+        }
+        return attempt(RESTRICTIONS_BAND_RETRIES).then(success => {
+          if(typeof onBandDone === "function"){
+            onBandDone({
+              heightFeatures: Array.from(heightWays.values()),
+              signFeatures: Array.from(signs.values()),
+              south, north, success
+            });
+          }
         });
       });
-    }
+    });
 
     return chain.then(() => ({
       heightFeatures: Array.from(heightWays.values()),
-      weightFeatures: Array.from(weightWays.values()),
-      signFeatures: Array.from(signs.values())
+      signFeatures: Array.from(signs.values()),
+      failedBands
     }));
   }
 
@@ -2718,37 +2755,52 @@
   function loadUkRestrictionsOnce(){
     if(!map.getSource("roads-maxheight")) return;
 
+    let baseHeight = [];
+    let baseSigns = [];
+    let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie pasy od zera
+
     // 1) pamięć lokalna — natychmiast, działa offline
     try{
       const cached = JSON.parse(localStorage.getItem(RESTRICTIONS_CACHE_KEY) || "null");
       if(cached && cached.savedAt && Array.isArray(cached.heightFeatures)){
-        setRestrictionsData(cached.heightFeatures, cached.weightFeatures || [], cached.signFeatures || []);
-        debugLog("info", `Znaki wysokości/tonażu: ${cached.heightFeatures.length} wys. / ${(cached.weightFeatures||[]).length} tonaż z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-        if(Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS) return; // świeże — nie pobieraj ponownie
+        baseHeight = cached.heightFeatures;
+        baseSigns = cached.signFeatures || [];
+        setRestrictionsData(baseHeight, [], baseSigns);
+        debugLog("info", `Znaki wysokości: ${baseHeight.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
+        const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
+        if(fresh && !hasGaps) return; // pełny i świeży cache — nic więcej do zrobienia
+        if(hasGaps) bandsToFetch = cached.failedBands; // dociągamy TYLKO brakujące pasy
       }
     }catch(e){
-      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu:", e);
+      console.warn("Nie udało się odczytać cache znaków wysokości:", e);
     }
 
-    // 2) brak/nieaktualny cache — pobierz z Overpass dla całej Wielkiej Brytanii
-    debugLog("info", "Znaki wysokości/tonażu: pobieranie z Overpass dla całej UK…");
-    downloadUkRestrictions().then(({ heightFeatures, weightFeatures, signFeatures }) => {
-      setRestrictionsData(heightFeatures, weightFeatures, signFeatures);
-      debugLog("info", `Znaki wysokości/tonażu: pobrano ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${signFeatures.length} znaków`);
+    const bands = bandsToFetch || RESTRICTIONS_LAT_BANDS.slice(0, -1).map((s, i) => [s, RESTRICTIONS_LAT_BANDS[i + 1]]);
+    debugLog("info", bandsToFetch
+      ? `Znaki wysokości: dociąganie ${bands.length} brakującego(-ych) pasa(-ów)…`
+      : "Znaki wysokości: pobieranie z Overpass dla całej UK, etapami…");
+
+    // 2) pobieramy pas po pasie; po każdym pasie od razu pokazujemy to, co już mamy
+    downloadRestrictionsBands(bands, ({ heightFeatures, signFeatures }) => {
+      setRestrictionsData(baseHeight.concat(heightFeatures), [], baseSigns.concat(signFeatures));
+    }).then(({ heightFeatures, signFeatures, failedBands }) => {
+      const allHeight = baseHeight.concat(heightFeatures);
+      const allSigns = baseSigns.concat(signFeatures);
+      setRestrictionsData(allHeight, [], allSigns);
+      debugLog("info", `Znaki wysokości: łącznie ${allHeight.length} znaków` +
+        (failedBands.length ? ` (${failedBands.length} pas(y) do dociągnięcia później)` : " — komplet"));
       try{
         localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
-          heightFeatures: roundCoordsForCache(heightFeatures),
-          weightFeatures: roundCoordsForCache(weightFeatures),
-          signFeatures: roundCoordsForCache(signFeatures)
+          heightFeatures: roundCoordsForCache(allHeight),
+          signFeatures: roundCoordsForCache(allSigns),
+          failedBands
         }));
       }catch(e){
-        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu (localStorage pełny?):", e);
+        console.warn("Nie udało się zapisać cache znaków wysokości (localStorage pełny?):", e);
       }
-    }).catch(err => {
-      console.warn("Nie udało się pobrać znaków wysokości/tonażu dla całej Wielkiej Brytanii:", err);
-      debugLog("error", "Znaki wysokości/tonażu — błąd pobierania: " + (err && err.message || err));
-      if(restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
+      if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
     });
