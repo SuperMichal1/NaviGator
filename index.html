@@ -1297,6 +1297,28 @@
     const v = (Math.round(t * 10) / 10).toFixed(1).replace(/\.0$/, "");
     return v + "t";
   }
+  /* ---------- Znaki szerokości ----------
+     Tag OSM: "maxwidth" (metry, czasem stopy'cale jak maxheight). Wartości typu
+     "none"/"default"/"unsigned" oznaczają brak faktycznego ograniczenia — pomijamy je. */
+  function parseMaxwidthMeters(tag){
+    if(!tag) return null;
+    const s = String(tag).trim().toLowerCase();
+    if(!s || s === "none" || s === "default" || s === "unsigned" || s === "no") return null;
+    const ftIn = s.match(/^(\d+)\s*'\s*(\d+(?:\.\d+)?)?\s*"?$/);
+    if(ftIn){
+      const ft = parseFloat(ftIn[1]);
+      const inch = ftIn[2] ? parseFloat(ftIn[2]) : 0;
+      const meters = (ft * 12 + inch) * 0.0254;
+      return Math.round(meters * 100) / 100;
+    }
+    const m = parseFloat(s.replace(",", ".").replace(/[^0-9.]/g, ""));
+    if(isNaN(m) || m <= 0 || m > 6) return null; // poza sensownym zakresem szerokości drogi
+    return Math.round(m * 100) / 100;
+  }
+  function formatWidthLabel(m){
+    const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    return v + "m";
+  }
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -1514,7 +1536,8 @@
   ============================================================ */
   const RESTRICTION_SIGN_COLORS = {
     height: "#FFB020", // bursztynowy pierścień — znaki wysokości wiaduktów/przejazdów
-    weight: "#B15CFF"  // fioletowy pierścień — znaki ograniczeń tonażowych
+    weight: "#B15CFF", // fioletowy pierścień — znaki ograniczeń tonażowych
+    width:  "#2FB86E"  // zielony pierścień — znaki ograniczeń szerokości
   };
 
   function createRestrictionSignImage(ringColor){
@@ -1572,6 +1595,18 @@
       }
     }, "cameras-glow");
 
+    map.addSource("roads-maxwidth", { type:"geojson", data: emptyFC() });
+    map.addLayer({
+      id: "roads-maxwidth-line", type: "line", source: "roads-maxwidth",
+      minzoom: 12,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": RESTRICTION_SIGN_COLORS.width,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 5, 18, 7],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.35, 15, 0.8]
+      }
+    }, "cameras-glow");
+
     // punktowe znaki (jeden na drogę, w jej środku) — widoczne dopiero po większym zbliżeniu,
     // żeby nie zaśmiecać widoku przy oddaleniu
     map.addSource("restriction-signs", { type:"geojson", data: emptyFC() });
@@ -1579,7 +1614,10 @@
       id: "restriction-signs-icon", type: "symbol", source: "restriction-signs",
       minzoom: 14,
       layout: {
-        "icon-image": ["match", ["get", "kind"], "weight", "restriction-sign-weight", "restriction-sign-height"],
+        "icon-image": ["match", ["get", "kind"],
+          "weight", "restriction-sign-weight",
+          "width", "restriction-sign-width",
+          "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 19, 1.15],
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
@@ -2134,6 +2172,22 @@
         }
       });
 
+      // nazwy firm/operatorów przy drogach (dla kierowców HGV) — widoczne dopiero po zbliżeniu
+      map.addSource("hgv-companies", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"hgv-companies-icon",
+        type:"symbol",
+        source:"hgv-companies",
+        minzoom: 14,
+        layout:{
+          "text-field": ["concat", "🏢\n", ["get", "name"]],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 11,
+          "text-allow-overlap": false
+        },
+        paint:{ "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.2 }
+      });
+
       // źródło dróg z ograniczeniem prędkości (do celów wizualnych - opcjonalne podświetlenie)
       map.addSource("roads-maxspeed", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -2310,6 +2364,11 @@
         console.warn("Nie udało się uruchomić ładowania odcinkowego pomiaru prędkości:", e);
       }
       try{
+        loadHgvCompaniesOnce();
+      }catch(e){
+        console.warn("Nie udało się uruchomić ładowania firm/operatorów:", e);
+      }
+      try{
         loadUkRestrictionsOnce();
       }catch(e){
         console.warn("Nie udało się uruchomić ładowania znaków wysokości/tonażu:", e);
@@ -2346,6 +2405,7 @@
     const styleLayers = map.getStyle().layers || [];
     const stackIdx = id => styleLayers.findIndex(l => l.id === id);
     const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line",
+      "roads-maxwidth-line",
       "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot",
       "cameras-glow", "avg-speed-cameras-glow", "motorway-junction-circle", "motorway-junction-label",
       "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
@@ -2886,6 +2946,129 @@
   }
 
   /* ============================================================
+     NAZWY FIRM/OPERATORÓW przy drogach — dla kierowców HGV. Pobierane RAZ na 30 dni,
+     tym samym mechanizmem (Anglia/Walia/Szkocja, retry, cache). Zapytanie jest lekkie:
+     tylko obiekty z tagiem "name" (biura + budynki przemysłowe/magazynowe), a dla
+     budynków używamy "out center" (sam punkt środka, bez pełnego obrysu).
+  ============================================================ */
+  const HGV_COMPANIES_CACHE_KEY = "nav_uk_hgv_companies_v1";
+  const HGV_COMPANIES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+  const HGV_COMPANIES_BAND_RETRIES = 2;
+  const HGV_COMPANIES_MAX_RETRIES = 3;
+  let hgvCompaniesRetries = 0;
+
+  function setHgvCompaniesData(features){
+    if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
+  }
+
+  function fetchHgvCompaniesBand(box){
+    const [south, west, north, east] = box;
+    const query = `
+      [out:json][timeout:120];
+      (
+        node["name"]["office"](${south},${west},${north},${east});
+        way["name"]["building"~"^(industrial|warehouse|commercial)$"](${south},${west},${north},${east});
+        way["name"]["landuse"="industrial"](${south},${west},${north},${east});
+      );
+      out center;
+    `;
+    return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
+  }
+
+  function downloadHgvCompaniesBands(bands, onBandDone){
+    const nodes = new Map();
+    const failedBands = [];
+    let chain = Promise.resolve();
+
+    bands.forEach(({ name, box }) => {
+      chain = chain.then(() => {
+        function attempt(retriesLeft){
+          return fetchHgvCompaniesBand(box)
+            .then(data => {
+              (data.elements || []).forEach(el => {
+                if(!el.tags || !el.tags.name || nodes.has(el.id)) return;
+                const lat = el.type === "node" ? el.lat : el.center && el.center.lat;
+                const lon = el.type === "node" ? el.lon : el.center && el.center.lon;
+                if(lat == null || lon == null) return;
+                nodes.set(el.id, {
+                  type: "Feature",
+                  properties: { name: el.tags.name },
+                  geometry: { type: "Point", coordinates: [lon, lat] }
+                });
+              });
+              return true;
+            })
+            .catch(err => {
+              if(retriesLeft > 0) return attempt(retriesLeft - 1);
+              console.warn(`Firmy ${name} [${box.join(",")}]: pominięto:`, err.message || err);
+              debugLog("warn", `Firmy/operatorzy: ${name} pominięta (błąd Overpass)`);
+              failedBands.push({ name, box });
+              return false;
+            });
+        }
+        return attempt(HGV_COMPANIES_BAND_RETRIES).then(success => {
+          if(typeof onBandDone === "function") onBandDone({ features: Array.from(nodes.values()), name, box, success });
+        });
+      });
+    });
+
+    return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
+  }
+
+  function loadHgvCompaniesOnce(){
+    if(!map.getSource("hgv-companies")) return;
+
+    let baseFeatures = [];
+    let bandsToFetch = null;
+
+    try{
+      const cached = JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null");
+      if(cached && cached.savedAt && Array.isArray(cached.features)){
+        baseFeatures = cached.features;
+        setHgvCompaniesData(baseFeatures);
+        debugLog("info", `Firmy/operatorzy: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
+        const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
+        if(fresh && !hasGaps) return;
+        if(hasGaps){
+          bandsToFetch = cached.failedBands;
+        } else {
+          baseFeatures = [];
+        }
+      }
+    }catch(e){
+      console.warn("Nie udało się odczytać cache firm/operatorów:", e);
+    }
+
+    const bands = bandsToFetch || flattenRestrictionsRegions();
+    debugLog("info", bandsToFetch
+      ? `Firmy/operatorzy: dociąganie ${bands.length} fragmentu(ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Firmy/operatorzy: pobieranie z Overpass, etapami…");
+
+    downloadHgvCompaniesBands(bands, ({ features }) => {
+      setHgvCompaniesData(baseFeatures.concat(features));
+    }).then(({ features, failedBands }) => {
+      const all = baseFeatures.concat(features);
+      setHgvCompaniesData(all);
+      debugLog("info", `Firmy/operatorzy: łącznie ${all.length}` +
+        (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później)` : " — komplet"));
+      try{
+        localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          features: roundCoordsForCache(all),
+          failedBands
+        }));
+      }catch(e){
+        console.warn("Nie udało się zapisać cache firm/operatorów:", e);
+        debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
+      }
+      if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
+        setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
+      }
+    });
+  }
+
+  /* ============================================================
      ZNAKI WYSOKOŚCI (WIADUKTY/PRZEJAZDY) I TONAŻU — pobierane RAZ
      dla całej Wielkiej Brytanii, tak jak zjazdy autostradowe i fotoradary
      autostradowe. Dzięki temu widać je zawsze, niezależnie od tego, jak
@@ -2941,6 +3124,7 @@
       (
         way["maxheight"](${south},${west},${north},${east});
         way["maxweight"](${south},${west},${north},${east});
+        way["maxwidth"](${south},${west},${north},${east});
       );
       out geom;
     `;
@@ -2948,7 +3132,7 @@
   }
 
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
-  function applyRestrictionsBandData(data, heightWays, weightWays, signs){
+  function applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs){
     (data.elements || []).forEach(el => {
       if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
 
@@ -2987,6 +3171,24 @@
           });
         }
       }
+
+      if(el.tags.maxwidth && !widthWays.has(el.id)){
+        const wd = parseMaxwidthMeters(el.tags.maxwidth);
+        if(wd){
+          const coords = el.geometry.map(g => [g.lon, g.lat]);
+          widthWays.set(el.id, {
+            type: "Feature",
+            properties: { maxwidth: wd },
+            geometry: { type: "LineString", coordinates: coords }
+          });
+          const c = wayCentroid(el.geometry);
+          signs.set("d" + el.id, {
+            type: "Feature",
+            properties: { kind: "width", label: formatWidthLabel(wd) },
+            geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+          });
+        }
+      }
     });
   }
 
@@ -3000,6 +3202,7 @@
   function downloadRestrictionsBands(bands, onBandDone){
     const heightWays = new Map();
     const weightWays = new Map();
+    const widthWays = new Map();
     const signs = new Map();
     const failedBands = [];
     let chain = Promise.resolve();
@@ -3009,13 +3212,13 @@
         function attempt(retriesLeft){
           return fetchRestrictionsBand(box)
             .then(data => {
-              applyRestrictionsBandData(data, heightWays, weightWays, signs);
+              applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs);
               return true;
             })
             .catch(err => {
               if(retriesLeft > 0) return attempt(retriesLeft - 1);
               console.warn(`${name} [${box.join(",")}]: pominięto po nieudanych próbach:`, err.message || err);
-              debugLog("warn", `Znaki wysokości/tonażu: ${name} (pas ${box[0]}–${box[2]}) pominięty (błąd Overpass), spróbuję ponownie później`);
+              debugLog("warn", `Znaki wysokości/tonażu/szerokości: ${name} (pas ${box[0]}–${box[2]}) pominięty (błąd Overpass), spróbuję ponownie później`);
               failedBands.push({ name, box });
               return false;
             });
@@ -3025,6 +3228,7 @@
             onBandDone({
               heightFeatures: Array.from(heightWays.values()),
               weightFeatures: Array.from(weightWays.values()),
+              widthFeatures: Array.from(widthWays.values()),
               signFeatures: Array.from(signs.values()),
               name, box, success
             });
@@ -3036,6 +3240,7 @@
     return chain.then(() => ({
       heightFeatures: Array.from(heightWays.values()),
       weightFeatures: Array.from(weightWays.values()),
+      widthFeatures: Array.from(widthWays.values()),
       signFeatures: Array.from(signs.values()),
       failedBands
     }));
@@ -3051,9 +3256,10 @@
     });
   }
 
-  function setRestrictionsData(heightFeatures, weightFeatures, signFeatures){
+  function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
     if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
+    if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
   }
 
@@ -3062,6 +3268,7 @@
 
     let baseHeight = [];
     let baseWeight = [];
+    let baseWidth = [];
     let baseSigns = [];
     let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie fragmenty od zera
 
@@ -3071,55 +3278,65 @@
       if(cached && cached.savedAt && Array.isArray(cached.heightFeatures)){
         const cachedHeight = cached.heightFeatures;
         const cachedWeight = cached.weightFeatures || [];
+        const cachedWidth = cached.widthFeatures || [];
         const cachedSigns = cached.signFeatures || [];
-        setRestrictionsData(cachedHeight, cachedWeight, cachedSigns); // pokaż od razu, choćby stare
-        debugLog("info", `Znaki wysokości/tonażu: ${cachedHeight.length} wys. / ${cachedWeight.length} tonaż z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
+        setRestrictionsData(cachedHeight, cachedWeight, cachedWidth, cachedSigns); // pokaż od razu, choćby stare
+        debugLog("info", `Znaki wysokości/tonażu/szerokości: ${cachedHeight.length} wys. / ${cachedWeight.length} tonaż / ${cachedWidth.length} szer. z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        const hasWeightData = cached.hasWeight === true; // starszy cache (sprzed dodania tonażu) tego nie ma
-        if(fresh && !hasGaps && hasWeightData) return; // pełny, świeży cache z tonażem — nic więcej do zrobienia
+        const hasWidthData = cached.hasWidth === true; // starszy cache (sprzed dodania szerokości) tego nie ma
+        if(fresh && !hasGaps && hasWidthData) return; // pełny, świeży cache z komplety danych — nic więcej do zrobienia
         if(hasGaps){
           // dociągamy TYLKO brakujące fragmenty, dokładając je do tego, co już mamy
           bandsToFetch = cached.failedBands;
           baseHeight = cachedHeight;
           baseWeight = cachedWeight;
+          baseWidth = cachedWidth;
           baseSigns = cachedSigns;
         }
-        // w pozostałych przypadkach (cache nieświeży albo bez tonażu) — pełne pobranie od zera,
-        // żeby nie dublować znaków wysokości; stare dane są już wyświetlone i podmienią się,
+        // w pozostałych przypadkach (cache nieświeży albo bez szerokości) — pełne pobranie od zera,
+        // żeby nie dublować znaków; stare dane są już wyświetlone i podmienią się,
         // gdy przyjdą nowe (patrz setRestrictionsData wyżej i w onBandDone/then niżej)
       }
     }catch(e){
-      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu:", e);
+      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu/szerokości:", e);
     }
 
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
-      ? `Znaki wysokości/tonażu: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
-      : "Znaki wysokości/tonażu: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
+      ? `Znaki wysokości/tonażu/szerokości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Znaki wysokości/tonażu/szerokości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
 
     // 2) pobieramy fragment po fragmencie; po każdym od razu pokazujemy to, co już mamy
-    downloadRestrictionsBands(bands, ({ heightFeatures, weightFeatures, signFeatures }) => {
-      setRestrictionsData(baseHeight.concat(heightFeatures), baseWeight.concat(weightFeatures), baseSigns.concat(signFeatures));
-    }).then(({ heightFeatures, weightFeatures, signFeatures, failedBands }) => {
+    downloadRestrictionsBands(bands, ({ heightFeatures, weightFeatures, widthFeatures, signFeatures }) => {
+      setRestrictionsData(
+        baseHeight.concat(heightFeatures),
+        baseWeight.concat(weightFeatures),
+        baseWidth.concat(widthFeatures),
+        baseSigns.concat(signFeatures)
+      );
+    }).then(({ heightFeatures, weightFeatures, widthFeatures, signFeatures, failedBands }) => {
       const allHeight = baseHeight.concat(heightFeatures);
       const allWeight = baseWeight.concat(weightFeatures);
+      const allWidth = baseWidth.concat(widthFeatures);
       const allSigns = baseSigns.concat(signFeatures);
-      setRestrictionsData(allHeight, allWeight, allSigns);
-      debugLog("info", `Znaki wysokości/tonażu: łącznie ${allHeight.length} wys. / ${allWeight.length} tonaż` +
+      setRestrictionsData(allHeight, allWeight, allWidth, allSigns);
+      debugLog("info", `Znaki wysokości/tonażu/szerokości: łącznie ${allHeight.length} wys. / ${allWeight.length} tonaż / ${allWidth.length} szer.` +
         (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
       try{
         localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
           heightFeatures: roundCoordsForCache(allHeight),
           weightFeatures: roundCoordsForCache(allWeight),
+          widthFeatures: roundCoordsForCache(allWidth),
           signFeatures: roundCoordsForCache(allSigns),
           failedBands,
-          hasWeight: true
+          hasWeight: true,
+          hasWidth: true
         }));
       }catch(e){
-        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu (localStorage pełny?):", e);
-        debugLog("warn", "Znaki wysokości/tonażu: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
+        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu/szerokości (localStorage pełny?):", e);
+        debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
       }
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
