@@ -2611,6 +2611,7 @@
     const cached = readMotorwayCameraCache();
     if(cached){
       showMotorwayCameras(cached.cams);
+      debugLog("info", `Fotoradary autostradowe: ${cached.cams.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
       if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS) return; // świeże — nic nie pobieramy
     }
 
@@ -2647,14 +2648,44 @@
   ============================================================ */
   const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
-  const RESTRICTIONS_LAT_BANDS = MW_CAMERA_LAT_BANDS; // te same pasy co fotoradary autostradowe
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
-  const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących pasów
-  const RESTRICTIONS_BAND_RETRIES = 2; // ile razy ponowić POJEDYNCZY pas, zanim zostanie pominięty
+  const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
+  const RESTRICTIONS_BAND_RETRIES = 2; // ile razy ponowić POJEDYNCZY fragment, zanim zostanie pominięty
   let restrictionsRetries = 0;
 
-  // Pobiera surowe dane Overpass dla jednego pasa szerokości geograficznej.
-  function fetchRestrictionsBand(south, north, west, east){
+  // Podział na Anglię/Walię/Szkocję (a nie tylko poziome pasy przez całą UK) — każdy fragment
+  // obejmuje mniejszy obszar niż pas przez cały kraj, więc zapytanie do Overpass jest lżejsze
+  // i szybciej się kończy. Anglia (największy obszar) jest dodatkowo podzielona na 4 węższe
+  // pasy, Szkocja (wysoka, z wyspami) na 2 — Walia jest już wystarczająco mała w jednym kawałku.
+  // Granice krajów się trochę zachodzą (np. Anglia/Szkocja) — to nic nie szkodzi, bo drogi są
+  // i tak odsiewane po unikalnym id z OSM (patrz applyRestrictionsBandData).
+  const RESTRICTIONS_REGIONS = [
+    { name: "Anglia", boxes: [
+        [49.864, -6.418, 51.3,   1.764],
+        [51.3,   -6.418, 52.4,   1.764],
+        [52.4,   -6.418, 53.5,   1.764],
+        [53.5,   -6.418, 55.812, 1.764]
+    ]},
+    { name: "Walia", boxes: [
+        [51.317, -5.317, 53.431, -2.647]
+    ]},
+    { name: "Szkocja", boxes: [
+        [54.6, -8.649, 58.0,  -0.724],
+        [58.0, -8.649, 60.86, -0.724]
+    ]}
+  ];
+
+  function flattenRestrictionsRegions(){
+    const bands = [];
+    RESTRICTIONS_REGIONS.forEach(region => {
+      region.boxes.forEach(box => bands.push({ name: region.name, box }));
+    });
+    return bands;
+  }
+
+  // Pobiera surowe dane Overpass dla jednego fragmentu (south, west, north, east).
+  function fetchRestrictionsBand(box){
+    const [south, west, north, east] = box;
     const query = `
       [out:json][timeout:120];
       way["maxheight"](${south},${west},${north},${east});
@@ -2663,7 +2694,7 @@
     return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
   }
 
-  // Wpisuje dane jednego pasa do wspólnych map (dedupe po id drogi z OSM).
+  // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
   function applyRestrictionsBandData(data, heightWays, signs){
     (data.elements || []).forEach(el => {
       if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
@@ -2688,33 +2719,32 @@
     });
   }
 
-  // Pobiera podaną listę pasów [south, north] JEDEN PO DRUGIM — kolejny pas zaczyna się
-  // dopiero, gdy poprzedni się zakończy (udanie albo ostatecznie pominięty po kilku
-  // próbach). Nieudany pas NIE przerywa całości: jest ponawiany do RESTRICTIONS_BAND_RETRIES
-  // razy, a jeśli nadal się nie uda — zostaje pominięty i zapamiętany w failedBands, żeby
-  // dociągnąć go osobno przy kolejnej okazji, bez ściągania od nowa tego, co już się udało.
-  // Po KAŻDYM pasie wywołuje onBandDone z danymi zebranymi dotychczas, dzięki czemu znaki
-  // mogą pojawiać się na mapie etapami, a nie dopiero po ściągnięciu całej Wielkiej Brytanii.
+  // Pobiera podaną listę fragmentów {name, box} JEDEN PO DRUGIM — kolejny zaczyna się dopiero,
+  // gdy poprzedni się zakończy (udanie albo ostatecznie pominięty po kilku próbach). Nieudany
+  // fragment NIE przerywa całości: jest ponawiany do RESTRICTIONS_BAND_RETRIES razy, a jeśli
+  // nadal się nie uda — zostaje pominięty i zapamiętany w failedBands, żeby dociągnąć go osobno
+  // przy kolejnej okazji, bez ściągania od nowa tego, co już się udało. Po KAŻDYM fragmencie
+  // wywołuje onBandDone z danymi zebranymi dotychczas, dzięki czemu znaki mogą pojawiać się na
+  // mapie etapami, a nie dopiero po ściągnięciu całej Wielkiej Brytanii.
   function downloadRestrictionsBands(bands, onBandDone){
-    const west = GB_BOUNDS[0][0], east = GB_BOUNDS[1][0];
     const heightWays = new Map();
     const signs = new Map();
     const failedBands = [];
     let chain = Promise.resolve();
 
-    bands.forEach(([south, north]) => {
+    bands.forEach(({ name, box }) => {
       chain = chain.then(() => {
         function attempt(retriesLeft){
-          return fetchRestrictionsBand(south, north, west, east)
+          return fetchRestrictionsBand(box)
             .then(data => {
               applyRestrictionsBandData(data, heightWays, signs);
               return true;
             })
             .catch(err => {
               if(retriesLeft > 0) return attempt(retriesLeft - 1);
-              console.warn(`Pas ${south}-${north}: pominięto po nieudanych próbach:`, err.message || err);
-              debugLog("warn", `Znaki wysokości: pas ${south}–${north} pominięty (błąd Overpass), spróbuję ponownie później`);
-              failedBands.push([south, north]);
+              console.warn(`${name} [${box.join(",")}]: pominięto po nieudanych próbach:`, err.message || err);
+              debugLog("warn", `Znaki wysokości: ${name} (pas ${box[0]}–${box[2]}) pominięty (błąd Overpass), spróbuję ponownie później`);
+              failedBands.push({ name, box });
               return false;
             });
         }
@@ -2723,7 +2753,7 @@
             onBandDone({
               heightFeatures: Array.from(heightWays.values()),
               signFeatures: Array.from(signs.values()),
-              south, north, success
+              name, box, success
             });
           }
         });
@@ -2758,7 +2788,7 @@
 
     let baseHeight = [];
     let baseSigns = [];
-    let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie pasy od zera
+    let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie fragmenty od zera
 
     // 1) pamięć lokalna — natychmiast, działa offline
     try{
@@ -2771,18 +2801,18 @@
         const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps) return; // pełny i świeży cache — nic więcej do zrobienia
-        if(hasGaps) bandsToFetch = cached.failedBands; // dociągamy TYLKO brakujące pasy
+        if(hasGaps) bandsToFetch = cached.failedBands; // dociągamy TYLKO brakujące fragmenty
       }
     }catch(e){
       console.warn("Nie udało się odczytać cache znaków wysokości:", e);
     }
 
-    const bands = bandsToFetch || RESTRICTIONS_LAT_BANDS.slice(0, -1).map((s, i) => [s, RESTRICTIONS_LAT_BANDS[i + 1]]);
+    const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
-      ? `Znaki wysokości: dociąganie ${bands.length} brakującego(-ych) pasa(-ów)…`
-      : "Znaki wysokości: pobieranie z Overpass dla całej UK, etapami…");
+      ? `Znaki wysokości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
+      : "Znaki wysokości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
 
-    // 2) pobieramy pas po pasie; po każdym pasie od razu pokazujemy to, co już mamy
+    // 2) pobieramy fragment po fragmencie; po każdym od razu pokazujemy to, co już mamy
     downloadRestrictionsBands(bands, ({ heightFeatures, signFeatures }) => {
       setRestrictionsData(baseHeight.concat(heightFeatures), [], baseSigns.concat(signFeatures));
     }).then(({ heightFeatures, signFeatures, failedBands }) => {
@@ -2790,7 +2820,7 @@
       const allSigns = baseSigns.concat(signFeatures);
       setRestrictionsData(allHeight, [], allSigns);
       debugLog("info", `Znaki wysokości: łącznie ${allHeight.length} znaków` +
-        (failedBands.length ? ` (${failedBands.length} pas(y) do dociągnięcia później)` : " — komplet"));
+        (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
       try{
         localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
@@ -2800,6 +2830,7 @@
         }));
       }catch(e){
         console.warn("Nie udało się zapisać cache znaków wysokości (localStorage pełny?):", e);
+        debugLog("warn", "Znaki wysokości: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
       }
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
