@@ -2172,13 +2172,29 @@
         }
       });
 
-      // nazwy firm/operatorów przy drogach (dla kierowców HGV) — widoczne dopiero po zbliżeniu
+      // nazwy firm/operatorów przy drogach (dla kierowców HGV) — strefy przemysłowe/fabryki
+      // pojawiają się dużo wcześniej (niższy zoom) niż zwykłe biura, bo to one są ważne dla HGV
       map.addSource("hgv-companies", { type:"geojson", data: emptyFC() });
       map.addLayer({
-        id:"hgv-companies-icon",
+        id:"hgv-companies-icon-industrial",
+        type:"symbol",
+        source:"hgv-companies",
+        minzoom: 11,
+        filter: ["==", ["get", "category"], "industrial"],
+        layout:{
+          "text-field": ["concat", "🏭\n", ["get", "name"]],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 11,
+          "text-allow-overlap": false
+        },
+        paint:{ "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.2 }
+      });
+      map.addLayer({
+        id:"hgv-companies-icon-office",
         type:"symbol",
         source:"hgv-companies",
         minzoom: 14,
+        filter: ["==", ["get", "category"], "office"],
         layout:{
           "text-field": ["concat", "🏢\n", ["get", "name"]],
           "text-font": ["Noto Sans Bold"],
@@ -3016,7 +3032,7 @@
 
      SQL dla Supabase (opcjonalnie):
        create table if not exists public.hgv_companies (
-         osm_id bigint primary key, name text, lat double precision not null, lon double precision not null,
+         osm_id bigint primary key, name text, category text, lat double precision not null, lon double precision not null,
          updated_at timestamptz not null default now());
        alter table public.hgv_companies enable row level security;
        create policy "hgv_companies read"   on public.hgv_companies for select to anon using (true);
@@ -3061,9 +3077,11 @@
                 const lat = el.type === "node" ? el.lat : el.center && el.center.lat;
                 const lon = el.type === "node" ? el.lon : el.center && el.center.lon;
                 if(lat == null || lon == null) return;
+                const category = (el.tags.building === "industrial" || el.tags.building === "warehouse" || el.tags.landuse === "industrial")
+                  ? "industrial" : "office";
                 nodes.set(el.id, {
                   type: "Feature",
-                  properties: { name: el.tags.name, osm_id: el.id },
+                  properties: { name: el.tags.name, osm_id: el.id, category },
                   geometry: { type: "Point", coordinates: [lon, lat] }
                 });
               });
@@ -3112,9 +3130,9 @@
     }
 
     if(!bandsToFetch && supaConfigured()){
-      fetchTableFromSupabase("hgv_companies", "osm_id,name,lat,lon").then(shared => {
+      fetchTableFromSupabase("hgv_companies", "osm_id,name,category,lat,lon").then(shared => {
         if(shared && shared.length){
-          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name, category: r.category || "office" }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
           setHgvCompaniesData(features);
           debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
@@ -3152,7 +3170,7 @@
         debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
       }
       if(!failedBands.length) uploadRowsToSupabase("hgv_companies",
-        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
+        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, category: f.properties.category, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
