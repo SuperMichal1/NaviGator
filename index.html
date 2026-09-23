@@ -83,31 +83,6 @@
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
 
-  /* ---------- Małe okienko z aktualnym zoomem mapy (prawy górny róg) ---------- */
-  #zoomIndicator{
-    position:absolute;
-    top: max(14px, env(safe-area-inset-top));
-    right:12px;
-    z-index:42;
-    display:flex; align-items:baseline; gap:6px;
-    background: var(--panel-bg);
-    border:1px solid var(--panel-border);
-    border-radius:12px;
-    padding:6px 10px;
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
-    box-shadow: 0 6px 18px rgba(0,0,0,.3);
-    pointer-events:none;
-    color: var(--text-main);
-    font-family:'Space Grotesk', sans-serif;
-  }
-  #zoomIndicator .zoomLabel{
-    font-size:9px; font-weight:700; letter-spacing:.08em; color: var(--text-dim);
-  }
-  #zoomIndicator #zoomValue{
-    font-size:14px; font-weight:700; font-variant-numeric: tabular-nums;
-  }
-
   /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
   #navIconRow{
     position:fixed; left:0; right:0; bottom:0;
@@ -760,8 +735,6 @@
 </div>
 
 <div id="map"></div>
-
-<div id="zoomIndicator"><span class="zoomLabel">ZOOM</span><span id="zoomValue">–</span></div>
 
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
@@ -2026,7 +1999,7 @@
     });
   }
 
-  // Strefy przemysłowe/logistyczne: własna warstwa widoczna tylko w nocy, pod drogami i budynkami
+  // Strefy przemysłowe/logistyczne: własna warstwa, widoczna zawsze (dzień i noc), pod drogami i budynkami
   function setupNightZones(){
     if(!map || map.getLayer("night-industrial")) return;
     try{
@@ -2038,95 +2011,18 @@
         source: ref ? ref.source : "openmaptiles", "source-layer": "landuse",
         minzoom: NIGHT_ZONES.minZoom,
         filter: ["match", ["get", "class"], NIGHT_ZONES.classes, true, false],
-        layout: { visibility: "none" },
         paint: {
           "fill-color": NIGHT_ZONES.fill,
           "fill-outline-color": NIGHT_ZONES.outline,
           "fill-opacity": ["interpolate", ["linear"], ["zoom"], NIGHT_ZONES.minZoom, 0, NIGHT_ZONES.minZoom + 2, NIGHT_ZONES.opacity * 0.6, NIGHT_ZONES.minZoom + 5, NIGHT_ZONES.opacity]
         }
       }, first ? first.id : undefined);
-      applyNightZones(document.body.classList.contains("night"));
     }catch(e){
       console.warn("Nie udało się dodać warstwy stref przemysłowych:", e);
     }
   }
   function applyNightZones(night){
-    if(map && map.getLayer("night-industrial")) map.setLayoutProperty("night-industrial", "visibility", night ? "visible" : "none");
-  }
-
-  /* ============================================================
-     WCZEŚNIEJSZE POJAWIANIE SIĘ STREF PRZEMYSŁOWYCH, BUDYNKÓW NA NICH
-     I OSIEDLI MIESZKANIOWYCH (dotyczy zarówno dnia, jak i nocy —
-     obniża minzoom bezpośrednio w bazowym stylu mapy)
-     ------------------------------------------------------------
-     • zony przemysłowe/logistyczne (landuse)  -> o EARLY_ZONES.industrialLandZoomDelta wcześniej
-     • budynki leżące na tych zonach (building, wg tagu "class")
-                                                -> o EARLY_ZONES.industrialBuildingZoomDelta wcześniej
-     • osiedla mieszkaniowe (landuse=residential) -> o EARLY_ZONES.residentialLandZoomDelta wcześniej
-  ============================================================ */
-  const EARLY_ZONES = {
-    industrialLandZoomDelta: 3,     // strefy przemysłowe: o tyle poziomów zoomu wcześniej
-    industrialBuildingZoomDelta: 2, // budynki na tych strefach: o tyle wcześniej
-    residentialLandZoomDelta: 1,    // osiedla mieszkaniowe: o tyle wcześniej
-    // klasy terenu (landuse) traktowane jako "przemysłowe"
-    industrialLanduseClasses: ["industrial", "warehouse", "logistics", "commercial", "retail"],
-    // klasy budynków (pole "class" w warstwie building, pochodzące z tagu building=*)
-    industrialBuildingClasses: ["industrial", "warehouse", "commercial", "factory", "manufacture"]
-  };
-  let earlyZonesApplied = false;
-  function applyEarlyZones(){
-    if(!map || earlyZonesApplied) return;
-    try{
-      const styleLayers = map.getStyle().layers || [];
-      const industrialRe = new RegExp(EARLY_ZONES.industrialLanduseClasses.join("|"), "i");
-
-      // --- 1) i 3): strefy przemysłowe i osiedla mieszkaniowe (warstwa "landuse") ---
-      styleLayers.forEach(l => {
-        if(l.type !== "fill" || l["source-layer"] !== "landuse") return;
-        const filterStr = JSON.stringify(l.filter || "");
-        const isIndustrial = industrialRe.test(l.id) || industrialRe.test(filterStr);
-        const isResidential = !isIndustrial && (/residential/i.test(l.id) || /residential/i.test(filterStr));
-        if(!isIndustrial && !isResidential) return;
-        const layer = map.getLayer(l.id);
-        if(!layer) return;
-        const origMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
-        const max = layer.maxzoom !== undefined ? layer.maxzoom : 24;
-        const delta = isIndustrial ? EARLY_ZONES.industrialLandZoomDelta : EARLY_ZONES.residentialLandZoomDelta;
-        const newMin = Math.max(0, origMin - delta);
-        map.setLayerZoomRange(l.id, newMin, max);
-      });
-
-      // --- 2) budynki leżące na strefach przemysłowych (klon warstwy "building" z wcześniejszym minzoom) ---
-      const buildingLayers = styleLayers.filter(l =>
-        (l.type === "fill" || l.type === "fill-extrusion") && l["source-layer"] === "building"
-      );
-      buildingLayers.forEach(l => {
-        const cloneId = "early-industrial-" + l.id;
-        if(map.getLayer(cloneId)) return;
-        const layer = map.getLayer(l.id);
-        if(!layer) return;
-        const origMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
-        const max = layer.maxzoom !== undefined ? layer.maxzoom : 24;
-        const newMin = Math.max(0, origMin - EARLY_ZONES.industrialBuildingZoomDelta);
-        const industrialFilter = ["match", ["get", "class"], EARLY_ZONES.industrialBuildingClasses, true, false];
-        const combinedFilter = l.filter ? ["all", l.filter, industrialFilter] : industrialFilter;
-        const clone = JSON.parse(JSON.stringify(l));
-        clone.id = cloneId;
-        clone.filter = combinedFilter;
-        clone.minzoom = newMin;
-        if(max !== 24) clone.maxzoom = max;
-        delete clone.metadata;
-        try{
-          map.addLayer(clone, l.id); // pod oryginalną warstwą budynków
-        }catch(e){
-          console.warn("Nie udało się dodać wcześniejszej warstwy budynków przemysłowych:", l.id, e);
-        }
-      });
-
-      earlyZonesApplied = true;
-    }catch(e){
-      console.warn("Nie udało się przyspieszyć pojawiania stref/budynków/osiedli:", e);
-    }
+    // strefy przemysłowe są teraz widoczne zawsze — nic tu już nie trzeba przełączać
   }
 
   // Zoom pokazywania dróg:
@@ -2170,13 +2066,6 @@
     });
   }
 
-  // Aktualizuje małe okienko z bieżącym poziomem przybliżenia (zoom) mapy
-  function updateZoomIndicator(){
-    if(!map) return;
-    const el = document.getElementById("zoomValue");
-    if(el) el.textContent = map.getZoom().toFixed(2);
-  }
-
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -2193,13 +2082,10 @@
       fadeDuration: 0           // mniej płynne pojawianie się etykiet/kafelków, ale szybsze odczucie reakcji mapy
     });
 
-    map.on("zoom", updateZoomIndicator);
     map.on("load", () => {
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
       setupNightZones();
-      applyEarlyZones();   // strefy przemysłowe, budynki na nich i osiedla mieszkaniowe pojawiają się wcześniej
-      updateZoomIndicator();
       hideNonHgvPoi();
       thickenMotorways();
       try{
@@ -2284,29 +2170,13 @@
         }
       });
 
-      // nazwy firm/operatorów przy drogach (dla kierowców HGV) — strefy przemysłowe/fabryki
-      // pojawiają się dużo wcześniej (niższy zoom) niż zwykłe biura, bo to one są ważne dla HGV
+      // nazwy firm/operatorów przy drogach (dla kierowców HGV) — widoczne dopiero po zbliżeniu
       map.addSource("hgv-companies", { type:"geojson", data: emptyFC() });
       map.addLayer({
-        id:"hgv-companies-icon-industrial",
-        type:"symbol",
-        source:"hgv-companies",
-        minzoom: 11,
-        filter: ["==", ["get", "category"], "industrial"],
-        layout:{
-          "text-field": ["concat", "🏭\n", ["get", "name"]],
-          "text-font": ["Noto Sans Bold"],
-          "text-size": 11,
-          "text-allow-overlap": false
-        },
-        paint:{ "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.2 }
-      });
-      map.addLayer({
-        id:"hgv-companies-icon-office",
+        id:"hgv-companies-icon",
         type:"symbol",
         source:"hgv-companies",
         minzoom: 14,
-        filter: ["==", ["get", "category"], "office"],
         layout:{
           "text-field": ["concat", "🏢\n", ["get", "name"]],
           "text-font": ["Noto Sans Bold"],
@@ -3144,7 +3014,7 @@
 
      SQL dla Supabase (opcjonalnie):
        create table if not exists public.hgv_companies (
-         osm_id bigint primary key, name text, category text, lat double precision not null, lon double precision not null,
+         osm_id bigint primary key, name text, lat double precision not null, lon double precision not null,
          updated_at timestamptz not null default now());
        alter table public.hgv_companies enable row level security;
        create policy "hgv_companies read"   on public.hgv_companies for select to anon using (true);
@@ -3189,11 +3059,9 @@
                 const lat = el.type === "node" ? el.lat : el.center && el.center.lat;
                 const lon = el.type === "node" ? el.lon : el.center && el.center.lon;
                 if(lat == null || lon == null) return;
-                const category = (el.tags.building === "industrial" || el.tags.building === "warehouse" || el.tags.landuse === "industrial")
-                  ? "industrial" : "office";
                 nodes.set(el.id, {
                   type: "Feature",
-                  properties: { name: el.tags.name, osm_id: el.id, category },
+                  properties: { name: el.tags.name, osm_id: el.id },
                   geometry: { type: "Point", coordinates: [lon, lat] }
                 });
               });
@@ -3242,9 +3110,9 @@
     }
 
     if(!bandsToFetch && supaConfigured()){
-      fetchTableFromSupabase("hgv_companies", "osm_id,name,category,lat,lon").then(shared => {
+      fetchTableFromSupabase("hgv_companies", "osm_id,name,lat,lon").then(shared => {
         if(shared && shared.length){
-          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name, category: r.category || "office" }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
           setHgvCompaniesData(features);
           debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
@@ -3282,7 +3150,7 @@
         debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
       }
       if(!failedBands.length) uploadRowsToSupabase("hgv_companies",
-        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, category: f.properties.category, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
+        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
@@ -3310,6 +3178,36 @@
        create policy "road_restrictions read"   on public.road_restrictions for select to anon using (true);
        create policy "road_restrictions insert" on public.road_restrictions for insert to anon with check (true);
   ============================================================ */
+  // IndexedDB (zamiast localStorage) dla dużych zbiorów — limit localStorage (5-10MB) jest za mały
+  // dla pełnej geometrii dróg z całej UK (dziesiątki tysięcy odcinków); IndexedDB ma limit rzędu
+  // setek MB. API jest proste get/set na jednym magazynie klucz-wartość.
+  const IDB_DB_NAME = "nav_cache_v1";
+  const IDB_STORE = "kv";
+  function idbOpen(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function idbGet(key){
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    })).catch(err => { console.warn(`IndexedDB odczyt (${key}) nieudany:`, err); return null; });
+  }
+  function idbSet(key, value){
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
+  }
+
   const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
@@ -3516,15 +3414,13 @@
   function loadUkRestrictionsOnce(){
     if(!map.getSource("roads-maxheight")) return;
 
-    let baseHeight = [];
-    let baseWeight = [];
-    let baseWidth = [];
-    let baseSigns = [];
-    let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie fragmenty od zera
+    idbGet(RESTRICTIONS_CACHE_KEY).then(cached => {
+      let baseHeight = [];
+      let baseWeight = [];
+      let baseWidth = [];
+      let baseSigns = [];
+      let bandsToFetch = null; // null = brak użytecznego cache, pobierz wszystkie fragmenty od zera
 
-    // 1) pamięć lokalna — natychmiast, działa offline
-    try{
-      const cached = JSON.parse(localStorage.getItem(RESTRICTIONS_CACHE_KEY) || "null");
       if(cached && cached.savedAt && Array.isArray(cached.heightFeatures)){
         const cachedHeight = cached.heightFeatures;
         const cachedWeight = cached.weightFeatures || [];
@@ -3548,34 +3444,30 @@
         // żeby nie dublować znaków; stare dane są już wyświetlone i podmienią się,
         // gdy przyjdą nowe (patrz setRestrictionsData wyżej i w onBandDone/then niżej)
       }
-    }catch(e){
-      console.warn("Nie udało się odczytać cache znaków wysokości/tonażu/szerokości:", e);
-    }
 
-    if(!bandsToFetch && supaConfigured()){
-      fetchTableFromSupabase("road_restrictions", "osm_id,kind,value,coords").then(shared => {
-        if(shared && shared.length){
-          const { heightFeatures, weightFeatures, widthFeatures, signFeatures } = restrictionRowsToFeatures(shared);
-          setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures);
-          debugLog("info", `Znaki wysokości/tonażu/szerokości: ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${widthFeatures.length} szer. ze wspólnej bazy — komplet`);
-          try{
-            localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
+      if(!bandsToFetch && supaConfigured()){
+        fetchTableFromSupabase("road_restrictions", "osm_id,kind,value,coords").then(shared => {
+          if(shared && shared.length){
+            const { heightFeatures, weightFeatures, widthFeatures, signFeatures } = restrictionRowsToFeatures(shared);
+            setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures);
+            debugLog("info", `Znaki wysokości/tonażu/szerokości: ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${widthFeatures.length} szer. ze wspólnej bazy — komplet`);
+            idbSet(RESTRICTIONS_CACHE_KEY, {
               savedAt: Date.now(),
               heightFeatures: roundCoordsForCache(heightFeatures),
               weightFeatures: roundCoordsForCache(weightFeatures),
               widthFeatures: roundCoordsForCache(widthFeatures),
               signFeatures: roundCoordsForCache(signFeatures),
               failedBands: [], hasWeight: true, hasWidth: true
-            }));
-          }catch(e){}
-          return;
-        }
-        runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
-      });
-      return;
-    }
+            });
+            return;
+          }
+          runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
+        });
+        return;
+      }
 
-    runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
+      runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
+    });
   }
 
   function runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch){
@@ -3600,21 +3492,18 @@
       setRestrictionsData(allHeight, allWeight, allWidth, allSigns);
       debugLog("info", `Znaki wysokości/tonażu/szerokości: łącznie ${allHeight.length} wys. / ${allWeight.length} tonaż / ${allWidth.length} szer.` +
         (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później: ${[...new Set(failedBands.map(b => b.name))].join(", ")})` : " — komplet"));
-      try{
-        localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
-          savedAt: Date.now(),
-          heightFeatures: roundCoordsForCache(allHeight),
-          weightFeatures: roundCoordsForCache(allWeight),
-          widthFeatures: roundCoordsForCache(allWidth),
-          signFeatures: roundCoordsForCache(allSigns),
-          failedBands,
-          hasWeight: true,
-          hasWidth: true
-        }));
-      }catch(e){
-        console.warn("Nie udało się zapisać cache znaków wysokości/tonażu/szerokości (localStorage pełny?):", e);
-        debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
-      }
+      idbSet(RESTRICTIONS_CACHE_KEY, {
+        savedAt: Date.now(),
+        heightFeatures: roundCoordsForCache(allHeight),
+        weightFeatures: roundCoordsForCache(allWeight),
+        widthFeatures: roundCoordsForCache(allWidth),
+        signFeatures: roundCoordsForCache(allSigns),
+        failedBands,
+        hasWeight: true,
+        hasWidth: true
+      }).then(ok => {
+        if(!ok) debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache — jutro znowu trzeba będzie pobrać wszystko");
+      });
       if(!failedBands.length){
         const rows = [];
         allHeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "height", value: f.properties.maxheight, coords: f.geometry.coordinates }));
