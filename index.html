@@ -83,6 +83,31 @@
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
 
+  /* ---------- Małe okienko z aktualnym zoomem mapy (prawy górny róg) ---------- */
+  #zoomIndicator{
+    position:absolute;
+    top: max(14px, env(safe-area-inset-top));
+    right:12px;
+    z-index:42;
+    display:flex; align-items:baseline; gap:6px;
+    background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:6px 10px;
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    box-shadow: 0 6px 18px rgba(0,0,0,.3);
+    pointer-events:none;
+    color: var(--text-main);
+    font-family:'Space Grotesk', sans-serif;
+  }
+  #zoomIndicator .zoomLabel{
+    font-size:9px; font-weight:700; letter-spacing:.08em; color: var(--text-dim);
+  }
+  #zoomIndicator #zoomValue{
+    font-size:14px; font-weight:700; font-variant-numeric: tabular-nums;
+  }
+
   /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
   #navIconRow{
     position:fixed; left:0; right:0; bottom:0;
@@ -735,6 +760,8 @@
 </div>
 
 <div id="map"></div>
+
+<div id="zoomIndicator"><span class="zoomLabel">ZOOM</span><span id="zoomValue">–</span></div>
 
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
@@ -2027,6 +2054,81 @@
     if(map && map.getLayer("night-industrial")) map.setLayoutProperty("night-industrial", "visibility", night ? "visible" : "none");
   }
 
+  /* ============================================================
+     WCZEŚNIEJSZE POJAWIANIE SIĘ STREF PRZEMYSŁOWYCH, BUDYNKÓW NA NICH
+     I OSIEDLI MIESZKANIOWYCH (dotyczy zarówno dnia, jak i nocy —
+     obniża minzoom bezpośrednio w bazowym stylu mapy)
+     ------------------------------------------------------------
+     • zony przemysłowe/logistyczne (landuse)  -> o EARLY_ZONES.industrialLandZoomDelta wcześniej
+     • budynki leżące na tych zonach (building, wg tagu "class")
+                                                -> o EARLY_ZONES.industrialBuildingZoomDelta wcześniej
+     • osiedla mieszkaniowe (landuse=residential) -> o EARLY_ZONES.residentialLandZoomDelta wcześniej
+  ============================================================ */
+  const EARLY_ZONES = {
+    industrialLandZoomDelta: 3,     // strefy przemysłowe: o tyle poziomów zoomu wcześniej
+    industrialBuildingZoomDelta: 2, // budynki na tych strefach: o tyle wcześniej
+    residentialLandZoomDelta: 1,    // osiedla mieszkaniowe: o tyle wcześniej
+    // klasy terenu (landuse) traktowane jako "przemysłowe"
+    industrialLanduseClasses: ["industrial", "warehouse", "logistics", "commercial", "retail"],
+    // klasy budynków (pole "class" w warstwie building, pochodzące z tagu building=*)
+    industrialBuildingClasses: ["industrial", "warehouse", "commercial", "factory", "manufacture"]
+  };
+  let earlyZonesApplied = false;
+  function applyEarlyZones(){
+    if(!map || earlyZonesApplied) return;
+    try{
+      const styleLayers = map.getStyle().layers || [];
+      const industrialRe = new RegExp(EARLY_ZONES.industrialLanduseClasses.join("|"), "i");
+
+      // --- 1) i 3): strefy przemysłowe i osiedla mieszkaniowe (warstwa "landuse") ---
+      styleLayers.forEach(l => {
+        if(l.type !== "fill" || l["source-layer"] !== "landuse") return;
+        const filterStr = JSON.stringify(l.filter || "");
+        const isIndustrial = industrialRe.test(l.id) || industrialRe.test(filterStr);
+        const isResidential = !isIndustrial && (/residential/i.test(l.id) || /residential/i.test(filterStr));
+        if(!isIndustrial && !isResidential) return;
+        const layer = map.getLayer(l.id);
+        if(!layer) return;
+        const origMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
+        const max = layer.maxzoom !== undefined ? layer.maxzoom : 24;
+        const delta = isIndustrial ? EARLY_ZONES.industrialLandZoomDelta : EARLY_ZONES.residentialLandZoomDelta;
+        const newMin = Math.max(0, origMin - delta);
+        map.setLayerZoomRange(l.id, newMin, max);
+      });
+
+      // --- 2) budynki leżące na strefach przemysłowych (klon warstwy "building" z wcześniejszym minzoom) ---
+      const buildingLayers = styleLayers.filter(l =>
+        (l.type === "fill" || l.type === "fill-extrusion") && l["source-layer"] === "building"
+      );
+      buildingLayers.forEach(l => {
+        const cloneId = "early-industrial-" + l.id;
+        if(map.getLayer(cloneId)) return;
+        const layer = map.getLayer(l.id);
+        if(!layer) return;
+        const origMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
+        const max = layer.maxzoom !== undefined ? layer.maxzoom : 24;
+        const newMin = Math.max(0, origMin - EARLY_ZONES.industrialBuildingZoomDelta);
+        const industrialFilter = ["match", ["get", "class"], EARLY_ZONES.industrialBuildingClasses, true, false];
+        const combinedFilter = l.filter ? ["all", l.filter, industrialFilter] : industrialFilter;
+        const clone = JSON.parse(JSON.stringify(l));
+        clone.id = cloneId;
+        clone.filter = combinedFilter;
+        clone.minzoom = newMin;
+        if(max !== 24) clone.maxzoom = max;
+        delete clone.metadata;
+        try{
+          map.addLayer(clone, l.id); // pod oryginalną warstwą budynków
+        }catch(e){
+          console.warn("Nie udało się dodać wcześniejszej warstwy budynków przemysłowych:", l.id, e);
+        }
+      });
+
+      earlyZonesApplied = true;
+    }catch(e){
+      console.warn("Nie udało się przyspieszyć pojawiania stref/budynków/osiedli:", e);
+    }
+  }
+
   // Zoom pokazywania dróg:
   //  • lokalne (osiedlowe, serwisowe, dojazdy, ścieżki): w dzień +MINOR_ROAD_ZOOM_DELAY względem bazowego stylu,
   //    w nocy dopiero od NIGHT_DETAIL.minorRoadsZoom
@@ -2068,6 +2170,13 @@
     });
   }
 
+  // Aktualizuje małe okienko z bieżącym poziomem przybliżenia (zoom) mapy
+  function updateZoomIndicator(){
+    if(!map) return;
+    const el = document.getElementById("zoomValue");
+    if(el) el.textContent = map.getZoom().toFixed(2);
+  }
+
   function initMap(lat, lon){
     map = new maplibregl.Map({
       container: "map",
@@ -2084,10 +2193,13 @@
       fadeDuration: 0           // mniej płynne pojawianie się etykiet/kafelków, ale szybsze odczucie reakcji mapy
     });
 
+    map.on("zoom", updateZoomIndicator);
     map.on("load", () => {
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
       setupNightZones();
+      applyEarlyZones();   // strefy przemysłowe, budynki na nich i osiedla mieszkaniowe pojawiają się wcześniej
+      updateZoomIndicator();
       hideNonHgvPoi();
       thickenMotorways();
       try{
