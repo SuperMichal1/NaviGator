@@ -2518,6 +2518,13 @@
   const JUNCTIONS_CACHE_KEY = "nav_uk_motorway_junctions_v1";
   const JUNCTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const JUNCTION_DEDUPE_RADIUS_M = 400; // punkty tego samego zjazdu bywają zapisane kilkoma węzłami OSM blisko siebie
+  // SQL dla Supabase (opcjonalnie):
+  //   create table if not exists public.motorway_junctions (
+  //     junction_key text primary key, ref text, name text, lat double precision not null, lon double precision not null,
+  //     updated_at timestamptz not null default now());
+  //   alter table public.motorway_junctions enable row level security;
+  //   create policy "motorway_junctions read"   on public.motorway_junctions for select to anon using (true);
+  //   create policy "motorway_junctions insert" on public.motorway_junctions for insert to anon with check (true);
   const JUNCTIONS_BAND_RETRIES = 2; // ile razy ponowić POJEDYNCZY fragment (kraj), zanim zostanie pominięty
   const JUNCTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
   let junctionsRetries = 0;
@@ -2622,6 +2629,24 @@
       console.warn("Nie udało się odczytać cache zjazdów:", e);
     }
 
+    if(!bandsToFetch && supaConfigured()){
+      fetchTableFromSupabase("motorway_junctions", "ref,name,lat,lon").then(shared => {
+        if(shared && shared.length){
+          const features = shared.map(r => ({ type:"Feature", properties:{ ref: r.ref, name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          setJunctionData(features);
+          debugLog("info", `Zjazdy autostradowe: ${features.length} ze wspólnej bazy — komplet`);
+          try{ localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features, rawFeatures: features, failedBands: [] })); }catch(e){}
+          return;
+        }
+        runJunctionsOverpass(baseRaw, bandsToFetch);
+      });
+      return;
+    }
+
+    runJunctionsOverpass(baseRaw, bandsToFetch);
+  }
+
+  function runJunctionsOverpass(baseRaw, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
       ? `Zjazdy autostradowe: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -2647,6 +2672,12 @@
         console.warn("Nie udało się zapisać cache zjazdów (localStorage pełny?):", e);
         debugLog("warn", "Zjazdy autostradowe: NIE udało się zapisać cache (localStorage pełny?)");
       }
+      if(!failedBands.length) uploadRowsToSupabase("motorway_junctions",
+        features.map(f => ({
+          junction_key: `${f.properties.ref || ""}_${f.geometry.coordinates[1].toFixed(4)}_${f.geometry.coordinates[0].toFixed(4)}`,
+          ref: f.properties.ref, name: f.properties.name,
+          lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
+        })), "junction_key");
       if(failedBands.length && junctionsRetries++ < JUNCTIONS_MAX_RETRIES){
         setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -2829,6 +2860,14 @@
      Tag OSM: węzeł na drodze (lub tuż przy niej) z "enforcement"="average_speed" —
      to właśnie kamera/urządzenie odcinkowego pomiaru, w odróżnieniu od zwykłego
      punktowego fotoradaru ("highway"="speed_camera").
+
+     SQL dla Supabase (opcjonalnie — bez tego działa lokalnie):
+       create table if not exists public.avg_speed_cameras (
+         osm_id bigint primary key, lat double precision not null, lon double precision not null,
+         updated_at timestamptz not null default now());
+       alter table public.avg_speed_cameras enable row level security;
+       create policy "avg_speed_cameras read"   on public.avg_speed_cameras for select to anon using (true);
+       create policy "avg_speed_cameras insert" on public.avg_speed_cameras for insert to anon with check (true);
   ============================================================ */
   const AVG_SPEED_CAMERA_CACHE_KEY = "nav_uk_avg_speed_cameras_v1";
   const AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 dni — zmieniają się rzadko
@@ -2917,6 +2956,27 @@
       console.warn("Nie udało się odczytać cache odcinkowego pomiaru prędkości:", e);
     }
 
+    // pełne pobranie (nie tylko dociąganie brakujących fragmentów) — spróbuj najpierw
+    // wspólnej bazy Supabase, jeśli skonfigurowana; dzięki temu Overpass odpytuje tylko
+    // pierwszy kierowca, reszta ściąga gotowe dane
+    if(!bandsToFetch && supaConfigured()){
+      fetchTableFromSupabase("avg_speed_cameras", "osm_id,lat,lon").then(shared => {
+        if(shared && shared.length){
+          const features = shared.map(r => ({ type:"Feature", properties:{ id: r.osm_id }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          setAvgSpeedCameraData(features);
+          debugLog("info", `Odcinkowy pomiar prędkości: ${features.length} ze wspólnej bazy — komplet`);
+          try{ localStorage.setItem(AVG_SPEED_CAMERA_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
+          return;
+        }
+        runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch);
+      });
+      return;
+    }
+
+    runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch);
+  }
+
+  function runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
       ? `Odcinkowy pomiar prędkości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -2939,6 +2999,9 @@
         console.warn("Nie udało się zapisać cache odcinkowego pomiaru prędkości (localStorage pełny?):", e);
         debugLog("warn", "Odcinkowy pomiar prędkości: NIE udało się zapisać cache (localStorage pełny?)");
       }
+      if(!failedBands.length) uploadRowsToSupabase("avg_speed_cameras",
+        all.map(f => ({ osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
+        "osm_id");
       if(failedBands.length && avgSpeedCameraRetries++ < AVG_SPEED_CAMERA_MAX_RETRIES){
         setTimeout(loadAvgSpeedCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -2950,6 +3013,14 @@
      tym samym mechanizmem (Anglia/Walia/Szkocja, retry, cache). Zapytanie jest lekkie:
      tylko obiekty z tagiem "name" (biura + budynki przemysłowe/magazynowe), a dla
      budynków używamy "out center" (sam punkt środka, bez pełnego obrysu).
+
+     SQL dla Supabase (opcjonalnie):
+       create table if not exists public.hgv_companies (
+         osm_id bigint primary key, name text, lat double precision not null, lon double precision not null,
+         updated_at timestamptz not null default now());
+       alter table public.hgv_companies enable row level security;
+       create policy "hgv_companies read"   on public.hgv_companies for select to anon using (true);
+       create policy "hgv_companies insert" on public.hgv_companies for insert to anon with check (true);
   ============================================================ */
   const HGV_COMPANIES_CACHE_KEY = "nav_uk_hgv_companies_v1";
   const HGV_COMPANIES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -2992,7 +3063,7 @@
                 if(lat == null || lon == null) return;
                 nodes.set(el.id, {
                   type: "Feature",
-                  properties: { name: el.tags.name },
+                  properties: { name: el.tags.name, osm_id: el.id },
                   geometry: { type: "Point", coordinates: [lon, lat] }
                 });
               });
@@ -3040,6 +3111,24 @@
       console.warn("Nie udało się odczytać cache firm/operatorów:", e);
     }
 
+    if(!bandsToFetch && supaConfigured()){
+      fetchTableFromSupabase("hgv_companies", "osm_id,name,lat,lon").then(shared => {
+        if(shared && shared.length){
+          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          setHgvCompaniesData(features);
+          debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
+          try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
+          return;
+        }
+        runHgvCompaniesOverpass(baseFeatures, bandsToFetch);
+      });
+      return;
+    }
+
+    runHgvCompaniesOverpass(baseFeatures, bandsToFetch);
+  }
+
+  function runHgvCompaniesOverpass(baseFeatures, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
       ? `Firmy/operatorzy: dociąganie ${bands.length} fragmentu(ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -3062,6 +3151,9 @@
         console.warn("Nie udało się zapisać cache firm/operatorów:", e);
         debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
       }
+      if(!failedBands.length) uploadRowsToSupabase("hgv_companies",
+        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
+        "osm_id");
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -3078,6 +3170,15 @@
      Zapytanie leci pasami szerokości geograficznej (tak jak fotoradary
      autostradowe), bo cała Wielka Brytania naraz byłaby za dużym zapytaniem.
      W każdym pasie: pobieramy drogi oznaczone tagiem maxheight LUB maxweight.
+
+     SQL dla Supabase (opcjonalnie):
+       create table if not exists public.road_restrictions (
+         osm_id bigint not null, kind text not null, value double precision not null,
+         coords jsonb not null, updated_at timestamptz not null default now(),
+         primary key (osm_id, kind));
+       alter table public.road_restrictions enable row level security;
+       create policy "road_restrictions read"   on public.road_restrictions for select to anon using (true);
+       create policy "road_restrictions insert" on public.road_restrictions for insert to anon with check (true);
   ============================================================ */
   const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
@@ -3142,7 +3243,7 @@
           const coords = el.geometry.map(g => [g.lon, g.lat]);
           heightWays.set(el.id, {
             type: "Feature",
-            properties: { maxheight: hm },
+            properties: { maxheight: hm, osm_id: el.id },
             geometry: { type: "LineString", coordinates: coords }
           });
           const c = wayCentroid(el.geometry);
@@ -3160,7 +3261,7 @@
           const coords = el.geometry.map(g => [g.lon, g.lat]);
           weightWays.set(el.id, {
             type: "Feature",
-            properties: { maxweight: wt },
+            properties: { maxweight: wt, osm_id: el.id },
             geometry: { type: "LineString", coordinates: coords }
           });
           const c = wayCentroid(el.geometry);
@@ -3178,7 +3279,7 @@
           const coords = el.geometry.map(g => [g.lon, g.lat]);
           widthWays.set(el.id, {
             type: "Feature",
-            properties: { maxwidth: wd },
+            properties: { maxwidth: wd, osm_id: el.id },
             geometry: { type: "LineString", coordinates: coords }
           });
           const c = wayCentroid(el.geometry);
@@ -3263,6 +3364,25 @@
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
   }
 
+  // odtwarza heightFeatures/weightFeatures/widthFeatures/signFeatures z wierszy Supabase
+  function restrictionRowsToFeatures(rows){
+    const heightFeatures = [], weightFeatures = [], widthFeatures = [], signFeatures = [];
+    const KIND_INFO = {
+      height: { arr: heightFeatures, prop: "maxheight", fmt: formatHeightLabel, prefix: "h" },
+      weight: { arr: weightFeatures, prop: "maxweight", fmt: formatWeightLabel, prefix: "w" },
+      width:  { arr: widthFeatures,  prop: "maxwidth",  fmt: formatWidthLabel,  prefix: "d" }
+    };
+    rows.forEach(r => {
+      const info = KIND_INFO[r.kind];
+      if(!info || !Array.isArray(r.coords) || !r.coords.length) return;
+      info.arr.push({ type:"Feature", properties: { [info.prop]: r.value, osm_id: r.osm_id }, geometry: { type:"LineString", coordinates: r.coords } });
+      const lon = r.coords.reduce((s, c) => s + c[0], 0) / r.coords.length;
+      const lat = r.coords.reduce((s, c) => s + c[1], 0) / r.coords.length;
+      signFeatures.push({ type:"Feature", properties: { kind: r.kind, label: info.fmt(r.value) }, geometry: { type:"Point", coordinates: [lon, lat] } });
+    });
+    return { heightFeatures, weightFeatures, widthFeatures, signFeatures };
+  }
+
   function loadUkRestrictionsOnce(){
     if(!map.getSource("roads-maxheight")) return;
 
@@ -3302,6 +3422,33 @@
       console.warn("Nie udało się odczytać cache znaków wysokości/tonażu/szerokości:", e);
     }
 
+    if(!bandsToFetch && supaConfigured()){
+      fetchTableFromSupabase("road_restrictions", "osm_id,kind,value,coords").then(shared => {
+        if(shared && shared.length){
+          const { heightFeatures, weightFeatures, widthFeatures, signFeatures } = restrictionRowsToFeatures(shared);
+          setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures);
+          debugLog("info", `Znaki wysokości/tonażu/szerokości: ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${widthFeatures.length} szer. ze wspólnej bazy — komplet`);
+          try{
+            localStorage.setItem(RESTRICTIONS_CACHE_KEY, JSON.stringify({
+              savedAt: Date.now(),
+              heightFeatures: roundCoordsForCache(heightFeatures),
+              weightFeatures: roundCoordsForCache(weightFeatures),
+              widthFeatures: roundCoordsForCache(widthFeatures),
+              signFeatures: roundCoordsForCache(signFeatures),
+              failedBands: [], hasWeight: true, hasWidth: true
+            }));
+          }catch(e){}
+          return;
+        }
+        runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
+      });
+      return;
+    }
+
+    runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
+  }
+
+  function runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
     debugLog("info", bandsToFetch
       ? `Znaki wysokości/tonażu/szerokości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -3337,6 +3484,13 @@
       }catch(e){
         console.warn("Nie udało się zapisać cache znaków wysokości/tonażu/szerokości (localStorage pełny?):", e);
         debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache (localStorage pełny?) — jutro znowu trzeba będzie pobrać wszystko");
+      }
+      if(!failedBands.length){
+        const rows = [];
+        allHeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "height", value: f.properties.maxheight, coords: f.geometry.coordinates }));
+        allWeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "weight", value: f.properties.maxweight, coords: f.geometry.coordinates }));
+        allWidth.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "width", value: f.properties.maxwidth, coords: f.geometry.coordinates }));
+        uploadRowsToSupabase("road_restrictions", rows, "osm_id,kind");
       }
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
@@ -3534,6 +3688,48 @@
       },
       body: JSON.stringify({ p_kind: kind, p_lat: lat, p_lon: lon, p_device: getDeviceId() })
     }).then(r => r.ok).catch(() => false);
+  }
+
+  // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
+  function fetchTableFromSupabase(table, columns){
+    if(!supaConfigured()) return Promise.resolve(null);
+    const base = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?select=${columns}`;
+    const PAGE = 1000;
+    const out = [];
+    function page(offset){
+      return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
+        headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
+      })
+        .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(rows => {
+          out.push(...rows);
+          if(rows.length === PAGE && out.length < 200000) return page(offset + PAGE);
+          return out;
+        });
+    }
+    return page(0).catch(err => { console.warn(`Nie udało się pobrać ${table} z Supabase:`, err); return null; });
+  }
+
+  // wysyła wiersze do wspólnej bazy w paczkach po 500; istniejące (po on_conflict) są pomijane
+  function uploadRowsToSupabase(table, rows, conflictCols){
+    if(!supaConfigured() || !rows.length) return;
+    const url = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?on_conflict=${conflictCols}`;
+    const BATCH = 500;
+    let chain = Promise.resolve();
+    for(let i = 0; i < rows.length; i += BATCH){
+      const batch = rows.slice(i, i + BATCH);
+      chain = chain.then(() => fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supaKey,
+          "Authorization": "Bearer " + supaKey,
+          "Prefer": "resolution=ignore-duplicates,return=minimal"
+        },
+        body: JSON.stringify(batch)
+      }).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); }));
+    }
+    chain.catch(err => console.warn(`Nie udało się wysłać ${table} do Supabase:`, err));
   }
 
   // pobiera zgłoszenia społeczności w promieniu SUPA_FETCH_PAD_DEG wokół pozycji;
