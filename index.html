@@ -1766,8 +1766,10 @@
   // Strefy przemysłowe i logistyczne (ważne dla HGV) — delikatnie wyróżnione na tle mapy
   const NIGHT_ZONES = {
     classes: ["industrial", "warehouse", "logistics"], // klasy landuse z kafelków; dodaj "commercial"/"retail", jeśli chcesz
-    fill: "#2f2a48",      // matowy ciemny fiolet
-    outline: "#4b4370",
+    fillNight: "#2f2a48",     // matowy ciemny fiolet — tryb nocny
+    outlineNight: "#4b4370",
+    fillDay: "#e4dcc8",       // stonowany ciepły beż — pasuje do jasnej mapy dziennej, ale wciąż widoczny
+    outlineDay: "#c9b98f",
     opacity: 0.8,         // pełne krycie 5 poziomów zoomu po minZoom; niżej narasta od 0
     minZoom: 6            // było 8 — strefy widać o 2 poziomy zoomu wcześniej
   };
@@ -2006,14 +2008,15 @@
       const layers = map.getStyle().layers;
       const ref = layers.find(l => l["source-layer"] === "landuse");
       const first = layers.find(l => l["source-layer"] === "transportation" || l["source-layer"] === "building");
+      const night = document.body.classList.contains("night");
       map.addLayer({
         id: "night-industrial", type: "fill",
         source: ref ? ref.source : "openmaptiles", "source-layer": "landuse",
         minzoom: NIGHT_ZONES.minZoom,
         filter: ["match", ["get", "class"], NIGHT_ZONES.classes, true, false],
         paint: {
-          "fill-color": NIGHT_ZONES.fill,
-          "fill-outline-color": NIGHT_ZONES.outline,
+          "fill-color": night ? NIGHT_ZONES.fillNight : NIGHT_ZONES.fillDay,
+          "fill-outline-color": night ? NIGHT_ZONES.outlineNight : NIGHT_ZONES.outlineDay,
           "fill-opacity": ["interpolate", ["linear"], ["zoom"], NIGHT_ZONES.minZoom, 0, NIGHT_ZONES.minZoom + 2, NIGHT_ZONES.opacity * 0.6, NIGHT_ZONES.minZoom + 5, NIGHT_ZONES.opacity]
         }
       }, first ? first.id : undefined);
@@ -2022,7 +2025,13 @@
     }
   }
   function applyNightZones(night){
-    // strefy przemysłowe są teraz widoczne zawsze — nic tu już nie trzeba przełączać
+    if(!map || !map.getLayer("night-industrial")) return;
+    try{
+      map.setPaintProperty("night-industrial", "fill-color", night ? NIGHT_ZONES.fillNight : NIGHT_ZONES.fillDay);
+      map.setPaintProperty("night-industrial", "fill-outline-color", night ? NIGHT_ZONES.outlineNight : NIGHT_ZONES.outlineDay);
+    }catch(e){
+      console.warn("Nie udało się przemalować stref przemysłowych:", e);
+    }
   }
 
   // Zoom pokazywania dróg:
