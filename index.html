@@ -1363,11 +1363,8 @@
   // autobusowe i parkingi dla samochodów osobowych, żeby nie zaśmiecały widoku.
   // Styl OpenFreeMap Liberty trzyma te ikony w warstwie źródłowej "poi"
   // (schemat OpenMapTiles), rozróżniane polem class/subclass.
-  const HGV_HIDE_POI_CLASSES = ["bus", "parking", "office", "sport"];
-  const HGV_HIDE_POI_SUBCLASSES = ["bus_stop", "bus_station", "parking", "parking_entrance", "parking_space",
-    "office", "sports_centre", "atm", "gate", "bicycle_parking", "brownfield", "cycle_barrier", "bollard",
-    "lift_gate", "recycling", "equestrian", "stile", "swimming_pool", "boxing", "running", "motorcycle_parking",
-    "rugby_union", "rowing", "bowls", "multi", "athletics", "ferry_terminal", "canoe", "sailing"];
+  const HGV_HIDE_POI_CLASSES = ["bus", "parking"];
+  const HGV_HIDE_POI_SUBCLASSES = ["bus_stop", "bus_station", "parking", "parking_entrance", "parking_space"];
 
   function hideNonHgvPoi(){
     const layers = map.getStyle().layers || [];
@@ -1383,26 +1380,6 @@
     });
   }
 
-  // Skaluje wartości w wyrażeniu zależnym od zoomu (interpolate/step), zachowując "zoom"
-  // jako wymagany TOP-LEVEL argument — owinięcie całego wyrażenia w ["*", expr, factor]
-  // jest niepoprawne wg specyfikacji stylu (stąd błędy "zoom expression may only be used...").
-  function scaleWidthExpression(expr, factor){
-    if(typeof expr === "number") return expr * factor;
-    if(Array.isArray(expr)){
-      if(expr[0] === "interpolate"){
-        const out = expr.slice(0, 3); // ["interpolate", typ, ["zoom"]]
-        for(let i = 3; i < expr.length; i += 2) out.push(expr[i], expr[i+1] * factor);
-        return out;
-      }
-      if(expr[0] === "step"){
-        const out = [expr[0], expr[1], expr[2] * factor]; // ["step", ["zoom"], domyślna]
-        for(let i = 3; i < expr.length; i += 2) out.push(expr[i], expr[i+1] * factor);
-        return out;
-      }
-    }
-    return null; // nieznany/nieobsługiwany format — nie ruszamy
-  }
-
   // Autostrady (M1, M6…) w bazowym stylu wyglądają na wąskie, jednopasmowe drogi.
   // Pogrubiamy warstwy dróg klasy "motorway" (nitka + obwódka, na wszystkich zoomach
   // proporcjonalnie), żeby wizualnie przypominały drogę wielopasmową.
@@ -1416,49 +1393,9 @@
       try{
         const current = map.getPaintProperty(layer.id, "line-width");
         if(current === undefined || current === null) return;
-        const scaled = scaleWidthExpression(current, MOTORWAY_WIDTH_FACTOR);
-        if(scaled === null) return; // nieznany format — zostawiamy oryginał
-        map.setPaintProperty(layer.id, "line-width", scaled);
+        map.setPaintProperty(layer.id, "line-width", ["*", current, MOTORWAY_WIDTH_FACTOR]);
       }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
     });
-  }
-
-  // Rzeki/strumienie: wyłącz cienką linię (widoczna dotąd jako zielona kreska), zostaw
-  // tylko wypełnienie "water" dla szerszych rzek/jezior. Dopasowanie jest szerokie
-  // (source-layer LUB nazwa warstwy) na wypadek, gdyby bazowy styl nazywał ją inaczej.
-  function hideWaterwayLines(){
-    const layers = map.getStyle().layers || [];
-    const hidden = [];
-    layers.forEach(layer => {
-      const bySource = layer["source-layer"] === "waterway";
-      const byId = /waterway|river|stream/i.test(layer.id);
-      if(!bySource && !byId) return;
-      try{
-        map.setLayoutProperty(layer.id, "visibility", "none");
-        hidden.push(layer.id);
-      }catch(e){ console.warn("Nie udało się ukryć warstwy rzek:", layer.id, e); }
-    });
-    debugLog(hidden.length ? "info" : "warn",
-      hidden.length ? `Rzeki: ukryto warstwy: ${hidden.join(", ")}` : "Rzeki: nie znaleziono żadnej warstwy waterway/river do ukrycia");
-  }
-
-  // Drogi B (secondary/tertiary): ciemniejsza obwódka zamiast jasnej z bazowego stylu.
-  const B_ROAD_CASING_COLOR = "#4a4030";
-  function darkenBRoadCasing(){
-    const layers = map.getStyle().layers || [];
-    const changed = [];
-    layers.forEach(layer => {
-      if(layer.type !== "line") return;
-      if(layer["source-layer"] !== "transportation") return;
-      if(!/^(road|bridge|tunnel)_(secondary|tertiary)_casing$/.test(layer.id)) return;
-      try{
-        map.setPaintProperty(layer.id, "line-color", B_ROAD_CASING_COLOR);
-        changed.push(layer.id);
-      }
-      catch(e){ console.warn("Nie udało się przyciemnić obwódki drogi B:", layer.id, e); }
-    });
-    debugLog(changed.length ? "info" : "warn",
-      changed.length ? `Drogi B: przyciemniono obwódkę: ${changed.join(", ")}` : "Drogi B: nie znaleziono warstwy obwódki secondary/tertiary");
   }
 
   /* ============================================================
@@ -2160,8 +2097,6 @@
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
-      hideWaterwayLines();
-      darkenBRoadCasing();
       try{
         setupUkRoadShields();
         applyShieldMode();
@@ -2439,11 +2374,6 @@
         loadHgvCompaniesOnce();
       }catch(e){
         console.warn("Nie udało się uruchomić ładowania firm/operatorów:", e);
-      }
-      try{
-        loadMotorwayLanesOnce();
-      }catch(e){
-        console.warn("Nie udało się uruchomić ładowania pasów M6/M40:", e);
       }
       try{
         loadUkRestrictionsOnce();
@@ -3238,59 +3168,6 @@
   }
 
   /* ============================================================
-     PASY M6/M40 (asfalt z oznaczeniami pasów) — pobierane RAZ dla całej UK, nie tylko
-     w promieniu od pozycji GPS jak dawniej. Dzięki temu widać je po przybliżeniu mapy
-     w dowolnym miejscu tych dróg, nawet bez GPS w pobliżu. Lekkie: filtr po konkretnym
-     "ref" (M6/M40) zwraca tylko te dwie autostrady, nie całą sieć dróg.
-  ============================================================ */
-  const MOTORWAY_LANES_CACHE_KEY = "nav_uk_motorway_lanes_v1";
-  const MOTORWAY_LANES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-
-  function loadMotorwayLanesOnce(){
-    if(!map.getSource("motorway-lanes")) return;
-
-    try{
-      const cached = JSON.parse(localStorage.getItem(MOTORWAY_LANES_CACHE_KEY) || "null");
-      if(cached && cached.savedAt && Array.isArray(cached.features)){
-        map.getSource("motorway-lanes").setData({ type:"FeatureCollection", features: cached.features });
-        debugLog("info", `Pasy ${LANE_RENDER_REFS.join("/")}: ${cached.features.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-        if(Date.now() - cached.savedAt < MOTORWAY_LANES_CACHE_MAX_AGE_MS) return;
-      }
-    }catch(e){
-      console.warn("Nie udało się odczytać cache pasów autostrad:", e);
-    }
-
-    debugLog("info", `Pasy ${LANE_RENDER_REFS.join("/")}: pobieranie z Overpass…`);
-    const west = GB_BOUNDS[0][0], south = GB_BOUNDS[0][1], east = GB_BOUNDS[1][0], north = GB_BOUNDS[1][1];
-    const query = `
-      [out:json][timeout:60];
-      way["highway"="motorway"]["ref"~"(^|;)(${LANE_RENDER_REFS.join("|")})($|;)"](${south},${west},${north},${east});
-      out geom;
-    `;
-    tryEndpoints(query, 0).then(data => {
-      const features = [];
-      (data.elements || []).forEach(el => {
-        if(el.type === "way" && el.geometry && el.geometry.length > 1 && el.tags && el.tags.lanes){
-          const coords = el.geometry.map(g => [g.lon, g.lat]);
-          buildLaneFeatures(coords, el.tags.lanes).forEach(f => features.push(f));
-        }
-      });
-      map.getSource("motorway-lanes").setData({ type:"FeatureCollection", features });
-      debugLog("info", `Pasy ${LANE_RENDER_REFS.join("/")}: pobrano ${features.length} elementów — komplet`);
-      try{
-        localStorage.setItem(MOTORWAY_LANES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features }));
-      }catch(e){
-        console.warn("Nie udało się zapisać cache pasów autostrad:", e);
-        debugLog("warn", "Pasy autostrad: NIE udało się zapisać cache");
-      }
-    }).catch(err => {
-      console.warn("Nie udało się pobrać pasów autostrad:", err);
-      debugLog("warn", "Pasy autostrad: błąd pobierania, spróbuję ponownie później");
-      setTimeout(loadMotorwayLanesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
-    });
-  }
-
-  /* ============================================================
      ZNAKI WYSOKOŚCI (WIADUKTY/PRZEJAZDY) I TONAŻU — pobierane RAZ
      dla całej Wielkiej Brytanii, tak jak zjazdy autostradowe i fotoradary
      autostradowe. Dzięki temu widać je zawsze, niezależnie od tego, jak
@@ -3675,6 +3552,7 @@
         way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="motorway"]["ref"~"(^|;)(${LANE_RENDER_REFS.join("|")})($|;)"](around:${LANE_RENDER_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
@@ -3976,6 +3854,12 @@
     return false;
   }
 
+  function isLaneRenderWay(el){
+    if(!el.tags || el.tags.highway !== "motorway") return false;
+    const refs = String(el.tags.ref || "").split(";").map(r => r.trim());
+    return refs.some(r => LANE_RENDER_REFS.indexOf(r) !== -1);
+  }
+
   // przesuwa listę punktów [lon,lat] równolegle o offsetM metrów; normalna w każdym
   // punkcie to uśredniona, znormalizowana normalna sąsiednich odcinków (jak w skrypcie JOSM)
   function offsetLineCoords(coords, offsetM){
@@ -4040,8 +3924,14 @@
     const roadFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
+    const laneFeatures = [];
 
     (data.elements || []).forEach(el => {
+      if(isLaneRenderWay(el) && el.geometry && el.geometry.length > 1){
+        const coords = el.geometry.map(g => [g.lon, g.lat]);
+        buildLaneFeatures(coords, el.tags.lanes).forEach(f => laneFeatures.push(f));
+      }
+
       if(isHgvParkingElement(el)){
         let lat, lon;
         if(el.type === "node"){ lat = el.lat; lon = el.lon; }
@@ -4137,6 +4027,9 @@
     }
     if(map.getSource("hgv-parking-community")){
       map.getSource("hgv-parking-community").setData({ type:"FeatureCollection", features: communityParkingFeatures });
+    }
+    if(map.getSource("motorway-lanes")){
+      map.getSource("motorway-lanes").setData({ type:"FeatureCollection", features: laneFeatures });
     }
   }
 
