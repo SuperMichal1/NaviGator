@@ -1380,6 +1380,26 @@
     });
   }
 
+  // Skaluje wartości w wyrażeniu zależnym od zoomu (interpolate/step), zachowując "zoom"
+  // jako wymagany TOP-LEVEL argument — owinięcie całego wyrażenia w ["*", expr, factor]
+  // jest niepoprawne wg specyfikacji stylu (stąd błędy "zoom expression may only be used...").
+  function scaleWidthExpression(expr, factor){
+    if(typeof expr === "number") return expr * factor;
+    if(Array.isArray(expr)){
+      if(expr[0] === "interpolate"){
+        const out = expr.slice(0, 3); // ["interpolate", typ, ["zoom"]]
+        for(let i = 3; i < expr.length; i += 2) out.push(expr[i], expr[i+1] * factor);
+        return out;
+      }
+      if(expr[0] === "step"){
+        const out = [expr[0], expr[1], expr[2] * factor]; // ["step", ["zoom"], domyślna]
+        for(let i = 3; i < expr.length; i += 2) out.push(expr[i], expr[i+1] * factor);
+        return out;
+      }
+    }
+    return null; // nieznany/nieobsługiwany format — nie ruszamy
+  }
+
   // Autostrady (M1, M6…) w bazowym stylu wyglądają na wąskie, jednopasmowe drogi.
   // Pogrubiamy warstwy dróg klasy "motorway" (nitka + obwódka, na wszystkich zoomach
   // proporcjonalnie), żeby wizualnie przypominały drogę wielopasmową.
@@ -1393,8 +1413,35 @@
       try{
         const current = map.getPaintProperty(layer.id, "line-width");
         if(current === undefined || current === null) return;
-        map.setPaintProperty(layer.id, "line-width", ["*", current, MOTORWAY_WIDTH_FACTOR]);
+        const scaled = scaleWidthExpression(current, MOTORWAY_WIDTH_FACTOR);
+        if(scaled === null) return; // nieznany format — zostawiamy oryginał
+        map.setPaintProperty(layer.id, "line-width", scaled);
       }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
+    });
+  }
+
+  // Rzeki/strumienie: wyłącz cienką linię (widoczna dotąd jako zielona kreska), zostaw
+  // tylko wypełnienie "water" dla szerszych rzek/jezior.
+  function hideWaterwayLines(){
+    const layers = map.getStyle().layers || [];
+    layers.forEach(layer => {
+      if(layer.type !== "line") return;
+      if(layer["source-layer"] !== "waterway") return;
+      try{ map.setLayoutProperty(layer.id, "visibility", "none"); }
+      catch(e){ console.warn("Nie udało się ukryć warstwy rzek:", layer.id, e); }
+    });
+  }
+
+  // Drogi B (secondary/tertiary): ciemniejsza obwódka zamiast jasnej z bazowego stylu.
+  const B_ROAD_CASING_COLOR = "#4a4030";
+  function darkenBRoadCasing(){
+    const layers = map.getStyle().layers || [];
+    layers.forEach(layer => {
+      if(layer.type !== "line") return;
+      if(layer["source-layer"] !== "transportation") return;
+      if(!/^(road|bridge|tunnel)_(secondary|tertiary)_casing$/.test(layer.id)) return;
+      try{ map.setPaintProperty(layer.id, "line-color", B_ROAD_CASING_COLOR); }
+      catch(e){ console.warn("Nie udało się przyciemnić obwódki drogi B:", layer.id, e); }
     });
   }
 
@@ -2097,6 +2144,8 @@
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
+      hideWaterwayLines();
+      darkenBRoadCasing();
       try{
         setupUkRoadShields();
         applyShieldMode();
