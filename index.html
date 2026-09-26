@@ -267,7 +267,24 @@
   .dest-pin:active{ cursor:grabbing; }
   .dest-pin svg{ display:block; overflow:visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
   #navDestWrap{ position:relative; }
-  #navDest{
+  .navStopWrap{ position:relative; }
+  #navWaypointsList{ display:flex; flex-direction:column; gap:8px; }
+  .navWaypointWrap{ display:flex; align-items:center; gap:6px; }
+  .navWaypointWrap .navStopInput{ flex:1; min-width:0; }
+  .navWaypointRemove{
+    flex:0 0 auto; width:30px; height:30px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.12); color:#fff; font-size:13px; cursor:pointer;
+  }
+  .navWaypointRemove:active{ transform: scale(0.94); }
+  #navAddWaypointBtn{
+    align-self:flex-start;
+    font-size:12px; font-weight:600; color: var(--accent);
+    padding:4px 2px; cursor:pointer;
+  }
+  #navAddWaypointBtn:active{ opacity:0.7; }
+  #navOriginWrap #navOrigin{ font-size:13px; }
+  #navDest, .navStopInput{
     width:100%;
     background: rgba(255,255,255,0.88);
     border:1px solid rgba(0,0,0,0.12);
@@ -278,17 +295,19 @@
     border-radius:10px;
     outline:none;
   }
-  #navDest::placeholder{ color:#5b6570; }
-  #navDest:focus{ border-color: var(--accent); }
-  #navSuggestions{
+  #navDest::placeholder, .navStopInput::placeholder{ color:#5b6570; }
+  #navDest:focus, .navStopInput:focus{ border-color: var(--accent); }
+  #navSuggestions, .navSuggestions{
     display:none;
     background: rgba(255,255,255,0.92);
     border:1px solid rgba(0,0,0,0.10);
     border-radius:10px;
     overflow:hidden;
     margin-top:8px;
+    position:relative;
+    z-index:5;
   }
-  #navSuggestions.open{ display:block; }
+  #navSuggestions.open, .navSuggestions.open{ display:block; }
   .navSuggestion{
     padding:10px 12px;
     font-size:13px;
@@ -301,16 +320,17 @@
   .navSuggestion .addr1{ font-weight:600; }
   .navSuggestion .addr2{ font-size:11px; color:#5b6570; margin-top:2px; }
   /* W nocy panel jest widoczny na tle odwróconej (ciemnej) mapy, więc zostaje ciemne szkło + jasna czcionka */
-  body.night #navDest{
+  body.night #navDest, body.night .navStopInput{
     background: rgba(20,16,10,0.55);
     border-color: rgba(255,176,32,0.18);
     color: var(--text-main);
   }
-  body.night #navDest::placeholder{ color: var(--text-dim); }
-  body.night #navSuggestions{
+  body.night #navDest::placeholder, body.night .navStopInput::placeholder{ color: var(--text-dim); }
+  body.night #navSuggestions, body.night .navSuggestions{
     background: rgba(20,16,10,0.72);
     border-color: rgba(255,176,32,0.14);
   }
+  body.night .navWaypointRemove{ background: rgba(255,255,255,0.08); }
   body.night .navSuggestion{ color: var(--text-main); border-bottom-color: rgba(255,176,32,0.10); }
   body.night .navSuggestion:active, body.night .navSuggestion.highlight{ background: rgba(255,255,255,0.06); }
   body.night .navSuggestion .addr2{ color: var(--text-dim); }
@@ -812,10 +832,16 @@
   </div>
 
   <div id="navSearchBlock">
-    <div id="navDestWrap">
-      <input type="text" id="navDest" placeholder="Wpisz cel podróży…" autocomplete="off">
-      <div id="navSuggestions"></div>
+    <div id="navOriginWrap" class="navStopWrap">
+      <input type="text" id="navOrigin" class="navStopInput" placeholder="Miejsce początkowe (domyślnie: Twoja pozycja)…" autocomplete="off">
+      <div id="navOriginSuggestions" class="navSuggestions"></div>
     </div>
+    <div id="navWaypointsList"></div>
+    <div id="navDestWrap" class="navStopWrap">
+      <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+      <div id="navSuggestions" class="navSuggestions"></div>
+    </div>
+    <div id="navAddWaypointBtn" role="button">+ Dodaj punkt pośredni</div>
   </div>
 
   <div id="navError"></div>
@@ -4513,121 +4539,205 @@
   }
 
   /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead) ---------- */
+  function navResultLabel(r){
+    const addr = r.address || {};
+    return addr.freeformAddress || r.poi?.name || "Nieznany adres";
+  }
+
+  /* ---------- generyczny silnik podpowiedzi adresu (TomTom Search) ----------
+     Jedna instancja obsługuje jedno pole: start, cel albo dowolny punkt pośredni.
+     wrapEl — element do sprawdzania kliknięcia "na zewnątrz" (chowa podpowiedzi).
+     opts.onSelect(r) — wywoływane z surowym wynikiem TomTom po wyborze.
+     opts.onTyping() — wywoływane przy każdej zmianie treści pola (np. czyszczenie starego wyboru).
+     opts.hasSelection() / opts.onEnterConfirm() — opcjonalne: Enter na już wybranej wartości
+     robi coś innego niż nowe wyszukiwanie (używane tylko przez pole celu — pokazuje pinezkę). */
+  function createStopSearch(wrapEl, input, box, opts){
+    opts = opts || {};
+    let abort = null;
+    let timer = null;
+    let suggestionsFor = "";
+
+    function clear(){
+      box.innerHTML = "";
+      box.classList.remove("open");
+    }
+    function render(results){
+      box.innerHTML = "";
+      if(!results || results.length === 0){ box.classList.remove("open"); return; }
+      results.forEach(r => {
+        const addr = r.address || {};
+        const label = navResultLabel(r);
+        const sub = [addr.municipality, addr.country].filter(Boolean).join(", ");
+        const item = document.createElement("div");
+        item.className = "navSuggestion";
+        item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
+        item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
+        item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
+        item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
+        box.appendChild(item);
+      });
+      box.classList.add("open");
+    }
+    function fetchSuggestions(query, autoPick){
+      if(!tomtomApiKey){
+        showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
+        setNavKeyRowOpen(true);
+        return;
+      }
+      showNavError("");
+      if(abort) abort.abort();
+      abort = new AbortController();
+
+      const params = new URLSearchParams({
+        key: tomtomApiKey,
+        typeahead: autoPick ? "false" : "true",
+        limit: "5",
+        countrySet: NAV_DEFAULT_COUNTRY
+      });
+      if(lastPos){
+        params.set("lat", lastPos.lat);
+        params.set("lon", lastPos.lon);
+      }
+      const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
+
+      fetch(url, { signal: abort.signal })
+        .then(r => {
+          if(r.status === 403) throw new Error("UNAUTHORIZED");
+          if(!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(data => {
+          if(autoPick){
+            // Enter bez czekania na podpowiedzi: bierzemy najlepszy wynik
+            if(data.results && data.results.length){ clear(); if(opts.onSelect) opts.onSelect(data.results[0]); }
+            else showNavError("Nie znaleziono takiego adresu.");
+            return;
+          }
+          suggestionsFor = query;
+          render(data.results);
+        })
+        .catch(err => {
+          if(err.name === "AbortError") return;
+          console.warn("TomTom search error:", err);
+          if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+          else showNavError("Nie udało się pobrać podpowiedzi adresów.");
+        });
+    }
+
+    input.addEventListener("input", (e) => {
+      if(opts.onTyping) opts.onTyping();
+      const q = e.target.value.trim();
+      if(timer) clearTimeout(timer);
+      if(q.length < NAV_SUGGEST_MIN_CHARS){ clear(); return; }
+      timer = setTimeout(() => fetchSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if(e.key !== "Enter") return;
+      e.preventDefault();
+      if(timer) clearTimeout(timer);
+      if(opts.hasSelection && opts.hasSelection()){ if(opts.onEnterConfirm) opts.onEnterConfirm(); return; }
+      const q = e.target.value.trim();
+      const first = box.querySelector(".navSuggestion");
+      // podpowiedzi muszą pasować do wpisanego tekstu (inaczej są nieaktualne)
+      if(first && suggestionsFor === q) first.click();
+      else if(q.length >= NAV_SUGGEST_MIN_CHARS) fetchSuggestions(q, true);
+    });
+
+    document.addEventListener("click", (e) => {
+      if(!e.target.closest(wrapEl)) clear();
+    });
+
+    return { clear };
+  }
+
   function clearNavSuggestions(){
     const box = document.getElementById("navSuggestions");
     box.innerHTML = "";
     box.classList.remove("open");
   }
 
-  function navResultLabel(r){
-    const addr = r.address || {};
-    return addr.freeformAddress || r.poi?.name || "Nieznany adres";
-  }
+  // ---------- pole celu podróży (jak dotychczas: wybór pokazuje pinezkę do potwierdzenia) ----------
+  createStopSearch(
+    document.getElementById("navDestWrap"),
+    document.getElementById("navDest"),
+    document.getElementById("navSuggestions"),
+    {
+      onTyping: () => { navSelectedDest = null; removeDestPin(); },
+      hasSelection: () => !!navSelectedDest,
+      onEnterConfirm: () => confirmDestination(),
+      // Wybór wyniku: pinezka staje tam, dokąd GPS faktycznie ma doprowadzić — jeśli TomTom
+      // podaje punkt wjazdu/dojazdu ("main entry point"), używamy go, inaczej środka adresu.
+      onSelect: (r) => {
+        const label = navResultLabel(r);
+        const entry = (r.entryPoints || []).find(e => e.type === "main");
+        const pos = (entry && entry.position) || r.position;
+        navSelectedDest = { lat: pos.lat, lon: pos.lon, label };
+        document.getElementById("navDest").value = label;
+        confirmDestination();
+      }
+    }
+  );
 
-  // Użytkownik wybrał wynik (kliknięcie podpowiedzi albo Enter). Pinezka staje tam, dokąd
-  // GPS faktycznie ma doprowadzić: jeśli TomTom podaje punkt wjazdu/dojazdu ("main entry point"),
-  // używamy jego, w przeciwnym razie środka adresu.
-  function selectNavResult(r){
-    const label = navResultLabel(r);
-    const entry = (r.entryPoints || []).find(e => e.type === "main");
-    const pos = (entry && entry.position) || r.position;
-    navSelectedDest = { lat: pos.lat, lon: pos.lon, label };
-    document.getElementById("navDest").value = label;
-    clearNavSuggestions();
-    confirmDestination();
-  }
+  // ---------- pole miejsca początkowego (opcjonalne — puste = użyj bieżącej pozycji GPS) ----------
+  let navSelectedOrigin = null; // null = start od aktualnej pozycji GPS
+  createStopSearch(
+    document.getElementById("navOriginWrap"),
+    document.getElementById("navOrigin"),
+    document.getElementById("navOriginSuggestions"),
+    {
+      onTyping: () => { navSelectedOrigin = null; },
+      onSelect: (r) => {
+        const label = navResultLabel(r);
+        const pos = r.position;
+        navSelectedOrigin = { lat: pos.lat, lon: pos.lon, label };
+        document.getElementById("navOrigin").value = label;
+      }
+    }
+  );
 
-  function renderNavSuggestions(results){
-    const box = document.getElementById("navSuggestions");
-    box.innerHTML = "";
-    if(!results || results.length === 0){ box.classList.remove("open"); return; }
-    results.forEach(r => {
-      const addr = r.address || {};
-      const label = navResultLabel(r);
-      const sub = [addr.municipality, addr.country].filter(Boolean).join(", ");
-      const item = document.createElement("div");
-      item.className = "navSuggestion";
-      item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
-      item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-      item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
-      item.addEventListener("click", () => selectNavResult(r));
-      box.appendChild(item);
+  // ---------- punkty pośrednie: dowolna liczba pól dodawanych przyciskiem "+" ----------
+  const NAV_MAX_WAYPOINTS = 3;
+  function getOrderedWaypoints(){
+    return Array.from(document.querySelectorAll("#navWaypointsList .navWaypointWrap"))
+      .map(w => w._navPoint)
+      .filter(Boolean);
+  }
+  function updateAddWaypointVisibility(){
+    const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
+    document.getElementById("navAddWaypointBtn").style.display = rows >= NAV_MAX_WAYPOINTS ? "none" : "";
+  }
+  function addWaypointRow(){
+    const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
+    if(rows >= NAV_MAX_WAYPOINTS) return;
+    const wrap = document.createElement("div");
+    wrap.className = "navStopWrap navWaypointWrap";
+    wrap._navPoint = null;
+    wrap.innerHTML = `
+      <input type="text" class="navStopInput navWaypointInput" placeholder="Punkt pośredni…" autocomplete="off">
+      <div class="navSuggestions"></div>
+      <div class="navWaypointRemove" title="Usuń ten punkt" role="button">✕</div>
+    `;
+    document.getElementById("navWaypointsList").appendChild(wrap);
+    const input = wrap.querySelector(".navWaypointInput");
+    const box = wrap.querySelector(".navSuggestions");
+    createStopSearch(wrap, input, box, {
+      onTyping: () => { wrap._navPoint = null; },
+      onSelect: (r) => {
+        const label = navResultLabel(r);
+        const pos = r.position;
+        wrap._navPoint = { lat: pos.lat, lon: pos.lon, label };
+        input.value = label;
+      }
     });
-    box.classList.add("open");
-  }
-
-  let navSuggestionsFor = "";   // dla jakiego tekstu pobrano aktualnie wyświetlane podpowiedzi
-  function fetchNavSuggestions(query, autoPick){
-    if(!tomtomApiKey){
-      showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
-      setNavKeyRowOpen(true);
-      return;
-    }
-    showNavError("");
-    if(navSuggestAbort) navSuggestAbort.abort();
-    navSuggestAbort = new AbortController();
-
-    const params = new URLSearchParams({
-      key: tomtomApiKey,
-      typeahead: autoPick ? "false" : "true",
-      limit: "5",
-      countrySet: NAV_DEFAULT_COUNTRY
+    wrap.querySelector(".navWaypointRemove").addEventListener("click", () => {
+      wrap.remove();
+      updateAddWaypointVisibility();
     });
-    if(lastPos){
-      params.set("lat", lastPos.lat);
-      params.set("lon", lastPos.lon);
-    }
-    const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
-
-    fetch(url, { signal: navSuggestAbort.signal })
-      .then(r => {
-        if(r.status === 403) throw new Error("UNAUTHORIZED");
-        if(!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(data => {
-        if(autoPick){
-          // Enter bez czekania na podpowiedzi: bierzemy najlepszy wynik
-          if(data.results && data.results.length) selectNavResult(data.results[0]);
-          else showNavError("Nie znaleziono takiego adresu.");
-          return;
-        }
-        navSuggestionsFor = query;
-        renderNavSuggestions(data.results);
-      })
-      .catch(err => {
-        if(err.name === "AbortError") return;
-        console.warn("TomTom search error:", err);
-        if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
-        else showNavError("Nie udało się pobrać podpowiedzi adresów.");
-      });
+    updateAddWaypointVisibility();
+    input.focus();
   }
-
-  document.getElementById("navDest").addEventListener("input", (e) => {
-    const q = e.target.value.trim();
-    navSelectedDest = null;
-    removeDestPin();
-    if(navSuggestTimer) clearTimeout(navSuggestTimer);
-    if(q.length < NAV_SUGGEST_MIN_CHARS){ clearNavSuggestions(); return; }
-    navSuggestTimer = setTimeout(() => fetchNavSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
-  });
-
-  document.getElementById("navDest").addEventListener("keydown", (e) => {
-    if(e.key === "Enter"){
-      e.preventDefault();
-      if(navSuggestTimer) clearTimeout(navSuggestTimer);
-      const q = e.target.value.trim();
-      const first = document.querySelector("#navSuggestions .navSuggestion");
-      if(navSelectedDest) confirmDestination();
-      // podpowiedzi muszą pasować do wpisanego tekstu (inaczej są nieaktualne)
-      else if(first && navSuggestionsFor === q) first.click();
-      else if(q.length >= NAV_SUGGEST_MIN_CHARS) fetchNavSuggestions(q, true);
-    }
-  });
-
-  document.addEventListener("click", (e) => {
-    if(!e.target.closest("#navDestWrap")) clearNavSuggestions();
-  });
+  document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
 
   function setNavPanelCollapsed(collapsed){
     const panel = document.getElementById("navPanel");
@@ -4805,19 +4915,20 @@
   /* ---------- wyznaczanie trasy + limity + ruch (TomTom Routing) ---------- */
   // czysta funkcja pobierająca dane — nie dotyka UI/activeRoute, żeby dało się ją odpalić
   // równolegle z lokalną trasą alternatywną i wybrać dopiero jedną z dwóch gotowych propozycji
-  function fetchTomTomRoute(origin, dest){
+  function fetchTomTomRoute(stops){
     if(!tomtomApiKey) return Promise.reject(new Error("NO_KEY"));
     if(navRouteAbort) navRouteAbort.abort();
     navRouteAbort = new AbortController();
 
-    const originStr = `${origin.lat},${origin.lon}`;
-    const destStr = `${dest.lat},${dest.lon}`;
+    // "stops" to co najmniej [start, cel], a przy dodanych punktach pośrednich — więcej;
+    // TomTom przyjmuje dowolną liczbę punktów rozdzielonych dwukropkiem w tej samej trasie.
+    const pointsStr = stops.map(p => `${p.lat},${p.lon}`).join(":");
     // jeden request: trasa + ruch na żywo + limity prędkości wzdłuż trasy + utrudnienia
     const params = new URLSearchParams({
       key: tomtomApiKey, traffic: "true", travelMode: "car", routeType: "fastest",
       language: "pl-PL", report: "effectiveSettings"
     });
-    const url = `${TOMTOM_ROUTE_URL}${originStr}:${destStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -4871,12 +4982,14 @@
     goBtn.disabled = true;
     showNavStatus("Wyznaczam trasy…");
 
-    const origin = { lat: lastPos.lat, lon: lastPos.lon };
+    const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
+    const waypoints = getOrderedWaypoints();
+    const stops = [origin, ...waypoints, navSelectedDest];
     let tomtomErr = null;
 
     Promise.all([
-      fetchTomTomRoute(origin, navSelectedDest).catch(err => { tomtomErr = err; return null; }),
-      computeLocalMainRoadsRoute([origin.lon, origin.lat], [navSelectedDest.lon, navSelectedDest.lat])
+      fetchTomTomRoute(stops).catch(err => { tomtomErr = err; return null; }),
+      computeLocalMultiLegRoute(stops.map(p => [p.lon, p.lat]))
     ]).then(([mainRoute, altRoute]) => {
       showNavStatus("");
       goBtn.disabled = false;
@@ -5004,17 +5117,20 @@
     return coords;
   }
 
-  function fetchTruckRoute(origin, dest){
+  function fetchTruckRoute(stops){
     if(truckRouteAbort) truckRouteAbort.abort();
     truckRouteAbort = new AbortController();
     const ctrl = truckRouteAbort;
     const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
 
+    // pierwszy i ostatni punkt to "break" (start/cel), punkty pośrednie — "through"
+    // (trasa musi przez nie przejechać, ale bez zawracania/postoju w nich)
+    const locations = stops.map((p, i) => ({
+      lat: p.lat, lon: p.lon,
+      type: (i === 0 || i === stops.length - 1) ? "break" : "through"
+    }));
     const request = {
-      locations: [
-        { lat: origin.lat, lon: origin.lon, type: "break" },
-        { lat: dest.lat, lon: dest.lon, type: "break" }
-      ],
+      locations,
       costing: "truck",
       costing_options: { truck: Object.assign({}, HGV_PROFILE, {
         use_highways: 1.0,        // preferuj autostrady i drogi główne
@@ -5058,7 +5174,9 @@
     planBtn.disabled = true; goBtn.disabled = true;
     showNavStatus("Planuję trasę dla ciężarówki…");
 
-    fetchTruckRoute({ lat: lastPos.lat, lon: lastPos.lon }, navSelectedDest)
+    const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
+    const waypoints = getOrderedWaypoints();
+    fetchTruckRoute([origin, ...waypoints, navSelectedDest])
       .then(route => startPlannedRoute(route))
       .catch(err => {
         if(err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas. Spróbuj ponownie.");
@@ -5203,6 +5321,7 @@
 
   function clearNavRoute(){
     navSelectedDest = null;
+    navSelectedOrigin = null;
     removeDestPin();
     activeRoute = null;
     pendingRoutes = { main:null, alt:null };
@@ -5214,6 +5333,9 @@
     routeBeforeEdit = null;
     applyRouteEditVisuals();
     document.getElementById("navDest").value = "";
+    document.getElementById("navOrigin").value = "";
+    document.getElementById("navWaypointsList").innerHTML = "";
+    updateAddWaypointVisibility();
     document.getElementById("navRouteInfo").classList.remove("show", "planning");
     document.getElementById("btnFitRoute").classList.remove("visible");
     clearNavSuggestions();
@@ -5771,6 +5893,27 @@
       console.warn("Lokalna trasa alternatywna nie powiodła się:", err);
       return null;
     });
+  }
+
+  // Jak wyżej, ale przez dowolną liczbę punktów pośrednich: liczy trasę odcinek po odcinku
+  // (start→wp1, wp1→wp2, …, wpN→cel) i skleja wynik w jedną całość. Jeśli którykolwiek
+  // odcinek się nie uda, cała trasa lokalna jest uznawana za niedostępną (wraca null).
+  function computeLocalMultiLegRoute(pointsLL){
+    if(pointsLL.length < 2) return Promise.resolve(null);
+    let chain = Promise.resolve({ coords: [], distanceM: 0, timeS: 0 });
+    for(let i = 0; i < pointsLL.length - 1; i++){
+      const a = pointsLL[i], b = pointsLL[i + 1];
+      chain = chain.then(acc => {
+        if(!acc) return null;
+        return computeLocalMainRoadsRoute(a, b).then(leg => {
+          if(!leg) return null;
+          // unikamy zdublowanego punktu na styku dwóch odcinków
+          const coords = acc.coords.length ? acc.coords.concat(leg.coords.slice(1)) : leg.coords;
+          return { coords, distanceM: acc.distanceM + leg.distanceM, timeS: acc.timeS + leg.timeS };
+        });
+      });
+    }
+    return chain;
   }
 
   /* ---------- edycja trasy: nowy fragment prowadzi przez upuszczony punkt aż do CELU (Valhalla) ----------
