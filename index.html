@@ -496,6 +496,48 @@
   #navKeySaved.show, .navKeySaved.show{ opacity:1; }
   .navKeyRowStack{ display:flex; flex-direction:column; gap:6px; }
 
+  /* ---------- Pasek postępu automatycznej synchronizacji Overpass ↔ Supabase ---------- */
+  #navSupaProgress{
+    display:grid; grid-template-rows:0fr; opacity:0;
+    transition: grid-template-rows .35s ease, opacity .3s ease, margin-top .35s ease;
+    margin-top:0;
+    overflow:hidden;
+  }
+  #navSupaProgress.show{ grid-template-rows:1fr; opacity:1; margin-top:4px; }
+  #navSupaProgress > *{ min-height:0; }
+  #navSupaProgress .navSupaProgressInner{ display:flex; flex-direction:column; gap:6px; }
+  .navSupaProgressHead{
+    display:flex; align-items:center; gap:7px;
+    font-size:11px; font-weight:600; color: var(--text-main);
+    padding-bottom:2px;
+  }
+  .navSupaProgressSpinner{
+    width:11px; height:11px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.25);
+    border-top-color: var(--accent);
+    animation: navSupaSpin .7s linear infinite;
+    flex:0 0 auto;
+  }
+  #navSupaProgress.done .navSupaProgressSpinner{ animation:none; border-color: var(--accent); }
+  @keyframes navSupaSpin{ to{ transform: rotate(360deg); } }
+  .navSupaProgressRow{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; color: var(--text-dim);
+  }
+  .navSupaProgressPct{ font-weight:700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .navSupaProgressBar{
+    height:6px; border-radius:4px; background: rgba(255,255,255,0.08);
+    overflow:hidden; position:relative;
+  }
+  .navSupaProgressFill{
+    height:100%; width:0%; border-radius:4px;
+    background: linear-gradient(90deg, var(--accent), #7dd3fc);
+    background-size: 200% 100%;
+    animation: navSupaShimmer 1.4s linear infinite;
+    transition: width .5s ease;
+  }
+  @keyframes navSupaShimmer{ 0%{ background-position:200% 0; } 100%{ background-position:0 0; } }
+
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -877,6 +919,25 @@
       </div>
     </div>
     <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+
+    <div id="navSupaProgress">
+      <div class="navSupaProgressInner">
+        <div class="navSupaProgressHead">
+          <span id="navSupaProgressSpinner" class="navSupaProgressSpinner"></span>
+          <span id="navSupaProgressTitle">Synchronizowanie wspólnej bazy…</span>
+        </div>
+        <div class="navSupaProgressRow">
+          <span class="navSupaProgressLabel">📤 Overpass → Supabase</span>
+          <span class="navSupaProgressPct" id="navSupaPctUp">0%</span>
+        </div>
+        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillUp"></div></div>
+        <div class="navSupaProgressRow">
+          <span class="navSupaProgressLabel">📥 Supabase → aplikacja</span>
+          <span class="navSupaProgressPct" id="navSupaPctDown">0%</span>
+        </div>
+        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2614,7 +2675,7 @@
     }));
   }
 
-  function loadUkMotorwayJunctionsOnce(){
+  function loadUkMotorwayJunctionsOnce(force){
     if(!map.getSource("motorway-junctions")) return;
 
     let baseRaw = [];
@@ -2629,7 +2690,7 @@
         baseRaw = Array.isArray(cached.rawFeatures) ? cached.rawFeatures : cached.features;
         const fresh = Date.now() - cached.savedAt < JUNCTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps) return; // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
+        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("junctions"); return; } // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
         if(hasGaps) bandsToFetch = cached.failedBands;
       }
     }catch(e){
@@ -2643,6 +2704,7 @@
           setJunctionData(features);
           debugLog("info", `Zjazdy autostradowe: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features, rawFeatures: features, failedBands: [] })); }catch(e){}
+          sharedDataMarkSupabase("junctions");
           return;
         }
         runJunctionsOverpass(baseRaw, bandsToFetch);
@@ -2655,6 +2717,7 @@
 
   function runJunctionsOverpass(baseRaw, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
+    sharedDataMarkOverpassStart("junctions", bands.length);
     debugLog("info", bandsToFetch
       ? `Zjazdy autostradowe: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
       : "Zjazdy autostradowe: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
@@ -2662,6 +2725,7 @@
     // 2) pobieramy fragment po fragmencie; po każdym od razu pokazujemy to, co już mamy
     downloadJunctionsBands(bands, ({ rawFeatures }) => {
       setJunctionData(dedupeJunctions(baseRaw.concat(rawFeatures)));
+      sharedDataMarkOverpassBand("junctions");
     }).then(({ rawFeatures, failedBands }) => {
       const allRaw = baseRaw.concat(rawFeatures);
       const features = dedupeJunctions(allRaw);
@@ -2685,6 +2749,7 @@
           ref: f.properties.ref, name: f.properties.name,
           lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
         })), "junction_key");
+      sharedDataMarkUploaded("junctions");
       if(failedBands.length && junctionsRetries++ < JUNCTIONS_MAX_RETRIES){
         setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -2807,7 +2872,9 @@
     const west = GB_BOUNDS[0][0], east = GB_BOUNDS[1][0];
     const found = new Map();
     let chain = Promise.resolve();
-    for(let i = 0; i < MW_CAMERA_LAT_BANDS.length - 1; i++){
+    const totalBands = MW_CAMERA_LAT_BANDS.length - 1;
+    sharedDataMarkOverpassStart("cameras", totalBands);
+    for(let i = 0; i < totalBands; i++){
       const south = MW_CAMERA_LAT_BANDS[i], north = MW_CAMERA_LAT_BANDS[i + 1];
       chain = chain.then(() => {
         const query = `
@@ -2823,13 +2890,14 @@
           (data.elements || []).forEach(el => {
             if(el.type === "node") found.set(el.id, { id: el.id, lat: el.lat, lon: el.lon });
           });
+          sharedDataMarkOverpassBand("cameras");
         });
       });
     }
     return chain.then(() => Array.from(found.values()));
   }
 
-  function loadMotorwayCamerasOnce(){
+  function loadMotorwayCamerasOnce(force){
     if(!map.getSource("motorway-cameras")) return;
 
     // 1) pamięć lokalna: pokaż od razu (także stare dane, dopóki nie ma nowych)
@@ -2837,7 +2905,7 @@
     if(cached){
       showMotorwayCameras(cached.cams);
       debugLog("info", `Fotoradary autostradowe: ${cached.cams.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS) return; // świeże — nic nie pobieramy
+      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS && !force){ sharedDataMarkResolved("cameras"); return; } // świeże — nic nie pobieramy
     }
 
     // 2) wspólna baza, a gdy jej nie ma albo jest pusta — 3) Overpass
@@ -2847,13 +2915,15 @@
         return downloadMotorwayCameras().then(cams => ({ cams, fromShared: false }));
       })
       .then(({ cams, fromShared }) => {
-        if(!cams.length) return; // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
+        if(fromShared) sharedDataMarkSupabase("cameras");
+        if(!cams.length){ sharedDataMarkResolved("cameras"); return; } // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
         showMotorwayCameras(cams);
         saveMotorwayCameraCache(cams);
-        if(!fromShared) uploadMotorwayCamerasToSupabase(cams);
+        if(!fromShared){ uploadMotorwayCamerasToSupabase(cams); sharedDataMarkUploaded("cameras"); }
       })
       .catch(err => {
         console.warn("Nie udało się pobrać fotoradarów autostradowych:", err);
+        sharedDataMarkResolved("cameras");
         if(mwCameraRetries++ < MW_CAMERA_MAX_RETRIES){
           setTimeout(loadMotorwayCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
         }
@@ -2938,7 +3008,7 @@
     return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
   }
 
-  function loadAvgSpeedCamerasOnce(){
+  function loadAvgSpeedCamerasOnce(force){
     if(!map.getSource("avg-speed-cameras")) return;
 
     let baseFeatures = [];
@@ -2952,7 +3022,7 @@
         debugLog("info", `Odcinkowy pomiar prędkości: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps) return;
+        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("avgSpeed"); return; }
         if(hasGaps){
           bandsToFetch = cached.failedBands;
         } else {
@@ -2973,6 +3043,7 @@
           setAvgSpeedCameraData(features);
           debugLog("info", `Odcinkowy pomiar prędkości: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(AVG_SPEED_CAMERA_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
+          sharedDataMarkSupabase("avgSpeed");
           return;
         }
         runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch);
@@ -2985,12 +3056,14 @@
 
   function runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
+    sharedDataMarkOverpassStart("avgSpeed", bands.length);
     debugLog("info", bandsToFetch
       ? `Odcinkowy pomiar prędkości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
       : "Odcinkowy pomiar prędkości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
 
     downloadAvgSpeedCamerasBands(bands, ({ features }) => {
       setAvgSpeedCameraData(baseFeatures.concat(features));
+      sharedDataMarkOverpassBand("avgSpeed");
     }).then(({ features, failedBands }) => {
       const all = baseFeatures.concat(features);
       setAvgSpeedCameraData(all);
@@ -3009,6 +3082,7 @@
       if(!failedBands.length) uploadRowsToSupabase("avg_speed_cameras",
         all.map(f => ({ osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
+      sharedDataMarkUploaded("avgSpeed");
       if(failedBands.length && avgSpeedCameraRetries++ < AVG_SPEED_CAMERA_MAX_RETRIES){
         setTimeout(loadAvgSpeedCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -3093,7 +3167,7 @@
     return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
   }
 
-  function loadHgvCompaniesOnce(){
+  function loadHgvCompaniesOnce(force){
     if(!map.getSource("hgv-companies")) return;
 
     let baseFeatures = [];
@@ -3107,7 +3181,7 @@
         debugLog("info", `Firmy/operatorzy: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps) return;
+        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("hgv"); return; }
         if(hasGaps){
           bandsToFetch = cached.failedBands;
         } else {
@@ -3125,6 +3199,7 @@
           setHgvCompaniesData(features);
           debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
+          sharedDataMarkSupabase("hgv");
           return;
         }
         runHgvCompaniesOverpass(baseFeatures, bandsToFetch);
@@ -3137,12 +3212,14 @@
 
   function runHgvCompaniesOverpass(baseFeatures, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
+    sharedDataMarkOverpassStart("hgv", bands.length);
     debugLog("info", bandsToFetch
       ? `Firmy/operatorzy: dociąganie ${bands.length} fragmentu(ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
       : "Firmy/operatorzy: pobieranie z Overpass, etapami…");
 
     downloadHgvCompaniesBands(bands, ({ features }) => {
       setHgvCompaniesData(baseFeatures.concat(features));
+      sharedDataMarkOverpassBand("hgv");
     }).then(({ features, failedBands }) => {
       const all = baseFeatures.concat(features);
       setHgvCompaniesData(all);
@@ -3161,6 +3238,7 @@
       if(!failedBands.length) uploadRowsToSupabase("hgv_companies",
         all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
+      sharedDataMarkUploaded("hgv");
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -3420,7 +3498,7 @@
     return { heightFeatures, weightFeatures, widthFeatures, signFeatures };
   }
 
-  function loadUkRestrictionsOnce(){
+  function loadUkRestrictionsOnce(force){
     if(!map.getSource("roads-maxheight")) return;
 
     idbGet(RESTRICTIONS_CACHE_KEY).then(cached => {
@@ -3440,7 +3518,7 @@
         const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         const hasWidthData = cached.hasWidth === true; // starszy cache (sprzed dodania szerokości) tego nie ma
-        if(fresh && !hasGaps && hasWidthData) return; // pełny, świeży cache z komplety danych — nic więcej do zrobienia
+        if(fresh && !hasGaps && hasWidthData && !force){ sharedDataMarkResolved("restrictions"); return; } // pełny, świeży cache z komplety danych — nic więcej do zrobienia
         if(hasGaps){
           // dociągamy TYLKO brakujące fragmenty, dokładając je do tego, co już mamy
           bandsToFetch = cached.failedBands;
@@ -3468,6 +3546,7 @@
               signFeatures: roundCoordsForCache(signFeatures),
               failedBands: [], hasWeight: true, hasWidth: true
             });
+            sharedDataMarkSupabase("restrictions");
             return;
           }
           runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
@@ -3481,6 +3560,7 @@
 
   function runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch){
     const bands = bandsToFetch || flattenRestrictionsRegions();
+    sharedDataMarkOverpassStart("restrictions", bands.length);
     debugLog("info", bandsToFetch
       ? `Znaki wysokości/tonażu/szerokości: dociąganie ${bands.length} brakującego(-ych) fragmentu(-ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
       : "Znaki wysokości/tonażu/szerokości: pobieranie z Overpass dla Anglii, Walii i Szkocji, etapami…");
@@ -3493,6 +3573,7 @@
         baseWidth.concat(widthFeatures),
         baseSigns.concat(signFeatures)
       );
+      sharedDataMarkOverpassBand("restrictions");
     }).then(({ heightFeatures, weightFeatures, widthFeatures, signFeatures, failedBands }) => {
       const allHeight = baseHeight.concat(heightFeatures);
       const allWeight = baseWeight.concat(weightFeatures);
@@ -3520,6 +3601,7 @@
         allWidth.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "width", value: f.properties.maxwidth, coords: f.geometry.coordinates }));
         uploadRowsToSupabase("road_restrictions", rows, "osm_id,kind");
       }
+      sharedDataMarkUploaded("restrictions");
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -3686,6 +3768,136 @@
         }))
       });
     }
+  }
+
+  /* ============================================================
+     POSTĘP AUTOMATYCZNEJ SYNCHRONIZACJI (Overpass ↔ Supabase)
+     ------------------------------------------------------------
+     Gdy użytkownik pierwszy raz uzupełni adres i klucz Supabase w ustawieniach,
+     od razu (bez czekania na restart) odpalamy pobranie wszystkich 5 kategorii
+     danych współdzielonych i pokazujemy w panelu ustawień dwa animowane paski:
+       • ile z brakujących danych ściągnęliśmy z Overpass i wysłaliśmy do Supabase
+       • ile danych, które już były w Supabase, ściągnęliśmy do aplikacji
+     Każda kategoria kończy się w jednym z trzech stanów: dane wzięte wprost ze
+     wspólnej bazy (liczy się do dolnego paska), dane dociągnięte z Overpass i
+     wysłane do bazy (liczy się do górnego paska), albo dane już świeże w cache
+     urządzenia (nic do przesłania — kategoria po prostu się "domyka").
+  ============================================================ */
+  const SHARED_DATA_CATEGORIES = [
+    { id: "junctions",    label: "Zjazdy autostradowe" },
+    { id: "cameras",      label: "Fotoradary autostradowe" },
+    { id: "avgSpeed",     label: "Odcinkowy pomiar prędkości" },
+    { id: "hgv",          label: "Firmy/operatorzy HGV" },
+    { id: "restrictions", label: "Znaki wysokości/tonażu/szerokości" }
+  ];
+  let sharedDataState = {};
+  let sharedDataHideTimer = null;
+  function resetSharedDataState(){
+    sharedDataState = {};
+    SHARED_DATA_CATEGORIES.forEach(c => {
+      sharedDataState[c.id] = { fromSupabase:false, opTotal:0, opDone:0, resolved:false };
+    });
+  }
+  resetSharedDataState();
+
+  function sharedDataMarkSupabase(id){
+    if(!sharedDataState[id]) return;
+    sharedDataState[id].fromSupabase = true;
+    sharedDataState[id].resolved = true;
+    renderSharedDataProgress();
+  }
+  function sharedDataMarkOverpassStart(id, total){
+    if(!sharedDataState[id]) return;
+    sharedDataState[id].opTotal = Math.max(1, total || 1);
+    sharedDataState[id].opDone = 0;
+    renderSharedDataProgress();
+  }
+  function sharedDataMarkOverpassBand(id){
+    if(!sharedDataState[id]) return;
+    const s = sharedDataState[id];
+    s.opDone = Math.min(s.opTotal || 1, s.opDone + 1);
+    renderSharedDataProgress();
+  }
+  function sharedDataMarkUploaded(id){
+    if(!sharedDataState[id]) return;
+    const s = sharedDataState[id];
+    if(s.opTotal) s.opDone = s.opTotal;
+    s.resolved = true;
+    renderSharedDataProgress();
+  }
+  function sharedDataMarkResolved(id){
+    if(!sharedDataState[id]) return;
+    sharedDataState[id].resolved = true;
+    renderSharedDataProgress();
+  }
+
+  function computeSharedDataProgress(){
+    let supaDone = 0, opTotal = 0, opDone = 0, opCategories = 0, resolvedCount = 0;
+    SHARED_DATA_CATEGORIES.forEach(c => {
+      const s = sharedDataState[c.id];
+      if(s.fromSupabase) supaDone++;
+      if(s.opTotal > 0){ opCategories++; opTotal += s.opTotal; opDone += s.opDone; }
+      if(s.resolved) resolvedCount++;
+    });
+    const allResolved = resolvedCount === SHARED_DATA_CATEGORIES.length;
+    const supaPct = Math.round(supaDone / SHARED_DATA_CATEGORIES.length * 100);
+    const opPct = opCategories > 0 ? Math.round(opDone / opTotal * 100) : (allResolved ? 100 : 0);
+    return { supaPct, opPct, allResolved };
+  }
+
+  function renderSharedDataProgress(){
+    const { supaPct, opPct, allResolved } = computeSharedDataProgress();
+    const fillUp = document.getElementById("navSupaFillUp");
+    const fillDown = document.getElementById("navSupaFillDown");
+    const pctUp = document.getElementById("navSupaPctUp");
+    const pctDown = document.getElementById("navSupaPctDown");
+    const title = document.getElementById("navSupaProgressTitle");
+    const box = document.getElementById("navSupaProgress");
+    if(!fillUp || !fillDown || !box) return;
+    fillUp.style.width = opPct + "%";
+    fillDown.style.width = supaPct + "%";
+    pctUp.textContent = opPct + "%";
+    pctDown.textContent = supaPct + "%";
+    if(allResolved){
+      box.classList.add("done");
+      title.textContent = "Wspólna baza zsynchronizowana ✓";
+      if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
+      sharedDataHideTimer = setTimeout(hideSharedDataProgress, 4000);
+    } else {
+      box.classList.remove("done");
+      title.textContent = "Synchronizowanie wspólnej bazy…";
+    }
+  }
+
+  function showSharedDataProgress(){
+    resetSharedDataState();
+    if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
+    const box = document.getElementById("navSupaProgress");
+    if(!box) return;
+    box.classList.remove("done");
+    renderSharedDataProgress();
+    box.classList.add("show");
+    // zabezpieczenie: gdyby któraś kategoria nigdy się nie domknęła (np. Overpass wiecznie
+    // odpowiada błędem), po 2 minutach i tak chowamy pasek, żeby nie wisiał w nieskończoność
+    sharedDataHideTimer = setTimeout(hideSharedDataProgress, 120000);
+  }
+  function hideSharedDataProgress(){
+    if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
+    const box = document.getElementById("navSupaProgress");
+    if(box) box.classList.remove("show");
+  }
+
+  // Odpala pobranie wszystkich 5 kategorii wspólnych danych "na żądanie" (bez czekania na
+  // restart aplikacji), z parametrem force=true — pomija skrót "mam już świeży cache" i tak
+  // czy tak sprawdza wspólną bazę / dociąga z Overpass, żeby pasek postępu miał co pokazać.
+  function triggerSharedDataAutoLoad(){
+    if(!map || typeof map.getSource !== "function") return; // mapa jeszcze nie gotowa — zwykły start i tak to zrobi
+    showSharedDataProgress();
+    try{ loadUkMotorwayJunctionsOnce(true); }catch(e){ console.warn("Auto-sync zjazdów nieudany:", e); }
+    try{ loadMotorwayCamerasOnce(true); }catch(e){ console.warn("Auto-sync fotoradarów autostradowych nieudany:", e); }
+    try{ loadAvgSpeedCamerasOnce(true); }catch(e){ console.warn("Auto-sync odcinkowego pomiaru nieudany:", e); }
+    try{ loadHgvCompaniesOnce(true); }catch(e){ console.warn("Auto-sync firm/operatorów nieudany:", e); }
+    try{ loadUkRestrictionsOnce(true); }catch(e){ console.warn("Auto-sync znaków wysokości/tonażu nieudany:", e); }
   }
 
   /* ---------- Supabase — klient wspólnej bazy (opcjonalny; działa lokalnie, dopóki nie skonfigurowany) ---------- */
@@ -5179,6 +5391,7 @@
   });
 
   function saveSupaConfig(){
+    const wasConfigured = supaConfigured();
     supaUrl = navSupaUrlInput.value.trim();
     supaKey = navSupaKeyInput.value.trim();
     try{
@@ -5188,6 +5401,9 @@
       saved.classList.add("show");
       setTimeout(() => saved.classList.remove("show"), 1500);
     }catch(e){ /* localStorage niedostępny — konfiguracja zostaje tylko w pamięci sesji */ }
+    // dopiero co uzupełniono OBA pola (adres + klucz) — odpal od razu pobranie wspólnych
+    // danych z animowanym paskiem postępu, bez czekania na restart aplikacji
+    if(supaConfigured() && !wasConfigured) triggerSharedDataAutoLoad();
   }
 
   let navSupaSaveTimer = null;
