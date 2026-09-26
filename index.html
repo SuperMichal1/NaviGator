@@ -1380,6 +1380,9 @@
     });
   }
 
+  // Skaluje wartości w wyrażeniu zależnym od zoomu (interpolate/step), zachowując "zoom"
+  // jako wymagany TOP-LEVEL argument — owinięcie całego wyrażenia w ["*", expr, factor]
+  // jest niepoprawne wg specyfikacji stylu (stąd błędy "zoom expression may only be used...").
   // Autostrady (M1, M6…) w bazowym stylu wyglądają na wąskie, jednopasmowe drogi.
   // Pogrubiamy warstwy dróg klasy "motorway" (nitka + obwódka, na wszystkich zoomach
   // proporcjonalnie), żeby wizualnie przypominały drogę wielopasmową.
