@@ -557,6 +557,18 @@
     transition: width .5s ease;
   }
   @keyframes navSupaShimmer{ 0%{ background-position:200% 0; } 100%{ background-position:0 0; } }
+  .navSupaCategoryList{
+    display:flex; flex-direction:column; gap:3px;
+    margin-top:4px; padding-top:6px;
+    border-top:1px solid rgba(255,255,255,0.08);
+  }
+  .navSupaCategoryRow{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-size:10.5px; color: var(--text-dim);
+  }
+  .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
+  .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
 
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
@@ -962,6 +974,7 @@
           <span class="navSupaProgressPct" id="navSupaPctDown">0%</span>
         </div>
         <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
+        <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
       </div>
     </div>
   </div>
@@ -1842,12 +1855,13 @@
     buildingOutline: "#255b5f",
     halo: "#0c2b2e"          // obwódka etykiet
   };
-  // Drogi w nocy: wypełnienie + jaśniejszy obrys (casing). Klasy: motorway = autostrady, major = trunk/primary
-  // (drogi A), mid = secondary/tertiary i zjazdy, minor = lokalne/osiedlowe/serwisowe/ścieżki.
+  // Drogi w nocy: wypełnienie + ciemniejszy obrys (casing), żeby droga odcinała się od tła.
+  // Klasy: motorway = autostrady, major = trunk/primary (drogi A), mid = secondary/tertiary
+  // i zjazdy (drogi B), minor = lokalne/osiedlowe/serwisowe/ścieżki.
   const NIGHT_ROADS = {
     motorway: { fill: "#b5691f", casing: "#6a3b10" },  // ciemny pomarańcz, ciemniejszy obrys
     major:    { fill: "#87794a", casing: "#54492c" },  // drogi A: stonowana ochra wtopiona w tło
-    mid:      { fill: "#4c5d60", casing: "#7f9497" },  // grafit
+    mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
     minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
   };
   // Strefy przemysłowe i logistyczne (ważne dla HGV) — delikatnie wyróżnione na tle mapy
@@ -1860,10 +1874,9 @@
     opacity: 0.8,         // pełne krycie 5 poziomów zoomu po minZoom; niżej narasta od 0
     minZoom: 6            // było 8 — strefy widać o 2 poziomy zoomu wcześniej
   };
-  // Szczegóły, które w nocy pojawiają się dopiero po przybliżeniu (zoom mapy)
+  // Szczegóły, które pojawiają się dopiero po przybliżeniu (zoom mapy) — takie same w dzień i w nocy,
+  // żeby drogi nie „wyskakiwały" w różnych momentach zależnie od trybu
   const NIGHT_DETAIL = {
-    minorRoadsZoom: 14,          // drogi lokalne/osiedlowe/serwisowe/ścieżki — od tego zoomu
-    midRoadsZoomDelay: 2,        // drogi B (secondary/tertiary): o tyle poziomów zoomu później niż w bazowym stylu
     majorRoadsFade: [[8, 0], [10, 0.3], [12, 0.55], [13.5, 1]], // drogi A: [zoom, krycie] — z daleka niewidoczne, potem wtopione, po przybliżeniu w pełni
     residentialFade: [11, 13],   // zabudowa mieszkaniowa: 0% przy pierwszej wartości, 100% przy drugiej (było 12–14)
     buildingsFade: [14.5, 15.5]  // obrysy budynków: 0% -> 100%
@@ -2121,10 +2134,10 @@
     }
   }
 
-  // Zoom pokazywania dróg:
-  //  • lokalne (osiedlowe, serwisowe, dojazdy, ścieżki): w dzień +MINOR_ROAD_ZOOM_DELAY względem bazowego stylu,
-  //    w nocy dopiero od NIGHT_DETAIL.minorRoadsZoom
-  //  • drogi B (secondary/tertiary, bez zjazdów): w nocy +NIGHT_DETAIL.midRoadsZoomDelay względem bazowego stylu
+  // Zoom pokazywania dróg — TEN SAM w dzień i w nocy (wcześniej noc pokazywała drogi lokalne
+  // i drogi B dopiero po większym przybliżeniu niż dzień, co wyglądało na błąd):
+  //  • lokalne (osiedlowe, serwisowe, dojazdy, ścieżki): +MINOR_ROAD_ZOOM_DELAY względem bazowego stylu
+  //  • drogi B (secondary/tertiary, bez zjazdów): zoom z bazowego stylu, zsynchronizowany między warstwami
   const MINOR_ROAD_ZOOM_DELAY = 1;
   let roadZoomLayers = []; // { id, dayMin, nightMin, max }
   function delayMinorRoads(){
@@ -2140,7 +2153,7 @@
         const max = layer && layer.maxzoom !== undefined ? layer.maxzoom : 24;
         if(cls === "minor"){
           const dayMin = (orig || 12) + MINOR_ROAD_ZOOM_DELAY;
-          roadZoomLayers.push({ id: l.id, dayMin, nightMin: Math.max(dayMin, NIGHT_DETAIL.minorRoadsZoom), max });
+          roadZoomLayers.push({ id: l.id, dayMin, nightMin: dayMin, max });
         } else if(cls === "mid" && !/link/.test(l.id)){
           roadZoomLayers.push({ id: l.id, dayMin: orig, nightMin: orig, max, mid: true });
         }
@@ -2148,7 +2161,7 @@
       // drogi B: obrys i wypełnienie muszą zmieniać zoom razem — warstwa bez minzoom bierze wartość z pozostałych
       const positive = roadZoomLayers.filter(r => r.mid && r.dayMin > 0).map(r => r.dayMin);
       const midBase = positive.length ? Math.min.apply(null, positive) : 8;
-      roadZoomLayers.forEach(r => { if(r.mid) r.nightMin = (r.dayMin || midBase) + NIGHT_DETAIL.midRoadsZoomDelay; });
+      roadZoomLayers.forEach(r => { if(r.mid) r.nightMin = (r.dayMin || midBase); });
       applyMinorRoadZoom(document.body.classList.contains("night"));
     }catch(e){
       console.warn("Nie udało się ustawić zoomu dróg:", e);
@@ -3817,7 +3830,6 @@
     { id: "restrictions", label: "Znaki wysokości/tonażu/szerokości" }
   ];
   let sharedDataState = {};
-  let sharedDataHideTimer = null;
   function resetSharedDataState(){
     sharedDataState = {};
     SHARED_DATA_CATEGORIES.forEach(c => {
@@ -3871,6 +3883,31 @@
     return { supaPct, opPct, allResolved };
   }
 
+  // Krótki opis stanu JEDNEJ kategorii — to jest ta "bieżąca informacja o postępach
+  // pobierania poszczególnych elementów", o którą prosił użytkownik, a nie tylko sumaryczny %.
+  function sharedDataCategoryStatusText(id){
+    const s = sharedDataState[id];
+    if(!s) return "";
+    if(s.fromSupabase) return "✓ ze wspólnej bazy";
+    if(s.resolved && s.opTotal > 0) return "✓ wysłano do wspólnej bazy";
+    if(s.resolved) return "✓ aktualne (cache urządzenia)";
+    if(s.opTotal > 0) return `Overpass: ${s.opDone}/${s.opTotal} fragm.`;
+    return "sprawdzam…";
+  }
+
+  function renderSharedDataCategoryList(){
+    const list = document.getElementById("navSupaCategoryList");
+    if(!list) return;
+    list.innerHTML = SHARED_DATA_CATEGORIES.map(c => {
+      const s = sharedDataState[c.id];
+      const done = s && s.resolved;
+      return `<div class="navSupaCategoryRow${done ? " catDone" : ""}">` +
+        `<span class="catLabel">${c.label}</span>` +
+        `<span class="catStatus">${sharedDataCategoryStatusText(c.id)}</span>` +
+      `</div>`;
+    }).join("");
+  }
+
   function renderSharedDataProgress(){
     const { supaPct, opPct, allResolved } = computeSharedDataProgress();
     const fillUp = document.getElementById("navSupaFillUp");
@@ -3884,33 +3921,25 @@
     fillDown.style.width = supaPct + "%";
     pctUp.textContent = opPct + "%";
     pctDown.textContent = supaPct + "%";
+    renderSharedDataCategoryList();
     if(allResolved){
       box.classList.add("done");
       title.textContent = "Wspólna baza zsynchronizowana ✓";
-      if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
-      sharedDataHideTimer = setTimeout(hideSharedDataProgress, 4000);
     } else {
       box.classList.remove("done");
       title.textContent = "Synchronizowanie wspólnej bazy…";
     }
   }
 
+  // Panel zostaje widoczny na stałe od pierwszego uruchomienia synchronizacji — pokazuje
+  // bieżący stan każdej kategorii, dopóki użytkownik nie zamknie sekcji ustawień Supabase.
   function showSharedDataProgress(){
     resetSharedDataState();
-    if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
     const box = document.getElementById("navSupaProgress");
     if(!box) return;
     box.classList.remove("done");
     renderSharedDataProgress();
     box.classList.add("show");
-    // zabezpieczenie: gdyby któraś kategoria nigdy się nie domknęła (np. Overpass wiecznie
-    // odpowiada błędem), po 2 minutach i tak chowamy pasek, żeby nie wisiał w nieskończoność
-    sharedDataHideTimer = setTimeout(hideSharedDataProgress, 120000);
-  }
-  function hideSharedDataProgress(){
-    if(sharedDataHideTimer) clearTimeout(sharedDataHideTimer);
-    const box = document.getElementById("navSupaProgress");
-    if(box) box.classList.remove("show");
   }
 
   // Odpala pobranie wszystkich 5 kategorii wspólnych danych "na żądanie" (bez czekania na
