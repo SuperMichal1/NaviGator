@@ -1839,10 +1839,10 @@
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
        • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady ciepły pomarańcz, drogi A ochra,
-                          drogi średnie grafit, lokalne bardzo subtelne — wszystkie z jaśniejszym obrysem
+                          drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
-       • drogi A niewidoczne z daleka, wtapiają się w tło w średnim zoomie; drogi B i lokalne, zabudowa mieszkaniowa
-                          i budynki pojawiają się dopiero po przybliżeniu (NIGHT_DETAIL)
+       • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
+                          zabudowa mieszkaniowa i budynki nadal pojawiają się dopiero po przybliżeniu (NIGHT_DETAIL)
        • woda, budynki  = stałe, dobrane do tła kolory
        • lasy, parki…   = kolor dzienny przeliczony względem tła (zachowuje odcień, ciemnieje)
        • etykiety       = jasny tekst z ciemną obwódką
@@ -1877,7 +1877,6 @@
   // Szczegóły, które pojawiają się dopiero po przybliżeniu (zoom mapy) — takie same w dzień i w nocy,
   // żeby drogi nie „wyskakiwały" w różnych momentach zależnie od trybu
   const NIGHT_DETAIL = {
-    majorRoadsFade: [[8, 0], [10, 0.3], [12, 0.55], [13.5, 1]], // drogi A: [zoom, krycie] — z daleka niewidoczne, potem wtopione, po przybliżeniu w pełni
     residentialFade: [11, 13],   // zabudowa mieszkaniowa: 0% przy pierwszej wartości, 100% przy drugiej (było 12–14)
     buildingsFade: [14.5, 15.5]  // obrysy budynków: 0% -> 100%
   };
@@ -2082,19 +2081,18 @@
     applyMinorRoadZoom(night);
   }
 
-  // Drogi A, zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu)
+  // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu).
+  // Drogi A (kind "aroad") NIE mają już takiego zanikania — mają wyglądać identycznie w dzień i w nocy.
   function applyNightDetail(night){
     nightOpacityLayers.forEach(o => {
       try{
         if(!map.getLayer(o.id)) return;
-        let expr;
         if(o.kind === "aroad"){
-          expr = ["interpolate", ["linear"], ["zoom"]];
-          NIGHT_DETAIL.majorRoadsFade.forEach(p => expr.push(p[0], p[1]));
-        } else {
-          const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
-          expr = ["interpolate", ["linear"], ["zoom"], fade[0], 0, fade[1], 1];
+          map.setPaintProperty(o.id, o.prop, o.orig === undefined ? null : o.orig);
+          return;
         }
+        const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
+        const expr = ["interpolate", ["linear"], ["zoom"], fade[0], 0, fade[1], 1];
         const value = night ? expr : (o.orig === undefined ? null : o.orig);
         map.setPaintProperty(o.id, o.prop, value);
       }catch(e){ console.warn("Nie udało się ustawić krycia warstwy", o.id, e); }
