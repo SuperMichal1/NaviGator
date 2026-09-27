@@ -1858,9 +1858,16 @@
   // Drogi w nocy: wypełnienie + ciemniejszy obrys (casing), żeby droga odcinała się od tła.
   // Klasy: motorway = autostrady, major = trunk/primary (drogi A), mid = secondary/tertiary
   // i zjazdy (drogi B), minor = lokalne/osiedlowe/serwisowe/ścieżki.
+  // Drogi A (major) zmieniają KOLOR wraz z zoomem (nie krycie — to zostało celowo usunięte,
+  // żeby sieć dróg była zawsze widoczna): z daleka stonowana ochra wtopiona w tło, po przybliżeniu
+  // wyraźny, nasycony bursztyn — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
     motorway: { fill: "#b5691f", casing: "#6a3b10" },  // ciemny pomarańcz, ciemniejszy obrys
-    major:    { fill: "#87794a", casing: "#54492c" },  // drogi A: stonowana ochra wtopiona w tło
+    major:    {
+      fillFar: "#87794a", casingFar: "#54492c",        // z daleka: stonowana ochra wtopiona w tło (jak dotychczas)
+      fillNear: "#e0aa3d", casingNear: "#6b4a12"        // po przybliżeniu: wyraźny, nasycony bursztyn
+    },
+    majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
     minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
   };
@@ -2001,6 +2008,20 @@
     return "mid";
   }
 
+  // Kolor drogi w nocy dla danej klasy. Dla dróg A (major) to wyrażenie interpolujące kolor
+  // wraz z zoomem (stonowany z daleka → wyraźny bursztyn po przybliżeniu); dla pozostałych klas
+  // to zwykły stały kolor.
+  function nightRoadColorValue(cls, isCasing){
+    const spec = NIGHT_ROADS[cls];
+    if(cls === "major"){
+      const [zFar, zNear] = NIGHT_ROADS.majorColorZoom;
+      const far = isCasing ? spec.casingFar : spec.fillFar;
+      const near = isCasing ? spec.casingNear : spec.fillNear;
+      return ["interpolate", ["linear"], ["zoom"], zFar, far, zNear, near];
+    }
+    return spec[isCasing ? "casing" : "fill"];
+  }
+
   // Zwraca nocną wartość właściwości koloru danej warstwy (orig = wartość dzienna ze stylu)
   function nightThemeValue(info, prop, orig){
     const type = info.type, sl = info.sl;
@@ -2010,7 +2031,7 @@
     if(type === "line"){
       if(sl === "transportation"){
         const cls = nightRoadClass(info.id, info.filter);
-        if(cls) return NIGHT_ROADS[cls][/casing/.test(info.id) ? "casing" : "fill"];
+        if(cls) return nightRoadColorValue(cls, /casing/.test(info.id));
         return mapStyleColors(orig, nightLineColor); // tory, promy itp.
       }
       if(sl === "waterway") return NIGHT_THEME.waterway;
@@ -2457,6 +2478,10 @@
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
+      // Pokaż panel postępu od razu przy starcie (nie tylko po pierwszym skonfigurowaniu Supabase),
+      // żeby zawsze było widać co się właśnie dzieje z każdą kategorią wspólnych danych —
+      // w tym to, że kategoria ze świeżym cache NIE pobiera nic od nowa (patrz "force" niżej).
+      showSharedDataProgress();
       loadUkMotorwayJunctionsOnce();
       try{
         loadMotorwayCamerasOnce();
