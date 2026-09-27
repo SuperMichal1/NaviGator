@@ -2759,7 +2759,10 @@
       console.warn("Nie udało się odczytać cache zjazdów:", e);
     }
 
-    if(!bandsToFetch && supaConfigured()){
+    // sprawdzamy wspólną bazę ZAWSZE (nawet gdy lokalny cache ma luki po nieudanych fragmentach
+    // Overpass) — inaczej przy trwałych timeoutach Overpass dla tej kategorii nigdy nie
+    // zajrzelibyśmy do Supabase, mimo że dane mogą tam już dawno być kompletne
+    if(supaConfigured()){
       fetchTableFromSupabase("motorway_junctions", "ref,name,lat,lon").then(shared => {
         if(shared && shared.length){
           const features = shared.map(r => ({ type:"Feature", properties:{ ref: r.ref, name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
@@ -3095,10 +3098,10 @@
       console.warn("Nie udało się odczytać cache odcinkowego pomiaru prędkości:", e);
     }
 
-    // pełne pobranie (nie tylko dociąganie brakujących fragmentów) — spróbuj najpierw
-    // wspólnej bazy Supabase, jeśli skonfigurowana; dzięki temu Overpass odpytuje tylko
-    // pierwszy kierowca, reszta ściąga gotowe dane
-    if(!bandsToFetch && supaConfigured()){
+    // spróbuj najpierw wspólnej bazy Supabase, jeśli skonfigurowana — ZAWSZE, nawet gdy lokalny
+    // cache ma luki po nieudanych fragmentach Overpass (inaczej przy trwałych timeoutach nigdy
+    // nie zajrzelibyśmy do Supabase, mimo że dane mogą tam już dawno być kompletne)
+    if(supaConfigured()){
       fetchTableFromSupabase("avg_speed_cameras", "osm_id,lat,lon").then(shared => {
         if(shared && shared.length){
           const features = shared.map(r => ({ type:"Feature", properties:{ id: r.osm_id }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
@@ -3254,7 +3257,12 @@
       console.warn("Nie udało się odczytać cache firm/operatorów:", e);
     }
 
-    if(!bandsToFetch && supaConfigured()){
+    // sprawdzamy wspólną bazę ZAWSZE (nawet gdy lokalny cache ma luki po nieudanych fragmentach
+    // Overpass) — to firmy/operatorów HGV dotyczyło najbardziej: zapytanie Overpass dla tej
+    // kategorii bywa bardzo wolne/często się urywa, więc luki utrzymywały się miesiącami i przy
+    // starym kodzie aplikacja przy KAŻDYM starcie próbowała dobijać je z Overpass, mimo że dane
+    // od dawna były już komplet w Supabase
+    if(supaConfigured()){
       fetchTableFromSupabase("hgv_companies", "osm_id,name,lat,lon").then(shared => {
         if(shared && shared.length){
           const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
@@ -3594,7 +3602,10 @@
         // gdy przyjdą nowe (patrz setRestrictionsData wyżej i w onBandDone/then niżej)
       }
 
-      if(!bandsToFetch && supaConfigured()){
+      // sprawdzamy wspólną bazę ZAWSZE (nawet gdy lokalny cache ma luki po nieudanych
+      // fragmentach Overpass) — inaczej przy trwałych timeoutach dla tej kategorii nigdy
+      // nie zajrzelibyśmy do Supabase, mimo że dane mogą tam już dawno być kompletne
+      if(supaConfigured()){
         fetchTableFromSupabase("road_restrictions", "osm_id,kind,value,coords").then(shared => {
           if(shared && shared.length){
             const { heightFeatures, weightFeatures, widthFeatures, signFeatures } = restrictionRowsToFeatures(shared);
