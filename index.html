@@ -2772,6 +2772,7 @@
           sharedDataMarkSupabase("junctions");
           return;
         }
+        debugLogSupabaseFallback("Zjazdy autostradowe", shared);
         runJunctionsOverpass(baseRaw, bandsToFetch);
       });
       return;
@@ -3111,6 +3112,7 @@
           sharedDataMarkSupabase("avgSpeed");
           return;
         }
+        debugLogSupabaseFallback("Odcinkowy pomiar prędkości", shared);
         runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch);
       });
       return;
@@ -3272,6 +3274,7 @@
           sharedDataMarkSupabase("hgv");
           return;
         }
+        debugLogSupabaseFallback("Firmy/operatorzy", shared);
         runHgvCompaniesOverpass(baseFeatures, bandsToFetch);
       });
       return;
@@ -3622,6 +3625,7 @@
             sharedDataMarkSupabase("restrictions");
             return;
           }
+          debugLogSupabaseFallback("Znaki wysokości/tonażu/szerokości", shared);
           runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
         });
         return;
@@ -4017,6 +4021,15 @@
       },
       body: JSON.stringify({ p_kind: kind, p_lat: lat, p_lon: lon, p_device: getDeviceId() })
     }).then(r => r.ok).catch(() => false);
+  }
+
+  // Rozróżnia dwie różne przyczyny sięgnięcia po Overpass mimo skonfigurowanej Supabase:
+  // null = błąd połączenia/zapytania (patrz console.warn wyżej w fetchTableFromSupabase),
+  // pusta tablica = zapytanie się udało, ale tabela naprawdę jeszcze nie ma tych danych.
+  // Bez tego rozróżnienia z zewnątrz wygląda to identycznie jak "Overpass zamiast Supabase".
+  function debugLogSupabaseFallback(label, shared){
+    if(shared === null) debugLog("warn", `${label}: błąd zapytania do Supabase (szczegóły w konsoli) — pobieram z Overpass`);
+    else debugLog("info", `${label}: Supabase nie ma jeszcze tych danych — pobieram z Overpass`);
   }
 
   // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
@@ -4708,7 +4721,7 @@
     });
 
     document.addEventListener("click", (e) => {
-      if(!e.target.closest(wrapEl)) clear();
+      if(!wrapEl.contains(e.target)) clear();
     });
 
     return { clear };
