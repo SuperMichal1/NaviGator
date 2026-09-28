@@ -2416,6 +2416,12 @@
       map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
       junctionLayerSpecs().forEach(spec => map.addLayer(spec));
 
+      // tablice z numerami dróg mają leżeć NAD wyznaczoną trasą (ale nadal pod numerami zjazdów)
+      SHIELD_LAYER_IDS.forEach(id => {
+        if(map.getLayer(id)) map.moveLayer(id, JUNCTION_LAYER_IDS[0]);
+      });
+      applyRouteNightStyle();
+
       // fotoradary na autostradach (pobierane raz dla całej Wielkiej Brytanii i zapisywane lokalnie).
       // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
       // z okolicy pozycji, więc te większe je przykrywają, zamiast się dublować.
@@ -2626,6 +2632,51 @@
     }
   }
 
+  // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
+  function applyRouteNightStyle(){
+    if(!map || !map.getLayer("route-line-main")) return;
+    const night = document.body.classList.contains("night");
+    map.setPaintProperty("route-line-main", "line-color", night ? "#1DF5FF" : "#1FD6C1");
+    map.setPaintProperty("route-line-casing", "line-color", night ? "#00B4FF" : "#0c0f12");
+    map.setPaintProperty("route-line-casing", "line-opacity", night ? 0.55 : 0.55);
+    map.setPaintProperty("route-line-casing", "line-blur", night ? 5 : 0);
+    if(userMarkerEl) applyUserMarkerStyle();
+  }
+
+  function userMarkerSvgInner(night){
+    if(!night) return `
+        <circle cx="13" cy="13" r="11" fill="rgba(31,214,193,0.25)"/>
+        <path d="M13 3 L20 20 L13 16 L6 20 Z" fill="#1FD6C1" stroke="#0c0f12" stroke-width="1.2"/>`;
+    // noc: jasnoniebieska strzałka z gradientem i czerwoną poświatą
+    return `
+        <defs>
+          <linearGradient id="gpsArrowGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7FE3FF"/>
+            <stop offset="0.55" stop-color="#2F9EEF"/>
+            <stop offset="1" stop-color="#1F5FB0"/>
+          </linearGradient>
+          <radialGradient id="gpsArrowGlow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#FF3B3B" stop-opacity="0.75"/>
+            <stop offset="0.6" stop-color="#FF3B3B" stop-opacity="0.35"/>
+            <stop offset="1" stop-color="#FF3B3B" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="26" cy="26" r="24" fill="url(#gpsArrowGlow)"/>
+        <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
+  }
+
+  function applyUserMarkerStyle(){
+    if(!userMarkerEl) return;
+    const night = document.body.classList.contains("night");
+    const svg = userMarkerEl.querySelector("svg");
+    if(!svg) return;
+    svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
+    svg.setAttribute("width", night ? 52 : 26);
+    svg.setAttribute("height", night ? 52 : 26);
+    svg.innerHTML = userMarkerSvgInner(night);
+    userMarkerEl.style.width = userMarkerEl.style.height = (night ? 52 : 26) + "px";
+  }
+
   function addUserMarker(lat, lon){
     userMarkerEl = document.createElement("div");
     userMarkerEl.style.width = "26px";
@@ -2639,6 +2690,7 @@
     userMarker = new maplibregl.Marker({ element: userMarkerEl, rotationAlignment:"map", pitchAlignment:"map" })
       .setLngLat([lon, lat])
       .addTo(map);
+    applyUserMarkerStyle();
   }
 
   function updateUserMarker(lat, lon, heading){
@@ -6468,6 +6520,7 @@
     applyShieldMode();
     applyMotorwayLaneColors();
     applyNightTheme();
+    applyRouteNightStyle();
   });
 
   document.getElementById("btnLocate").addEventListener("click", () => {
