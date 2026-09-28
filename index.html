@@ -1147,6 +1147,12 @@
     height: 4.2, width: 2.55, length: 16.5, weight: 44, axle_load: 10, hazmat: false
   };
   const TRUCK_ROUTE_TIMEOUT_MS = 30000;
+  // Profile tras dla ciężarówki: SZYBKA (zrównoważona) i ŁATWA (maksymalnie autostrady/drogi główne,
+  // płatne odcinki dozwolone, duża kara za każdy manewr = mniej skrętów i zjazdów). Edycja ręczna używa profilu ŁATWEGO.
+  const TRUCK_FAST_OPTS = { use_highways: 0.6, use_living_streets: 0, use_tracks: 0 };
+  const TRUCK_EASY_OPTS = { use_highways: 1.0, use_tolls: 1.0, maneuver_penalty: 60, service_penalty: 300,
+                            use_living_streets: 0, use_tracks: 0 };
+  const TRUCK_SAME_ROUTE_TOL = 0.005; // trasy różniące się o mniej niż 0,5% dystansu i czasu uznajemy za tę samą
   const PLANNING_AUTO_START_KMH = 15; // po przekroczeniu tej prędkości planowanie kończy się i włącza widok jazdy
   const TOMTOM_REVERSE_URL = "https://api.tomtom.com/search/2/reverseGeocode/";
   const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
@@ -5141,6 +5147,7 @@
   }
 
   function renderRoutePicker(){
+    setPickerTitles("Trasa TomTom", "Trasa alternatywna (główne drogi)");
     const mainBtn = document.getElementById("navChooseMain");
     const altBtn = document.getElementById("navChooseAlt");
     const mainSub = document.getElementById("navChooseMainSub");
@@ -5253,10 +5260,12 @@
     return coords;
   }
 
-  function fetchTruckRoute(stops){
-    if(truckRouteAbort) truckRouteAbort.abort();
-    truckRouteAbort = new AbortController();
-    const ctrl = truckRouteAbort;
+  function fetchTruckRoute(stops, variant, ctrl){
+    if(!ctrl){
+      if(truckRouteAbort) truckRouteAbort.abort();
+      truckRouteAbort = new AbortController();
+      ctrl = truckRouteAbort;
+    }
     const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
 
     // pierwszy i ostatni punkt to "break" (start/cel), punkty pośrednie — "through"
@@ -5268,11 +5277,7 @@
     const request = {
       locations,
       costing: "truck",
-      costing_options: { truck: Object.assign({}, HGV_PROFILE, {
-        use_highways: 1.0,        // preferuj autostrady i drogi główne
-        use_living_streets: 0,    // nie wjeżdżaj na osiedlowe uliczki
-        use_tracks: 0
-      }) },
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, variant === "easy" ? TRUCK_EASY_OPTS : TRUCK_FAST_OPTS) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
     // GET z parametrem json= (jak robi to openstreetmap.org) — zwykłe żądanie, bez preflightu CORS
@@ -5312,29 +5317,76 @@
 
     const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
     const waypoints = getOrderedWaypoints();
-    fetchTruckRoute([origin, ...waypoints, navSelectedDest])
-      .then(route => startPlannedRoute(route))
-      .catch(err => {
+    const stops = [origin, ...waypoints, navSelectedDest];
+
+    // dwie trasy liczone RÓWNOCZEŚNIE; szybka pojawia się na mapie od razu, gdy tylko wróci
+    if(truckRouteAbort) truckRouteAbort.abort();
+    truckRouteAbort = new AbortController();
+    const ctrl = truckRouteAbort;
+    let firstErr = null;
+    const fastP = fetchTruckRoute(stops, "fast", ctrl).then(r => {
+      setRouteLineCoords(r.coords, "route-line");
+      return r;
+    }).catch(err => { firstErr = firstErr || err; return null; });
+    const easyP = fetchTruckRoute(stops, "easy", ctrl).catch(err => { firstErr = firstErr || err; return null; });
+
+    Promise.all([fastP, easyP]).then(([fast, easy]) => {
+      if(!fast && !easy){
+        const err = firstErr || new Error("VALHALLA");
         if(err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas. Spróbuj ponownie.");
         else if(err.code === 171) showNavError("Nie znaleziono drogi przy pinezce. Przesuń ją bliżej drogi dostępnej dla ciężarówek.");
         else showNavError("Nie udało się zaplanować trasy dla ciężarówki (darmowy serwer Valhalla). Spróbuj ponownie albo użyj „Wyznacz trasę”.");
         console.warn("Valhalla:", err);
-      })
-      .finally(() => {
-        showNavStatus("");
-        planBtn.disabled = false; goBtn.disabled = false;
-      });
+        setRouteLineCoords([], "route-line");
+        return;
+      }
+      const same = fast && easy &&
+        Math.abs(fast.distanceM - easy.distanceM) <= fast.distanceM * TRUCK_SAME_ROUTE_TOL &&
+        Math.abs(fast.timeS - easy.timeS) <= Math.max(60, fast.timeS * TRUCK_SAME_ROUTE_TOL);
+      if(!fast || !easy || same){ // jedna trasa (druga zawiodła albo jest identyczna) — od razu w edycji
+        startPlannedRoute(fast || easy, !fast ? "truck-easy" : "truck");
+        return;
+      }
+      pendingRoutes = { main: fast, alt: easy, truck: true };
+      renderTruckPicker();
+      setNavUiState("picker");
+    }).finally(() => {
+      showNavStatus("");
+      planBtn.disabled = false; goBtn.disabled = false;
+    });
+  }
+
+  // wybór między trasą szybką a łatwą (po „Zaplanuj trasę”) — używa tego samego okienka co „Wyznacz trasę”
+  function setPickerTitles(mainTitle, altTitle){
+    document.querySelector("#navChooseMain .rcTitle").textContent = mainTitle;
+    document.querySelector("#navChooseAlt .rcTitle").textContent = altTitle;
+  }
+  function renderTruckPicker(){
+    setPickerTitles("Szybka trasa", "Łatwa trasa (więcej autostrad)");
+    const f = pendingRoutes.main, e = pendingRoutes.alt;
+    const label = r => `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`;
+    document.getElementById("navChooseMain").classList.remove("unavailable");
+    document.getElementById("navChooseAlt").classList.remove("unavailable");
+    document.getElementById("navChooseMainSub").textContent = label(f);
+    const dT = Math.round((e.timeS - f.timeS) / 60), dD = (e.distanceM - f.distanceM) / 1000;
+    document.getElementById("navChooseAltSub").textContent = label(e) +
+      ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)`;
+    setRouteLineCoords(f.coords, "route-line");
+    setRouteLineCoords(e.coords, "route-line-alt");
+    const all = f.coords.concat(e.coords);
+    const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
+    map.fitBounds(bounds, { padding: 70, duration: 600 });
   }
 
   // pokazuje zaplanowaną trasę w całości i od razu włącza jej edycję (łapanie i przeciąganie)
-  function startPlannedRoute(route){
+  function startPlannedRoute(route, source){
     activeRoute = {
       coords: route.coords,
       distanceM: route.distanceM,
       timeS: route.timeS,
       trafficDelayS: 0,
       manuallyEdited: false,
-      source: "truck",
+      source: source || "truck",
       planning: true
     };
     routeSpeedSegments = [];
@@ -5417,10 +5469,12 @@
   });
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
-    if(pendingRoutes.main) selectRoute("main");
+    if(pendingRoutes.truck && pendingRoutes.main) startPlannedRoute(pendingRoutes.main, "truck");
+    else if(pendingRoutes.main) selectRoute("main");
   });
   document.getElementById("navChooseAlt").addEventListener("click", () => {
-    if(pendingRoutes.alt) selectRoute("alt");
+    if(pendingRoutes.truck && pendingRoutes.alt) startPlannedRoute(pendingRoutes.alt, "truck-easy");
+    else if(pendingRoutes.alt) selectRoute("alt");
   });
 
   function renderNavRouteInfo(){
@@ -5428,7 +5482,8 @@
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
     if(!activeRoute){ info.classList.remove("show"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
-      : activeRoute.source === "truck" ? " · trasa dla ciężarówki" : "";
+      : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
+      : activeRoute.source === "truck-easy" ? " · łatwa trasa (więcej autostrad)" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
@@ -6081,9 +6136,7 @@
     const request = {
       locations: [ from, through, { lat: destLL[1], lon: destLL[0], type: "break" } ],
       costing: "truck",
-      costing_options: { truck: Object.assign({}, HGV_PROFILE, {
-        use_highways: 1.0, use_living_streets: 0, use_tracks: 0
-      }) },
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, TRUCK_EASY_OPTS) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
     return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
