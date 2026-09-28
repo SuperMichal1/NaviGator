@@ -1152,7 +1152,6 @@
   const TRUCK_FAST_OPTS = { use_highways: 0.6, use_living_streets: 0, use_tracks: 0 };
   const TRUCK_EASY_OPTS = { use_highways: 1.0, use_tolls: 1.0, maneuver_penalty: 60, service_penalty: 300,
                             use_living_streets: 0, use_tracks: 0 };
-  const TRUCK_SAME_ROUTE_TOL = 0.005; // trasy różniące się o mniej niż 0,5% dystansu i czasu uznajemy za tę samą
   const PLANNING_AUTO_START_KMH = 15; // po przekroczeniu tej prędkości planowanie kończy się i włącza widok jazdy
   const TOMTOM_REVERSE_URL = "https://api.tomtom.com/search/2/reverseGeocode/";
   const TOMTOM_KEY_STORAGE = "nawigator_tomtom_api_key";
@@ -1176,7 +1175,7 @@
   const LOCAL_ROUTE_ANCHOR_M = 1800;      // jak daleko wzdłuż trasy sięgają "kotwice" po obu stronach przeciąganego punktu
   const LOCAL_ROUTE_BBOX_PAD_DEG = 0.015; // zapas wokół kotwic przy pobieraniu dróg
   const LOCAL_ROUTE_ANCHOR_SNAP_M = 150;  // maks. odległość kotwicy od drogi w grafie
-  const LOCAL_ROUTE_DRAG_SNAP_M = 600;    // maks. odległość upuszczonego punktu od głównej drogi
+  const LOCAL_ROUTE_DRAG_SNAP_M = 2500;    // maks. odległość upuszczonego punktu od głównej drogi
   const LOCAL_ROUTE_SPIKE_ANGLE_DEG = 150; // zawrotka ostrzejsza niż to na krótkim odcinku = "kolec", usuwamy
   const LOCAL_ROUTE_SPIKE_LEG_M = 80;
   const LOCAL_ROUTE_MAX_DETOUR_FACTOR = 2.2; // nowy fragment nie może być dłuższy niż tyle razy stary (+1,5 km zapasu)
@@ -1189,7 +1188,7 @@
   const ROUTE_TURN_PENALTY_PER_DEG = 3;    // "koszt" (w metrach ekwiwalentnych) za każdy stopień skrętu
   const ROUTE_UTURN_ANGLE_DEG = 150;       // powyżej tego kąta traktujemy skręt jak zawrotkę
   const ROUTE_UTURN_EXTRA_PENALTY = 400;   // dodatkowa kara za zawrotkę, żeby jej realnie unikać
-  const ROUTE_HIT_WIDTH_PX = 34;          // szerokość "pola łapania" trasy w trybie edycji
+  const ROUTE_HIT_WIDTH_PX = 60;          // szerokość "pola łapania" trasy w trybie edycji
   const ROUTE_DRAG_HOLD_MS = 320;   // ile trzeba przytrzymać nieruchomo na trasie, żeby ZACZĄĆ ją przeciągać
   const ROUTE_DRAG_CANCEL_PX = 9;   // jeśli w tym czasie palec/kursor przesunie się dalej — to zwykłe przewijanie mapy, nie edycja trasy
   const LOCAL_ROUTE_SPEED_KMH = { // założone prędkości do szacowania czasu przejazdu trasy alternatywnej
@@ -5340,10 +5339,7 @@
         setRouteLineCoords([], "route-line");
         return;
       }
-      const same = fast && easy &&
-        Math.abs(fast.distanceM - easy.distanceM) <= fast.distanceM * TRUCK_SAME_ROUTE_TOL &&
-        Math.abs(fast.timeS - easy.timeS) <= Math.max(60, fast.timeS * TRUCK_SAME_ROUTE_TOL);
-      if(!fast || !easy || same){ // jedna trasa (druga zawiodła albo jest identyczna) — od razu w edycji
+      if(!fast || !easy){ // jedna z tras się nie policzyła — bierzemy tę, która jest, od razu w edycji
         startPlannedRoute(fast || easy, !fast ? "truck-easy" : "truck");
         return;
       }
@@ -6113,6 +6109,8 @@
      (kształt "V") albo odrzucał zmianę. Teraz: początek fragmentu (kotwica PRZED) -> upuszczony
      punkt (przyciągnięty do głównej drogi) -> cel. Trasa sama wraca na starą, gdy tylko obie
      trasy się spotkają — bez zawracania do "starego punktu". */
+  const TRUCK_EDIT_SNAP_PRIMARY_M = 8000;   // upuszczony punkt łapie najbliższą autostradę/drogę A (M, trunk, primary) do tylu metrów (było 2000)
+  const TRUCK_EDIT_SNAP_SECONDARY_M = 2500; // dalszy zapas: drogi „secondary” (część dróg A) do tylu metrów (było 400)
   const TRUCK_EDIT_DRAG_MAX_SNAP_M = 1500;  // maks. odległość upuszczonego punktu od głównej drogi
   const TRUCK_EDIT_DENSE_STEP_M = 20;       // co ile metrów próbkujemy trasy przy szukaniu miejsca połączenia
   const TRUCK_EDIT_REJOIN_TOL_M = 20;       // tyle metrów różnicy = "to ta sama droga"
@@ -6131,7 +6129,7 @@
     const through = { lat: dragLL[1], lon: dragLL[0], type: "through", search_filter: { min_road_class: minClass } };
     if(dragHeading != null){
       through.heading = Math.round((dragHeading + 360) % 360);
-      through.heading_tolerance = 100;
+      through.heading_tolerance = 150;
     }
     const request = {
       locations: [ from, through, { lat: destLL[1], lon: destLL[0], type: "break" } ],
@@ -6264,8 +6262,8 @@
     // Tylko drogi główne: najpierw autostrady/trunk/primary (M, A) w promieniu do 2 km, potem "secondary"
     // (część dróg A) tylko jeśli leży bardzo blisko punktu. Żadnych B-road-ów i osiedli.
     const attempts = [
-      { minClass: "primary",   maxSnapM: 2000, headings: [headToDest, headFromAnchor, null] },
-      { minClass: "secondary", maxSnapM: 400,  headings: [headToDest, headFromAnchor] }
+      { minClass: "primary",   maxSnapM: TRUCK_EDIT_SNAP_PRIMARY_M,   headings: [headToDest, headFromAnchor, null] },
+      { minClass: "secondary", maxSnapM: TRUCK_EDIT_SNAP_SECONDARY_M, headings: [headToDest, headFromAnchor, null] }
     ];
     for(const att of attempts){
       for(const dragHeading of att.headings){
