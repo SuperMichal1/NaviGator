@@ -904,10 +904,6 @@
       <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
     </div>
   </div>
-  <div class="ctrl-btn" id="btnExport" title="Eksportuj zebrane fotoradary do JSON">
-    💾
-    <span class="badge" id="exportBadge">0</span>
-  </div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
 </div>
 
@@ -1263,7 +1259,6 @@
   let currentLimit = null;
   let preferredEndpointIdx = 0; // zapamiętujemy który serwer ostatnio zadziałał, żeby próbować go pierwszego
   let audioCtx = null;
-  const collectedCameras = new Map(); // akumulowane fotoradary (id -> {id,lat,lon,firstSeen}) do eksportu JSON
   let userHgvParking = loadUserHgvParking(); // parkingi HGV zgłoszone lokalnie (fallback, gdy brak Supabase lub request się nie uda)
   let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
   let supaUrl = localStorage.getItem(SUPA_URL_STORAGE) || "";
@@ -1480,6 +1475,29 @@
     });
   }
 
+  // Przeskalowuje wartość line-width o czynnik "factor", zachowując strukturę wyrażenia zoom
+  // (interpolate/step) na najwyższym poziomie — MapLibre odrzuca wyrażenie "zoom" zagnieżdżone
+  // w innym operatorze (np. ["*", ["interpolate", ...], 2]), więc trzeba przeskalować same
+  // wartości WEWNĄTRZ interpolate/step, a nie owijać całe wyrażenie mnożeniem z zewnątrz.
+  function scaleWidthExpression(expr, factor){
+    if(typeof expr === "number") return expr * factor;
+    if(!Array.isArray(expr)) return expr; // nieznana postać — nie ruszamy, żeby niczego nie zepsuć
+    const op = expr[0];
+    if(op === "interpolate"){
+      // ["interpolate", interpolacja, wejście(zoom), z1, v1, z2, v2, …]
+      const result = expr.slice(0, 3);
+      for(let i = 3; i < expr.length; i += 2) result.push(expr[i], scaleWidthExpression(expr[i + 1], factor));
+      return result;
+    }
+    if(op === "step"){
+      // ["step", wejście(zoom), v0, z1, v1, z2, v2, …]
+      const result = [expr[0], expr[1], scaleWidthExpression(expr[2], factor)];
+      for(let i = 3; i < expr.length; i += 2) result.push(expr[i], scaleWidthExpression(expr[i + 1], factor));
+      return result;
+    }
+    return expr; // inna postać wyrażenia — bezpieczniej zostawić bez zmian niż zgadywać
+  }
+
   // Autostrady (M1, M6…) w bazowym stylu wyglądają na wąskie, jednopasmowe drogi.
   // Pogrubiamy warstwy dróg klasy "motorway" (nitka + obwódka, na wszystkich zoomach
   // proporcjonalnie), żeby wizualnie przypominały drogę wielopasmową.
@@ -1493,7 +1511,7 @@
       try{
         const current = map.getPaintProperty(layer.id, "line-width");
         if(current === undefined || current === null) return;
-        map.setPaintProperty(layer.id, "line-width", ["*", current, MOTORWAY_WIDTH_FACTOR]);
+        map.setPaintProperty(layer.id, "line-width", scaleWidthExpression(current, MOTORWAY_WIDTH_FACTOR));
       }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
     });
   }
@@ -4115,7 +4133,6 @@
     userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
     saveUserHgvParking();
     renderUserHgvParking();
-    updateExportBadge();
     if(supaConfigured()){
       supaReportPoint("hgv_parking", lat, lon).then(ok => {
         if(ok){
@@ -4140,7 +4157,6 @@
     userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
     saveUserReportedCameras();
     rebuildCameraList();
-    updateExportBadge();
     if(supaConfigured()){
       supaReportPoint("speed_camera", lat, lon).then(ok => {
         if(ok){
@@ -4324,14 +4340,6 @@
     osmCameras = newCameras;
     roadSegments = newRoads;
     rebuildCameraList(); // scala osmCameras z lokalnymi zgłoszeniami tego urządzenia i odświeża mapę
-
-    // akumulujemy fotoradary w osobnym zbiorze do eksportu — nie nadpisujemy, tylko dopisujemy nowe
-    newCameras.forEach(c => {
-      if(!collectedCameras.has(c.id)){
-        collectedCameras.set(c.id, { id: c.id, lat: c.lat, lon: c.lon, firstSeen: new Date().toISOString() });
-      }
-    });
-    updateExportBadge();
 
     if(map.getSource("roads-maxspeed")){
       map.getSource("roads-maxspeed").setData({ type:"FeatureCollection", features: roadFeatures });
@@ -6492,53 +6500,6 @@
     closeReportMenu();
   });
 
-  function updateExportBadge(){
-    const badge = document.getElementById("exportBadge");
-    const n = collectedCameras.size + userHgvParking.length + userReportedCameras.length;
-    badge.textContent = n > 999 ? "999+" : String(n);
-    badge.classList.toggle("zero", n === 0);
-  }
-
-  document.getElementById("btnExport").addEventListener("click", () => {
-    if(collectedCameras.size === 0 && userHgvParking.length === 0 && userReportedCameras.length === 0){
-      showBanner("EKSPORT", "Jeszcze nic nie zebrano — pojeźdź chwilę z włączoną aplikacją", false);
-      return;
-    }
-    const featureCollection = {
-      type: "FeatureCollection",
-      generated: new Date().toISOString(),
-      count: collectedCameras.size + userHgvParking.length + userReportedCameras.length,
-      features: [
-        ...Array.from(collectedCameras.values()).map(c => ({
-          type: "Feature",
-          properties: { kind: "speed_camera", id: c.id, firstSeen: c.firstSeen },
-          geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-        })),
-        ...userReportedCameras.map(p => ({
-          type: "Feature",
-          properties: { kind: "speed_camera_user_reported", addedAt: p.addedAt },
-          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
-        })),
-        ...userHgvParking.map(p => ({
-          type: "Feature",
-          properties: { kind: "hgv_parking_user_reported", addedAt: p.addedAt },
-          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
-        }))
-      ]
-    };
-    const blob = new Blob([JSON.stringify(featureCollection, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
-    a.href = url;
-    a.download = `fotoradary-i-parkingi-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    showBanner("EKSPORT ZAPISANY", `${collectedCameras.size + userReportedCameras.length} fotoradarów, ${userHgvParking.length} parkingów HGV`, false);
-  });
-
   // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
   function attachDragListener(){
     map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
@@ -6567,7 +6528,6 @@
   const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — przykładowa trasa symulatora
   const MOCK_START_LON = -1.6230;
   let mockIntervalId = null;
-  updateExportBadge(); // odzwierciedl parkingi zapisane lokalnie z poprzednich sesji
 
   function updateGpsModeUI(){
     const btnReal = document.getElementById("gpsModeReal");
