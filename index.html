@@ -335,6 +335,11 @@
   body.night .navSuggestion:active, body.night .navSuggestion.highlight{ background: rgba(255,255,255,0.06); }
   body.night .navSuggestion .addr2{ color: var(--text-dim); }
   #navRoutePicker{ flex-direction:column; gap:8px; }
+  .altTimeLabel{
+    background:#fff; color:#0c0f12; font:700 12px/1 system-ui,sans-serif; padding:5px 8px; border-radius:12px;
+    box-shadow:0 1px 5px rgba(0,0,0,.45); border:1.5px solid #86E0D4; white-space:nowrap; cursor:pointer;
+  }
+  body.night .altTimeLabel{ background:#1b2a30; color:#dff7fb; border-color:#5FA9B5; }
   .navRouteChoice{
     display:flex; flex-direction:column; align-items:flex-start; gap:2px;
     background: rgba(255,255,255,0.06);
@@ -411,6 +416,15 @@
   }
   #navUndoEditBtn.show{ display:block; }
   #navUndoEditBtn:active{ transform: scale(0.98); }
+  #navRerouteRow{ display:none; margin-top:8px; }
+  #navRouteInfo.show:not(.planning) #navRerouteRow{ display:block; }
+  #navRerouteBtn{
+    width:100%; background:transparent; color:var(--text-main); border:1px solid var(--panel-border);
+    padding:10px 12px; border-radius:10px; font-weight:700; font-size:14px; font-family:'Inter', sans-serif; cursor:pointer;
+  }
+  #navRerouteBtn:active{ transform: scale(0.98); }
+  #navRerouteBtn:disabled{ opacity:.6; cursor:default; }
+  #navPanel[data-navstate="picker"] #navRouteInfo{ display:none; }
   #navError{
     font-size:12px; color: var(--danger); display:none;
   }
@@ -882,6 +896,7 @@
     <div class="rMain" id="navRouteMain">–</div>
     <div class="rSub" id="navRouteSub"></div>
     <div class="rTraffic" id="navRouteTraffic"></div>
+    <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
     <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
@@ -2381,8 +2396,8 @@
         type:"line",
         source:"route-line-alt",
         layout:{ "line-cap":"round", "line-join":"round" },
-        paint:{ "line-color": "#f2b632", "line-width":5, "line-dasharray": [2, 1.5] }
-      }, "cameras-glow");
+        paint:{ "line-color": "#86E0D4", "line-width":5, "line-opacity":0.95 }
+      }, "route-line-casing"); // pod główną trasą — na wspólnych odcinkach wygrywa trasa główna
 
       // źródło utrudnień w ruchu na wyznaczonej trasie (TomTom)
       map.addSource("route-incidents", { type:"geojson", data: emptyFC() });
@@ -2637,6 +2652,38 @@
     }
   }
 
+  // Etykieta „+12 min” przy trasie alternatywnej (jak w Google Maps): w miejscu, gdzie trasa najdłużej
+  // odchodzi od głównej; dotknięcie etykiety wybiera trasę alternatywną.
+  let altLabelMarker = null;
+  function removeAltLabel(){ if(altLabelMarker){ altLabelMarker.remove(); altLabelMarker = null; } }
+  function altDiffLabel(diffS){
+    const m = Math.round(Math.abs(diffS) / 60);
+    if(m === 0) return "0 min";
+    const t = m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+    return (diffS > 0 ? "+" : "−") + t;
+  }
+  function showAltLabel(alt, main, onClick){
+    removeAltLabel();
+    if(!alt || !main || !map) return;
+    const grid = buildRouteGrid(main.coords);
+    const pts = densifyRoute(alt.coords, 100).pts;
+    let bestStart = -1, bestLen = 0, runStart = -1;
+    for(let i = 0; i <= pts.length; i++){
+      const apart = i < pts.length && !pointNearGrid(pts[i], grid);
+      if(apart && runStart < 0) runStart = i;
+      if(!apart && runStart >= 0){
+        if(i - runStart > bestLen){ bestLen = i - runStart; bestStart = runStart; }
+        runStart = -1;
+      }
+    }
+    const at = bestStart >= 0 ? pts[bestStart + Math.floor(bestLen / 2)] : pts[Math.floor(pts.length / 2)];
+    const el = document.createElement("div");
+    el.className = "altTimeLabel";
+    el.textContent = altDiffLabel(alt.timeS - main.timeS);
+    if(onClick) el.addEventListener("click", ev => { ev.stopPropagation(); onClick(); });
+    altLabelMarker = new maplibregl.Marker({ element: el }).setLngLat(at).addTo(map);
+  }
+
   // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
   function applyRouteNightStyle(){
     if(!map || !map.getLayer("route-line-main")) return;
@@ -2645,6 +2692,8 @@
     map.setPaintProperty("route-line-casing", "line-color", night ? "#00B4FF" : "#0c0f12");
     map.setPaintProperty("route-line-casing", "line-opacity", night ? 0.55 : 0.55);
     map.setPaintProperty("route-line-casing", "line-blur", night ? 5 : 0);
+    if(map.getLayer("route-line-alt-main"))
+      map.setPaintProperty("route-line-alt-main", "line-color", night ? "#5FA9B5" : "#86E0D4");
     if(userMarkerEl) applyUserMarkerStyle();
   }
 
@@ -4561,6 +4610,7 @@
       maybeRefetch(lat, lon);
     }
 
+    try{ checkOffRoute(rawLat, rawLon, pos.coords.accuracy); }catch(e){ console.warn("Wykrywanie zjechania z trasy:", e); }
     updateSpeedLimit(lat, lon);
     checkCameraProximity(lat, lon);
     detectUnitSystem(lat, lon);
@@ -5174,6 +5224,8 @@
     else setRouteLineCoords([], "route-line");
     if(pendingRoutes.alt) setRouteLineCoords(pendingRoutes.alt.coords, "route-line-alt");
     else setRouteLineCoords([], "route-line-alt");
+    if(pendingRoutes.alt && pendingRoutes.main)
+      showAltLabel(pendingRoutes.alt, pendingRoutes.main, () => document.getElementById("navChooseAlt").click());
 
     const allCoords = [].concat(
       pendingRoutes.main ? pendingRoutes.main.coords : [],
@@ -5269,10 +5321,11 @@
 
     // pierwszy i ostatni punkt to "break" (start/cel), punkty pośrednie — "through"
     // (trasa musi przez nie przejechać, ale bez zawracania/postoju w nich)
-    const locations = stops.map((p, i) => ({
-      lat: p.lat, lon: p.lon,
-      type: (i === 0 || i === stops.length - 1) ? "break" : "through"
-    }));
+    const locations = stops.map((p, i) => {
+      const loc = { lat: p.lat, lon: p.lon, type: (i === 0 || i === stops.length - 1) ? "break" : "through" };
+      if(p.heading != null){ loc.heading = Math.round((p.heading + 360) % 360); loc.heading_tolerance = 70; } // kierunek jazdy (przeliczanie trasy)
+      return loc;
+    });
     const request = {
       locations,
       costing: "truck",
@@ -5469,6 +5522,7 @@
       (e.overlap > TRUCK_OVERLAP_MAX ? ` · pokrywa się z szybką w ${Math.round(e.overlap * 100)}%` : "");
     setRouteLineCoords(f.coords, "route-line");
     setRouteLineCoords(e.coords, "route-line-alt");
+    showAltLabel(e, f, () => document.getElementById("navChooseAlt").click());
     const all = f.coords.concat(e.coords);
     const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
     map.fitBounds(bounds, { padding: 70, duration: 600 });
@@ -5551,6 +5605,175 @@
     renderNavRouteInfo();
   }
 
+  /* ---------- PRZELICZANIE TRASY: zjechanie z trasy + przycisk „Zmień trasę” ---------- */
+  const OFFROUTE_DIST_M = 60;          // dalej niż tyle od trasy = zjechałeś
+  const OFFROUTE_HOLD_MS = 5000;       // tyle czasu bez powrotu na trasę, zanim przeliczymy
+  const OFFROUTE_MIN_SPEED_KMH = 8;    // wolniej niż to nie przeliczamy (postój, manewry na parkingu)
+  const OFFROUTE_MAX_ACCURACY_M = 60;  // przy gorszej dokładności GPS nie ufamy odczytowi
+  const OFFROUTE_ARRIVAL_M = 150;      // blisko celu nie przeliczamy
+  const REROUTE_COOLDOWN_MS = 20000;   // przerwa po przeliczeniu (także nieudanym)
+  const WAYPOINT_PASSED_M = 250;       // punkt pośredni tak blisko trasy i za nami = już zaliczony
+  let offRouteSince = null, rerouteBusy = false, rerouteBlockedUntil = 0;
+
+  function distanceToActiveRoute(lat, lon){
+    const c = activeRoute.coords;
+    let best = Infinity, idx = 0;
+    for(let i = 0; i < c.length - 1; i++){
+      const d = projectPointToSegment(lat, lon, c[i], c[i + 1]).distM;
+      if(d < best){ best = d; idx = i; }
+    }
+    return { distM: best, idx };
+  }
+
+  // punkty pośrednie, których jeszcze nie minęliśmy (zaliczone pomijamy przy nowej trasie)
+  function getRemainingWaypoints(lat, lon){
+    const wps = getOrderedWaypoints();
+    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2) return wps;
+    if(!activeRoute.skipWaypoints) activeRoute.skipWaypoints = new Set();
+    const skip = activeRoute.skipWaypoints;
+    const cur = distanceToActiveRoute(lat, lon).idx;
+    return wps.filter(w => {
+      if(skip.has(w)) return false;
+      const d = distanceToActiveRoute(w.lat, w.lon);
+      if(d.distM <= WAYPOINT_PASSED_M && d.idx < cur){ skip.add(w); return false; }
+      return true;
+    });
+  }
+
+  function applyRerouted(r, source, oldRoute){
+    activeRoute = {
+      coords: r.coords, distanceM: r.distanceM, timeS: r.timeS, trafficDelayS: r.trafficDelayS || 0,
+      manuallyEdited: false, source, planning: false,
+      skipWaypoints: oldRoute && oldRoute.skipWaypoints
+    };
+    routeSpeedSegments = r.speedSegments || [];
+    routeTrafficIncidents = r.incidents || [];
+    routeBeforeEdit = null;
+    setRouteLineCoords(activeRoute.coords, "route-line");
+    setRouteLineCoords([], "route-line-alt");
+    if(map.getSource("route-incidents")){
+      map.getSource("route-incidents").setData({
+        type:"FeatureCollection",
+        features: routeTrafficIncidents.map(inc => ({
+          type:"Feature", properties:{ delay: inc.delay }, geometry:{ type:"Point", coordinates:[inc.lon, inc.lat] }
+        }))
+      });
+    }
+    renderNavRouteInfo();
+  }
+
+  // nowa trasa tym samym silnikiem, którym wyznaczono poprzednią; gdy zawiedzie — Valhalla (szybka/łatwa)
+  async function computeRouteBySource(stops, source){
+    const truckVariant = source === "truck-easy" ? "easy" : "fast";
+    const truck = async () => {
+      try{ return await fetchTruckRoute(stops, truckVariant); }
+      catch(err){
+        if(stops[0].heading == null) throw err;
+        // kierunek jazdy mógł nie pasować do żadnej drogi — ponawiamy bez niego
+        return fetchTruckRoute([Object.assign({}, stops[0], { heading: null })].concat(stops.slice(1)), truckVariant);
+      }
+    };
+    try{
+      if(source === "main" && tomtomApiKey){ const r = await fetchTomTomRoute(stops); if(r) return r; }
+      else if(source === "alt"){ const r = await computeLocalMultiLegRoute(stops.map(p => [p.lon, p.lat])); if(r) return r; }
+    }catch(e){ console.warn("Przeliczanie trasy (silnik pierwotny):", e); }
+    return truck();
+  }
+
+  async function rerouteFromHere(){
+    if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
+    rerouteBusy = true;
+    const oldRoute = activeRoute;
+    const source = oldRoute.source || "truck";
+    const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
+    const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
+    showBanner("PRZELICZAM TRASĘ", "Zjechałeś z trasy — wyznaczam nową…", false);
+    try{
+      const r = await computeRouteBySource(stops, source);
+      if(activeRoute !== oldRoute || !r) return; // trasę zamknięto/zmieniono w międzyczasie
+      applyRerouted(r, source, oldRoute);
+      showBanner("NOWA TRASA", `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`, false);
+    }catch(e){
+      console.warn("Przeliczanie trasy nie powiodło się:", e);
+      showBanner("BRAK NOWEJ TRASY", "Nie udało się przeliczyć trasy — spróbuję ponownie.", false);
+    }finally{
+      rerouteBusy = false;
+      offRouteSince = null;
+      rerouteBlockedUntil = Date.now() + REROUTE_COOLDOWN_MS;
+    }
+  }
+
+  // wołane przy każdym odczycie GPS
+  function checkOffRoute(rawLat, rawLon, accuracy){
+    const inNav = activeRoute && !activeRoute.planning && !routeEditMode && navUiState === "nav" &&
+                  navSelectedDest && !rerouteBusy && !pendingRoutes.reroute;
+    if(!inNav || currentSpeedKmh < OFFROUTE_MIN_SPEED_KMH || (accuracy && accuracy > OFFROUTE_MAX_ACCURACY_M)
+       || Date.now() < rerouteBlockedUntil){ offRouteSince = null; return; }
+    if(haversine(rawLat, rawLon, navSelectedDest.lat, navSelectedDest.lon) < OFFROUTE_ARRIVAL_M){ offRouteSince = null; return; }
+    if(distanceToActiveRoute(rawLat, rawLon).distM <= OFFROUTE_DIST_M){ offRouteSince = null; return; }
+    const now = Date.now();
+    if(offRouteSince === null){ offRouteSince = now; return; }
+    if(now - offRouteSince >= OFFROUTE_HOLD_MS) rerouteFromHere();
+  }
+
+  // przycisk „Zmień trasę”: szybka i łatwa trasa od AKTUALNEJ pozycji do tego samego celu
+  async function offerRoutesFromHere(){
+    if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
+    rerouteBusy = true;
+    const btn = document.getElementById("navRerouteBtn");
+    btn.disabled = true; btn.textContent = "Szukam tras…";
+    const oldRoute = activeRoute;
+    const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...getRemainingWaypoints(lastPos.lat, lastPos.lon), navSelectedDest];
+    if(truckRouteAbort) truckRouteAbort.abort();
+    truckRouteAbort = new AbortController();
+    const ctrl = truckRouteAbort;
+    try{
+      const [fast, easy] = await Promise.all([
+        fetchTruckRoute(stops, "fast", ctrl).catch(() => null),
+        fetchTruckRoute(stops, "easy", ctrl).catch(() => null)
+      ]);
+      if(activeRoute !== oldRoute) return;
+      if(!fast && !easy){ showBanner("BRAK TRAS", "Nie udało się wyznaczyć nowych tras. Spróbuj ponownie.", false); return; }
+      let alt = easy;
+      if(fast && easy){ try{ alt = await findDistinctEasyRoute(stops, fast, easy, ctrl); }catch(e){ console.warn(e); } }
+      if(!fast || !alt){ // tylko jedna trasa — od razu jedziemy nią
+        applyRerouted(fast || alt, fast ? "truck" : "truck-easy", oldRoute);
+        return;
+      }
+      pendingRoutes = { main: fast, alt, truck: true, reroute: true };
+      followUser = false; updateLocateBtnVisibility();
+      renderTruckPicker();
+      setNavUiState("picker");
+    }finally{
+      showNavStatus("");
+      rerouteBusy = false;
+      btn.disabled = false; btn.textContent = "🔀 Zmień trasę";
+    }
+  }
+
+  function applyChosenReroute(r, source){
+    const old = activeRoute;
+    pendingRoutes = { main:null, alt:null };
+    applyRerouted(r, source, old);
+    setNavUiState("nav");
+    if(lastPos) enterDrivingView();
+  }
+
+  function cancelRerouteOffer(){
+    pendingRoutes = { main:null, alt:null };
+    setRouteLineCoords([], "route-line-alt");
+    if(activeRoute) setRouteLineCoords(activeRoute.coords, "route-line");
+    setNavUiState("nav");
+    if(lastPos) enterDrivingView();
+  }
+
+  function onNavClose(){
+    if(pendingRoutes.reroute){ cancelRerouteOffer(); return; }
+    clearNavRoute();
+  }
+
+  document.getElementById("navRerouteBtn").addEventListener("click", offerRoutesFromHere);
+
   document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
   document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
   document.getElementById("navUndoEditBtn").addEventListener("click", () => {
@@ -5565,11 +5788,13 @@
   });
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
-    if(pendingRoutes.truck && pendingRoutes.main) startPlannedRoute(pendingRoutes.main, "truck");
+    if(pendingRoutes.reroute && pendingRoutes.main) applyChosenReroute(pendingRoutes.main, "truck");
+    else if(pendingRoutes.truck && pendingRoutes.main) startPlannedRoute(pendingRoutes.main, "truck");
     else if(pendingRoutes.main) selectRoute("main");
   });
   document.getElementById("navChooseAlt").addEventListener("click", () => {
-    if(pendingRoutes.truck && pendingRoutes.alt) startPlannedRoute(pendingRoutes.alt, "truck-easy");
+    if(pendingRoutes.reroute && pendingRoutes.alt) applyChosenReroute(pendingRoutes.alt, "truck-easy");
+    else if(pendingRoutes.truck && pendingRoutes.alt) startPlannedRoute(pendingRoutes.alt, "truck-easy");
     else if(pendingRoutes.alt) selectRoute("alt");
   });
 
@@ -5591,7 +5816,7 @@
     if(activeRoute.manuallyEdited){
       trafficEl.textContent = "Czas przejazdu i limity dla zmienionego odcinka mogą być nieaktualne";
       trafficEl.classList.remove("heavy");
-    } else if(activeRoute.source === "truck"){
+    } else if(activeRoute.source === "truck" || activeRoute.source === "truck-easy"){
       trafficEl.textContent = "Trasa dla ciężarówek — bez danych o ruchu na żywo";
       trafficEl.classList.remove("heavy");
     } else if(activeRoute.trafficDelayS > 60){
@@ -5634,14 +5859,14 @@
       map.getCanvas().style.cursor = "";
       map.dragPan.enable();
       if(map.getSource("route-line")) map.getSource("route-line").setData(emptyFC());
-      if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC());
+      if(map.getSource("route-line-alt")) map.getSource("route-line-alt").setData(emptyFC()); removeAltLabel();
       if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
     }
     setNavUiState("search");
   }
 
   document.getElementById("navGoBtn").addEventListener("click", planRoutes);
-  document.getElementById("navCloseBtn").addEventListener("click", clearNavRoute);
+  document.getElementById("navCloseBtn").addEventListener("click", onNavClose);
 
   document.getElementById("btnNav").addEventListener("click", () => {
     const panel = document.getElementById("navPanel");
@@ -6409,6 +6634,7 @@
 
   function setRouteLineCoords(coords, sourceId){
     sourceId = sourceId || "route-line";
+    if(sourceId === "route-line-alt" && (!coords || coords.length < 2)) removeAltLabel();
     if(map && map.getSource(sourceId)){
       map.getSource(sourceId).setData({
         type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: coords }
