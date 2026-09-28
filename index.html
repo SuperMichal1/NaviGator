@@ -5259,7 +5259,7 @@
     return coords;
   }
 
-  function fetchTruckRoute(stops, variant, ctrl){
+  function fetchTruckRoute(stops, variant, ctrl, extra){
     if(!ctrl){
       if(truckRouteAbort) truckRouteAbort.abort();
       truckRouteAbort = new AbortController();
@@ -5279,6 +5279,7 @@
       costing_options: { truck: Object.assign({}, HGV_PROFILE, variant === "easy" ? TRUCK_EASY_OPTS : TRUCK_FAST_OPTS) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
+    if(extra) Object.assign(request, extra); // np. alternates, exclude_locations
     // GET z parametrem json= (jak robi to openstreetmap.org) — zwykłe żądanie, bez preflightu CORS
     return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
       .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, status: r.status, data })))
@@ -5288,18 +5289,112 @@
           err.code = data && data.error_code;
           throw err;
         }
-        const trip = data.trip;
-        if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
-        const coords = [];
-        trip.legs.forEach(leg => decodePolyline(leg.shape, 6).forEach(c => coords.push(c)));
-        if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
-        return {
-          coords,
-          distanceM: (trip.summary.length || 0) * 1000,
-          timeS: trip.summary.time || 0
+        const parseTrip = trip => {
+          if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
+          const coords = [];
+          trip.legs.forEach(leg => decodePolyline(leg.shape, 6).forEach(c => coords.push(c)));
+          if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
+          return { coords, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
+        const main = parseTrip(data.trip);
+        main.alts = (data.alternates || []).map(a => { try{ return parseTrip(a.trip); }catch(e){ return null; } }).filter(Boolean);
+        return main;
       })
       .finally(() => clearTimeout(timer));
+  }
+
+  /* ---------- łatwa trasa NIE może pokrywać się z szybką ----------
+     Jeśli łatwa trasa idzie w ponad TRUCK_OVERLAP_MAX tą samą drogą co szybka, szukamy innej łatwej:
+     1) alternatywy Valhalli (tylko przy trasie start->cel bez punktów pośrednich),
+     2) ta sama łatwa trasa, ale z „zakazem” przejazdu przez punkty leżące na wspólnym odcinku (exclude_locations),
+        z coraz większą liczbą wykluczonych punktów. Wynik nie może być dłuższy niż TRUCK_ALT_MAX_TIME_FACTOR x szybka. */
+  const TRUCK_OVERLAP_MAX = 0.7;         // dopuszczalny udział wspólnej drogi (0–1)
+  const TRUCK_OVERLAP_TOL_M = 40;        // tyle metrów od szybkiej trasy = „ta sama droga”
+  const TRUCK_ALT_MAX_TIME_FACTOR = 1.7; // łatwa nie może jechać dłużej niż tyle razy szybka (+10 min zapasu)
+  const TRUCK_EXCLUDE_MARGIN_M = 2000;   // nie wykluczamy punktów bliżej niż tyle od startu i celu
+
+  const OVERLAP_CELL = 0.0006;
+  function buildRouteGrid(coords){
+    const grid = new Map();
+    densifyRoute(coords, 25).pts.forEach(pt => {
+      const k = Math.floor(pt[0] / OVERLAP_CELL) + "," + Math.floor(pt[1] / OVERLAP_CELL);
+      let arr = grid.get(k); if(!arr){ arr = []; grid.set(k, arr); }
+      arr.push(pt);
+    });
+    return grid;
+  }
+  function pointNearGrid(pt, grid){
+    const cx = Math.floor(pt[0] / OVERLAP_CELL), cy = Math.floor(pt[1] / OVERLAP_CELL);
+    for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
+      const arr = grid.get((cx + dx) + "," + (cy + dy));
+      if(arr) for(const q of arr){
+        if(haversine(pt[1], pt[0], q[1], q[0]) <= TRUCK_OVERLAP_TOL_M) return true;
+      }
+    }
+    return false;
+  }
+
+  // jaka część trasy A (wg długości) leży w pobliżu trasy B
+  function routeOverlapFraction(a, b){
+    if(!a || !b || a.length < 2 || b.length < 2) return 0;
+    const grid = buildRouteGrid(b);
+    const dA = densifyRoute(a, 25).pts;
+    let near = 0;
+    for(const pt of dA) if(pointNearGrid(pt, grid)) near++;
+    return near / dA.length;
+  }
+
+  // punkty na szybkiej trasie, które leżą też na łatwej (wspólny odcinek), bez początku i końca trasy
+  function sharedPointsAlong(fast, easy, fractions){
+    const dF = densifyRoute(fast.coords, 200).pts;
+    const total = routeLengthMeters(fast.coords);
+    const easyGrid = buildRouteGrid(easy.coords);
+    let dist = 0;
+    const shared = [];
+    for(let i = 0; i < dF.length; i++){
+      if(i > 0) dist += haversine(dF[i-1][1], dF[i-1][0], dF[i][1], dF[i][0]);
+      if(dist < TRUCK_EXCLUDE_MARGIN_M || dist > total - TRUCK_EXCLUDE_MARGIN_M) continue;
+      if(pointNearGrid(dF[i], easyGrid)) shared.push(dF[i]);
+    }
+    if(!shared.length) return [];
+    return fractions.map(f => shared[Math.min(shared.length - 1, Math.floor(f * shared.length))])
+      .filter((p, i, arr) => arr.indexOf(p) === i)
+      .map(p => ({ lat: p[1], lon: p[0] }));
+  }
+
+  async function findDistinctEasyRoute(stops, fast, easy, ctrl){
+    easy.overlap = routeOverlapFraction(easy.coords, fast.coords);
+    if(easy.overlap <= TRUCK_OVERLAP_MAX) return easy;
+
+    showNavStatus("Szukam innej łatwej trasy…");
+    const maxTimeS = fast.timeS * TRUCK_ALT_MAX_TIME_FACTOR + 600;
+    let best = easy;
+    const consider = r => {
+      if(!r || r.timeS > maxTimeS) return false;
+      r.overlap = routeOverlapFraction(r.coords, fast.coords);
+      if(r.overlap < best.overlap) best = r;
+      return r.overlap <= TRUCK_OVERLAP_MAX;
+    };
+    const exclusionAttempt = fractions => {
+      const pts = sharedPointsAlong(fast, easy, fractions);
+      if(!pts.length) return Promise.resolve(null);
+      return fetchTruckRoute(stops, "easy", ctrl, { exclude_locations: pts }).catch(() => null);
+    };
+
+    // krok 1 (równolegle): alternatywy Valhalli (tylko start->cel) + wykluczenie środka wspólnego odcinka
+    const first = await Promise.all([
+      stops.length === 2 ? fetchTruckRoute(stops, "easy", ctrl, { alternates: 2 }).catch(() => null) : Promise.resolve(null),
+      exclusionAttempt([0.5])
+    ]);
+    if(first[0] && first[0].alts) for(const alt of first[0].alts){ if(consider(alt)) return alt; }
+    if(consider(first[1])) return first[1];
+
+    // krok 2 i 3: więcej wykluczonych punktów (mocniejsze zejście z pierwotnego przebiegu)
+    for(const fr of [[0.25, 0.5, 0.75], [0.1, 0.3, 0.5, 0.7, 0.9]]){
+      const r = await exclusionAttempt(fr);
+      if(consider(r)) return r;
+    }
+    return best; // nic lepszego się nie znalazło — pokazujemy najmniej pokrywającą się
   }
 
   function planTruckRoute(){
@@ -5329,7 +5424,11 @@
     }).catch(err => { firstErr = firstErr || err; return null; });
     const easyP = fetchTruckRoute(stops, "easy", ctrl).catch(err => { firstErr = firstErr || err; return null; });
 
-    Promise.all([fastP, easyP]).then(([fast, easy]) => {
+    Promise.all([fastP, easyP]).then(async ([fast, easy]) => {
+      if(fast && easy){
+        try{ easy = await findDistinctEasyRoute(stops, fast, easy, ctrl); }
+        catch(e){ console.warn("Szukanie innej łatwej trasy:", e); }
+      }
       if(!fast && !easy){
         const err = firstErr || new Error("VALHALLA");
         if(err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas. Spróbuj ponownie.");
@@ -5366,7 +5465,8 @@
     document.getElementById("navChooseMainSub").textContent = label(f);
     const dT = Math.round((e.timeS - f.timeS) / 60), dD = (e.distanceM - f.distanceM) / 1000;
     document.getElementById("navChooseAltSub").textContent = label(e) +
-      ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)`;
+      ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)` +
+      (e.overlap > TRUCK_OVERLAP_MAX ? ` · pokrywa się z szybką w ${Math.round(e.overlap * 100)}%` : "");
     setRouteLineCoords(f.coords, "route-line");
     setRouteLineCoords(e.coords, "route-line-alt");
     const all = f.coords.concat(e.coords);
