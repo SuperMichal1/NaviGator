@@ -283,6 +283,24 @@
     padding:4px 2px; cursor:pointer;
   }
   #navAddWaypointBtn:active{ opacity:0.7; }
+  /* karta pytania po kliknięciu w firmę/sklep/hotel na mapie */
+  #poiAsk{
+    position:fixed; left:12px; right:12px; top:calc(env(safe-area-inset-top, 0px) + 12px);
+    max-width:460px; margin:0 auto; z-index:60; display:none; flex-direction:column; gap:6px;
+    padding:12px 14px; border-radius:14px; background: var(--panel-bg-solid); color: var(--text-main);
+    border:1px solid var(--panel-border); box-shadow:0 6px 24px rgba(0,0,0,.4);
+  }
+  #poiAsk.show{ display:flex; }
+  #poiAsk .poiName{ font-size:15px; font-weight:700; line-height:1.25; word-break:break-word; }
+  #poiAsk .poiAddr{ font-size:13px; opacity:.8; line-height:1.3; word-break:break-word; }
+  #poiAsk .poiQ{ font-size:13px; font-weight:600; margin-top:2px; }
+  #poiAsk .poiBtns{ display:flex; gap:8px; margin-top:4px; }
+  #poiAsk button{
+    flex:1; padding:10px 12px; border-radius:10px; font-weight:700; font-size:14px;
+    font-family:'Inter', sans-serif; cursor:pointer; border:1px solid var(--panel-border);
+    background:transparent; color: var(--text-main);
+  }
+  #poiAsk button#poiAskYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
   #navOriginWrap #navOrigin{ font-size:13px; }
   #navDest, .navStopInput{
     width:100%;
@@ -861,6 +879,16 @@
     <circle cx="19" cy="5" r="2.3" fill="currentColor"/>
     <path d="M7.3 19H14a3.5 3.5 0 0 0 0-7h-4a3.5 3.5 0 0 1 0-7h6.7"/>
   </svg>
+</div>
+
+<div id="poiAsk" role="dialog" aria-live="polite">
+  <div class="poiName" id="poiAskName"></div>
+  <div class="poiAddr" id="poiAskAddr"></div>
+  <div class="poiQ">Wyznaczyć trasę do tego miejsca?</div>
+  <div class="poiBtns">
+    <button id="poiAskNo" type="button">Nie</button>
+    <button id="poiAskYes" type="button">Tak, wyznacz</button>
+  </div>
 </div>
 
 <div id="navPanel" data-navstate="search" class="collapsed">
@@ -2531,6 +2559,7 @@
       }
       try{
         setupDestinationPinInteractions();
+        setupPoiClick();
       }catch(e){
         console.warn("Nie udało się włączyć przesuwania pinezki celu:", e);
       }
@@ -4870,7 +4899,7 @@
     document.getElementById("navDest"),
     document.getElementById("navSuggestions"),
     {
-      onTyping: () => { navSelectedDest = null; removeDestPin(); },
+      onTyping: () => { navSelectedDest = null; removeDestPin(); updateAddWaypointVisibility(); },
       hasSelection: () => !!navSelectedDest,
       onEnterConfirm: () => confirmDestination(),
       // Wybór wyniku: pinezka staje tam, dokąd GPS faktycznie ma doprowadzić — jeśli TomTom
@@ -4881,6 +4910,7 @@
         const pos = (entry && entry.position) || r.position;
         navSelectedDest = { lat: pos.lat, lon: pos.lon, label };
         document.getElementById("navDest").value = label;
+        updateAddWaypointVisibility();
         confirmDestination();
       }
     }
@@ -4910,9 +4940,13 @@
       .map(w => w._navPoint)
       .filter(Boolean);
   }
+  // miejsce początkowe, punkty pośrednie i przycisk ich dodawania pojawiają się dopiero po wybraniu celu
   function updateAddWaypointVisibility(){
+    const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
-    document.getElementById("navAddWaypointBtn").style.display = rows >= NAV_MAX_WAYPOINTS ? "none" : "";
+    document.getElementById("navOriginWrap").style.display = hasDest ? "" : "none";
+    document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
+    document.getElementById("navAddWaypointBtn").style.display = (!hasDest || rows >= NAV_MAX_WAYPOINTS) ? "none" : "";
   }
   function addWaypointRow(){
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
@@ -4945,6 +4979,7 @@
     input.focus();
   }
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
+  updateAddWaypointVisibility();
 
   function setNavPanelCollapsed(collapsed){
     const panel = document.getElementById("navPanel");
@@ -5098,6 +5133,70 @@
     });
   }
 
+  /* ---------- kliknięcie w firmę / sklep / hotel na mapie: pełna nazwa + adres + pytanie o trasę ---------- */
+  let poiAskTarget = null;
+  let poiAskSeq = 0;
+  function hidePoiAsk(){
+    poiAskTarget = null; poiAskSeq++;
+    document.getElementById("poiAsk").classList.remove("show");
+  }
+  function showPoiAsk(name, lat, lon){
+    const seq = ++poiAskSeq;
+    poiAskTarget = { lat, lon, name, address: "" };
+    document.getElementById("poiAskName").textContent = name;
+    document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    document.getElementById("poiAsk").classList.add("show");
+    if(!tomtomApiKey) return;
+    const params = new URLSearchParams({ key: tomtomApiKey, language: "pl-PL" });
+    fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?${params.toString()}`)
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(data => {
+        if(seq !== poiAskSeq || !poiAskTarget) return;
+        const a = data.addresses && data.addresses[0] && data.addresses[0].address;
+        if(a && a.freeformAddress){
+          poiAskTarget.address = a.freeformAddress;
+          document.getElementById("poiAskAddr").textContent = a.freeformAddress;
+        }
+      })
+      .catch(err => console.warn("TomTom reverse geocode (POI):", err));
+  }
+  function acceptPoiAsk(){
+    if(!poiAskTarget) return;
+    const t = poiAskTarget;
+    const label = t.address ? `${t.name}, ${t.address}` : t.name;
+    navSelectedDest = { lat: t.lat, lon: t.lon, label };
+    document.getElementById("navDest").value = label;
+    hidePoiAsk();
+    updateAddWaypointVisibility();
+    confirmDestination();
+  }
+  document.getElementById("poiAskYes").addEventListener("click", acceptPoiAsk);
+  document.getElementById("poiAskNo").addEventListener("click", hidePoiAsk);
+
+  function setupPoiClick(){
+    map.on("click", (e) => {
+      if(navUiState === "nav" || routeEditMode || destPinEditable()) return;
+      const tgt = e.originalEvent && e.originalEvent.target;
+      if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
+      const poiLayers = map.getStyle().layers
+        .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon")
+        .map(l => l.id).filter(id => map.getLayer(id));
+      const R = 10;
+      const feats = poiLayers.length ? map.queryRenderedFeatures(
+        [[e.point.x - R, e.point.y - R], [e.point.x + R, e.point.y + R]], { layers: poiLayers }) : [];
+      let best = null, bestD = Infinity;
+      feats.forEach(f => {
+        const p = f.properties || {};
+        const name = p.name || p["name:latin"] || p.name_en || p["name:en"];
+        if(!name || !f.geometry || f.geometry.type !== "Point") return;
+        const px = map.project(f.geometry.coordinates);
+        const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
+        if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }; }
+      });
+      if(best) showPoiAsk(best.name, best.lat, best.lon); else hidePoiAsk();
+    });
+  }
+
   // krok 1: użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie z pinezką, ale jeszcze nie licz trasy
   function confirmDestination(){
     if(!navSelectedDest) return;
@@ -5194,10 +5293,9 @@
     const stops = [origin, ...waypoints, navSelectedDest];
     let tomtomErr = null;
 
-    Promise.all([
-      fetchTomTomRoute(stops).catch(err => { tomtomErr = err; return null; }),
-      computeLocalMultiLegRoute(stops.map(p => [p.lon, p.lat]))
-    ]).then(([mainRoute, altRoute]) => {
+    fetchTomTomRoute(stops).catch(err => { tomtomErr = err; return null; })
+    .then(mainRoute => {
+      const altRoute = null; // bez tras alternatywnych — tylko trasa TomTom
       showNavStatus("");
       goBtn.disabled = false;
       if(!mainRoute && !altRoute){
@@ -5215,6 +5313,7 @@
     setPickerTitles("Trasa TomTom", "Trasa alternatywna (główne drogi)");
     const mainBtn = document.getElementById("navChooseMain");
     const altBtn = document.getElementById("navChooseAlt");
+    altBtn.style.display = "none"; // TomTom: jedna trasa, bez alternatyw
     const mainSub = document.getElementById("navChooseMainSub");
     const altSub = document.getElementById("navChooseAltSub");
 
@@ -5527,6 +5626,7 @@
   }
   function renderTruckPicker(){
     setPickerTitles("Szybka trasa", "Łatwa trasa (więcej autostrad)");
+    document.getElementById("navChooseAlt").style.display = "";
     const f = pendingRoutes.main, e = pendingRoutes.alt;
     const label = r => `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`;
     document.getElementById("navChooseMain").classList.remove("unavailable");
@@ -5851,6 +5951,7 @@
     navSelectedDest = null;
     navSelectedOrigin = null;
     removeDestPin();
+    hidePoiAsk();
     activeRoute = null;
     pendingRoutes = { main:null, alt:null };
     routeSpeedSegments = [];
