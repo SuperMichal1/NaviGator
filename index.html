@@ -122,6 +122,28 @@
     gap:8px;
   }
   .reportSubMenu.open{ display:flex; }
+  /* pływający przycisk zgłoszeń (prawa strona, jak "Cała trasa"); pojawia się dopiero po dużym przybliżeniu */
+  #reportFloat{
+    position:absolute; right:16px;
+    bottom: var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px));
+    z-index:40;
+    opacity:0; transform: translateY(10px) scale(.96); pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease, bottom .25s ease;
+  }
+  #reportFloat.visible{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
+  body:has(#btnFitRoute.visible) #reportFloat{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
+  }
+  #reportFloat .ctrl-btn{
+    width:48px; height:48px; border-radius:50%;
+    background: rgba(255,255,255,0.10);
+    border:1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  body.night #reportFloat .ctrl-btn{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
+  #reportFloat .reportSubMenu{ left:auto; right:0; transform:none; flex-direction:column; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -284,23 +306,29 @@
   }
   #navAddWaypointBtn:active{ opacity:0.7; }
   /* karta pytania po kliknięciu w firmę/sklep/hotel na mapie */
-  #poiAsk{
+  .poiCard{
     position:fixed; left:12px; right:12px; top:calc(env(safe-area-inset-top, 0px) + 12px);
     max-width:460px; margin:0 auto; z-index:60; display:none; flex-direction:column; gap:6px;
     padding:12px 14px; border-radius:14px; background: var(--panel-bg-solid); color: var(--text-main);
     border:1px solid var(--panel-border); box-shadow:0 6px 24px rgba(0,0,0,.4);
   }
-  #poiAsk.show{ display:flex; }
-  #poiAsk .poiName{ font-size:15px; font-weight:700; line-height:1.25; word-break:break-word; }
-  #poiAsk .poiAddr{ font-size:13px; opacity:.8; line-height:1.3; word-break:break-word; }
-  #poiAsk .poiQ{ font-size:13px; font-weight:600; margin-top:2px; }
-  #poiAsk .poiBtns{ display:flex; gap:8px; margin-top:4px; }
-  #poiAsk button{
+  .poiCard.show{ display:flex; }
+  .poiCard .poiName{ font-size:15px; font-weight:700; line-height:1.25; word-break:break-word; }
+  .poiCard .poiAddr{ font-size:13px; opacity:.8; line-height:1.3; word-break:break-word; }
+  .poiCard .poiQ{ font-size:13px; font-weight:600; margin-top:2px; }
+  .poiCard .poiBtns{ display:flex; gap:8px; margin-top:4px; }
+  .poiCard button{
     flex:1; padding:10px 12px; border-radius:10px; font-weight:700; font-size:14px;
     font-family:'Inter', sans-serif; cursor:pointer; border:1px solid var(--panel-border);
     background:transparent; color: var(--text-main);
   }
-  #poiAsk button#poiAskYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  .poiCard button#poiAskYes, .poiCard button#poiAddSave{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  .poiCard button:disabled{ opacity:.5; }
+  .poiCard input{
+    width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font-size:16px;
+    font-family:'Inter', sans-serif; border:1px solid var(--panel-border);
+    background: rgba(255,255,255,0.12); color: var(--text-main);
+  }
   #navOriginWrap #navOrigin{ font-size:13px; }
   #navDest, .navStopInput{
     width:100%;
@@ -873,6 +901,14 @@
   <span class="locate-label">Centruj</span>
 </div>
 
+<div id="reportFloat">
+  <div class="reportSubMenu" id="reportSubMenu">
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+  </div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+</div>
+
 <div id="btnFitRoute" title="Pokaż całą trasę" role="button" aria-label="Pokaż całą trasę">
   <svg class="locate-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="5" cy="19" r="2.3"/>
@@ -881,13 +917,23 @@
   </svg>
 </div>
 
-<div id="poiAsk" role="dialog" aria-live="polite">
+<div id="poiAsk" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="poiAskName"></div>
   <div class="poiAddr" id="poiAskAddr"></div>
   <div class="poiQ">Wyznaczyć trasę do tego miejsca?</div>
   <div class="poiBtns">
     <button id="poiAskNo" type="button">Nie</button>
     <button id="poiAskYes" type="button">Tak, wyznacz</button>
+  </div>
+</div>
+
+<div id="poiAdd" class="poiCard" role="dialog">
+  <div class="poiName">Budynek bez nazwy</div>
+  <div class="poiAddr" id="poiAddAddr"></div>
+  <input id="poiNameInput" type="text" maxlength="80" placeholder="Nazwa firmy / magazynu…" autocomplete="off">
+  <div class="poiBtns">
+    <button id="poiAddCancel" type="button">Anuluj</button>
+    <button id="poiAddSave" type="button">Zapisz nazwę</button>
   </div>
 </div>
 
@@ -956,13 +1002,6 @@
     <span id="dimIcon">3D</span>
   </div>
   <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
-  <div class="navIconWrap">
-    <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
-    <div class="reportSubMenu" id="reportSubMenu">
-      <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
-      <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
-    </div>
-  </div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
 </div>
 
@@ -2389,6 +2428,22 @@
         minzoom: 14,
         layout:{
           "text-field": ["concat", "🏢\n", ["get", "name"]],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 11,
+          "text-allow-overlap": false
+        },
+        paint:{ "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.2 }
+      });
+
+      // nazwy budynków/magazynów dodane przez kierowców (Supabase: place_names + kopia lokalna)
+      map.addSource("place-names", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"place-names-icon",
+        type:"symbol",
+        source:"place-names",
+        minzoom: 14,
+        layout:{
+          "text-field": ["concat", "📍\n", ["get", "name"]],
           "text-font": ["Noto Sans Bold"],
           "text-size": 11,
           "text-allow-overlap": false
@@ -5079,22 +5134,35 @@
 
   // Nowy adres dla przesuniętej pinezki (odwrotne geokodowanie). Jeśli się nie uda,
   // zostaje opis "punkt wskazany na mapie" — trasa i tak liczona jest do pinezki.
-  function reverseGeocodeDest(lat, lon, seq){
-    if(!tomtomApiKey) return;
-    if(destRevAbort) destRevAbort.abort();
-    destRevAbort = new AbortController();
-    const params = new URLSearchParams({ key: tomtomApiKey, language: "pl-PL" });
-    fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?${params.toString()}`, { signal: destRevAbort.signal })
+  // Odwrotne geokodowanie: darmowy Nominatim (OSM), bez klucza i bez limitów TomTom.
+  // Limit serwera: ok. 1 zapytanie/s — tu wysyłamy je tylko po kliknięciu/przesunięciu pinezki.
+  function nominatimReverse(lat, lon, signal){
+    const params = new URLSearchParams({ format: "jsonv2", lat: String(lat), lon: String(lon), zoom: "18", addressdetails: "1", "accept-language": "en-GB" });
+    return fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, { signal })
       .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(data => {
+        const a = data && data.address;
+        if(!a) return data && data.display_name ? data.display_name : "";
+        const street = [a.house_number, a.road].filter(Boolean).join(" ");
+        const place = a.suburb || a.village || a.town || a.city || a.hamlet || "";
+        const city = (a.city || a.town || a.village || "");
+        const parts = [street, place, (place !== city ? city : ""), a.postcode].filter(Boolean);
+        return parts.length ? parts.join(", ") : (data.display_name || "");
+      });
+  }
+
+  function reverseGeocodeDest(lat, lon, seq){
+    if(destRevAbort) destRevAbort.abort();
+    destRevAbort = new AbortController();
+    nominatimReverse(lat, lon, destRevAbort.signal)
+      .then(addr => {
         if(seq !== destMoveSeq || !navSelectedDest) return; // pinezka przesunięta ponownie / anulowano
-        const a = data.addresses && data.addresses[0] && data.addresses[0].address;
-        if(a && a.freeformAddress){
-          navSelectedDest.label = a.freeformAddress;
+        if(addr){
+          navSelectedDest.label = addr;
           setConfirmLabel();
         }
       })
-      .catch(err => { if(err.name !== "AbortError") console.warn("TomTom reverse geocode:", err); });
+      .catch(err => { if(err.name !== "AbortError") console.warn("Nominatim reverse geocode:", err); });
   }
 
   // Cel zmieniony ręcznie (przeciągnięcie albo dwuklik). Trasy policzone do starego celu są nieaktualne.
@@ -5133,10 +5201,110 @@
     });
   }
 
+  /* ---------- nazwy budynków/magazynów dodane przez kierowców ----------
+     Supabase (wspólne dla wszystkich):
+       create table if not exists public.place_names (
+         id bigserial primary key, name text not null check (char_length(name) between 2 and 80),
+         lat double precision not null, lon double precision not null,
+         device_id text, created_at timestamptz not null default now());
+       alter table public.place_names enable row level security;
+       create policy "place_names read"   on public.place_names for select to anon using (true);
+       create policy "place_names insert" on public.place_names for insert to anon with check (true); */
+  const PLACE_NAMES_LOCAL_KEY = "nawigator_place_names";
+  const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
+  let placeNames = [];            // [{lat, lon, name}]
+  let placeAddTarget = null;
+
+  function placeNameKey(p){ return p.lat.toFixed(5) + "," + p.lon.toFixed(5) + "|" + p.name.toLowerCase(); }
+  function renderPlaceNames(){
+    const src = map && map.getSource("place-names");
+    if(!src) return;
+    src.setData({ type:"FeatureCollection", features: placeNames.map(p => ({
+      type:"Feature", properties:{ name: p.name }, geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
+  }
+  function mergePlaceNames(list){
+    const seen = new Set(placeNames.map(placeNameKey));
+    list.forEach(p => {
+      if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
+      const k = placeNameKey(p);
+      if(!seen.has(k)){ seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name) }); }
+    });
+    renderPlaceNames();
+  }
+  function loadPlaceNames(){
+    try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]")); }catch(e){}
+    fetchTableFromSupabase("place_names", "name,lat,lon").then(rows => { if(rows && rows.length) mergePlaceNames(rows); });
+  }
+  function savePlaceNameRemote(p){
+    if(!supaConfigured()) return Promise.resolve(false);
+    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/place_names";
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey, "Prefer": "return=minimal" },
+      body: JSON.stringify({ name: p.name, lat: p.lat, lon: p.lon, device_id: getDeviceId() })
+    }).then(r => r.ok).catch(() => false);
+  }
+  function hidePlaceAdd(){
+    placeAddTarget = null;
+    document.getElementById("poiAdd").classList.remove("show");
+    document.getElementById("poiNameInput").blur();
+  }
+  function showPlaceAdd(lat, lon){
+    hidePoiAsk();
+    placeAddTarget = { lat, lon };
+    document.getElementById("poiAddAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    const inp = document.getElementById("poiNameInput");
+    inp.value = "";
+    document.getElementById("poiAddSave").disabled = false;
+    document.getElementById("poiAdd").classList.add("show");
+    nominatimReverse(lat, lon).then(addr => {
+      if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
+        document.getElementById("poiAddAddr").textContent = addr;
+    }).catch(() => {});
+  }
+  function submitPlaceName(){
+    if(!placeAddTarget) return;
+    const name = document.getElementById("poiNameInput").value.trim().replace(/\s+/g, " ");
+    if(name.length < 2){ document.getElementById("poiNameInput").focus(); return; }
+    const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name };
+    document.getElementById("poiAddSave").disabled = true;
+    mergePlaceNames([p]);
+    try{
+      const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
+      local.push(p);
+      localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(local));
+    }catch(e){}
+    hidePlaceAdd();
+    showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
+    if(supaConfigured()){
+      savePlaceNameRemote(p).then(ok => showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
+        ok ? "Nazwa wysłana do wspólnej bazy — zobaczą ją inni kierowcy" : "Nie udało się wysłać do wspólnej bazy — nazwa jest tylko na tym urządzeniu", false));
+    } else {
+      showBanner("ZAPISANO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
+    }
+  }
+  document.getElementById("poiAddSave").addEventListener("click", submitPlaceName);
+  document.getElementById("poiAddCancel").addEventListener("click", hidePlaceAdd);
+  document.getElementById("poiNameInput").addEventListener("keydown", e => { if(e.key === "Enter") submitPlaceName(); });
+
+  // środek budynku (wielokąt) — średnia z wierzchołków zewnętrznego obrysu
+  function buildingCenter(f, fallback){
+    try{
+      const g = f.geometry;
+      const ring = g.type === "Polygon" ? g.coordinates[0] : (g.type === "MultiPolygon" ? g.coordinates[0][0] : null);
+      if(ring && ring.length > 1){
+        const pts = ring.slice(0, -1);
+        return { lon: pts.reduce((a, c) => a + c[0], 0) / pts.length, lat: pts.reduce((a, c) => a + c[1], 0) / pts.length };
+      }
+    }catch(e){}
+    return fallback;
+  }
+
   /* ---------- kliknięcie w firmę / sklep / hotel na mapie: pełna nazwa + adres + pytanie o trasę ---------- */
   let poiAskTarget = null;
   let poiAskSeq = 0;
   function hidePoiAsk(){
+    hidePlaceAdd();
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
@@ -5146,19 +5314,13 @@
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
-    if(!tomtomApiKey) return;
-    const params = new URLSearchParams({ key: tomtomApiKey, language: "pl-PL" });
-    fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?${params.toString()}`)
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(data => {
-        if(seq !== poiAskSeq || !poiAskTarget) return;
-        const a = data.addresses && data.addresses[0] && data.addresses[0].address;
-        if(a && a.freeformAddress){
-          poiAskTarget.address = a.freeformAddress;
-          document.getElementById("poiAskAddr").textContent = a.freeformAddress;
-        }
+    nominatimReverse(lat, lon)
+      .then(addr => {
+        if(seq !== poiAskSeq || !poiAskTarget || !addr) return;
+        poiAskTarget.address = addr;
+        document.getElementById("poiAskAddr").textContent = addr;
       })
-      .catch(err => console.warn("TomTom reverse geocode (POI):", err));
+      .catch(err => console.warn("Nominatim reverse geocode (POI):", err));
   }
   function acceptPoiAsk(){
     if(!poiAskTarget) return;
@@ -5179,7 +5341,7 @@
       const tgt = e.originalEvent && e.originalEvent.target;
       if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
       const poiLayers = map.getStyle().layers
-        .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon")
+        .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon" || l.id === "place-names-icon")
         .map(l => l.id).filter(id => map.getLayer(id));
       const R = 10;
       const feats = poiLayers.length ? map.queryRenderedFeatures(
@@ -5193,7 +5355,20 @@
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }; }
       });
-      if(best) showPoiAsk(best.name, best.lat, best.lon); else hidePoiAsk();
+      if(best){ showPoiAsk(best.name, best.lat, best.lon); return; }
+      // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
+      if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
+        const bLayers = map.getStyle().layers
+          .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
+          .map(l => l.id).filter(id => map.getLayer(id));
+        const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
+        if(bf.length){
+          const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
+          showPlaceAdd(c.lat, c.lon);
+          return;
+        }
+      }
+      hidePoiAsk();
     });
   }
 
@@ -7050,6 +7225,20 @@
   // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
   function attachDragListener(){
     map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
+    map.on("zoom", updateReportBtnVisibility);
+    try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
+    map.on("load", updateReportBtnVisibility);
+    updateReportBtnVisibility();
+  }
+
+  // przycisk zgłoszeń (🚩) widać dopiero, gdy mapa jest tak blisko, że pokazują się budynki
+  const REPORT_BTN_MIN_ZOOM = 15;
+  function updateReportBtnVisibility(){
+    const box = document.getElementById("reportFloat");
+    if(!box || !map) return;
+    const show = map.getZoom() >= REPORT_BTN_MIN_ZOOM;
+    box.classList.toggle("visible", show);
+    if(!show) closeReportMenu();
   }
 
   /* ============================================================
