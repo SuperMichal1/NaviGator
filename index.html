@@ -425,6 +425,22 @@
   #navRerouteBtn:active{ transform: scale(0.98); }
   #navRerouteBtn:disabled{ opacity:.6; cursor:default; }
   #navPanel[data-navstate="picker"] #navRouteInfo{ display:none; }
+  /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
+     (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
+  body:not(.night) #navPanel{
+    --text-main:#0d1c24; --text-dim:#31495a; --panel-border: rgba(0,0,0,0.18);
+    background: rgba(255,255,255,0.66);
+    border-color: rgba(255,255,255,0.8);
+  }
+  body:not(.night) #navPanel .navGrip{ background: rgba(0,0,0,0.35); box-shadow:none; }
+  body:not(.night) #navSettingsBtn{ background: rgba(0,0,0,0.08); color:#31495a; }
+  body:not(.night) #navCloseBtn{ background: rgba(0,0,0,0.10); color:#0d1c24; }
+  body:not(.night) #navRouteInfo, body:not(.night) .navRouteChoice{ background: rgba(255,255,255,0.55); }
+  body:not(.night) #navRouteInfo .rTraffic{ color:#8a4f00; }
+  body:not(.night) #navRouteInfo .rTraffic.heavy{ color:#c4162a; }
+  body:not(.night) .navWaypointRemove{ background: rgba(0,0,0,0.10); color:#0d1c24; }
+  body:not(.night) #navAddWaypointBtn{ color:#0b7a6d; }
+  body:not(.night) #navError{ color:#c4162a; }
   #navError{
     font-size:12px; color: var(--danger); display:none;
   }
