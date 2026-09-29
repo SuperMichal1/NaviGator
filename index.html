@@ -928,12 +928,23 @@
 </div>
 
 <div id="poiAdd" class="poiCard" role="dialog">
-  <div class="poiName">Budynek bez nazwy</div>
-  <div class="poiAddr" id="poiAddAddr"></div>
-  <input id="poiNameInput" type="text" maxlength="80" placeholder="Nazwa firmy / magazynu…" autocomplete="off">
-  <div class="poiBtns">
-    <button id="poiAddCancel" type="button">Anuluj</button>
-    <button id="poiAddSave" type="button">Zapisz nazwę</button>
+  <div id="poiAddAsk">
+    <div class="poiName">Ten budynek nie ma nazwy</div>
+    <div class="poiAddr" id="poiAddAddr"></div>
+    <div class="poiQ">Chcesz dodać nazwę firmy?</div>
+    <div class="poiBtns">
+      <button id="poiAddNo" type="button">Nie</button>
+      <button id="poiAddYes" type="button">Tak, dodaj</button>
+    </div>
+  </div>
+  <div id="poiAddForm" style="display:none; flex-direction:column; gap:6px;">
+    <div class="poiName">Nazwa firmy / magazynu</div>
+    <input id="poiNameInput" type="text" maxlength="80" placeholder="Nazwa firmy…" autocomplete="off">
+    <div class="poiAddr" id="poiAddStatus"></div>
+    <div class="poiBtns">
+      <button id="poiAddCancel" type="button">Anuluj</button>
+      <button id="poiAddSave" type="button">Zapisz nazwę</button>
+    </div>
   </div>
 </div>
 
@@ -2443,7 +2454,7 @@
         source:"place-names",
         minzoom: 14,
         layout:{
-          "text-field": ["concat", "📍\n", ["get", "name"]],
+          "text-field": ["concat", ["case", ["==", ["get", "verified"], false], "❔\n", "📍\n"], ["get", "name"]],
           "text-font": ["Noto Sans Bold"],
           "text-size": 11,
           "text-allow-overlap": false
@@ -3400,7 +3411,10 @@
   const HGV_COMPANIES_MAX_RETRIES = 3;
   let hgvCompaniesRetries = 0;
 
+  let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
+  let hgvCompaniesCache = [];
   function setHgvCompaniesData(features){
+    if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
   }
 
@@ -5212,62 +5226,149 @@
        create policy "place_names insert" on public.place_names for insert to anon with check (true); */
   const PLACE_NAMES_LOCAL_KEY = "nawigator_place_names";
   const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
-  let placeNames = [];            // [{lat, lon, name}]
+  const PLACE_VERIFY_RADIUS_M = 250;
+  const PLACE_KNOWN_NEAR_M = 40;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
+  let placeNames = [];            // [{lat, lon, name, verified}]
   let placeAddTarget = null;
+  let placeAddForce = false;      // po ostrzeżeniu "nie znaleziono" drugie kliknięcie zapisuje mimo to
 
+  // dodatkowe kolumny w Supabase (bez nich zapis nadal działa, tylko bez znacznika weryfikacji):
+  //   alter table public.place_names add column if not exists verified boolean, add column if not exists verified_by text;
+  function _dM(la1, lo1, la2, lo2){
+    const R = 6371000, r = Math.PI / 180;
+    const a = Math.sin((la2-la1)*r/2)**2 + Math.cos(la1*r)*Math.cos(la2*r)*Math.sin((lo2-lo1)*r/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
   function placeNameKey(p){ return p.lat.toFixed(5) + "," + p.lon.toFixed(5) + "|" + p.name.toLowerCase(); }
   function renderPlaceNames(){
     const src = map && map.getSource("place-names");
     if(!src) return;
     src.setData({ type:"FeatureCollection", features: placeNames.map(p => ({
-      type:"Feature", properties:{ name: p.name }, geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
+      type:"Feature", properties:{ name: p.name, verified: p.verified === false ? false : true },
+      geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
   }
   function mergePlaceNames(list){
     const seen = new Set(placeNames.map(placeNameKey));
     list.forEach(p => {
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
       const k = placeNameKey(p);
-      if(!seen.has(k)){ seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name) }); }
+      if(!seen.has(k)){ seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified }); }
     });
     renderPlaceNames();
   }
   function loadPlaceNames(){
     try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]")); }catch(e){}
-    fetchTableFromSupabase("place_names", "name,lat,lon").then(rows => { if(rows && rows.length) mergePlaceNames(rows); });
+    fetchTableFromSupabase("place_names", "name,lat,lon,verified").then(rows =>
+      rows === null ? fetchTableFromSupabase("place_names", "name,lat,lon") : rows
+    ).then(rows => { if(rows && rows.length) mergePlaceNames(rows); });
   }
-  function savePlaceNameRemote(p){
+  function savePlaceNameRemote(p, source){
     if(!supaConfigured()) return Promise.resolve(false);
     const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/place_names";
-    return fetch(url, {
+    const post = body => fetch(url, {
       method: "POST",
       headers: { "Content-Type":"application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey, "Prefer": "return=minimal" },
-      body: JSON.stringify({ name: p.name, lat: p.lat, lon: p.lon, device_id: getDeviceId() })
+      body: JSON.stringify(body)
     }).then(r => r.ok).catch(() => false);
+    const base = { name: p.name, lat: p.lat, lon: p.lon, device_id: getDeviceId() };
+    return post({ ...base, verified: p.verified, verified_by: source || null })
+      .then(ok => ok ? true : post(base)); // tabela bez kolumn weryfikacji → zapis bez znacznika
   }
+
+  // ---- sprawdzanie, czy pod tym adresem naprawdę jest taka firma ----
+  // 1) Nominatim (OSM, darmowy) — szukamy nazwy w ~250 m od budynku; 2) TomTom POI Search — tylko jeśli
+  // OSM nic nie znalazł i jest klucz TomTom (zużywa limit). Google Maps pominięty: Places API jest płatne,
+  // wymaga karty, a regulamin zabrania zapisywania wyników i używania ich na mapie innej niż Google.
+  function nameTokens(str){
+    const all = String(str).toLowerCase().replace(/&/g, " ").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(t => t.length > 1);
+    const generic = new Set(["ltd","limited","plc","llp","uk","the","and","co","company","group","services","logistics","depot","warehouse","distribution"]);
+    const core = all.filter(t => !generic.has(t));
+    return core.length ? core : all;
+  }
+  function namesMatch(a, b){
+    const ta = nameTokens(a), tb = nameTokens(b);
+    if(!ta.length || !tb.length) return false;
+    const ja = ta.join(" "), jb = tb.join(" ");
+    if(ja === jb || ja.includes(jb) || jb.includes(ja)) return true;
+    const common = ta.filter(t => tb.includes(t)).length;
+    return common / Math.min(ta.length, tb.length) >= 0.6;
+  }
+  function fetchWithTimeout(url, ms){
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), ms);
+    return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(t));
+  }
+  function verifyViaNominatim(name, lat, lon){
+    const dLat = 0.0025, dLon = 0.004;
+    const params = new URLSearchParams({ q: name, format: "jsonv2", limit: "8", namedetails: "1", bounded: "1",
+      viewbox: `${lon - dLon},${lat + dLat},${lon + dLon},${lat - dLat}`, "accept-language": "en-GB" });
+    return fetchWithTimeout(`https://nominatim.openstreetmap.org/search?${params.toString()}`, 7000)
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(rows => rows.some(r => {
+        if(_dM(lat, lon, parseFloat(r.lat), parseFloat(r.lon)) > PLACE_VERIFY_RADIUS_M) return false;
+        const cands = [r.name, r.namedetails && r.namedetails.name, r.display_name && r.display_name.split(",")[0]].filter(Boolean);
+        return cands.some(c => namesMatch(name, c));
+      }));
+  }
+  function verifyViaTomTom(name, lat, lon){
+    const params = new URLSearchParams({ key: tomtomApiKey, lat: String(lat), lon: String(lon),
+      radius: String(PLACE_VERIFY_RADIUS_M), limit: "8", countrySet: NAV_DEFAULT_COUNTRY });
+    return fetchWithTimeout(`https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(name)}.json?${params.toString()}`, 7000)
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => (d.results || []).some(r => r.poi && r.poi.name && r.position &&
+        _dM(lat, lon, r.position.lat, r.position.lon) <= PLACE_VERIFY_RADIUS_M && namesMatch(name, r.poi.name)));
+  }
+  // → { status: "found" | "notfound" | "unknown", source }
+  function verifyPlaceName(name, lat, lon){
+    let errors = 0, tried = 0;
+    const step = (fn, source) => { tried++; return fn(name, lat, lon).then(ok => ok ? { status:"found", source } : null)
+      .catch(() => { errors++; return null; }); };
+    return step(verifyViaNominatim, "OSM").then(res => {
+      if(res) return res;
+      if(!tomtomApiKey) return null;
+      return step(verifyViaTomTom, "TomTom");
+    }).then(res => res || { status: errors >= tried ? "unknown" : "notfound" });
+  }
+
+  function findKnownNameNear(lat, lon, maxM){
+    let best = null, bestD = maxM;
+    hgvCompaniesCache.forEach(f => {
+      const n = f.properties && f.properties.name; const c = f.geometry && f.geometry.coordinates;
+      if(!n || !c) return;
+      const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, lat:c[1], lon:c[0] }; }
+    });
+    placeNames.forEach(p => { const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, lat:p.lat, lon:p.lon }; } });
+    return best;
+  }
+
   function hidePlaceAdd(){
-    placeAddTarget = null;
+    placeAddTarget = null; placeAddForce = false;
     document.getElementById("poiAdd").classList.remove("show");
     document.getElementById("poiNameInput").blur();
   }
   function showPlaceAdd(lat, lon){
     hidePoiAsk();
-    placeAddTarget = { lat, lon };
+    placeAddTarget = { lat, lon }; placeAddForce = false;
     document.getElementById("poiAddAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-    const inp = document.getElementById("poiNameInput");
-    inp.value = "";
-    document.getElementById("poiAddSave").disabled = false;
+    document.getElementById("poiAddAsk").style.display = "";
+    document.getElementById("poiAddForm").style.display = "none";
+    document.getElementById("poiNameInput").value = "";
+    document.getElementById("poiAddStatus").textContent = "";
+    const save = document.getElementById("poiAddSave"); save.disabled = false; save.textContent = "Zapisz nazwę";
     document.getElementById("poiAdd").classList.add("show");
     nominatimReverse(lat, lon).then(addr => {
       if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
         document.getElementById("poiAddAddr").textContent = addr;
     }).catch(() => {});
   }
-  function submitPlaceName(){
-    if(!placeAddTarget) return;
-    const name = document.getElementById("poiNameInput").value.trim().replace(/\s+/g, " ");
-    if(name.length < 2){ document.getElementById("poiNameInput").focus(); return; }
-    const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name };
-    document.getElementById("poiAddSave").disabled = true;
+  function openPlaceForm(){
+    document.getElementById("poiAddAsk").style.display = "none";
+    const f = document.getElementById("poiAddForm"); f.style.display = "flex";
+    document.getElementById("poiAddStatus").textContent = document.getElementById("poiAddAddr").textContent;
+    document.getElementById("poiNameInput").focus();
+  }
+  function finishPlaceSave(name, verified, source){
+    const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name, verified };
     mergePlaceNames([p]);
     try{
       const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
@@ -5276,15 +5377,38 @@
     }catch(e){}
     hidePlaceAdd();
     showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
+    const tag = verified === true ? ` (potwierdzona w ${source})` : verified === false ? " (niezweryfikowana ❔)" : "";
     if(supaConfigured()){
-      savePlaceNameRemote(p).then(ok => showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
-        ok ? "Nazwa wysłana do wspólnej bazy — zobaczą ją inni kierowcy" : "Nie udało się wysłać do wspólnej bazy — nazwa jest tylko na tym urządzeniu", false));
+      savePlaceNameRemote(p, source).then(ok => showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
+        (ok ? "Nazwa wysłana do wspólnej bazy" : "Nie udało się wysłać do wspólnej bazy — tylko to urządzenie") + tag, false));
     } else {
-      showBanner("ZAPISANO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
+      showBanner("ZAPISANO LOKALNIE", "Skonfiguruj Supabase, żeby zobaczyli to inni kierowcy" + tag, false);
     }
   }
+  function submitPlaceName(){
+    if(!placeAddTarget) return;
+    const name = document.getElementById("poiNameInput").value.trim().replace(/\s+/g, " ");
+    const status = document.getElementById("poiAddStatus"), save = document.getElementById("poiAddSave");
+    if(name.length < 2){ document.getElementById("poiNameInput").focus(); return; }
+    if(placeAddForce){ finishPlaceSave(name, false, null); return; }
+    save.disabled = true;
+    status.textContent = "Sprawdzam, czy ta firma jest pod tym adresem…";
+    const target = placeAddTarget;
+    verifyPlaceName(name, target.lat, target.lon).then(res => {
+      if(placeAddTarget !== target) return; // karta zamknięta w międzyczasie
+      if(res.status === "found") return finishPlaceSave(name, true, res.source);
+      if(res.status === "unknown") return finishPlaceSave(name, null, null); // brak internetu do weryfikacji
+      placeAddForce = true; save.disabled = false; save.textContent = "Zapisz mimo to";
+      status.textContent = `Nie znaleziono firmy „${name}” pod tym adresem w ${tomtomApiKey ? "OSM ani TomTom" : "OSM"}. Popraw nazwę albo zapisz mimo to (oznaczy ją ❔).`;
+    });
+  }
+  document.getElementById("poiAddYes").addEventListener("click", openPlaceForm);
+  document.getElementById("poiAddNo").addEventListener("click", hidePlaceAdd);
   document.getElementById("poiAddSave").addEventListener("click", submitPlaceName);
   document.getElementById("poiAddCancel").addEventListener("click", hidePlaceAdd);
+  document.getElementById("poiNameInput").addEventListener("input", () => {
+    placeAddForce = false; const sv = document.getElementById("poiAddSave"); sv.textContent = "Zapisz nazwę"; sv.disabled = false;
+  });
   document.getElementById("poiNameInput").addEventListener("keydown", e => { if(e.key === "Enter") submitPlaceName(); });
 
   // środek budynku (wielokąt) — średnia z wierzchołków zewnętrznego obrysu
@@ -5364,6 +5488,15 @@
         const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
         if(bf.length){
           const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
+          // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
+          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M);
+          if(known){ showPoiAsk(known.name, known.lat, known.lon); return; }
+          // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
+          if(!hgvCompaniesLoaded){
+            hidePoiAsk();
+            showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
+            return;
+          }
           showPlaceAdd(c.lat, c.lon);
           return;
         }
