@@ -49,6 +49,37 @@
   #map{
     position:absolute; inset:0; width:100%; height:100%;
   }
+  /* ---------- Prowadzenie zakręt po zakręcie ---------- */
+  #guidanceCard{
+    position:absolute; top:max(10px, env(safe-area-inset-top)); left:10px; right:10px;
+    max-width:460px; margin:0 auto; z-index:49;
+    display:none; align-items:center; gap:12px;
+    padding:10px 12px; border-radius:16px;
+    background:rgba(16,28,36,.94); color:#fff;
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  }
+  #guidanceCard.show{ display:flex; }
+  #guidanceCard .gIcon{
+    flex:0 0 58px; height:58px; border-radius:12px; background:#0b7a6d;
+    display:flex; align-items:center; justify-content:center; font-size:30px; line-height:1;
+  }
+  #guidanceCard .gIcon svg{ width:44px; height:44px; }
+  #guidanceCard .gMain{ flex:1; min-width:0; }
+  #guidanceCard .gDist{ font-size:26px; font-weight:800; line-height:1.05; letter-spacing:.2px; }
+  #guidanceCard .gText{ font-size:15px; font-weight:600; line-height:1.25; margin-top:2px; overflow-wrap:anywhere; }
+  #guidanceCard .gThen{ font-size:12px; opacity:.72; margin-top:3px; line-height:1.25; }
+  #guidanceCard .gThen:empty{ display:none; }
+  #gVoiceBtn{
+    flex:0 0 40px; width:40px; height:40px; border-radius:12px; padding:0;
+    background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18);
+    color:#fff; font-size:18px; cursor:pointer;
+  }
+  #gVoiceBtn.off{ opacity:.5; }
+  body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
+  body.guidance-on #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
+
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -322,7 +353,9 @@
     font-family:'Inter', sans-serif; cursor:pointer; border:1px solid var(--panel-border);
     background:transparent; color: var(--text-main);
   }
-  .poiCard button#poiAskYes, .poiCard button#poiAddSave{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
+  #poiVoteRow button{ padding:7px 10px; font-size:12px; font-weight:600; }
   .poiCard button:disabled{ opacity:.5; }
   .poiCard input{
     width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font-size:16px;
@@ -925,6 +958,19 @@
     <button id="poiAskNo" type="button">Nie</button>
     <button id="poiAskYes" type="button">Tak, wyznacz</button>
   </div>
+  <div class="poiBtns" id="poiVoteRow" style="display:none">
+    <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
+    <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
+  </div>
+</div>
+
+<div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
+  <div class="poiName" id="voteTitle"></div>
+  <div class="poiAddr" id="voteSub"></div>
+  <div class="poiBtns">
+    <button id="voteNo" type="button">👎 Nie ma</button>
+    <button id="voteYes" type="button">👍 Jest</button>
+  </div>
 </div>
 
 <div id="poiAdd" class="poiCard" role="dialog">
@@ -1039,6 +1085,7 @@
     <div class="navTitle">Widoczność na ekranie</div>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefVoice"> Komunikaty głosowe (prowadzenie)</label>
 
     <div id="navKeyToggle">
       <span>🔑 Klucz API TomTom</span>
@@ -1093,6 +1140,16 @@
   <div id="limitSign" class="hidden">
     <div id="limitValue">–</div>
   </div>
+</div>
+
+<div id="guidanceCard" role="status">
+  <div class="gIcon" id="gIcon"></div>
+  <div class="gMain">
+    <div class="gDist" id="gDist"></div>
+    <div class="gText" id="gText"></div>
+    <div class="gThen" id="gThen"></div>
+  </div>
+  <button id="gVoiceBtn" type="button" title="Komunikaty głosowe wł./wył." aria-label="Komunikaty głosowe">🔊</button>
 </div>
 
 <div id="statusPill">
@@ -1379,6 +1436,8 @@
   let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
+  const PREF_VOICE = "nawigator_pref_voice";
+  let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
 
   // --- stan nawigatora ---
   let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
@@ -1994,10 +2053,10 @@
   // żeby sieć dróg była zawsze widoczna): z daleka stonowana ochra wtopiona w tło, po przybliżeniu
   // wyraźny, nasycony bursztyn — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fill: "#b5691f", casing: "#6a3b10" },  // ciemny pomarańcz, ciemniejszy obrys
+    motorway: { fill: "#e0703a", casing: "#7a3518" },  // koralowy pomarańcz (test kontrastu: CR 3.5:1 do tła, ΔE2000 ≥ 39 do wszystkich teł)
     major:    {
-      fillFar: "#87794a", casingFar: "#54492c",        // z daleka: stonowana ochra wtopiona w tło (jak dotychczas)
-      fillNear: "#e0aa3d", casingNear: "#6b4a12"        // po przybliżeniu: wyraźny, nasycony bursztyn
+      fillFar: "#a08a6a", casingFar: "#4e4030",        // z daleka: stonowany ciepły beż (bez oliwkowego odcienia zlewającego się z zielenią tła)
+      fillNear: "#ecd58a", casingNear: "#6b5a2a"        // po przybliżeniu: kremowo-złoty, wyraźnie odmienny od autostrad
     },
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
@@ -2454,7 +2513,7 @@
         source:"place-names",
         minzoom: 14,
         layout:{
-          "text-field": ["concat", ["case", ["==", ["get", "verified"], false], "❔\n", "📍\n"], ["get", "name"]],
+          "text-field": ["concat", ["case", ["any", ["==", ["get", "verified"], false], ["==", ["get", "status"], "pending"]], "❔\n", "📍\n"], ["get", "name"]],
           "text-font": ["Noto Sans Bold"],
           "text-size": 11,
           "text-allow-overlap": false
@@ -2604,7 +2663,7 @@
         type:"symbol",
         source:"hgv-parking-community",
         layout:{
-          "text-field": "🅿️🤝", // zgłoszone i widoczne dla innych kierowców
+          "text-field": ["case", ["==", ["get", "status"], "pending"], "🅿️❔", "🅿️🤝"], // ❔ = czeka na potwierdzenie drugiego kierowcy, 🤝 = potwierdzone
           "text-size": 15,
           "text-allow-overlap": true
         }
@@ -4318,13 +4377,69 @@
     if(!supaConfigured()) return Promise.resolve([]);
     const latMin = lat - SUPA_FETCH_PAD_DEG, latMax = lat + SUPA_FETCH_PAD_DEG;
     const lonMin = lon - SUPA_FETCH_PAD_DEG, lonMax = lon + SUPA_FETCH_PAD_DEG;
-    const url = supaUrl.replace(/\/+$/, "") +
-      `/rest/v1/shared_reports?select=id,kind,lat,lon,confirmations` +
-      `&lat=gte.${latMin}&lat=lte.${latMax}&lon=gte.${lonMin}&lon=lte.${lonMax}`;
-    return fetch(url, { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey } })
-      .then(r => r.ok ? r.json() : [])
+    const base = supaUrl.replace(/\/+$/, "") + "/rest/v1/shared_reports?select=";
+    const box = `&lat=gte.${latMin}&lat=lte.${latMax}&lon=gte.${lonMin}&lon=lte.${lonMax}`;
+    const get = q => fetch(base + q, { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey } });
+    // nowa baza (supabase_moderacja.sql): tylko wpisy pending/active; starsza baza bez kolumny status → zapytanie jak dawniej
+    return get("id,kind,lat,lon,confirmations,denials,status&status=in.(pending,active)" + box)
+      .then(r => r.ok ? r.json() : get("id,kind,lat,lon,confirmations" + box).then(r2 => r2.ok ? r2.json() : []))
       .catch(() => []);
   }
+
+  /* ---------- głosowanie społeczności (potwierdzam / nie ma) ---------- */
+  function supaRpc(fn, body){
+    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/rpc/" + fn;
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey },
+      body: JSON.stringify(body)
+    }).then(r => r.ok ? r.json().catch(() => ({})) : Promise.reject(new Error("HTTP " + r.status)));
+  }
+  let voteTarget = null, voteHideTimer = null;
+  function hideVoteCard(){
+    voteTarget = null;
+    if(voteHideTimer){ clearTimeout(voteHideTimer); voteHideTimer = null; }
+    document.getElementById("voteCard").classList.remove("show");
+  }
+  function voteCountsText(v){
+    const st = v.status === "pending" ? " · czeka na potwierdzenie" : "";
+    return `👍 ${v.confirmations || 0} · 👎 ${v.denials || 0}${st}`;
+  }
+  // t = { kind: "report" | "place", id, title, confirmations, denials, status, yes, no }
+  function showVoteCard(t, autoHideMs){
+    hidePoiAsk(); // zamyka inne karty (i starą kartę głosowania)
+    voteTarget = t;
+    document.getElementById("voteTitle").textContent = t.title;
+    document.getElementById("voteSub").textContent = voteCountsText(t);
+    document.getElementById("voteYes").textContent = t.yes || "👍 Jest";
+    document.getElementById("voteNo").textContent = t.no || "👎 Nie ma";
+    document.getElementById("voteCard").classList.add("show");
+    if(autoHideMs) voteHideTimer = setTimeout(hideVoteCard, autoHideMs);
+  }
+  function castVote(vote){
+    const t = voteTarget;
+    if(!t) return;
+    hideVoteCard();
+    if(!supaConfigured()) return;
+    supaRpc(t.kind === "place" ? "vote_place" : "vote_report", { p_id: t.id, p_device: getDeviceId(), p_vote: vote })
+      .then(res => {
+        res = res || {};
+        showBanner(vote > 0 ? "DZIĘKI — POTWIERDZONE" : "DZIĘKI — ZGŁOSZONE",
+          res.status === "hidden" ? "Wpis ukryty przez społeczność" : voteCountsText(res), false);
+        if(t.kind === "report" && lastPos) fetchOverpassData(lastPos.lat, lastPos.lon); // odśwież widoczność wpisów
+      })
+      .catch(() => showBanner("NIE WYSŁANO", "Głos nie dotarł do wspólnej bazy (limit albo brak połączenia)", false));
+  }
+  document.getElementById("voteYes").addEventListener("click", () => castVote(1));
+  document.getElementById("voteNo").addEventListener("click", () => castVote(-1));
+  function voteFromPoiAsk(vote){
+    if(!poiAskTarget || poiAskTarget.placeId == null) return;
+    voteTarget = { kind: "place", id: poiAskTarget.placeId };
+    castVote(vote);
+    document.getElementById("poiVoteRow").style.display = "none";
+  }
+  document.getElementById("poiVoteGood").addEventListener("click", () => voteFromPoiAsk(1));
+  document.getElementById("poiVoteBad").addEventListener("click", () => voteFromPoiAsk(-1));
 
   function renderUserHgvParking(){
     if(map && map.getSource("hgv-parking-user")){
@@ -4524,12 +4639,15 @@
     // dołóż zgłoszenia społeczności (Supabase) — fotoradary trafiają do tej samej listy co OSM,
     // więc też wywołują alert 200 m; parkingi HGV dostają osobną warstwę na mapie
     supaReports.forEach(r => {
+      const st = r.status || "active"; // starsza baza bez kolumny status = jak dotąd
       if(r.kind === "speed_camera"){
-        newCameras.push({ id: "supa-" + r.id, lat: r.lat, lon: r.lon, alerted: false, community: true });
+        // niepotwierdzony fotoradar (1 zgłoszenie) nie alarmuje innych kierowców — dopiero po potwierdzeniu
+        if(st === "active") newCameras.push({ id: "supa-" + r.id, lat: r.lat, lon: r.lon, alerted: false, community: true,
+          reportId: r.id, confirmations: r.confirmations || 0, denials: r.denials || 0 });
       } else if(r.kind === "hgv_parking"){
         communityParkingFeatures.push({
           type:"Feature",
-          properties:{ id: r.id, confirmations: r.confirmations || 1 },
+          properties:{ id: r.id, confirmations: r.confirmations || 1, denials: r.denials || 0, status: st },
           geometry:{ type:"Point", coordinates:[r.lon, r.lat] }
         });
       }
@@ -4546,7 +4664,7 @@
       saveUserHgvParking();
     }
     const stillUnconfirmedCameras = userReportedCameras.filter(p =>
-      !supaReports.some(r => r.kind === "speed_camera" && haversine(p.lat, p.lon, r.lat, r.lon) < CONFIRM_DEDUPE_M));
+      !supaReports.some(r => r.kind === "speed_camera" && (r.status || "active") === "active" && haversine(p.lat, p.lon, r.lat, r.lon) < CONFIRM_DEDUPE_M));
     if(stillUnconfirmedCameras.length !== userReportedCameras.length){
       userReportedCameras = stillUnconfirmedCameras;
       saveUserReportedCameras();
@@ -4653,6 +4771,11 @@
         cam.alerted = true;
         const meters = Math.round(d/10)*10;
         showBanner("FOTORADAR", `Za ok. ${meters} m — sprawdź prędkość`, true);
+        if(cam.community && cam.reportId != null && supaConfigured() && !placeAddTarget){
+          showVoteCard({ kind: "report", id: cam.reportId, title: "Fotoradar zgłoszony przez kierowców",
+            confirmations: cam.confirmations, denials: cam.denials, status: "active",
+            yes: "👍 Jest", no: "👎 Nie ma" }, 10000);
+        }
       } else if(d > CAMERA_ALERT_RESET_M && cam.alerted){
         cam.alerted = false; // reset histerezy, by można było ostrzec ponownie przy kolejnym podejściu
       }
@@ -4725,6 +4848,7 @@
     }
 
     try{ checkOffRoute(rawLat, rawLon, pos.coords.accuracy); }catch(e){ console.warn("Wykrywanie zjechania z trasy:", e); }
+    try{ updateGuidance(lat, lon); }catch(e){ console.warn("Prowadzenie:", e); }
     updateSpeedLimit(lat, lon);
     checkCameraProximity(lat, lon);
     detectUnitSystem(lat, lon);
@@ -4856,6 +4980,37 @@
      opts.onTyping() — wywoływane przy każdej zmianie treści pola (np. czyszczenie starego wyboru).
      opts.hasSelection() / opts.onEnterConfirm() — opcjonalne: Enter na już wybranej wartości
      robi coś innego niż nowe wyszukiwanie (używane tylko przez pole celu — pokazuje pinezkę). */
+  function searchBias(){
+    const c = (typeof map !== "undefined" && map && map.getCenter) ? map.getCenter() : null;
+    if(c) return { lat: c.lat, lon: c.lng };
+    return lastPos ? { lat: lastPos.lat, lon: lastPos.lon } : null;
+  }
+  // TomTom POI Search: firmy o podanej nazwie w promieniu 50 km od punktu, posortowane wg odległości
+  function fetchPoiNear(query, bias, signal){
+    const params = new URLSearchParams({ key: tomtomApiKey, lat: String(bias.lat), lon: String(bias.lon),
+      radius: "50000", limit: "5", countrySet: NAV_DEFAULT_COUNTRY });
+    return fetch(`https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(query)}.json?${params.toString()}`, { signal })
+      .then(r => r.ok ? r.json() : { results: [] })
+      .then(d => d.results || [])
+      .catch(err => { if(err.name === "AbortError") throw err; return []; });
+  }
+  // nazwy dodane przez kierowców + firmy HGV (Overpass/Supabase) pasujące do wpisanego tekstu
+  function localNameMatches(query, bias){
+    const q = query.toLowerCase();
+    if(q.length < NAV_SUGGEST_MIN_CHARS) return [];
+    const out = [];
+    const add = (name, lat, lon) => {
+      if(!name || typeof lat !== "number" || typeof lon !== "number") return;
+      if(!(name.toLowerCase().includes(q) || namesMatch(query, name))) return;
+      if(out.some(o => o.poi.name.toLowerCase() === name.toLowerCase() && _dM(o.position.lat, o.position.lon, lat, lon) < 100)) return;
+      out.push({ local: true, poi: { name }, address: { freeformAddress: name }, position: { lat, lon },
+        _d: bias ? _dM(bias.lat, bias.lon, lat, lon) : 0 });
+    };
+    placeNames.forEach(p => add(p.name, p.lat, p.lon));
+    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0]); });
+    return out.sort((a, b) => a._d - b._d).slice(0, 3);
+  }
+
   function createStopSearch(wrapEl, input, box, opts){
     opts = opts || {};
     let abort = null;
@@ -4877,7 +5032,7 @@
         item.className = "navSuggestion";
         item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-        item.querySelector(".addr2").textContent = (r.poi && r.poi.name) ? label : sub;
+        item.querySelector(".addr2").textContent = r.local ? "Z bazy kierowców" : ((r.poi && r.poi.name) ? label : sub);
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         box.appendChild(item);
       });
@@ -4896,30 +5051,41 @@
       const params = new URLSearchParams({
         key: tomtomApiKey,
         typeahead: autoPick ? "false" : "true",
-        limit: "5",
+        limit: "8",
         countrySet: NAV_DEFAULT_COUNTRY
       });
-      if(lastPos){
-        params.set("lat", lastPos.lat);
-        params.set("lon", lastPos.lon);
+      // wyniki faworyzują okolicę, którą widać na mapie (a bez mapy — pozycję GPS)
+      const bias = searchBias();
+      if(bias){
+        params.set("lat", bias.lat);
+        params.set("lon", bias.lon);
       }
       const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
 
-      fetch(url, { signal: abort.signal })
+      const signal = abort.signal;
+      fetch(url, { signal })
         .then(r => {
           if(r.status === 403) throw new Error("UNAUTHORIZED");
           if(!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
         .then(data => {
+          const results = data.results || [];
+          // brak jakiejkolwiek firmy w wynikach (np. wpisano nazwę sieci, jak "Halfords") → dodatkowe
+          // zapytanie o firmy w promieniu ~50 km, najbliższe pierwsze
+          if(bias && !results.some(r => r.poi)) return fetchPoiNear(query, bias, signal).then(poi => poi.concat(results));
+          return results;
+        })
+        .then(results => {
+          // najpierw nazwy z bazy kierowców/firm HGV (darmowe, bez TomTom), potem wyniki TomTom
+          const all = localNameMatches(query, bias).concat(results);
           if(autoPick){
-            // Enter bez czekania na podpowiedzi: bierzemy najlepszy wynik
-            if(data.results && data.results.length){ clear(); if(opts.onSelect) opts.onSelect(data.results[0]); }
+            if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
             else showNavError("Nie znaleziono takiego adresu.");
             return;
           }
           suggestionsFor = query;
-          render(data.results);
+          render(all);
         })
         .catch(err => {
           if(err.name === "AbortError") return;
@@ -5227,7 +5393,8 @@
   const PLACE_NAMES_LOCAL_KEY = "nawigator_place_names";
   const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
   const PLACE_VERIFY_RADIUS_M = 250;
-  const PLACE_KNOWN_NEAR_M = 40;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
+  const PLACE_DUPLICATE_M = 200;  // ta sama nazwa bliżej niż tyle = ta sama firma, nie dodajemy drugi raz
+  const PLACE_KNOWN_NEAR_M = 60;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
   let placeNames = [];            // [{lat, lon, name, verified}]
   let placeAddTarget = null;
   let placeAddForce = false;      // po ostrzeżeniu "nie znaleziono" drugie kliknięcie zapisuje mimo to
@@ -5244,7 +5411,7 @@
     const src = map && map.getSource("place-names");
     if(!src) return;
     src.setData({ type:"FeatureCollection", features: placeNames.map(p => ({
-      type:"Feature", properties:{ name: p.name, verified: p.verified === false ? false : true },
+      type:"Feature", properties:{ id: p.id, status: p.status || "", name: p.name, verified: p.verified === false ? false : true },
       geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
   }
   function mergePlaceNames(list){
@@ -5252,27 +5419,31 @@
     list.forEach(p => {
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
       const k = placeNameKey(p);
-      if(!seen.has(k)){ seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified }); }
+      // wpis z bazy wspólnej przejmuje id/status lokalnej kopii — dzięki temu można na niego głosować
+      const adopt = q => { if(q && p.id != null){ q.id = p.id; q.status = p.status; } };
+      if(seen.has(k)){ adopt(placeNames.find(q => placeNameKey(q) === k)); return; }
+      // ta sama nazwa w promieniu PLACE_DUPLICATE_M = duplikat (np. ten sam magazyn dodany kilka razy) — pomijamy
+      const nk = nameTokens(p.name).join(" ");
+      const same = placeNames.find(q => nameTokens(q.name).join(" ") === nk && _dM(q.lat, q.lon, p.lat, p.lon) < PLACE_DUPLICATE_M);
+      if(same){ adopt(same); return; }
+      seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified, id: p.id, status: p.status });
     });
     renderPlaceNames();
   }
   function loadPlaceNames(){
     try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]")); }catch(e){}
-    fetchTableFromSupabase("place_names", "name,lat,lon,verified").then(rows =>
+    fetchTableFromSupabase("place_names", "id,name,lat,lon,verified,status,confirmations,denials").then(rows =>
+      rows === null ? fetchTableFromSupabase("place_names", "name,lat,lon,verified") : rows
+    ).then(rows =>
       rows === null ? fetchTableFromSupabase("place_names", "name,lat,lon") : rows
     ).then(rows => { if(rows && rows.length) mergePlaceNames(rows); });
   }
+  // zapis tylko przez funkcję add_place_name (supabase_moderacja.sql): walidacja, limity, duplikaty → głos zamiast nowego wpisu
   function savePlaceNameRemote(p, source){
     if(!supaConfigured()) return Promise.resolve(false);
-    const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/place_names";
-    const post = body => fetch(url, {
-      method: "POST",
-      headers: { "Content-Type":"application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey, "Prefer": "return=minimal" },
-      body: JSON.stringify(body)
-    }).then(r => r.ok).catch(() => false);
-    const base = { name: p.name, lat: p.lat, lon: p.lon, device_id: getDeviceId() };
-    return post({ ...base, verified: p.verified, verified_by: source || null })
-      .then(ok => ok ? true : post(base)); // tabela bez kolumn weryfikacji → zapis bez znacznika
+    return supaRpc("add_place_name", { p_name: p.name, p_lat: p.lat, p_lon: p.lon, p_device: getDeviceId(),
+      p_verified: p.verified === undefined ? null : p.verified, p_verified_by: source || null })
+      .then(() => true).catch(() => false);
   }
 
   // ---- sprawdzanie, czy pod tym adresem naprawdę jest taka firma ----
@@ -5330,6 +5501,20 @@
     }).then(res => res || { status: errors >= tried ? "unknown" : "notfound" });
   }
 
+  // czy taka sama firma (ta sama nazwa) jest już na mapie w promieniu PLACE_DUPLICATE_M
+  function findSameNameNear(name, lat, lon){
+    let best = null, bestD = PLACE_DUPLICATE_M;
+    const nk = nameTokens(name).join(" ");
+    const check = (n, la, lo) => {
+      if(!n) return;
+      const d = _dM(lat, lon, la, lo);
+      if(d < bestD && (nameTokens(n).join(" ") === nk || namesMatch(name, n))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
+    };
+    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) check(f.properties && f.properties.name, c[1], c[0]); });
+    placeNames.forEach(p => check(p.name, p.lat, p.lon));
+    return best;
+  }
+
   function findKnownNameNear(lat, lon, maxM){
     let best = null, bestD = maxM;
     hgvCompaniesCache.forEach(f => {
@@ -5337,7 +5522,7 @@
       if(!n || !c) return;
       const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, lat:c[1], lon:c[0] }; }
     });
-    placeNames.forEach(p => { const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, lat:p.lat, lon:p.lon }; } });
+    placeNames.forEach(p => { const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, lat:p.lat, lon:p.lon, placeId:p.id }; } });
     return best;
   }
 
@@ -5379,8 +5564,18 @@
     showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
     const tag = verified === true ? ` (potwierdzona w ${source})` : verified === false ? " (niezweryfikowana ❔)" : "";
     if(supaConfigured()){
-      savePlaceNameRemote(p, source).then(ok => showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
-        (ok ? "Nazwa wysłana do wspólnej bazy" : "Nie udało się wysłać do wspólnej bazy — tylko to urządzenie") + tag, false));
+      savePlaceNameRemote(p, source).then(ok => {
+        if(ok){ // serwer ma już wpis (zwróci go przy następnym wczytaniu) — lokalna kopia niepotrzebna
+          try{
+            const k = placeNameKey(p);
+            const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]").filter(q => placeNameKey(q) !== k);
+            localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(local));
+          }catch(e){}
+        }
+        showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
+          (ok ? (verified === true ? "Nazwa wysłana do wspólnej bazy" : "Nazwa wysłana — inni zobaczą ją po potwierdzeniu przez drugiego kierowcę")
+              : "Nie udało się wysłać do wspólnej bazy (limit, niedozwolona nazwa albo brak połączenia) — tylko to urządzenie") + tag, false);
+      });
     } else {
       showBanner("ZAPISANO LOKALNIE", "Skonfiguruj Supabase, żeby zobaczyli to inni kierowcy" + tag, false);
     }
@@ -5390,6 +5585,17 @@
     const name = document.getElementById("poiNameInput").value.trim().replace(/\s+/g, " ");
     const status = document.getElementById("poiAddStatus"), save = document.getElementById("poiAddSave");
     if(name.length < 2){ document.getElementById("poiNameInput").focus(); return; }
+    if(/https?:|www\.|@|[<>{}|]/i.test(name) || !/[\p{L}\p{N}]/u.test(name)){
+      status.textContent = "Nazwa nie może zawierać linków, adresów e-mail ani znaków < > { } |.";
+      return;
+    }
+    const dup = findSameNameNear(name, placeAddTarget.lat, placeAddTarget.lon);
+    if(dup){
+      hidePlaceAdd();
+      showPoiAsk(dup.name, dup.lat, dup.lon);
+      showBanner("JUŻ ISTNIEJE", `„${dup.name}” jest już na mapie ${Math.round(dup.dist)} m stąd — nie dodaję drugi raz`, false);
+      return;
+    }
     if(placeAddForce){ finishPlaceSave(name, false, null); return; }
     save.disabled = true;
     status.textContent = "Sprawdzam, czy ta firma jest pod tym adresem…";
@@ -5429,12 +5635,15 @@
   let poiAskSeq = 0;
   function hidePoiAsk(){
     hidePlaceAdd();
+    hideVoteCard();
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon){
+  function showPoiAsk(name, lat, lon, placeId){
     const seq = ++poiAskSeq;
-    poiAskTarget = { lat, lon, name, address: "" };
+    hideVoteCard();
+    poiAskTarget = { lat, lon, name, address: "", placeId };
+    document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
@@ -5467,6 +5676,17 @@
       const poiLayers = map.getStyle().layers
         .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon" || l.id === "place-names-icon")
         .map(l => l.id).filter(id => map.getLayer(id));
+      // parking HGV zgłoszony przez kierowców → karta głosowania (potwierdzam / nie ma)
+      if(map.getLayer("hgv-parking-community-icon")){
+        const vf = map.queryRenderedFeatures([[e.point.x - 16, e.point.y - 16], [e.point.x + 16, e.point.y + 16]], { layers: ["hgv-parking-community-icon"] });
+        if(vf.length){
+          const vp = vf[0].properties || {};
+          showVoteCard({ kind: "report", id: vp.id, title: "Parking HGV zgłoszony przez kierowców",
+            confirmations: vp.confirmations, denials: vp.denials, status: vp.status,
+            yes: "👍 Jest parking", no: "👎 Nie ma" });
+          return;
+        }
+      }
       const R = 10;
       const feats = poiLayers.length ? map.queryRenderedFeatures(
         [[e.point.x - R, e.point.y - R], [e.point.x + R, e.point.y + R]], { layers: poiLayers }) : [];
@@ -5477,9 +5697,10 @@
         if(!name || !f.geometry || f.geometry.type !== "Point") return;
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
-        if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }; }
+        if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId); return; }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
       if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
         const bLayers = map.getStyle().layers
@@ -5489,8 +5710,8 @@
         if(bf.length){
           const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
           // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
-          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon); return; }
+          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
@@ -5542,7 +5763,7 @@
       key: tomtomApiKey, traffic: "true", travelMode: "car", routeType: "fastest",
       language: "pl-PL", report: "effectiveSettings"
     });
-    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&instructionsType=text`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -5566,8 +5787,10 @@
           if(p) incidents.push({ lon:p[0], lat:p[1], delay: sec.delay||0, magnitude: sec.magnitudeOfDelay||0 });
         }
       });
+      const steps = [];
+      ((route.guidance && route.guidance.instructions) || []).forEach(x => { const st = tomtomStep(x, coords.length); if(st) steps.push(st); });
       return {
-        coords,
+        coords, steps,
         distanceM: route.summary.lengthInMeters,
         timeS: route.summary.travelTimeInSeconds,
         trafficDelayS: route.summary.trafficDelayInSeconds || 0,
@@ -5672,7 +5895,8 @@
       timeS: chosen.timeS,
       trafficDelayS: chosen.trafficDelayS || 0,
       manuallyEdited: false,
-      source: key
+      source: key,
+      steps: chosen.steps || null
     };
     routeSpeedSegments = chosen.speedSegments || [];
     routeTrafficIncidents = chosen.incidents || [];
@@ -5767,10 +5991,14 @@
         }
         const parseTrip = trip => {
           if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
-          const coords = [];
-          trip.legs.forEach(leg => decodePolyline(leg.shape, 6).forEach(c => coords.push(c)));
+          const coords = [], steps = [];
+          trip.legs.forEach(leg => {
+            const pts = decodePolyline(leg.shape, 6), off = coords.length;
+            (leg.maneuvers || []).forEach(m => { const st = valhallaStep(m, off); if(st) steps.push(st); });
+            pts.forEach(c => coords.push(c));
+          });
           if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
-          return { coords, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
+          return { coords, steps, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
         const main = parseTrip(data.trip);
         main.alts = (data.alternates || []).map(a => { try{ return parseTrip(a.trip); }catch(e){ return null; } }).filter(Boolean);
@@ -5961,6 +6189,7 @@
       trafficDelayS: 0,
       manuallyEdited: false,
       source: source || "truck",
+      steps: route.steps || null,
       planning: true
     };
     routeSpeedSegments = [];
@@ -6029,6 +6258,291 @@
     renderNavRouteInfo();
   }
 
+
+  /* ============================================================
+     PROWADZENIE ZAKRĘT PO ZAKRĘCIE — karta u góry + komunikaty głosowe (pl-PL)
+     Kroki ("steps") pochodzą z Valhalli (maneuvers) i TomTom (guidance.instructions), ujednolicone do postaci:
+       { i: indeks punktu na trasie, t: typ, street, ref, toward, exit, rb }
+     Trasa po ręcznej edycji / z lokalnego silnika nie ma kroków → instrukcje przybliżone z kształtu trasy.
+  ============================================================ */
+  const ROAD_REF_RE = /^(?:M|A|B)\d{1,4}(?:\(M\))?$/i;
+  const VAL_TYPES = { 1:"start",2:"start",3:"start",4:"arrive",5:"arrive-right",6:"arrive-left",
+    9:"slight-right",10:"right",11:"sharp-right",12:"uturn",13:"uturn",14:"sharp-left",15:"left",16:"slight-left",
+    17:"ramp",18:"ramp-right",19:"ramp-left",20:"exit-right",21:"exit-left",22:"straight",23:"keep-right",24:"keep-left",
+    25:"merge",26:"roundabout",28:"ferry",37:"merge",38:"merge" };
+  const TT_TYPES = { DEPART:"start", ARRIVE:"arrive", ARRIVE_LEFT:"arrive-left", ARRIVE_RIGHT:"arrive-right",
+    STRAIGHT:"straight", KEEP_RIGHT:"keep-right", KEEP_LEFT:"keep-left", BEAR_RIGHT:"slight-right", BEAR_LEFT:"slight-left",
+    TURN_RIGHT:"right", TURN_LEFT:"left", SHARP_RIGHT:"sharp-right", SHARP_LEFT:"sharp-left",
+    MAKE_UTURN:"uturn", TRY_MAKE_UTURN:"uturn", ENTER_MOTORWAY:"ramp", ENTER_FREEWAY:"ramp", ENTER_HIGHWAY:"ramp", ENTRANCE_RAMP:"ramp",
+    MOTORWAY_EXIT_LEFT:"exit-left", MOTORWAY_EXIT_RIGHT:"exit-right", TAKE_EXIT:"exit",
+    ROUNDABOUT_CROSS:"roundabout", ROUNDABOUT_RIGHT:"roundabout", ROUNDABOUT_LEFT:"roundabout", ROUNDABOUT_BACK:"roundabout",
+    TAKE_FERRY:"ferry" };
+
+  function valhallaStep(m, off){
+    const t = VAL_TYPES[m.type];
+    if(!t) return null;
+    const sign = m.sign || {};
+    const txt = a => (a || []).map(x => x && x.text).filter(Boolean);
+    const names = (m.street_names || []).concat(txt(sign.exit_branch));
+    return {
+      i: off + (m.begin_shape_index || 0), t,
+      ref: names.find(n => ROAD_REF_RE.test(n)) || null,
+      street: names.find(n => !ROAD_REF_RE.test(n)) || null,
+      toward: txt(sign.exit_toward).slice(0, 2).join(" / ") || null,
+      exit: txt(sign.exit_number)[0] || null,
+      rb: m.roundabout_exit_count || null
+    };
+  }
+  function tomtomStep(x, nPts){
+    const t = TT_TYPES[x.maneuver];
+    if(!t) return null;
+    const roads = x.roadNumbers || [];
+    return {
+      i: Math.max(0, Math.min(nPts - 1, x.pointIndex || 0)), t,
+      ref: roads.find(n => ROAD_REF_RE.test(n)) || roads[0] || null,
+      street: x.street || null,
+      toward: x.signpostText || null,
+      exit: x.exitNumber || null,
+      rb: x.roundaboutExitNumber || null
+    };
+  }
+
+  // instrukcje przybliżone z samej geometrii (po ręcznej edycji trasy / lokalnym silniku): zakręty >= 45° bez nazw ulic
+  function guideStepsFromGeometry(c, cum){
+    const n = c.length, steps = [];
+    if(n < 3) return steps;
+    const back = (i, d) => { let j = i; while(j > 0 && cum[i] - cum[j] < d) j--; return j; };
+    const fwd  = (i, d) => { let j = i; while(j < n - 1 && cum[j] - cum[i] < d) j++; return j; };
+    const delta = i => {
+      const a = back(i, 35), b = fwd(i, 35);
+      if(a === i || b === i) return 0;
+      const inB = bearingBetween(c[a][1], c[a][0], c[i][1], c[i][0]);
+      const outB = bearingBetween(c[i][1], c[i][0], c[b][1], c[b][0]);
+      return ((outB - inB + 540) % 360) - 180;
+    };
+    let lastD = -1e9;
+    for(let i = 1; i < n - 1; i++){
+      if(cum[i] - lastD < 80) continue;
+      if(Math.abs(delta(i)) < 45) continue;
+      let bj = i, bd = delta(i);
+      for(let j = i + 1; j < n - 1 && cum[j] - cum[i] < 50; j++){ const d = delta(j); if(Math.abs(d) > Math.abs(bd)){ bd = d; bj = j; } }
+      const ad = Math.abs(bd), right = bd > 0;
+      const t = ad > 165 ? "uturn" : ad > 125 ? (right ? "sharp-right" : "sharp-left") : ad > 60 ? (right ? "right" : "left") : (right ? "slight-right" : "slight-left");
+      steps.push({ i: bj, t });
+      lastD = cum[bj];
+    }
+    steps.push({ i: n - 1, t: "arrive" });
+    return steps;
+  }
+
+  const GUIDE_ACT = { left:"skręć w lewo", right:"skręć w prawo", "slight-left":"skręć lekko w lewo", "slight-right":"skręć lekko w prawo",
+    "sharp-left":"skręć ostro w lewo", "sharp-right":"skręć ostro w prawo", uturn:"zawróć", straight:"jedź prosto",
+    "keep-left":"trzymaj się lewej strony", "keep-right":"trzymaj się prawej strony", "exit-left":"zjedź w lewo", "exit-right":"zjedź w prawo", exit:"zjedź",
+    ramp:"wjedź na łącznicę", "ramp-left":"wjedź na łącznicę po lewej", "ramp-right":"wjedź na łącznicę po prawej", merge:"włącz się do ruchu",
+    roundabout:"wjedź na rondo", ferry:"wjedź na prom", arrive:"dotrzesz do celu", "arrive-left":"cel będzie po lewej stronie", "arrive-right":"cel będzie po prawej stronie" };
+  const GUIDE_ORD = ["", "pierwszym", "drugim", "trzecim", "czwartym", "piątym", "szóstym", "siódmym", "ósmym", "dziewiątym", "dziesiątym"];
+  const GUIDE_TURNS = { left:1, right:1, "slight-left":1, "slight-right":1, "sharp-left":1, "sharp-right":1, uturn:1 };
+  function guideSentence(s){
+    let out = GUIDE_ACT[s.t] || "jedź dalej";
+    if(s.t === "roundabout" && s.rb) out = "wjedź na rondo i zjedź " + (GUIDE_ORD[s.rb] || (s.rb + ".")) + " zjazdem";
+    if(s.exit && (s.t.indexOf("exit") === 0 || s.t.indexOf("ramp") === 0)) out += ", zjazd " + s.exit + ",";
+    if(s.ref) out += " na " + s.ref;
+    else if(s.street) out += (GUIDE_TURNS[s.t] ? " w " : " na ") + s.street;
+    if(s.toward) out += " w kierunku " + s.toward;
+    return out.replace(/,\s*$/, "").replace(/,,/g, ",");
+  }
+  const guideCap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+  function guideDistLabel(m){
+    if(unitSystem === "mph"){
+      const yd = m * 1.09361;
+      if(yd < 400) return Math.max(10, Math.round(yd / 10) * 10) + " yd";
+      const mi = m / 1609.344;
+      return (mi < 10 ? mi.toFixed(1) : Math.round(mi)) + " mi";
+    }
+    if(m < 950) return Math.max(10, Math.round(m / 10) * 10) + " m";
+    const km = m / 1000;
+    return (km < 10 ? km.toFixed(1) : Math.round(km)) + " km";
+  }
+  function guideSpeakDist(m){
+    const plMile = n => (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) ? "mile" : "mil";
+    if(unitSystem === "mph"){
+      const yd = m * 1.09361;
+      if(yd < 600) return Math.max(50, Math.round(yd / 50) * 50) + " jardów";
+      const mi = m / 1609.344;
+      if(mi < 0.625) return "pół mili";
+      if(mi < 0.875) return "trzy czwarte mili";
+      if(mi < 1.25) return "jedną milę";
+      if(mi < 1.75) return "półtorej mili";
+      const n = Math.round(mi);
+      return n + " " + plMile(n);
+    }
+    if(m < 950) return Math.max(50, Math.round(m / 50) * 50) + " metrów";
+    const km = Math.round(m / 100) / 10;
+    return (Number.isInteger(km) ? km : String(km).replace(".", ",")) + " kilometra";
+  }
+
+  // odległości, przy których padają komunikaty "Za …" — zgodne z tym, co czytamy (pół mili, 300 jardów…)
+  function guideAnnounceList(kind){
+    if(unitSystem === "mph"){
+      return kind === "far" ? [0.5, 0.75, 1, 1.5, 2, 3, 5].map(mi => mi * 1609.344)
+                            : [100, 150, 200, 250, 300, 400, 500].map(yd => yd / 1.09361);
+    }
+    return kind === "far" ? [800, 1000, 1500, 2000, 3000] : [100, 200, 300, 500];
+  }
+  function guidePick(list, maxD){ let best = null; list.forEach(c => { if(c <= maxD) best = c; }); return best; }
+
+  function guideIcon(s){
+    const wrap = inner => '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+    const straight = deg => wrap('<g transform="rotate(' + deg + ' 24 24)"><path d="M24 40V10M12 22l12-12 12 12"/></g>');
+    const bent = mirror => wrap('<g transform="' + (mirror ? 'translate(48 0) scale(-1 1)' : '') + '"><path d="M14 42V28a8 8 0 0 1 8-8h14M28 10l8 10-8 10"/></g>');
+    switch(s.t){
+      case "straight": case "merge": case "ramp": return straight(0);
+      case "slight-right": return straight(40);  case "slight-left": return straight(-40);
+      case "sharp-right": return straight(135);  case "sharp-left": return straight(-135);
+      case "keep-right": case "exit-right": case "ramp-right": case "exit": return straight(30);
+      case "keep-left": case "exit-left": case "ramp-left": return straight(-30);
+      case "right": return bent(false);          case "left": return bent(true);
+      case "uturn": return wrap('<path d="M16 42V20a8 8 0 0 1 16 0v14M24 26l8 10 8-10"/>');
+      case "roundabout": return wrap('<circle cx="24" cy="26" r="12"/><path d="M24 14V6m-5 5 5-5 5 5"/>') ;
+      case "ferry": return "⛴";
+      default: return (s.t.indexOf("arrive") === 0) ? "🏁" : straight(0);
+    }
+  }
+
+  /* --- głos --- */
+  let speechUnlocked = false;
+  function unlockSpeech(){
+    if(speechUnlocked || !("speechSynthesis" in window)) return;
+    speechUnlocked = true;
+    try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); }catch(e){}
+  }
+  ["click", "touchend"].forEach(ev => document.addEventListener(ev, unlockSpeech, { once: true, capture: true }));
+  function guideSay(text){
+    if(!prefVoice || !text || !("speechSynthesis" in window)) return;
+    try{
+      const synth = window.speechSynthesis;
+      if(synth.speaking || synth.pending) synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "pl-PL"; u.rate = 1; u.pitch = 1; u.volume = 1;
+      const v = (synth.getVoices() || []).find(x => /^pl/i.test(x.lang));
+      if(v) u.voice = v;
+      synth.speak(u);
+    }catch(e){}
+  }
+  function setPrefVoice(on, silent){
+    prefVoice = !!on;
+    try{ localStorage.setItem(PREF_VOICE, prefVoice ? "1" : "0"); }catch(e){}
+    const btn = document.getElementById("gVoiceBtn");
+    btn.textContent = prefVoice ? "🔊" : "🔇";
+    btn.classList.toggle("off", !prefVoice);
+    const cb = document.getElementById("navPrefVoice"); if(cb) cb.checked = prefVoice;
+    if(!prefVoice){ try{ if("speechSynthesis" in window) window.speechSynthesis.cancel(); }catch(e){} }
+    else if(!silent) guideSay("Komunikaty głosowe włączone.");
+  }
+
+  /* --- postęp wzdłuż trasy --- */
+  function guideEnsure(){
+    const r = activeRoute;
+    if(!r || !r.coords || r.coords.length < 2) return null;
+    let g = r._g;
+    if(g && g.coordsRef === r.coords && g.stepsRef === r.steps) return g;
+    const c = r.coords, cum = new Float64Array(c.length);
+    for(let i = 1; i < c.length; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
+    const approx = !(r.steps && r.steps.length);
+    const raw = approx ? guideStepsFromGeometry(c, cum) : r.steps.slice();
+    if(!approx && !raw.some(x => x.t.indexOf("arrive") === 0)) raw.push({ i: c.length - 1, t: "arrive" });
+    const steps = raw.filter(x => x.t !== "start")
+      .map(x => Object.assign({}, x, { d: cum[Math.max(0, Math.min(c.length - 1, x.i))] }))
+      .sort((a, b) => a.d - b.d);
+    g = r._g = { coordsRef: c, stepsRef: r.steps, cum, steps, approx, seg: 0, ptr: 0, said: {}, done: false, hideAt: 0 };
+    return g;
+  }
+  function guideProgress(g, lat, lon){
+    const c = activeRoute.coords, n = c.length;
+    const scan = (a, b) => {
+      let best = null;
+      for(let i = a; i < b; i++){
+        const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
+        if(!best || q.distM < best.distM){ best = q; best.i = i; }
+      }
+      return best;
+    };
+    let best = scan(Math.max(0, g.seg - 3), Math.min(n - 1, g.seg + 300));
+    if(!best || best.distM > 80) best = scan(0, n - 1);
+    if(!best || best.distM > 150) return null;       // poza trasą — przeliczanie załatwia checkOffRoute
+    g.seg = best.i;
+    return g.cum[best.i] + haversine(c[best.i][1], c[best.i][0], best.lat, best.lon);
+  }
+
+  function guideActive(){
+    return !!(activeRoute && activeRoute.coords && activeRoute.coords.length > 1 && !activeRoute.planning && !routeEditMode && navUiState === "nav");
+  }
+  function hideGuidance(){
+    const card = document.getElementById("guidanceCard");
+    if(card.classList.contains("show")){ card.classList.remove("show"); document.body.classList.remove("guidance-on"); }
+  }
+  function renderGuidance(step, dist, next, g){
+    const card = document.getElementById("guidanceCard");
+    const icon = guideIcon(step);
+    document.getElementById("gIcon").innerHTML = icon;
+    document.getElementById("gDist").textContent = dist < 25 && step.t.indexOf("arrive") !== 0 ? "Teraz" : guideDistLabel(dist);
+    document.getElementById("gText").textContent = (step.t.indexOf("arrive") === 0 && dist <= 35) ? "Dotarłeś do celu" : guideCap(guideSentence(step));
+    const then = [];
+    if(next && next.t.indexOf("arrive") !== 0 && next.d - step.d < 900) then.push("Potem: " + guideSentence(next) + " (za " + guideDistLabel(next.d - step.d) + ")");
+    if(g.approx) then.push("Instrukcje przybliżone — trasa edytowana, bez nazw ulic");
+    document.getElementById("gThen").textContent = then.join(" · ");
+    if(!card.classList.contains("show")) card.classList.add("show");
+    document.body.classList.add("guidance-on");
+    document.documentElement.style.setProperty("--guidance-h", (card.offsetHeight + 10) + "px");
+  }
+  function guideSpeak(g, step, dist, next){
+    if(!prefVoice || step.t === "straight") return;
+    const v = currentSpeedKmh / 3.6;                                  // m/s
+    const farC = guidePick(guideAnnounceList("far"), Math.min(3300, Math.max(900, v * 50)));
+    const nearC = guidePick(guideAnnounceList("near"), Math.min(700, Math.max(250, v * 16)));
+    const nowD = Math.min(110, Math.max(45, v * 5));
+    const st = g.said[g.ptr] || (g.said[g.ptr] = { far: false, near: false, now: false });
+    const stage = dist <= nowD ? "now" : (nearC && dist <= nearC * 1.03) ? "near" : (farC && dist <= farC * 1.03) ? "far" : null;
+    if(!stage || st[stage]) return;
+    if(stage === "now"){ st.now = st.near = st.far = true; } else if(stage === "near"){ st.near = st.far = true; } else st.far = true;
+    const target = stage === "near" ? nearC : farC;
+    const sayDist = (target && dist >= target * 0.8) ? target : dist;  // przy późnym wykryciu czytamy faktyczną odległość
+    const arrive = step.t.indexOf("arrive") === 0;
+    let text;
+    if(arrive && stage === "now") text = "Dotarłeś do celu.";
+    else {
+      const body = guideSentence(step);
+      text = stage === "now" ? "Teraz " + body : "Za " + guideSpeakDist(sayDist) + " " + body;
+      if(stage !== "far" && next && next.t !== "straight" && next.d - step.d <= 350){
+        text += ", a następnie " + guideSentence(next);
+        g.said[g.ptr + 1] = Object.assign(g.said[g.ptr + 1] || { far: false, near: false, now: false }, { far: true });
+      }
+    }
+    guideSay(/[.!]$/.test(text) ? text : text + ".");
+  }
+  function updateGuidance(lat, lon){
+    if(!guideActive()){ hideGuidance(); return; }
+    const g = guideEnsure();
+    if(!g){ hideGuidance(); return; }
+    if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
+    const along = guideProgress(g, lat, lon);
+    if(along === null) return;
+    while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
+    const step = g.steps[g.ptr];
+    if(!step){ hideGuidance(); return; }
+    const dist = Math.max(0, step.d - along);
+    const next = g.steps[g.ptr + 1];
+    if(step.t.indexOf("arrive") === 0 && dist <= 35){
+      renderGuidance(step, dist, null, g);
+      guideSpeak(g, step, dist, null);
+      g.done = true; g.hideAt = Date.now() + 8000;
+      return;
+    }
+    renderGuidance(step, dist, next, g);
+    guideSpeak(g, step, dist, next);
+  }
+
   /* ---------- PRZELICZANIE TRASY: zjechanie z trasy + przycisk „Zmień trasę” ---------- */
   const OFFROUTE_DIST_M = 60;          // dalej niż tyle od trasy = zjechałeś
   const OFFROUTE_HOLD_MS = 5000;       // tyle czasu bez powrotu na trasę, zanim przeliczymy
@@ -6068,6 +6582,7 @@
     activeRoute = {
       coords: r.coords, distanceM: r.distanceM, timeS: r.timeS, trafficDelayS: r.trafficDelayS || 0,
       manuallyEdited: false, source, planning: false,
+      steps: r.steps || null,
       skipWaypoints: oldRoute && oldRoute.skipWaypoints
     };
     routeSpeedSegments = r.speedSegments || [];
@@ -6112,11 +6627,13 @@
     const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
     const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
     showBanner("PRZELICZAM TRASĘ", "Zjechałeś z trasy — wyznaczam nową…", false);
+    guideSay("Zjechałeś z trasy. Przeliczam.");
     try{
       const r = await computeRouteBySource(stops, source);
       if(activeRoute !== oldRoute || !r) return; // trasę zamknięto/zmieniono w międzyczasie
       applyRerouted(r, source, oldRoute);
       showBanner("NOWA TRASA", `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`, false);
+      guideSay("Nowa trasa.");
     }catch(e){
       console.warn("Przeliczanie trasy nie powiodło się:", e);
       showBanner("BRAK NOWEJ TRASY", "Nie udało się przeliczyć trasy — spróbuję ponownie.", false);
@@ -6206,6 +6723,7 @@
     activeRoute.distanceM = routeBeforeEdit.distanceM;
     activeRoute.timeS = routeBeforeEdit.timeS;
     activeRoute.manuallyEdited = routeBeforeEdit.manuallyEdited;
+    activeRoute.steps = routeBeforeEdit.steps || null;
     routeBeforeEdit = null;
     setRouteLineCoords(activeRoute.coords);
     renderNavRouteInfo();
@@ -6256,6 +6774,8 @@
   }
 
   function clearNavRoute(){
+    hideGuidance();
+    try{ if("speechSynthesis" in window) window.speechSynthesis.cancel(); }catch(e){}
     navSelectedDest = null;
     navSelectedOrigin = null;
     removeDestPin();
@@ -6403,6 +6923,11 @@
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
   navPrefLimitSignInput.checked = prefShowLimitSign;
   applyDisplayPrefs();
+  const navPrefVoiceInput = document.getElementById("navPrefVoice");
+  navPrefVoiceInput.checked = prefVoice;
+  navPrefVoiceInput.addEventListener("change", e => setPrefVoice(e.target.checked));
+  document.getElementById("gVoiceBtn").addEventListener("click", () => setPrefVoice(!prefVoice));
+  setPrefVoice(prefVoice, true);
 
   navPrefSpeedometerInput.addEventListener("change", (e) => {
     prefShowSpeedometer = e.target.checked;
@@ -7235,9 +7760,10 @@
         // kierowca może to cofnąć jednym dotknięciem zamiast zaczynać planowanie od nowa
         routeBeforeEdit = {
           coords: activeRoute.coords, distanceM: activeRoute.distanceM,
-          timeS: activeRoute.timeS, manuallyEdited: activeRoute.manuallyEdited
+          timeS: activeRoute.timeS, manuallyEdited: activeRoute.manuallyEdited, steps: activeRoute.steps
         };
         activeRoute.coords = newCoords;
+        activeRoute.steps = null; // geometria się zmieniła — instrukcje wyliczymy z kształtu trasy
         const oldLen = activeRoute.distanceM || routeLengthMeters(coords);
         const newLen = routeLengthMeters(newCoords);
         if(oldLen > 0 && activeRoute.timeS) activeRoute.timeS = activeRoute.timeS * (newLen / oldLen);
