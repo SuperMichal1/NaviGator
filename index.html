@@ -397,6 +397,21 @@
   .navSuggestion:last-child{ border-bottom:none; }
   .navSuggestion:active, .navSuggestion.highlight{ background: rgba(0,0,0,0.06); }
   .navSuggestion .addr1{ font-weight:600; }
+  .navSuggestion .addr2:empty{ display:none; }
+  .navSaved{ display:flex; align-items:center; gap:6px; }
+  .navSaved .savedMain{ flex:1; min-width:0; }
+  .navSaved .addr1, .navSaved .addr2{ overflow-wrap:anywhere; }
+  .navSaved .savedBtns{ display:flex; gap:2px; flex:0 0 auto; }
+  .svBtn{ border:none; background:transparent; font-size:17px; line-height:1; padding:7px; border-radius:8px; cursor:pointer; color:inherit; }
+  .svBtn:active{ background:rgba(0,0,0,.1); }
+  .navSavedHead{ padding:7px 12px 4px; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#5b6570; background:rgba(0,0,0,.04); }
+  .navSuggestions.saved{ max-height:46vh; overflow-y:auto; }
+  #navDestWrap{ position:relative; }
+  #navDest{ padding-right:44px; }
+  #navDestFav{ display:none; position:absolute; right:4px; top:3px; width:36px; height:36px; font-size:20px; border:none; background:transparent; cursor:pointer; padding:0; }
+  body.night .navSavedHead{ color:var(--text-dim); background:rgba(255,255,255,.05); }
+  body.night .svBtn:active{ background:rgba(255,255,255,.1); }
+  .navPrefBtn{ width:100%; margin-top:6px; padding:8px; border-radius:8px; border:1px solid rgba(0,0,0,.15); background:rgba(0,0,0,.05); font-size:12px; cursor:pointer; color:inherit; }
   .navSuggestion .addr2{ font-size:11px; color:#5b6570; margin-top:2px; }
   /* W nocy panel jest widoczny na tle odwróconej (ciemnej) mapy, więc zostaje ciemne szkło + jasna czcionka */
   body.night #navDest, body.night .navStopInput{
@@ -1012,6 +1027,7 @@
     <div id="navWaypointsList"></div>
     <div id="navDestWrap" class="navStopWrap">
       <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+      <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
       <div id="navSuggestions" class="navSuggestions"></div>
     </div>
     <div id="navAddWaypointBtn" role="button">+ Dodaj punkt pośredni</div>
@@ -1085,7 +1101,15 @@
     <div class="navTitle">Widoczność na ekranie</div>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+    <label class="navPrefLabel">Tryb mapy:
+      <select id="navPrefTheme">
+        <option value="auto">Auto (wschód/zachód słońca)</option>
+        <option value="day">Dzień</option>
+        <option value="night">Noc</option>
+      </select>
+    </label>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefVoice"> Komunikaty głosowe (prowadzenie)</label>
+    <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
     <div id="navKeyToggle">
       <span>🔑 Klucz API TomTom</span>
@@ -3842,7 +3866,11 @@
     });
   }
 
+  // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
+  let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
+    restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
+    restrictionVer++; restrictionIdx = null;
     if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
     if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
@@ -5011,6 +5039,76 @@
     return out.sort((a, b) => a._d - b._d).slice(0, 3);
   }
 
+  /* ---------- ULUBIONE I HISTORIA CELÓW (localStorage) ---------- */
+  const FAV_KEY = "nawigator_favorites_v1", HIST_KEY = "nawigator_history_v1";
+  const FAV_MAX = 60, HIST_MAX = 30, HIST_SHOWN = 8, SAME_PLACE_M = 60;
+  function readPlaceList(k){
+    try{
+      const a = JSON.parse(localStorage.getItem(k) || "[]");
+      return Array.isArray(a) ? a.filter(x => x && typeof x.lat === "number" && typeof x.lon === "number") : [];
+    }catch(e){ return []; }
+  }
+  function writePlaceList(k, a){ try{ localStorage.setItem(k, JSON.stringify(a)); }catch(e){} }
+  let favorites = readPlaceList(FAV_KEY), destHistory = readPlaceList(HIST_KEY);
+  const samePlace = (a, b) => _dM(a.lat, a.lon, b.lat, b.lon) < SAME_PLACE_M;
+  const findFav = p => favorites.find(f => samePlace(f, p));
+  function toggleFavorite(p){            // p = { name, label, lat, lon }; zwraca true, gdy teraz jest ulubione
+    const f = findFav(p);
+    if(f){ favorites = favorites.filter(x => x !== f); writePlaceList(FAV_KEY, favorites); return false; }
+    if(favorites.length >= FAV_MAX){ showBanner("LIMIT ULUBIONYCH", "Maksymalnie " + FAV_MAX + " miejsc — usuń któreś", false); return false; }
+    favorites.unshift({ id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      name: p.name || p.label, label: p.label, lat: p.lat, lon: p.lon, note: "", ts: Date.now() });
+    writePlaceList(FAV_KEY, favorites);
+    return true;
+  }
+  function recordHistory(d){              // wywoływane przy starcie trasy
+    if(!d || typeof d.lat !== "number" || typeof d.lon !== "number") return;
+    const label = d.label || "Cel", name = d.name || label;
+    const h = destHistory.find(x => samePlace(x, d));
+    if(h){
+      if(Date.now() - h.ts < 60000) return;  // ten sam start trasy zgłoszony dwa razy
+      h.ts = Date.now(); h.count = (h.count || 1) + 1; h.name = name; h.label = label;
+      destHistory = [h].concat(destHistory.filter(x => x !== h));
+    } else destHistory.unshift({ name, label, lat: d.lat, lon: d.lon, ts: Date.now(), count: 1 });
+    destHistory = destHistory.slice(0, HIST_MAX);
+    writePlaceList(HIST_KEY, destHistory);
+  }
+  function savedToResult(it){
+    const r = { saved: true, address: { freeformAddress: it.name || it.label }, position: { lat: it.lat, lon: it.lon } };
+    if(it.name && it.name !== it.label) r.poi = { name: it.name };
+    return r;
+  }
+  function resultPlace(r){
+    const entry = (r.entryPoints || []).find(e => e.type === "main");
+    const pos = (entry && entry.position) || r.position;
+    const label = navResultLabel(r);
+    return { name: (r.poi && r.poi.name) || label, label, lat: pos.lat, lon: pos.lon };
+  }
+  function agoLabel(ts){
+    const d = Math.floor((Date.now() - ts) / 86400000);
+    return d <= 0 ? "dziś" : d === 1 ? "wczoraj" : d + " dni temu";
+  }
+  function refreshDestFavBtn(){
+    const b = document.getElementById("navDestFav");
+    if(!b) return;
+    if(!navSelectedDest){ b.style.display = "none"; return; }
+    b.style.display = "block";
+    b.textContent = findFav(navSelectedDest) ? "⭐" : "☆";
+  }
+  document.getElementById("navDestFav").addEventListener("click", () => {
+    if(!navSelectedDest) return;
+    const on = toggleFavorite({ name: navSelectedDest.name || navSelectedDest.label, label: navSelectedDest.label,
+      lat: navSelectedDest.lat, lon: navSelectedDest.lon });
+    refreshDestFavBtn();
+    showBanner(on ? "DODANO DO ULUBIONYCH" : "USUNIĘTO Z ULUBIONYCH", navSelectedDest.name || navSelectedDest.label, false);
+  });
+  document.getElementById("navClearHistory").addEventListener("click", () => {
+    if(!destHistory.length){ showBanner("HISTORIA PUSTA", "Nie ma czego czyścić", false); return; }
+    if(!confirm("Wyczyścić historię celów? Ulubione zostaną.")) return;
+    destHistory = []; writePlaceList(HIST_KEY, destHistory);
+    showBanner("HISTORIA WYCZYSZCZONA", "Ulubione zostały", false);
+  });
+
   function createStopSearch(wrapEl, input, box, opts){
     opts = opts || {};
     let abort = null;
@@ -5019,9 +5117,62 @@
 
     function clear(){
       box.innerHTML = "";
-      box.classList.remove("open");
+      box.classList.remove("open", "saved");
+    }
+    // pusty obrys pola: ulubione + ostatnie cele
+    function renderSaved(){
+      const favs = favorites.slice(), hist = destHistory.filter(h => !findFav(h)).slice(0, HIST_SHOWN);
+      if(!favs.length && !hist.length){ clear(); return; }
+      box.innerHTML = "";
+      const head = t => { const d = document.createElement("div"); d.className = "navSavedHead"; d.textContent = t; box.appendChild(d); };
+      const mkBtn = (txt, title, fn) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "svBtn"; b.textContent = txt; b.title = title;
+        b.addEventListener("click", e => { e.stopPropagation(); fn(); });
+        return b;
+      };
+      const row = (it, kind) => {
+        const el = document.createElement("div");
+        el.className = "navSuggestion navSaved";
+        el.innerHTML = '<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div><div class="savedBtns"></div>';
+        const hasName = it.name && it.name !== it.label;
+        el.querySelector(".addr1").textContent = (kind === "fav" ? "⭐ " : "🕘 ") + (it.name || it.label);
+        el.querySelector(".addr2").textContent = kind === "fav"
+          ? (it.note ? "📝 " + it.note : (hasName ? it.label : ""))
+          : (hasName ? it.label + " · " : "") + agoLabel(it.ts) + (it.count > 1 ? " · " + it.count + "×" : "");
+        const btns = el.querySelector(".savedBtns");
+        if(kind === "fav"){
+          btns.appendChild(mkBtn("✏️", "Zmień nazwę / notatkę", () => {
+            const nm = prompt("Nazwa miejsca:", it.name || it.label);
+            if(nm === null) return;
+            const nt = prompt("Notatka (np. kod bramy, godziny rozładunku, wjazd od strony…):", it.note || "");
+            it.name = nm.trim() || it.label;
+            if(nt !== null) it.note = nt.trim();
+            writePlaceList(FAV_KEY, favorites); renderSaved(); refreshDestFavBtn();
+          }));
+          btns.appendChild(mkBtn("✕", "Usuń z ulubionych", () => {
+            if(!confirm("Usunąć „" + (it.name || it.label) + "” z ulubionych?")) return;
+            favorites = favorites.filter(x => x !== it); writePlaceList(FAV_KEY, favorites); renderSaved(); refreshDestFavBtn();
+          }));
+        } else {
+          btns.appendChild(mkBtn("☆", "Dodaj do ulubionych", () => { toggleFavorite(it); renderSaved(); refreshDestFavBtn(); }));
+          btns.appendChild(mkBtn("✕", "Usuń z historii", () => {
+            destHistory = destHistory.filter(x => x !== it); writePlaceList(HIST_KEY, destHistory); renderSaved();
+          }));
+        }
+        el.addEventListener("click", () => {
+          clear();
+          if(opts.onSelect) opts.onSelect(savedToResult(it));
+          if(kind === "fav" && it.note) showBanner("📝 " + (it.name || it.label), it.note, false);
+        });
+        box.appendChild(el);
+      };
+      if(favs.length){ head("⭐ Ulubione"); favs.forEach(f => row(f, "fav")); }
+      if(hist.length){ head("🕘 Ostatnie cele"); hist.forEach(h => row(h, "hist")); }
+      box.classList.add("open", "saved");
     }
     function render(results){
+      box.classList.remove("saved");
       box.innerHTML = "";
       if(!results || results.length === 0){ box.classList.remove("open"); return; }
       results.forEach(r => {
@@ -5029,11 +5180,17 @@
         const label = navResultLabel(r);
         const sub = [addr.municipality, addr.country].filter(Boolean).join(", ");
         const item = document.createElement("div");
-        item.className = "navSuggestion";
-        item.innerHTML = `<div class="addr1"></div><div class="addr2"></div>`;
+        item.className = "navSuggestion navSaved";
+        item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
         item.querySelector(".addr2").textContent = r.local ? "Z bazy kierowców" : ((r.poi && r.poi.name) ? label : sub);
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
+        const pl = resultPlace(r);
+        const star = document.createElement("button");
+        star.type = "button"; star.className = "svBtn"; star.title = "Dodaj do ulubionych";
+        star.textContent = findFav(pl) ? "⭐" : "☆";
+        star.addEventListener("click", e => { e.stopPropagation(); star.textContent = toggleFavorite(pl) ? "⭐" : "☆"; refreshDestFavBtn(); });
+        item.appendChild(star);
         box.appendChild(item);
       });
       box.classList.add("open");
@@ -5099,8 +5256,11 @@
       if(opts.onTyping) opts.onTyping();
       const q = e.target.value.trim();
       if(timer) clearTimeout(timer);
-      if(q.length < NAV_SUGGEST_MIN_CHARS){ clear(); return; }
+      if(q.length < NAV_SUGGEST_MIN_CHARS){ if(q.length === 0) renderSaved(); else clear(); return; }
       timer = setTimeout(() => fetchSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
+    });
+    input.addEventListener("focus", () => {
+      if(input.value.trim().length < NAV_SUGGEST_MIN_CHARS && !(opts.hasSelection && opts.hasSelection())) renderSaved();
     });
 
     input.addEventListener("keydown", (e) => {
@@ -5143,7 +5303,7 @@
         const label = navResultLabel(r);
         const entry = (r.entryPoints || []).find(e => e.type === "main");
         const pos = (entry && entry.position) || r.position;
-        navSelectedDest = { lat: pos.lat, lon: pos.lon, label };
+        navSelectedDest = { lat: pos.lat, lon: pos.lon, label, name: (r.poi && r.poi.name) || null };
         document.getElementById("navDest").value = label;
         updateAddWaypointVisibility();
         confirmDestination();
@@ -5182,6 +5342,7 @@
     document.getElementById("navOriginWrap").style.display = hasDest ? "" : "none";
     document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
     document.getElementById("navAddWaypointBtn").style.display = (!hasDest || rows >= NAV_MAX_WAYPOINTS) ? "none" : "";
+    refreshDestFavBtn();
   }
   function addWaypointRow(){
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
@@ -5888,6 +6049,7 @@
   function selectRoute(key){
     const chosen = pendingRoutes[key];
     if(!chosen) return;
+    recordHistory(navSelectedDest);
 
     activeRoute = {
       coords: chosen.coords,
@@ -5898,6 +6060,7 @@
       source: key,
       steps: chosen.steps || null
     };
+    setTimeout(announceRouteRestrictions, 600);
     routeSpeedSegments = chosen.speedSegments || [];
     routeTrafficIncidents = chosen.incidents || [];
     pendingRoutes = { main:null, alt:null };
@@ -6248,6 +6411,8 @@
   // koniec planowania: wyłącz edycję, włącz widok jazdy
   function startPlannedDriving(){
     if(!activeRoute || !activeRoute.planning) return;
+    recordHistory(navSelectedDest);
+    setTimeout(announceRouteRestrictions, 600);
     activeRoute.planning = false;
     routeEditMode = false;
     routeDragState = null;
@@ -6528,6 +6693,7 @@
     if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
     const along = guideProgress(g, lat, lon);
     if(along === null) return;
+    try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
     const step = g.steps[g.ptr];
     if(!step){ hideGuidance(); return; }
@@ -6541,6 +6707,152 @@
     }
     renderGuidance(step, dist, next, g);
     guideSpeak(g, step, dist, next);
+  }
+
+
+  /* ============================================================
+     ALERTY NA TRASIE: niskie mosty, limity tonażu i szerokości
+     Dane: znaki z Overpass/Supabase (maxheight / maxweight / maxwidth), porównywane z HGV_PROFILE.
+     Ograniczenie liczy się jako "na trasie", gdy droga z tagiem biegnie wzdłuż trasy (min. 2 punkty w promieniu
+     15 m) — boczna droga przecinająca trasę na skrzyżowaniu nie wywołuje alertu.
+  ============================================================ */
+  const RESTR_NEAR_M = 15, RESTR_HEIGHT_MARGIN = 0.3, RESTR_WIDTH_MARGIN = 0.15;
+  const RESTR_NAMES = { height: "wysokości", weight: "tonażu", width: "szerokości" };
+  function restrictionIndexGet(){
+    if(restrictionIdx && restrictionIdx.ver === restrictionVer) return restrictionIdx;
+    const items = [], grid = new Map();
+    const add = (f, kind, prop) => {
+      const co = f.geometry && f.geometry.coordinates, val = Number(f.properties && f.properties[prop]);
+      if(!co || co.length < 2 || !isFinite(val) || val <= 0) return;
+      const idx = items.length;
+      items.push({ kind, value: val, co, id: kind + ":" + ((f.properties && f.properties.osm_id) || idx) });
+      const seen = new Set();
+      co.forEach(c => {
+        const k = Math.floor(c[1] / 0.01) + "," + Math.floor(c[0] / 0.01);
+        if(seen.has(k)) return; seen.add(k);
+        let a = grid.get(k); if(!a){ a = []; grid.set(k, a); } a.push(idx);
+      });
+    };
+    const src = restrictionSrc || { h: [], w: [], d: [] };
+    src.h.forEach(f => add(f, "height", "maxheight"));
+    src.w.forEach(f => add(f, "weight", "maxweight"));
+    src.d.forEach(f => add(f, "width", "maxwidth"));
+    return (restrictionIdx = { ver: restrictionVer, items, grid });
+  }
+  function restrictionSeverity(kind, v){
+    if(kind === "height") return v < HGV_PROFILE.height ? "danger" : v < HGV_PROFILE.height + RESTR_HEIGHT_MARGIN ? "warn" : null;
+    if(kind === "weight") return v < HGV_PROFILE.weight ? "danger" : null;
+    if(kind === "width")  return v < HGV_PROFILE.width ? "danger" : v < HGV_PROFILE.width + RESTR_WIDTH_MARGIN ? "warn" : null;
+    return null;
+  }
+  // lista ograniczeń na trasie (tylko takie, które dotyczą Twojego pojazdu), posortowana wg odległości od startu trasy
+  function routeRestrictions(route){
+    if(!route || !route.coords || route.coords.length < 2) return [];
+    const idx = restrictionIndexGet();
+    if(route._restr && route._restr.coordsRef === route.coords && route._restr.ver === idx.ver) return route._restr.list;
+    const list = [];
+    route._restr = { coordsRef: route.coords, ver: idx.ver, list };
+    if(!idx.items.length) return list;
+    const c = route.coords, n = c.length, cum = new Float64Array(n);
+    for(let i = 1; i < n; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
+    // siatka odcinków trasy (komórka 0,002° ≈ 200 m) + komórki dużych indeksów ograniczeń (0,01°), które trasa dotyka
+    const CS = 0.002, rg = new Map(), touched = new Set();
+    const reg = (lat, lon, i) => {
+      const k = Math.floor(lat / CS) + "," + Math.floor(lon / CS);
+      let a = rg.get(k); if(!a){ a = []; rg.set(k, a); } if(a[a.length - 1] !== i) a.push(i);
+      touched.add(Math.floor(lat / 0.01) + "," + Math.floor(lon / 0.01));
+    };
+    for(let i = 0; i < n - 1; i++){
+      const steps = Math.max(1, Math.ceil((cum[i + 1] - cum[i]) / 100));
+      for(let t = 0; t <= steps; t++){
+        reg(c[i][1] + (c[i + 1][1] - c[i][1]) * t / steps, c[i][0] + (c[i + 1][0] - c[i][0]) * t / steps, i);
+      }
+    }
+    const cand = new Set();
+    touched.forEach(k => { const a = idx.grid.get(k); if(a) a.forEach(j => cand.add(j)); });
+    const nearRoute = (lat, lon) => {          // najbliższy odcinek trasy w promieniu RESTR_NEAR_M → { along } albo null
+      const ci = Math.floor(lat / CS), cj = Math.floor(lon / CS), tested = new Set();
+      let best = null;
+      for(let di = -1; di <= 1; di++) for(let dj = -1; dj <= 1; dj++){
+        const a = rg.get((ci + di) + "," + (cj + dj)); if(!a) continue;
+        for(const i of a){
+          if(tested.has(i)) continue; tested.add(i);
+          const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
+          if(q.distM <= RESTR_NEAR_M && (!best || q.distM < best.d)) best = { d: q.distM, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
+        }
+      }
+      return best;
+    };
+    const found = [];
+    cand.forEach(j => {
+      const it = idx.items[j], sev = restrictionSeverity(it.kind, it.value);
+      if(!sev) return;
+      let hits = 0, minA = Infinity;
+      for(const v of it.co){
+        const h = nearRoute(v[1], v[0]);
+        if(h){ hits++; if(h.along < minA) minA = h.along; }
+      }
+      if(hits >= 2) found.push({ kind: it.kind, value: it.value, sev, along: minA, id: it.id, said: {} });
+    });
+    found.sort((a, b) => a.along - b.along);
+    // ten sam rodzaj w odstępie < 60 m (np. dwie jezdnie tego samego mostu) = jedno ostrzeżenie, ostrzejsze zostaje
+    found.forEach(r => {
+      const prev = list[list.length - 1];
+      if(prev && prev.kind === r.kind && r.along - prev.along < 60){
+        if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
+      } else list.push(r);
+    });
+    return list;
+  }
+
+  const RESTR_LABEL = { height: "Ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
+  function restrictionValueLabel(kind, v){ return kind === "weight" ? formatWeightLabel(v) : kind === "height" ? formatHeightLabel(v) : formatWidthLabel(v); }
+  function restrictionMine(kind){
+    const v = HGV_PROFILE[kind === "weight" ? "weight" : kind];
+    return String(Math.round(v * 100) / 100) + (kind === "weight" ? "t" : "m");
+  }
+  function plNum(v){ return String(Math.round(v * 100) / 100).replace(".", ","); }
+  function restrictionSpeak(kind, v){      // słownie, żeby syntezator nie czytał "m" jako "em"
+    if(kind === "weight") return Number.isInteger(v) ? (v === 1 ? "1 tonę" : (v % 10 >= 2 && v % 10 <= 4 && !(v % 100 >= 12 && v % 100 <= 14)) ? v + " tony" : v + " ton") : plNum(v) + " tony";
+    return plNum(v) + " metra";
+  }
+  function restrictionAlertText(r, d){
+    const tight = r.sev === "warn";
+    return { title: (r.sev === "danger" ? "UWAGA — " : "OSTROŻNIE — ") + RESTR_LABEL[r.kind].toUpperCase(),
+      text: "Za " + guideDistLabel(d) + ": " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) +
+            (tight ? " (mały zapas)" : r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się") };
+  }
+  function restrictionTick(along){
+    const list = routeRestrictions(activeRoute);
+    if(!list.length) return;
+    const v = currentSpeedKmh / 3.6;
+    const far = Math.min(3300, Math.max(1000, v * 55)), near = 400, now = 130;
+    for(const r of list){
+      const d = r.along - along;
+      if(d < -30) continue;
+      if(d > far) break;
+      const stage = d <= now ? "now" : d <= near ? "near" : "far";
+      if(r.said[stage]) continue;
+      if(stage === "now"){ r.said.now = r.said.near = r.said.far = true; } else if(stage === "near"){ r.said.near = r.said.far = true; } else r.said.far = true;
+      const t = restrictionAlertText(r, Math.max(0, d));
+      showBanner(t.title, t.text, r.sev === "danger");
+      const mine = r.kind === "weight" ? "twój pojazd ma " + restrictionSpeak("weight", HGV_PROFILE.weight)
+                 : "twój pojazd ma " + restrictionSpeak(r.kind, HGV_PROFILE[r.kind]);
+      guideSay((r.sev === "danger" ? "Uwaga! " : "Ostrożnie. ") + "Za " + guideSpeakDist(Math.max(50, d)) + " ograniczenie " + RESTR_NAMES[r.kind] +
+        " " + restrictionSpeak(r.kind, r.value) + ", " + mine + ".");
+      return;                                  // jeden alert na odczyt GPS
+    }
+  }
+  // po wybraniu trasy: krótkie podsumowanie, ile ograniczeń dotyczy Twojego pojazdu na tej trasie
+  function announceRouteRestrictions(){
+    if(!activeRoute) return;
+    const list = routeRestrictions(activeRoute);
+    if(!list.length) return;
+    const danger = list.filter(r => r.sev === "danger");
+    const top = (danger.length ? danger : list).slice(0, 2).map(r =>
+      RESTR_LABEL[r.kind].replace("Ograniczenie ", "").replace("Limit ", "") + " " + restrictionValueLabel(r.kind, r.value) + " (za " + guideDistLabel(r.along) + ")");
+    showBanner("OGRANICZENIA NA TRASIE (" + list.length + ")", top.join(" · ") + (list.length > 2 ? " …" : ""), danger.length > 0);
+    if(danger.length) guideSay("Uwaga. Na tej trasie są ograniczenia, których Twój pojazd nie spełnia. Sprawdź trasę.");
   }
 
   /* ---------- PRZELICZANIE TRASY: zjechanie z trasy + przycisk „Zmień trasę” ---------- */
@@ -6634,6 +6946,7 @@
       applyRerouted(r, source, oldRoute);
       showBanner("NOWA TRASA", `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`, false);
       guideSay("Nowa trasa.");
+      setTimeout(announceRouteRestrictions, 3500);
     }catch(e){
       console.warn("Przeliczanie trasy nie powiodło się:", e);
       showBanner("BRAK NOWEJ TRASY", "Nie udało się przeliczyć trasy — spróbuję ponownie.", false);
@@ -7840,16 +8153,65 @@
     }
   });
 
+  /* ---------- TRYB DZIEŃ / NOC: auto (wschód i zachód słońca z pozycji i daty), dzień, noc ---------- */
+  const THEME_KEY = "nawigator_theme_mode";
+  let themeMode = (() => { try{ const v = localStorage.getItem(THEME_KEY); return v === "day" || v === "night" ? v : "auto"; }catch(e){ return "auto"; } })();
+  const THEME_DEFAULT_POS = { lat: 52.5, lon: -1.5 };   // środek Anglii, dopóki nie ma fixa GPS
+  // wysokość Słońca nad horyzontem w stopniach (uproszczony algorytm astronomiczny, dokładność ~0,1°)
+  function sunAltitudeDeg(date, lat, lon){
+    const rad = Math.PI / 180, mod = (a, m) => ((a % m) + m) % m;
+    const d = date.getTime() / 86400000 + 2440587.5 - 2451545.0;          // dni od J2000
+    const g = mod(357.529 + 0.98560028 * d, 360);
+    const L = mod(280.459 + 0.98564736 * d + 1.915 * Math.sin(g * rad) + 0.020 * Math.sin(2 * g * rad), 360);
+    const e = 23.439 - 0.00000036 * d;
+    const RA = mod(Math.atan2(Math.cos(e * rad) * Math.sin(L * rad), Math.cos(L * rad)) / rad, 360);
+    const dec = Math.asin(Math.sin(e * rad) * Math.sin(L * rad));
+    const lst = mod(mod(18.697374558 + 24.06570982441908 * d, 24) * 15 + lon, 360);
+    const ha = (lst - RA) * rad, la = lat * rad;
+    return Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha)) / rad;
+  }
+  // histereza: dzień → noc dopiero poniżej -1° (po zachodzie), noc → dzień powyżej 0° (po wschodzie)
+  function themeWantsNight(){
+    if(themeMode === "night") return true;
+    if(themeMode === "day") return false;
+    const p = lastPos || THEME_DEFAULT_POS;
+    const alt = sunAltitudeDeg(new Date(), p.lat, p.lon);
+    return document.body.classList.contains("night") ? alt < 0 : alt < -1;
+  }
+  function updateThemeBtn(){
+    const b = document.getElementById("btnNight");
+    const night = document.body.classList.contains("night");
+    b.textContent = themeMode === "auto" ? "🌗" : themeMode === "day" ? "☀️" : "🌙";
+    b.classList.toggle("active", themeMode !== "auto");
+    b.title = themeMode === "auto" ? "Tryb mapy: auto (teraz " + (night ? "noc" : "dzień") + ") — dotknij, aby zmienić"
+      : "Tryb mapy: " + (themeMode === "day" ? "dzień" : "noc") + " (na stałe) — dotknij, aby zmienić";
+    const sel = document.getElementById("navPrefTheme"); if(sel) sel.value = themeMode;
+  }
+  function setNightMode(on){
+    if(document.body.classList.contains("night") !== on){
+      document.body.classList.toggle("night", on);
+      try{ applyShieldMode(); applyMotorwayLaneColors(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
+    }
+    updateThemeBtn();
+  }
+  function applyThemeMode(){ setNightMode(themeWantsNight()); }
+  function setThemeMode(m, announce){
+    themeMode = m;
+    try{ localStorage.setItem(THEME_KEY, m); }catch(e){}
+    applyThemeMode();
+    if(announce){
+      const night = document.body.classList.contains("night");
+      if(m === "auto") showBanner("TRYB AUTO", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie słońca", false);
+      else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — wróć do „Auto” w ustawieniach lub kolejnym dotknięciem", false);
+    }
+  }
   document.getElementById("btnNight").addEventListener("click", () => {
-    document.body.classList.toggle("night");
-    const isNight = document.body.classList.contains("night");
-    document.getElementById("btnNight").classList.toggle("active", isNight);
-    document.getElementById("btnNight").textContent = isNight ? "☀️" : "🌙";
-    applyShieldMode();
-    applyMotorwayLaneColors();
-    applyNightTheme();
-    applyRouteNightStyle();
+    setThemeMode(themeMode === "auto" ? "day" : themeMode === "day" ? "night" : "auto", true);
   });
+  document.getElementById("navPrefTheme").addEventListener("change", e => setThemeMode(e.target.value, false));
+  setInterval(() => { if(themeMode === "auto") applyThemeMode(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "auto") applyThemeMode(); });
+  applyThemeMode();
 
   document.getElementById("btnLocate").addEventListener("click", () => {
     followUser = true;
