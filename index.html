@@ -23,6 +23,11 @@
     --sign-text: #14181c;
     --ctrl-active-bg: var(--accent);
     --ctrl-active-text: #0c0f12;
+    /* paleta "aliGator": nazwa NaviGator + przyciski w dzień */
+    --gator: #7c9a3a;          /* zieleń skóry aligatora — napis "gator" na ekranie startowym */
+    --gator-dark: #3f5a24;     /* ciemna aligatorowa zieleń — tło przycisków (start i dzień) */
+    --gator-active: #8aa84a;   /* jaśniejszy odcień — włączony przycisk w dzień */
+    --gator-on: #eef5e0;       /* kolor ikon/tekstu na ciemnej zieleni */
   }
   body.night{
     --accent: #FFB020;
@@ -893,20 +898,20 @@
     font-family:'Space Grotesk', sans-serif;
     font-size:26px; font-weight:700; color:#EAF3F1; letter-spacing:.01em;
   }
-  #splash .logo span{ color: var(--accent); }
+  #splash .logo span{ color: var(--gator); }
   #splash .sub{ color:#8CA0A0; font-size:13px; }
   #splash .spinner{
     width:34px; height:34px; border-radius:50%;
     border: 3px solid rgba(255,255,255,.12);
-    border-top-color: var(--accent);
+    border-top-color: var(--gator);
     animation: spin 0.9s linear infinite;
   }
   #splash .spinner.hidden{ display:none; }
   @keyframes spin{ to{ transform: rotate(360deg); } }
   #splash .startBtn{
     margin-top:6px;
-    background: var(--accent);
-    color:#0c0f12;
+    background: var(--gator-dark);
+    color: var(--gator-on);
     border:none;
     padding:13px 26px;
     border-radius:14px;
@@ -948,9 +953,24 @@
     white-space:nowrap;
   }
   .gpsModeOpt.active{
-    background: var(--accent);
-    color:#0c0f12;
+    background: var(--gator-dark);
+    color: var(--gator-on);
   }
+
+  /* ---------- Tryb dzienny: przyciski w ciemnej zieleni aligatora (jak wybór GPS na ekranie startowym) ---------- */
+  body:not(.night) .ctrl-btn,
+  body:not(.night) #btnLocate, body:not(.night) #btnFitRoute, body:not(.night) #btnCompass,
+  body:not(.night) #reportFloat .ctrl-btn{
+    background: var(--gator-dark);
+    border-color: rgba(255,255,255,0.18);
+    color: var(--gator-on);
+  }
+  body:not(.night) .ctrl-btn.active{ background: var(--gator-active); color:#101a07; }
+  body:not(.night) #navGoBtn, body:not(.night) #navStartBtn, body:not(.night) #debugConsoleActions button{
+    background: var(--gator-dark); color: var(--gator-on);
+  }
+  body:not(.night) #navPlanBtn{ color: var(--gator-dark); border-color: var(--gator-dark); }
+  body:not(.night) .voiceSeg button.active{ background: var(--gator-dark); border-color: var(--gator-dark); color: var(--gator-on); }
 
   @media (max-width: 380px){
     #speedValue{ font-size:36px; }
@@ -2171,7 +2191,7 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A w zieleni skóry aligatora,
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
        • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
@@ -2197,8 +2217,8 @@
   const NIGHT_ROADS = {
     motorway: { fill: "#2f7fe0", casing: "#10346a" },  // niebieski jak tablice autostradowe w UK (jaśniejszy odcień, żeby odcinał się od ciemnego tła)
     major:    {
-      fillFar: "#6f7f42", casingFar: "#272f15",        // z daleka: stonowana, matowa zieleń skóry aligatora
-      fillNear: "#8a9b4a", casingNear: "#2e3a17"        // po przybliżeniu: jaśniejsza oliwkowo-aligatorowa zieleń, odmienna od tła i autostrad
+      fillFar: "#3f9467", casingFar: "#17402b",        // z daleka: stonowana zieleń jak tablice dróg A
+      fillNear: "#35b26a", casingNear: "#14502d"        // po przybliżeniu: wyraźna zieleń tablic dróg A, odmienna od tła i autostrad
     },
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
