@@ -1264,6 +1264,28 @@
 </div>
 
 <script>
+/* Zabezpieczenie startu: w niektórych podglądach/trybach prywatnych sam dostęp do localStorage rzuca wyjątek
+   i wtedy cała aplikacja przestawała reagować (nie działał ani "Włącz GPS", ani przełącznik trybu).
+   Jeśli pamięć jest zablokowana, podstawiamy pamięć tymczasową (działa do zamknięcia karty). */
+(function(){
+  ["localStorage","sessionStorage"].forEach(function(name){
+    var ok = false;
+    try{ var st = window[name]; st.setItem("__t","1"); st.removeItem("__t"); ok = true; }catch(e){}
+    if(ok) return;
+    var mem = {};
+    var shim = {
+      getItem: function(k){ return Object.prototype.hasOwnProperty.call(mem,k) ? mem[k] : null; },
+      setItem: function(k,v){ mem[k] = String(v); },
+      removeItem: function(k){ delete mem[k]; },
+      clear: function(){ mem = {}; },
+      key: function(i){ return Object.keys(mem)[i] || null; },
+      get length(){ return Object.keys(mem).length; }
+    };
+    try{ Object.defineProperty(window, name, { value: shim, configurable: true }); }catch(e){}
+  });
+})();
+</script>
+<script>
 (function(){
   "use strict";
 
@@ -1555,9 +1577,9 @@
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
   const PREF_VOICE_VOL = "nawigator_pref_voice_vol", PREF_VOICE_FREQ = "nawigator_pref_voice_freq";
-  let prefVoiceVol = (() => { const v = parseFloat(localStorage.getItem(PREF_VOICE_VOL)); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 1; })();
+  let prefVoiceVol = (() => { let v = NaN; try{ v = parseFloat(localStorage.getItem(PREF_VOICE_VOL)); }catch(e){} return isFinite(v) ? Math.min(1, Math.max(0, v)) : 1; })();
   // częstotliwość: 1 = rzadko (jedna zapowiedź przed manewrem), 2 = normalnie (zapowiedź + "Teraz"), 3 = często (pełne: wczesna zapowiedź, zapowiedź, "Teraz", "a następnie…")
-  let prefVoiceFreq = (() => { const v = parseInt(localStorage.getItem(PREF_VOICE_FREQ), 10); return v >= 1 && v <= 3 ? v : 2; })();
+  let prefVoiceFreq = (() => { let v = NaN; try{ v = parseInt(localStorage.getItem(PREF_VOICE_FREQ), 10); }catch(e){} return v >= 1 && v <= 3 ? v : 2; })();
 
   // --- stan nawigatora ---
   let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
@@ -2149,7 +2171,7 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A w zieleni skóry aligatora,
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
        • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
@@ -2175,8 +2197,8 @@
   const NIGHT_ROADS = {
     motorway: { fill: "#2f7fe0", casing: "#10346a" },  // niebieski jak tablice autostradowe w UK (jaśniejszy odcień, żeby odcinał się od ciemnego tła)
     major:    {
-      fillFar: "#3f9467", casingFar: "#17402b",        // z daleka: stonowana zieleń jak tablice dróg A
-      fillNear: "#35b26a", casingNear: "#14502d"        // po przybliżeniu: wyraźna zieleń tablic dróg A, odmienna od tła i autostrad
+      fillFar: "#6f7f42", casingFar: "#272f15",        // z daleka: stonowana, matowa zieleń skóry aligatora
+      fillNear: "#8a9b4a", casingNear: "#2e3a17"        // po przybliżeniu: jaśniejsza oliwkowo-aligatorowa zieleń, odmienna od tła i autostrad
     },
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
@@ -6701,7 +6723,7 @@
     btn.textContent = prefVoice ? "🔊" : "🔇";
     btn.classList.toggle("off", !prefVoice);
     const cb = document.getElementById("navPrefVoice"); if(cb) cb.checked = prefVoice;
-    if(typeof syncVoicePanel === "function") syncVoicePanel();
+    try{ syncVoicePanel(); }catch(e){ console.warn("Okno głosu:", e); }
     if(!prefVoice){ try{ if("speechSynthesis" in window) window.speechSynthesis.cancel(); }catch(e){} }
     else if(!silent) guideSay("Komunikaty głosowe włączone.");
   }
@@ -7352,7 +7374,7 @@
   let voiceOpenedAt = 0;
   function syncVoicePanel(){
     const on = document.getElementById("vpOn");
-    if(!on) return;
+    if(!on || !voicePanel) return;
     on.checked = prefVoice;
     voicePanel.classList.toggle("off", !prefVoice);
     document.getElementById("vpVol").value = Math.round(prefVoiceVol * 100);
@@ -7362,6 +7384,8 @@
   }
   function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); voicePanel.classList.add("open"); }
   function closeVoicePanel(){ voicePanel.classList.remove("open"); }
+  function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
+  safeInit("okno głosu", () => {
   document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
   const vpVol = document.getElementById("vpVol");
   vpVol.addEventListener("input", () => {
@@ -7379,8 +7403,9 @@
   document.getElementById("voiceBackdrop").addEventListener("click", () => {
     if(Date.now() - voiceOpenedAt > 500) closeVoicePanel();   // puszczenie palca po długim przytrzymaniu nie zamyka okna
   });
+  });
 
-  (function setupVoiceLongPress(){
+  safeInit("długie przytrzymanie głośnika", function setupVoiceLongPress(){
     const btn = document.getElementById("gVoiceBtn");
     let timer = null, long = false, sx = 0, sy = 0;
     const pt = e => (e.touches && e.touches[0]) ? e.touches[0] : e;
@@ -7403,7 +7428,7 @@
       if(long){ long = false; e.preventDefault(); return; }   // to było długie przytrzymanie, nie zwykłe dotknięcie
       setPrefVoice(!prefVoice);
     });
-  })();
+  });
   setPrefVoice(prefVoice, true);
 
   /* ---------- Przeciągnięcie palcem w dół po oknie chowa je (Navigator → za pasek ikon, arkusze → zamknięcie) ---------- */
@@ -7439,7 +7464,7 @@
   }
 
   // Okno "Navigator"
-  (function(){
+  safeInit("przeciąganie okna Navigator", function(){
     const panel = document.getElementById("navPanel");
     const handle = document.getElementById("navDragHandle");
     let shift = 220;
@@ -7454,7 +7479,7 @@
         if(px > Math.min(70, shift * 0.5)) setNavPanelCollapsed(true);
       }
     });
-  })();
+  });
 
   // Arkusze: ustawienia nawigatora i ustawienia głosu
   function makeSheetSwipeClose(cardId, closeFn){
@@ -7474,8 +7499,8 @@
       }
     });
   }
-  makeSheetSwipeClose("navSettingsCard", closeNavSettings);
-  makeSheetSwipeClose("voiceCard", closeVoicePanel);
+  safeInit("przeciąganie ustawień", () => makeSheetSwipeClose("navSettingsCard", closeNavSettings));
+  safeInit("przeciąganie okna głosu", () => makeSheetSwipeClose("voiceCard", closeVoicePanel));
 
   navPrefSpeedometerInput.addEventListener("change", (e) => {
     prefShowSpeedometer = e.target.checked;
@@ -8421,4 +8446,271 @@
     b.classList.toggle("active", themeMode !== "auto");
     b.title = themeMode === "auto" ? "Tryb mapy: auto (teraz " + (night ? "noc" : "dzień") + ") — dotknij, aby zmienić"
       : "Tryb mapy: " + (themeMode === "day" ? "dzień" : "noc") + " (na stałe) — dotknij, aby zmienić";
-    c
+    const sel = document.getElementById("navPrefTheme"); if(sel) sel.value = themeMode;
+  }
+  function setNightMode(on){
+    if(document.body.classList.contains("night") !== on){
+      document.body.classList.toggle("night", on);
+      try{ applyShieldMode(); applyMotorwayLaneColors(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
+    }
+    updateThemeBtn();
+  }
+  function applyThemeMode(){ setNightMode(themeWantsNight()); }
+  function setThemeMode(m, announce){
+    themeMode = m;
+    try{ localStorage.setItem(THEME_KEY, m); }catch(e){}
+    applyThemeMode();
+    if(announce){
+      const night = document.body.classList.contains("night");
+      if(m === "auto") showBanner("TRYB AUTO", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie słońca", false);
+      else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — wróć do „Auto” w ustawieniach lub kolejnym dotknięciem", false);
+    }
+  }
+  document.getElementById("btnNight").addEventListener("click", () => {
+    setThemeMode(themeMode === "auto" ? "day" : themeMode === "day" ? "night" : "auto", true);
+  });
+  document.getElementById("navPrefTheme").addEventListener("change", e => setThemeMode(e.target.value, false));
+  setInterval(() => { if(themeMode === "auto") applyThemeMode(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "auto") applyThemeMode(); });
+  applyThemeMode();
+
+  document.getElementById("btnLocate").addEventListener("click", () => {
+    followUser = true;
+    updateLocateBtnVisibility();
+    if(map && lastPos){
+      map.easeTo({ center:[lastPos.lon, lastPos.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
+    }
+  });
+
+  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
+
+  // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
+  // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
+  document.getElementById("btnCompass").addEventListener("click", () => {
+    if(!map) return;
+    northUp = true;
+    map.easeTo({ bearing: 0, duration: 500 });
+  });
+
+  document.getElementById("btnReportMenu").addEventListener("click", () => {
+    const menu = document.getElementById("reportSubMenu");
+    const open = menu.classList.toggle("open");
+    document.getElementById("btnReportMenu").classList.toggle("active", open);
+  });
+
+  function closeReportMenu(){
+    document.getElementById("reportSubMenu").classList.remove("open");
+    document.getElementById("btnReportMenu").classList.remove("active");
+  }
+
+  document.getElementById("btnReportParking").addEventListener("click", () => {
+    reportHgvParkingHere();
+    closeReportMenu();
+  });
+  document.getElementById("btnReportCamera").addEventListener("click", () => {
+    reportCameraHere();
+    closeReportMenu();
+  });
+
+  // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
+  function attachDragListener(){
+    map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
+    map.on("rotate", updateCompassBtn);
+    map.on("rotateend", updateCompassBtn);
+    updateCompassBtn();
+    map.on("zoom", updateReportBtnVisibility);
+    try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
+    map.on("load", updateReportBtnVisibility);
+    updateReportBtnVisibility();
+  }
+
+  // przycisk zgłoszeń (🚩) widać dopiero, gdy mapa jest tak blisko, że pokazują się budynki
+  const REPORT_BTN_MIN_ZOOM = 15;
+  function updateReportBtnVisibility(){
+    const box = document.getElementById("reportFloat");
+    if(!box || !map) return;
+    const show = map.getZoom() >= REPORT_BTN_MIN_ZOOM;
+    box.classList.toggle("visible", show);
+    if(!show) closeReportMenu();
+  }
+
+  /* ============================================================
+     START
+  ============================================================ */
+  let firstFixTimer = null;
+  let watchId = null;
+  let started = false;
+
+  // === TRYB TESTOWY / SYMULATOR GPS ===================================
+  // Użytkownik wybiera na ekranie startowym: prawdziwy GPS albo symulator.
+  // Wybór jest zapamiętywany w telefonie (localStorage), więc nie trzeba
+  // wybierać go ponownie przy każdym uruchomieniu aplikacji.
+  const GPS_MODE_KEY = "nav_gps_mode"; // "real" albo "mock"
+  function loadGpsMode(){
+    try{ return localStorage.getItem(GPS_MODE_KEY) === "mock" ? "mock" : "real"; }
+    catch(e){ return "real"; }
+  }
+  function saveGpsMode(mode){
+    try{ localStorage.setItem(GPS_MODE_KEY, mode); }catch(e){ /* ignoruj — np. tryb prywatny */ }
+  }
+  let MOCK_GPS = loadGpsMode() === "mock";
+  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — przykładowa trasa symulatora
+  const MOCK_START_LON = -1.6230;
+  let mockIntervalId = null;
+
+  function updateGpsModeUI(){
+    const btnReal = document.getElementById("gpsModeReal");
+    const btnMock = document.getElementById("gpsModeMock");
+    btnReal.classList.toggle("active", !MOCK_GPS);
+    btnMock.classList.toggle("active", MOCK_GPS);
+    document.getElementById("startBtn").textContent = MOCK_GPS ? "Uruchom symulator" : "Włącz GPS";
+  }
+  document.getElementById("gpsModeReal").addEventListener("click", () => {
+    if(started) return; // nie zmieniaj trybu w trakcie działania nawigacji
+    MOCK_GPS = false;
+    saveGpsMode("real");
+    updateGpsModeUI();
+  });
+  document.getElementById("gpsModeMock").addEventListener("click", () => {
+    if(started) return;
+    MOCK_GPS = true;
+    saveGpsMode("mock");
+    updateGpsModeUI();
+  });
+  updateGpsModeUI();
+
+  // Symuluje odczyt GPS bez żadnego wywołania navigator.geolocation —
+  // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
+  // więc cała reszta aplikacji (onPosition, mapa, prędkościomierz) działa bez zmian.
+  function makeMockPosition(){
+    return {
+      coords: {
+        latitude: MOCK_START_LAT,
+        longitude: MOCK_START_LON,
+        speed: 0,
+        heading: null,
+        accuracy: 8
+      },
+      timestamp: Date.now()
+    };
+  }
+
+  function startMockGeolocation(){
+    clearTimeout(firstFixTimer);
+    onPosition(makeMockPosition());
+    attachWhenReady();
+
+    if(mockIntervalId !== null) clearInterval(mockIntervalId);
+    // odświeżanie co 2 s, żeby np. zegar/status pozostawał "żywy" podczas testów UI
+    mockIntervalId = setInterval(() => {
+      onPosition(makeMockPosition());
+    }, 2000);
+  }
+
+  function startGeolocation(){
+    if(started) return;
+    started = true;
+    requestWakeLock();
+
+    document.getElementById("startBtn").classList.add("hidden");
+    document.getElementById("splashHint").classList.add("hidden");
+    document.getElementById("splashSpinner").classList.remove("hidden");
+    document.getElementById("splashSub").textContent = "Szukam sygnału GPS…";
+
+    if(MOCK_GPS){
+      startMockGeolocation();
+      return;
+    }
+
+    if(!navigator.geolocation){
+      setStatus("error", "Ta przeglądarka nie obsługuje geolokalizacji");
+      document.getElementById("splashSpinner").classList.add("hidden");
+      document.getElementById("splashSub").textContent = "Ta przeglądarka nie obsługuje geolokalizacji.";
+      document.getElementById("splashHint").classList.remove("hidden");
+      return;
+    }
+
+    // twardy limit czasu — jeśli po 30 s nic się nie wydarzyło, pokaż diagnostykę
+    // zamiast wiecznego spinnera (typowe gdy podgląd blokuje API po cichu)
+    firstFixTimer = setTimeout(() => {
+      if(!map){
+        setStatus("error", "Brak odpowiedzi z GPS");
+        document.getElementById("splashSpinner").classList.add("hidden");
+        document.getElementById("splashSub").textContent =
+          "Przeglądarka nie odpowiada na żądanie lokalizacji.";
+        document.getElementById("splashHint").classList.remove("hidden");
+        document.getElementById("startBtn").classList.remove("hidden");
+        document.getElementById("startBtn").textContent = "Spróbuj ponownie";
+        started = false;
+      }
+    }, 30000);
+
+    function tryLowAccuracyFallback(){
+      document.getElementById("splashSub").textContent =
+        "Precyzyjny GPS się guzdrze — próbuję z przybliżoną lokalizacją…";
+      navigator.geolocation.getCurrentPosition(
+        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
+        onPositionError,
+        { enableHighAccuracy:false, timeout:15000, maximumAge:60000 }
+      );
+    }
+
+    try{
+      navigator.geolocation.getCurrentPosition(
+        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
+        err => {
+          // jeśli precyzyjny GPS nie zdążył złapać sygnału, spróbuj szybszej, mniej dokładnej lokalizacji
+          if(err && err.code === 3){
+            tryLowAccuracyFallback();
+          } else {
+            onPositionError(err);
+          }
+        },
+        { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+      );
+      if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(
+        onPosition,
+        onPositionError,
+        { enableHighAccuracy:true, timeout:25000, maximumAge:1000 }
+      );
+    } catch(e){
+      onPositionError({ code:0, message: String(e) });
+    }
+  }
+
+  document.getElementById("startBtn").addEventListener("click", startGeolocation);
+  function attachWhenReady(){
+    const iv = setInterval(() => {
+      if(map){ 
+        map.once("load", attachDragListener);
+        if(map.loaded()) attachDragListener();
+        clearInterval(iv);
+      }
+    }, 200);
+  }
+
+  /* ============================================================
+     BLOKADA WYGASZANIA EKRANU (Wake Lock)
+     Bez tego telefon zgasi ekran po ~30s i nawigacja/GPS przestanie
+     się aktualizować w tle. Wznawiamy blokadę też po powrocie do karty.
+  ============================================================ */
+  let wakeLock = null;
+  async function requestWakeLock(){
+    try{
+      if("wakeLock" in navigator){
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    }catch(e){
+      console.warn("Wake Lock niedostępny:", e);
+    }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "visible" && started) requestWakeLock();
+  });
+
+})();
+</script>
+</body>
+</html>
