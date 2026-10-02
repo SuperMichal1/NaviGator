@@ -201,7 +201,7 @@
   /* ---------- Przyciski nad kartą nawigatora: "Centrum" (lewo) i "Cała trasa" (prawo) ----------
      Trzymają się dokładnie nad tym, co aktualnie widać na dole ekranu (pasek ikon + ewentualnie
      rozwinięta karta) — --side-widgets-bottom liczy to na bieżąco w JS. */
-  #btnLocate, #btnFitRoute{
+  #btnLocate, #btnFitRoute, #btnCompass{
     position:absolute;
     bottom: var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px));
     z-index:40;
@@ -590,6 +590,41 @@
     max-height:80vh; overflow-y:auto;
     box-shadow: 0 -10px 30px rgba(0,0,0,.4);
   }
+  .sheetGrip{ align-self:center; flex:0 0 auto; width:38px; height:4px; border-radius:2px; background: var(--text-dim); opacity:.45; margin:-6px 0 2px; }
+  #navSettingsCard, #voiceCard{ touch-action: pan-y; }
+  #voicePanel{
+    position:fixed; inset:0; z-index:81;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  #voicePanel.open{ display:flex; }
+  #voiceBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
+  #voiceCard{
+    position:relative;
+    width:100%; max-width:420px;
+    background: var(--panel-bg-solid);
+    border:1px solid var(--panel-border);
+    border-radius:20px 20px 0 0;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:12px;
+    box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+  }
+  #voiceClose{
+    width:28px; height:28px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.08); cursor:pointer; color: var(--text-main);
+  }
+  .voiceRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; color: var(--text-main); }
+  .voiceRow input[type=range]{ flex:1; accent-color: var(--accent); height:28px; }
+  #vpVolVal{ min-width:40px; text-align:right; font-weight:700; font-variant-numeric: tabular-nums; }
+  .voiceSeg{ display:flex; gap:6px; }
+  .voiceSeg button{
+    flex:1; padding:10px 6px; border-radius:10px; cursor:pointer;
+    background: rgba(255,255,255,0.06); border:1px solid var(--panel-border);
+    color: var(--text-main); font-family:'Inter', sans-serif; font-size:13px; font-weight:600;
+  }
+  .voiceSeg button.active{ background: var(--accent); border-color: var(--accent); color:#0b1a1c; }
+  #vpFreqDesc{ font-size:12px; color: var(--text-dim); line-height:1.35; min-height:32px; }
+  #voicePanel.off .voiceDim{ opacity:.4; pointer-events:none; }
   .navSettingsHeader{
     display:flex; align-items:center; justify-content:space-between;
     font-size:14px; font-weight:700; color: var(--text-main);
@@ -1110,9 +1145,36 @@
   </div>
 </div>
 
+<div id="voicePanel">
+  <div id="voiceBackdrop"></div>
+  <div id="voiceCard">
+    <span class="sheetGrip"></span>
+    <div class="navSettingsHeader">
+      <span>🔊 Komunikaty głosowe</span>
+      <div id="voiceClose">✕</div>
+    </div>
+    <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
+    <div class="voiceDim">
+      <div class="voiceRow">
+        <span>Głośność</span>
+        <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
+        <span id="vpVolVal">100%</span>
+      </div>
+      <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
+      <div class="voiceSeg" id="vpFreq">
+        <button type="button" data-f="1">Rzadko</button>
+        <button type="button" data-f="2">Normalnie</button>
+        <button type="button" data-f="3">Często</button>
+      </div>
+      <div id="vpFreqDesc"></div>
+    </div>
+  </div>
+</div>
+
 <div id="navSettingsPanel">
   <div id="navSettingsBackdrop"></div>
   <div id="navSettingsCard">
+    <span class="sheetGrip"></span>
     <div class="navSettingsHeader">
       <span>Ustawienia nawigatora</span>
       <div id="navSettingsClose">✕</div>
@@ -1193,7 +1255,7 @@
     <div class="gText" id="gText"></div>
     <div class="gThen" id="gThen"></div>
   </div>
-  <button id="gVoiceBtn" type="button" title="Komunikaty głosowe wł./wył." aria-label="Komunikaty głosowe">🔊</button>
+  <button id="gVoiceBtn" type="button" title="Dotknij: wł./wył. · Przytrzymaj: ustawienia głosu" aria-label="Komunikaty głosowe">🔊</button>
 </div>
 
 <div id="statusPill">
@@ -1492,6 +1554,10 @@
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
+  const PREF_VOICE_VOL = "nawigator_pref_voice_vol", PREF_VOICE_FREQ = "nawigator_pref_voice_freq";
+  let prefVoiceVol = (() => { const v = parseFloat(localStorage.getItem(PREF_VOICE_VOL)); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 1; })();
+  // częstotliwość: 1 = rzadko (jedna zapowiedź przed manewrem), 2 = normalnie (zapowiedź + "Teraz"), 3 = często (pełne: wczesna zapowiedź, zapowiedź, "Teraz", "a następnie…")
+  let prefVoiceFreq = (() => { const v = parseInt(localStorage.getItem(PREF_VOICE_FREQ), 10); return v >= 1 && v <= 3 ? v : 2; })();
 
   // --- stan nawigatora ---
   let tomtomApiKey = localStorage.getItem(TOMTOM_KEY_STORAGE) || "";
@@ -6538,13 +6604,13 @@
     roundabout:"wjedź na rondo", ferry:"wjedź na prom", arrive:"dotrzesz do celu", "arrive-left":"cel będzie po lewej stronie", "arrive-right":"cel będzie po prawej stronie" };
   const GUIDE_ORD = ["", "pierwszym", "drugim", "trzecim", "czwartym", "piątym", "szóstym", "siódmym", "ósmym", "dziewiątym", "dziesiątym"];
   const GUIDE_TURNS = { left:1, right:1, "slight-left":1, "slight-right":1, "sharp-left":1, "sharp-right":1, uturn:1 };
-  function guideSentence(s){
+  function guideSentence(s, opts){
     let out = GUIDE_ACT[s.t] || "jedź dalej";
     if(s.t === "roundabout" && s.rb) out = "wjedź na rondo i zjedź " + (GUIDE_ORD[s.rb] || (s.rb + ".")) + " zjazdem";
     if(s.exit && (s.t.indexOf("exit") === 0 || s.t.indexOf("ramp") === 0)) out += ", zjazd " + s.exit + ",";
     if(s.ref) out += " na " + s.ref;
     else if(s.street) out += (GUIDE_TURNS[s.t] ? " w " : " na ") + s.street;
-    if(s.toward) out += " w kierunku " + s.toward;
+    if(s.toward && !(opts && opts.noToward)) out += " w kierunku " + s.toward;
     return out.replace(/,\s*$/, "").replace(/,,/g, ",");
   }
   const guideCap = t => t.charAt(0).toUpperCase() + t.slice(1);
@@ -6614,13 +6680,15 @@
     try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); }catch(e){}
   }
   ["click", "touchend"].forEach(ev => document.addEventListener(ev, unlockSpeech, { once: true, capture: true }));
-  function guideSay(text){
+  function guideSay(text, minLevel){
     if(!prefVoice || !text || !("speechSynthesis" in window)) return;
+    if(minLevel && prefVoiceFreq < minLevel) return;
+    if(prefVoiceVol <= 0) return;
     try{
       const synth = window.speechSynthesis;
       if(synth.speaking || synth.pending) synth.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = "pl-PL"; u.rate = 1; u.pitch = 1; u.volume = 1;
+      u.lang = "pl-PL"; u.rate = 1; u.pitch = 1; u.volume = prefVoiceVol;
       const v = (synth.getVoices() || []).find(x => /^pl/i.test(x.lang));
       if(v) u.voice = v;
       synth.speak(u);
@@ -6633,6 +6701,7 @@
     btn.textContent = prefVoice ? "🔊" : "🔇";
     btn.classList.toggle("off", !prefVoice);
     const cb = document.getElementById("navPrefVoice"); if(cb) cb.checked = prefVoice;
+    if(typeof syncVoicePanel === "function") syncVoicePanel();
     if(!prefVoice){ try{ if("speechSynthesis" in window) window.speechSynthesis.cancel(); }catch(e){} }
     else if(!silent) guideSay("Komunikaty głosowe włączone.");
   }
@@ -6683,10 +6752,11 @@
     const icon = guideIcon(step);
     document.getElementById("gIcon").innerHTML = icon;
     document.getElementById("gDist").textContent = dist < 25 && step.t.indexOf("arrive") !== 0 ? "Teraz" : guideDistLabel(dist);
-    document.getElementById("gText").textContent = (step.t.indexOf("arrive") === 0 && dist <= 35) ? "Dotarłeś do celu" : guideCap(guideSentence(step));
+    document.getElementById("gText").textContent = (step.t.indexOf("arrive") === 0 && dist <= 35) ? "Dotarłeś do celu" : guideCap(guideSentence(step, { noToward: !!(step.ref || step.street) }));
     const then = [];
-    if(next && next.t.indexOf("arrive") !== 0 && next.d - step.d < 900) then.push("Potem: " + guideSentence(next) + " (za " + guideDistLabel(next.d - step.d) + ")");
-    if(g.approx) then.push("Instrukcje przybliżone — trasa edytowana, bez nazw ulic");
+    // "Potem:" tylko gdy kolejny manewr jest tuż-tuż (inaczej to zbędny tekst na tablicy)
+    if(next && next.t !== "straight" && next.t.indexOf("arrive") !== 0 && next.d - step.d < 400) then.push("Potem: " + guideSentence(next, { noToward: true }) + " (za " + guideDistLabel(next.d - step.d) + ")");
+    if(g.approx) then.push("Instrukcje przybliżone");
     document.getElementById("gThen").textContent = then.join(" · ");
     if(!card.classList.contains("show")) card.classList.add("show");
     document.body.classList.add("guidance-on");
@@ -6695,11 +6765,13 @@
   function guideSpeak(g, step, dist, next){
     if(!prefVoice || step.t === "straight") return;
     const v = currentSpeedKmh / 3.6;                                  // m/s
-    const farC = guidePick(guideAnnounceList("far"), Math.min(3300, Math.max(900, v * 50)));
+    const lvl = prefVoiceFreq;
+    const arriveStep = step.t.indexOf("arrive") === 0;
+    const farC = lvl >= 3 ? guidePick(guideAnnounceList("far"), Math.min(3300, Math.max(900, v * 50))) : null;
     const nearC = guidePick(guideAnnounceList("near"), Math.min(700, Math.max(250, v * 16)));
-    const nowD = Math.min(110, Math.max(45, v * 5));
+    const nowD = (lvl >= 2 || arriveStep) ? Math.min(110, Math.max(45, v * 5)) : 0;
     const st = g.said[g.ptr] || (g.said[g.ptr] = { far: false, near: false, now: false });
-    const stage = dist <= nowD ? "now" : (nearC && dist <= nearC * 1.03) ? "near" : (farC && dist <= farC * 1.03) ? "far" : null;
+    const stage = (nowD > 0 && dist <= nowD) ? "now" : (nearC && dist <= nearC * 1.03) ? "near" : (farC && dist <= farC * 1.03) ? "far" : null;
     if(!stage || st[stage]) return;
     if(stage === "now"){ st.now = st.near = st.far = true; } else if(stage === "near"){ st.near = st.far = true; } else st.far = true;
     const target = stage === "near" ? nearC : farC;
@@ -6708,10 +6780,10 @@
     let text;
     if(arrive && stage === "now") text = "Dotarłeś do celu.";
     else {
-      const body = guideSentence(step);
+      const body = guideSentence(step, { noToward: lvl < 3 });
       text = stage === "now" ? "Teraz " + body : "Za " + guideSpeakDist(sayDist) + " " + body;
-      if(stage !== "far" && next && next.t !== "straight" && next.d - step.d <= 350){
-        text += ", a następnie " + guideSentence(next);
+      if(lvl >= 3 && stage !== "far" && next && next.t !== "straight" && next.d - step.d <= 350){
+        text += ", a następnie " + guideSentence(next, { noToward: true });
         g.said[g.ptr + 1] = Object.assign(g.said[g.ptr + 1] || { far: false, near: false, now: false }, { far: true });
       }
     }
@@ -6976,7 +7048,7 @@
       if(activeRoute !== oldRoute || !r) return; // trasę zamknięto/zmieniono w międzyczasie
       applyRerouted(r, source, oldRoute);
       showBanner("NOWA TRASA", `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`, false);
-      guideSay("Nowa trasa.");
+      guideSay("Nowa trasa.", 2);
       setTimeout(announceRouteRestrictions, 3500);
     }catch(e){
       console.warn("Przeliczanie trasy nie powiodło się:", e);
@@ -7270,8 +7342,140 @@
   const navPrefVoiceInput = document.getElementById("navPrefVoice");
   navPrefVoiceInput.checked = prefVoice;
   navPrefVoiceInput.addEventListener("change", e => setPrefVoice(e.target.checked));
-  document.getElementById("gVoiceBtn").addEventListener("click", () => setPrefVoice(!prefVoice));
+  // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
+  const voicePanel = document.getElementById("voicePanel");
+  const VOICE_FREQ_DESC = {
+    1: "Jedna zapowiedź przed manewrem. Bez „Teraz” i bez zapowiedzi kolejnego skrętu.",
+    2: "Zapowiedź przed manewrem oraz krótkie „Teraz”. Bez wcześniejszych i dodatkowych zapowiedzi.",
+    3: "Pełne prowadzenie: wczesna zapowiedź, zapowiedź, „Teraz” i informacja o następnym manewrze."
+  };
+  let voiceOpenedAt = 0;
+  function syncVoicePanel(){
+    const on = document.getElementById("vpOn");
+    if(!on) return;
+    on.checked = prefVoice;
+    voicePanel.classList.toggle("off", !prefVoice);
+    document.getElementById("vpVol").value = Math.round(prefVoiceVol * 100);
+    document.getElementById("vpVolVal").textContent = Math.round(prefVoiceVol * 100) + "%";
+    document.querySelectorAll("#vpFreq button").forEach(b => b.classList.toggle("active", +b.dataset.f === prefVoiceFreq));
+    document.getElementById("vpFreqDesc").textContent = VOICE_FREQ_DESC[prefVoiceFreq];
+  }
+  function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); voicePanel.classList.add("open"); }
+  function closeVoicePanel(){ voicePanel.classList.remove("open"); }
+  document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
+  const vpVol = document.getElementById("vpVol");
+  vpVol.addEventListener("input", () => {
+    prefVoiceVol = vpVol.value / 100;
+    try{ localStorage.setItem(PREF_VOICE_VOL, String(prefVoiceVol)); }catch(e){}
+    document.getElementById("vpVolVal").textContent = vpVol.value + "%";
+  });
+  vpVol.addEventListener("change", () => guideSay("Tak brzmi głośność komunikatów."));
+  document.querySelectorAll("#vpFreq button").forEach(b => b.addEventListener("click", () => {
+    prefVoiceFreq = +b.dataset.f;
+    try{ localStorage.setItem(PREF_VOICE_FREQ, String(prefVoiceFreq)); }catch(e){}
+    syncVoicePanel();
+  }));
+  document.getElementById("voiceClose").addEventListener("click", closeVoicePanel);
+  document.getElementById("voiceBackdrop").addEventListener("click", () => {
+    if(Date.now() - voiceOpenedAt > 500) closeVoicePanel();   // puszczenie palca po długim przytrzymaniu nie zamyka okna
+  });
+
+  (function setupVoiceLongPress(){
+    const btn = document.getElementById("gVoiceBtn");
+    let timer = null, long = false, sx = 0, sy = 0;
+    const pt = e => (e.touches && e.touches[0]) ? e.touches[0] : e;
+    function start(e){
+      long = false; const t = pt(e); sx = t.clientX; sy = t.clientY;
+      clearTimeout(timer);
+      timer = setTimeout(() => { long = true; try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){} openVoicePanel(); }, 550);
+    }
+    function move(e){ const t = pt(e); if(Math.hypot(t.clientX - sx, t.clientY - sy) > 10) clearTimeout(timer); }
+    function cancel(){ clearTimeout(timer); }
+    btn.addEventListener("touchstart", start, { passive:true });
+    btn.addEventListener("touchmove", move, { passive:true });
+    btn.addEventListener("touchend", cancel);
+    btn.addEventListener("touchcancel", cancel);
+    btn.addEventListener("mousedown", start);
+    btn.addEventListener("mouseup", cancel);
+    btn.addEventListener("mouseleave", cancel);
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    btn.addEventListener("click", e => {
+      if(long){ long = false; e.preventDefault(); return; }   // to było długie przytrzymanie, nie zwykłe dotknięcie
+      setPrefVoice(!prefVoice);
+    });
+  })();
   setPrefVoice(prefVoice, true);
+
+  /* ---------- Przeciągnięcie palcem w dół po oknie chowa je (Navigator → za pasek ikon, arkusze → zamknięcie) ---------- */
+  function attachSwipeDown(surface, o){
+    let st = null;
+    const finish = cancelled => { const s = st; st = null; if(s && s.active) o.onEnd(cancelled ? 0 : s.px); };
+    surface.addEventListener("touchstart", e => {
+      st = null;
+      if(e.touches.length !== 1) return;
+      if(o.enabled && !o.enabled()) return;
+      if(o.skip && o.skip(e.target)) return;
+      if(e.target.closest && e.target.closest("input[type=range],select,textarea")) return;
+      for(let el = e.target; el; el = el.parentElement){      // lista/okno przewinięte w dół -> to zwykłe przewijanie
+        if(el.scrollTop > 0) return;
+        if(el === surface) break;
+      }
+      st = { x: e.touches[0].clientX, y: e.touches[0].clientY, active:false, px:0 };
+    }, { passive:true });
+    surface.addEventListener("touchmove", e => {
+      if(!st) return;
+      const dy = e.touches[0].clientY - st.y, dx = e.touches[0].clientX - st.x;
+      if(!st.active){
+        if(dy < -6 || (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8)){ st = null; return; }
+        if(dy <= 10) return;
+        st.active = true; o.onStart();
+      }
+      e.preventDefault();
+      st.px = Math.max(0, dy - 10);
+      o.onMove(st.px);
+    }, { passive:false });
+    surface.addEventListener("touchend", () => finish(false));
+    surface.addEventListener("touchcancel", () => finish(true));
+  }
+
+  // Okno "Navigator"
+  (function(){
+    const panel = document.getElementById("navPanel");
+    const handle = document.getElementById("navDragHandle");
+    let shift = 220;
+    attachSwipeDown(panel, {
+      enabled: () => !panel.classList.contains("collapsed"),
+      skip: t => handle.contains(t),                       // uchwyt ma własną obsługę
+      onStart: () => { shift = getNavCollapsedShiftPx(); panel.classList.add("dragging"); },
+      onMove: px => { panel.style.transform = `translateY(${Math.min(px, shift)}px)`; },
+      onEnd: px => {
+        panel.classList.remove("dragging");
+        panel.style.transform = "";
+        if(px > Math.min(70, shift * 0.5)) setNavPanelCollapsed(true);
+      }
+    });
+  })();
+
+  // Arkusze: ustawienia nawigatora i ustawienia głosu
+  function makeSheetSwipeClose(cardId, closeFn){
+    const card = document.getElementById(cardId);
+    attachSwipeDown(card, {
+      onStart: () => { card.style.transition = "none"; },
+      onMove: px => { card.style.transform = `translateY(${px}px)`; },
+      onEnd: px => {
+        card.style.transition = "transform .2s ease";
+        if(px > 80){
+          card.style.transform = "translateY(100%)";
+          setTimeout(() => { closeFn(); card.style.transition = ""; card.style.transform = ""; }, 200);
+        }else{
+          card.style.transform = "";
+          setTimeout(() => { card.style.transition = ""; }, 220);
+        }
+      }
+    });
+  }
+  makeSheetSwipeClose("navSettingsCard", closeNavSettings);
+  makeSheetSwipeClose("voiceCard", closeVoicePanel);
 
   navPrefSpeedometerInput.addEventListener("change", (e) => {
     prefShowSpeedometer = e.target.checked;
@@ -8217,271 +8421,4 @@
     b.classList.toggle("active", themeMode !== "auto");
     b.title = themeMode === "auto" ? "Tryb mapy: auto (teraz " + (night ? "noc" : "dzień") + ") — dotknij, aby zmienić"
       : "Tryb mapy: " + (themeMode === "day" ? "dzień" : "noc") + " (na stałe) — dotknij, aby zmienić";
-    const sel = document.getElementById("navPrefTheme"); if(sel) sel.value = themeMode;
-  }
-  function setNightMode(on){
-    if(document.body.classList.contains("night") !== on){
-      document.body.classList.toggle("night", on);
-      try{ applyShieldMode(); applyMotorwayLaneColors(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
-    }
-    updateThemeBtn();
-  }
-  function applyThemeMode(){ setNightMode(themeWantsNight()); }
-  function setThemeMode(m, announce){
-    themeMode = m;
-    try{ localStorage.setItem(THEME_KEY, m); }catch(e){}
-    applyThemeMode();
-    if(announce){
-      const night = document.body.classList.contains("night");
-      if(m === "auto") showBanner("TRYB AUTO", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie słońca", false);
-      else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — wróć do „Auto” w ustawieniach lub kolejnym dotknięciem", false);
-    }
-  }
-  document.getElementById("btnNight").addEventListener("click", () => {
-    setThemeMode(themeMode === "auto" ? "day" : themeMode === "day" ? "night" : "auto", true);
-  });
-  document.getElementById("navPrefTheme").addEventListener("change", e => setThemeMode(e.target.value, false));
-  setInterval(() => { if(themeMode === "auto") applyThemeMode(); }, 30000);
-  document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "auto") applyThemeMode(); });
-  applyThemeMode();
-
-  document.getElementById("btnLocate").addEventListener("click", () => {
-    followUser = true;
-    updateLocateBtnVisibility();
-    if(map && lastPos){
-      map.easeTo({ center:[lastPos.lon, lastPos.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
-    }
-  });
-
-  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
-
-  // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
-  // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
-  document.getElementById("btnCompass").addEventListener("click", () => {
-    if(!map) return;
-    northUp = true;
-    map.easeTo({ bearing: 0, duration: 500 });
-  });
-
-  document.getElementById("btnReportMenu").addEventListener("click", () => {
-    const menu = document.getElementById("reportSubMenu");
-    const open = menu.classList.toggle("open");
-    document.getElementById("btnReportMenu").classList.toggle("active", open);
-  });
-
-  function closeReportMenu(){
-    document.getElementById("reportSubMenu").classList.remove("open");
-    document.getElementById("btnReportMenu").classList.remove("active");
-  }
-
-  document.getElementById("btnReportParking").addEventListener("click", () => {
-    reportHgvParkingHere();
-    closeReportMenu();
-  });
-  document.getElementById("btnReportCamera").addEventListener("click", () => {
-    reportCameraHere();
-    closeReportMenu();
-  });
-
-  // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
-  function attachDragListener(){
-    map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
-    map.on("rotate", updateCompassBtn);
-    map.on("rotateend", updateCompassBtn);
-    updateCompassBtn();
-    map.on("zoom", updateReportBtnVisibility);
-    try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
-    map.on("load", updateReportBtnVisibility);
-    updateReportBtnVisibility();
-  }
-
-  // przycisk zgłoszeń (🚩) widać dopiero, gdy mapa jest tak blisko, że pokazują się budynki
-  const REPORT_BTN_MIN_ZOOM = 15;
-  function updateReportBtnVisibility(){
-    const box = document.getElementById("reportFloat");
-    if(!box || !map) return;
-    const show = map.getZoom() >= REPORT_BTN_MIN_ZOOM;
-    box.classList.toggle("visible", show);
-    if(!show) closeReportMenu();
-  }
-
-  /* ============================================================
-     START
-  ============================================================ */
-  let firstFixTimer = null;
-  let watchId = null;
-  let started = false;
-
-  // === TRYB TESTOWY / SYMULATOR GPS ===================================
-  // Użytkownik wybiera na ekranie startowym: prawdziwy GPS albo symulator.
-  // Wybór jest zapamiętywany w telefonie (localStorage), więc nie trzeba
-  // wybierać go ponownie przy każdym uruchomieniu aplikacji.
-  const GPS_MODE_KEY = "nav_gps_mode"; // "real" albo "mock"
-  function loadGpsMode(){
-    try{ return localStorage.getItem(GPS_MODE_KEY) === "mock" ? "mock" : "real"; }
-    catch(e){ return "real"; }
-  }
-  function saveGpsMode(mode){
-    try{ localStorage.setItem(GPS_MODE_KEY, mode); }catch(e){ /* ignoruj — np. tryb prywatny */ }
-  }
-  let MOCK_GPS = loadGpsMode() === "mock";
-  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — przykładowa trasa symulatora
-  const MOCK_START_LON = -1.6230;
-  let mockIntervalId = null;
-
-  function updateGpsModeUI(){
-    const btnReal = document.getElementById("gpsModeReal");
-    const btnMock = document.getElementById("gpsModeMock");
-    btnReal.classList.toggle("active", !MOCK_GPS);
-    btnMock.classList.toggle("active", MOCK_GPS);
-    document.getElementById("startBtn").textContent = MOCK_GPS ? "Uruchom symulator" : "Włącz GPS";
-  }
-  document.getElementById("gpsModeReal").addEventListener("click", () => {
-    if(started) return; // nie zmieniaj trybu w trakcie działania nawigacji
-    MOCK_GPS = false;
-    saveGpsMode("real");
-    updateGpsModeUI();
-  });
-  document.getElementById("gpsModeMock").addEventListener("click", () => {
-    if(started) return;
-    MOCK_GPS = true;
-    saveGpsMode("mock");
-    updateGpsModeUI();
-  });
-  updateGpsModeUI();
-
-  // Symuluje odczyt GPS bez żadnego wywołania navigator.geolocation —
-  // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
-  // więc cała reszta aplikacji (onPosition, mapa, prędkościomierz) działa bez zmian.
-  function makeMockPosition(){
-    return {
-      coords: {
-        latitude: MOCK_START_LAT,
-        longitude: MOCK_START_LON,
-        speed: 0,
-        heading: null,
-        accuracy: 8
-      },
-      timestamp: Date.now()
-    };
-  }
-
-  function startMockGeolocation(){
-    clearTimeout(firstFixTimer);
-    onPosition(makeMockPosition());
-    attachWhenReady();
-
-    if(mockIntervalId !== null) clearInterval(mockIntervalId);
-    // odświeżanie co 2 s, żeby np. zegar/status pozostawał "żywy" podczas testów UI
-    mockIntervalId = setInterval(() => {
-      onPosition(makeMockPosition());
-    }, 2000);
-  }
-
-  function startGeolocation(){
-    if(started) return;
-    started = true;
-    requestWakeLock();
-
-    document.getElementById("startBtn").classList.add("hidden");
-    document.getElementById("splashHint").classList.add("hidden");
-    document.getElementById("splashSpinner").classList.remove("hidden");
-    document.getElementById("splashSub").textContent = "Szukam sygnału GPS…";
-
-    if(MOCK_GPS){
-      startMockGeolocation();
-      return;
-    }
-
-    if(!navigator.geolocation){
-      setStatus("error", "Ta przeglądarka nie obsługuje geolokalizacji");
-      document.getElementById("splashSpinner").classList.add("hidden");
-      document.getElementById("splashSub").textContent = "Ta przeglądarka nie obsługuje geolokalizacji.";
-      document.getElementById("splashHint").classList.remove("hidden");
-      return;
-    }
-
-    // twardy limit czasu — jeśli po 30 s nic się nie wydarzyło, pokaż diagnostykę
-    // zamiast wiecznego spinnera (typowe gdy podgląd blokuje API po cichu)
-    firstFixTimer = setTimeout(() => {
-      if(!map){
-        setStatus("error", "Brak odpowiedzi z GPS");
-        document.getElementById("splashSpinner").classList.add("hidden");
-        document.getElementById("splashSub").textContent =
-          "Przeglądarka nie odpowiada na żądanie lokalizacji.";
-        document.getElementById("splashHint").classList.remove("hidden");
-        document.getElementById("startBtn").classList.remove("hidden");
-        document.getElementById("startBtn").textContent = "Spróbuj ponownie";
-        started = false;
-      }
-    }, 30000);
-
-    function tryLowAccuracyFallback(){
-      document.getElementById("splashSub").textContent =
-        "Precyzyjny GPS się guzdrze — próbuję z przybliżoną lokalizacją…";
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
-        onPositionError,
-        { enableHighAccuracy:false, timeout:15000, maximumAge:60000 }
-      );
-    }
-
-    try{
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
-        err => {
-          // jeśli precyzyjny GPS nie zdążył złapać sygnału, spróbuj szybszej, mniej dokładnej lokalizacji
-          if(err && err.code === 3){
-            tryLowAccuracyFallback();
-          } else {
-            onPositionError(err);
-          }
-        },
-        { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
-      );
-      if(watchId !== null) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition(
-        onPosition,
-        onPositionError,
-        { enableHighAccuracy:true, timeout:25000, maximumAge:1000 }
-      );
-    } catch(e){
-      onPositionError({ code:0, message: String(e) });
-    }
-  }
-
-  document.getElementById("startBtn").addEventListener("click", startGeolocation);
-  function attachWhenReady(){
-    const iv = setInterval(() => {
-      if(map){ 
-        map.once("load", attachDragListener);
-        if(map.loaded()) attachDragListener();
-        clearInterval(iv);
-      }
-    }, 200);
-  }
-
-  /* ============================================================
-     BLOKADA WYGASZANIA EKRANU (Wake Lock)
-     Bez tego telefon zgasi ekran po ~30s i nawigacja/GPS przestanie
-     się aktualizować w tle. Wznawiamy blokadę też po powrocie do karty.
-  ============================================================ */
-  let wakeLock = null;
-  async function requestWakeLock(){
-    try{
-      if("wakeLock" in navigator){
-        wakeLock = await navigator.wakeLock.request("screen");
-        wakeLock.addEventListener("release", () => { wakeLock = null; });
-      }
-    }catch(e){
-      console.warn("Wake Lock niedostępny:", e);
-    }
-  }
-  document.addEventListener("visibilitychange", () => {
-    if(document.visibilityState === "visible" && started) requestWakeLock();
-  });
-
-})();
-</script>
-</body>
-</html>
+    c
