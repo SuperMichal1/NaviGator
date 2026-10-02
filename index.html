@@ -575,7 +575,8 @@
     border-radius:20px 20px 0 0;
     padding: 16px 16px max(16px, env(safe-area-inset-bottom));
     display:flex; flex-direction:column; gap:10px;
-    max-height:80vh; overflow-y:auto;
+    max-height:80vh; max-height:88dvh; /* dvh = faktycznie widoczna wysokość (vh ignoruje pasek adresu przeglądarki i ucinał dół okna) */
+    overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
     box-shadow: 0 -10px 30px rgba(0,0,0,.4);
   }
   .navSettingsHeader{
@@ -687,11 +688,11 @@
     border-top:1px solid rgba(255,255,255,0.08);
   }
   .navSupaCategoryRow{
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-    font-size:10.5px; color: var(--text-dim);
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    font-size:12px; line-height:1.35; color: var(--text-dim);
   }
-  .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
+  .navSupaCategoryRow .catLabel{ flex:1 1 45%; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+  .navSupaCategoryRow .catStatus{ flex:1 1 50%; min-width:0; font-weight:600; text-align:right; white-space:normal; overflow-wrap:anywhere; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
 
   /* ---------- Bottom-left: speed cluster ---------- */
@@ -1098,6 +1099,26 @@
       <div id="navSettingsClose">✕</div>
     </div>
 
+    <div id="navSupaProgress" class="show">
+      <div class="navSupaProgressInner">
+        <div class="navSupaProgressHead">
+          <span id="navSupaProgressSpinner" class="navSupaProgressSpinner"></span>
+          <span id="navSupaProgressTitle">Synchronizowanie wspólnej bazy…</span>
+        </div>
+        <div class="navSupaProgressRow">
+          <span class="navSupaProgressLabel">📤 Overpass → Supabase</span>
+          <span class="navSupaProgressPct" id="navSupaPctUp">0%</span>
+        </div>
+        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillUp"></div></div>
+        <div class="navSupaProgressRow">
+          <span class="navSupaProgressLabel">📥 Supabase → aplikacja</span>
+          <span class="navSupaProgressPct" id="navSupaPctDown">0%</span>
+        </div>
+        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
+        <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
+      </div>
+    </div>
+
     <div class="navTitle">Widoczność na ekranie</div>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
@@ -1134,25 +1155,6 @@
     </div>
     <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
 
-    <div id="navSupaProgress">
-      <div class="navSupaProgressInner">
-        <div class="navSupaProgressHead">
-          <span id="navSupaProgressSpinner" class="navSupaProgressSpinner"></span>
-          <span id="navSupaProgressTitle">Synchronizowanie wspólnej bazy…</span>
-        </div>
-        <div class="navSupaProgressRow">
-          <span class="navSupaProgressLabel">📤 Overpass → Supabase</span>
-          <span class="navSupaProgressPct" id="navSupaPctUp">0%</span>
-        </div>
-        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillUp"></div></div>
-        <div class="navSupaProgressRow">
-          <span class="navSupaProgressLabel">📥 Supabase → aplikacja</span>
-          <span class="navSupaProgressPct" id="navSupaPctDown">0%</span>
-        </div>
-        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
-        <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -3491,6 +3493,26 @@
   const HGV_COMPANIES_CACHE_KEY = "nav_uk_hgv_companies_v1";
   const HGV_COMPANIES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
   const HGV_COMPANIES_BAND_RETRIES = 2;
+  const HGV_COMPANIES_ATTEMPT_TIMEOUT_MS = 75000; // mniejsze fragmenty → krótszy limit; wolny serwer jest szybciej zamieniany na kolejny
+  const HGV_COMPANIES_SCHEME = 12;               // wersja podziału na fragmenty (zapisywana w cache)
+
+  // 12 mniejszych, bezpiecznych zapytań zamiast 7 dużych (Anglia 8, Walia 1, Szkocja 3).
+  // Najgęściej zabudowane pasy (Londyn/Południowy Wschód, Midlands, północna Anglia) są węższe.
+  // Granice lekko się zachodzą — duplikaty i tak odsiewa unikalne id z OSM.
+  const HGV_COMPANIES_BANDS = [
+    { name: "Anglia",  box: [49.864, -6.418, 51.2,   1.764] },
+    { name: "Anglia",  box: [51.2,   -6.418, 51.7,  -0.9]   },
+    { name: "Anglia",  box: [51.2,   -0.9,   51.7,   1.764] },
+    { name: "Anglia",  box: [51.7,   -6.418, 52.3,   1.764] },
+    { name: "Anglia",  box: [52.3,   -6.418, 52.9,   1.764] },
+    { name: "Anglia",  box: [52.9,   -6.418, 53.4,   1.764] },
+    { name: "Anglia",  box: [53.4,   -6.418, 54.2,   1.764] },
+    { name: "Anglia",  box: [54.2,   -6.418, 55.812, 1.764] },
+    { name: "Walia",   box: [51.317, -5.317, 53.431, -2.647] },
+    { name: "Szkocja", box: [54.6,   -8.649, 55.9,  -0.724] },
+    { name: "Szkocja", box: [55.9,   -8.649, 57.5,  -0.724] },
+    { name: "Szkocja", box: [57.5,   -8.649, 60.86, -0.724] }
+  ];
   const HGV_COMPANIES_MAX_RETRIES = 3;
   let hgvCompaniesRetries = 0;
 
@@ -3504,7 +3526,7 @@
   function fetchHgvCompaniesBand(box){
     const [south, west, north, east] = box;
     const query = `
-      [out:json][timeout:120];
+      [out:json][timeout:60];
       (
         node["name"]["office"](${south},${west},${north},${east});
         way["name"]["building"~"^(industrial|warehouse|commercial)$"](${south},${west},${north},${east});
@@ -3512,7 +3534,7 @@
       );
       out center;
     `;
-    return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
+    return tryEndpoints(query, 0, HGV_COMPANIES_ATTEMPT_TIMEOUT_MS);
   }
 
   function downloadHgvCompaniesBands(bands, onBandDone){
@@ -3570,7 +3592,10 @@
         const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps && !force){ sharedDataMarkResolved("hgv"); return; }
-        if(hasGaps){
+        if(hasGaps && cached.scheme !== HGV_COMPANIES_SCHEME){
+          // luki z dawnego podziału na 7 dużych fragmentów — nie dociągamy ich, tylko pobieramy wszystko na nowo w 12 mniejszych
+          baseFeatures = [];
+        } else if(hasGaps){
           bandsToFetch = cached.failedBands;
         } else {
           baseFeatures = [];
@@ -3605,7 +3630,7 @@
   }
 
   function runHgvCompaniesOverpass(baseFeatures, bandsToFetch){
-    const bands = bandsToFetch || flattenRestrictionsRegions();
+    const bands = bandsToFetch || HGV_COMPANIES_BANDS;
     sharedDataMarkOverpassStart("hgv", bands.length);
     debugLog("info", bandsToFetch
       ? `Firmy/operatorzy: dociąganie ${bands.length} fragmentu(ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -3623,7 +3648,8 @@
         localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
           features: roundCoordsForCache(all),
-          failedBands
+          failedBands,
+          scheme: HGV_COMPANIES_SCHEME
         }));
       }catch(e){
         console.warn("Nie udało się zapisać cache firm/operatorów:", e);
