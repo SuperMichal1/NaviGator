@@ -165,6 +165,12 @@
   body:has(#btnFitRoute.visible) #reportFloat{
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
   }
+  body:has(#btnCompass.visible) #reportFloat{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
+  }
+  body:has(#btnFitRoute.visible):has(#btnCompass.visible) #reportFloat{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 116px);
+  }
   #reportFloat .ctrl-btn{
     width:48px; height:48px; border-radius:50%;
     background: rgba(255,255,255,0.10);
@@ -222,16 +228,22 @@
     pointer-events:none;
   }
   #btnLocate{ left:16px; }
+  #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnCompass svg{ display:block; transition: transform .12s linear; }
+  /* prawa kolumna od dołu: Cała trasa -> Kompas -> Zgłoszenia (każdy kolejny pojawia się nad poprzednim) */
+  body:has(#btnFitRoute.visible) #btnCompass{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
+  }
   /* "Cała trasa": tylko ikona (trasa z punktu A do B), okrągły przycisk bez podpisu */
   #btnFitRoute{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
-  #btnLocate.visible, #btnFitRoute.visible{
+  #btnLocate.visible, #btnFitRoute.visible, #btnCompass.visible{
     opacity:1;
     transform: translateY(0) scale(1);
     pointer-events:auto;
   }
-  #btnLocate:active, #btnFitRoute:active{ transform: scale(0.94); }
+  #btnLocate:active, #btnFitRoute:active, #btnCompass:active{ transform: scale(0.94); }
   #btnLocate .locate-icon, #btnFitRoute .locate-icon{ font-size:17px; line-height:1; }
-  body.night #btnLocate, body.night #btnFitRoute{
+  body.night #btnLocate, body.night #btnFitRoute, body.night #btnCompass{
     background: rgba(255,255,255,0.05);
     border-color: rgba(255,176,32,0.25);
     color: var(--text-main);
@@ -575,14 +587,9 @@
     border-radius:20px 20px 0 0;
     padding: 16px 16px max(16px, env(safe-area-inset-bottom));
     display:flex; flex-direction:column; gap:10px;
-    max-height:80vh; overflow-y:scroll;
+    max-height:80vh; overflow-y:auto;
     box-shadow: 0 -10px 30px rgba(0,0,0,.4);
-    /* stale widoczny pasek przewijania z boku */
-    scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.55) rgba(255,255,255,.08);
   }
-  #navSettingsCard::-webkit-scrollbar{ width:8px; }
-  #navSettingsCard::-webkit-scrollbar-track{ background: rgba(255,255,255,.08); border-radius:4px; margin:14px 0; }
-  #navSettingsCard::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.55); border-radius:4px; min-height:40px; }
   .navSettingsHeader{
     display:flex; align-items:center; justify-content:space-between;
     font-size:14px; font-weight:700; color: var(--text-main);
@@ -962,6 +969,14 @@
   <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
 </div>
 
+<div id="btnCompass" title="Ustaw mapę północą do góry" role="button" aria-label="Ustaw mapę północą do góry">
+  <svg id="compassNeedle" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+    <path d="M12 2.5 15.6 12H8.4z" fill="#e5392f"/>
+    <path d="M12 21.5 8.4 12h7.2z" fill="currentColor" opacity=".55"/>
+    <circle cx="12" cy="12" r="1.3" fill="#fff" stroke="currentColor" stroke-opacity=".5" stroke-width=".6"/>
+  </svg>
+</div>
+
 <div id="btnFitRoute" title="Pokaż całą trasę" role="button" aria-label="Pokaż całą trasę">
   <svg class="locate-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="5" cy="19" r="2.3"/>
@@ -1103,7 +1118,6 @@
       <div id="navSettingsClose">✕</div>
     </div>
 
-
     <div class="navTitle">Widoczność na ekranie</div>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
     <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
@@ -1159,7 +1173,6 @@
         <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
       </div>
     </div>
-
   </div>
 </div>
 
@@ -1443,6 +1456,16 @@
   }
   let is3D = false;
   let followUser = true;
+  let northUp = false; // po kliknięciu kompasu kamera nie obraca się już za kursem pojazdu (do czasu ponownego 3D / widoku jazdy)
+  function updateCompassBtn(){
+    const btn = document.getElementById("btnCompass");
+    if(!btn || !map) return;
+    const b = map.getBearing();
+    const off = Math.abs(((b + 180) % 360 + 360) % 360 - 180) > 0.5; // mapa obrócona względem północy
+    btn.classList.toggle("visible", off);
+    const needle = document.getElementById("compassNeedle");
+    if(needle) needle.style.transform = `rotate(${-b}deg)`; // czerwona strzałka zawsze wskazuje północ
+  }
   function updateLocateBtnVisibility(){
     const btn = document.getElementById("btnLocate");
     if(!btn) return;
@@ -2060,7 +2083,7 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady ciepły pomarańcz, drogi A ochra,
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
        • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
@@ -2081,13 +2104,13 @@
   // Klasy: motorway = autostrady, major = trunk/primary (drogi A), mid = secondary/tertiary
   // i zjazdy (drogi B), minor = lokalne/osiedlowe/serwisowe/ścieżki.
   // Drogi A (major) zmieniają KOLOR wraz z zoomem (nie krycie — to zostało celowo usunięte,
-  // żeby sieć dróg była zawsze widoczna): z daleka stonowana ochra wtopiona w tło, po przybliżeniu
-  // wyraźny, nasycony bursztyn — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
+  // żeby sieć dróg była zawsze widoczna): z daleka stonowana zieleń wtopiona w tło, po przybliżeniu
+  // wyraźna, nasycona zieleń — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fill: "#e0703a", casing: "#7a3518" },  // koralowy pomarańcz (test kontrastu: CR 3.5:1 do tła, ΔE2000 ≥ 39 do wszystkich teł)
+    motorway: { fill: "#2f7fe0", casing: "#10346a" },  // niebieski jak tablice autostradowe w UK (jaśniejszy odcień, żeby odcinał się od ciemnego tła)
     major:    {
-      fillFar: "#a08a6a", casingFar: "#4e4030",        // z daleka: stonowany ciepły beż (bez oliwkowego odcienia zlewającego się z zielenią tła)
-      fillNear: "#ecd58a", casingNear: "#6b5a2a"        // po przybliżeniu: kremowo-złoty, wyraźnie odmienny od autostrad
+      fillFar: "#3f9467", casingFar: "#17402b",        // z daleka: stonowana zieleń jak tablice dróg A
+      fillNear: "#35b26a", casingNear: "#14502d"        // po przybliżeniu: wyraźna zieleń tablic dróg A, odmienna od tła i autostrad
     },
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
@@ -2957,7 +2980,7 @@
     if(followUser){
       map.easeTo({
         center: [lon, lat],
-        bearing: (heading !== null && !isNaN(heading) && is3D) ? heading : map.getBearing(),
+        bearing: (heading !== null && !isNaN(heading) && is3D && !northUp) ? heading : map.getBearing(),
         duration: 600
       });
     }
@@ -3498,39 +3521,6 @@
   const HGV_COMPANIES_CACHE_KEY = "nav_uk_hgv_companies_v1";
   const HGV_COMPANIES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
   const HGV_COMPANIES_BAND_RETRIES = 2;
-  const HGV_COMPANIES_ATTEMPT_TIMEOUT_MS = 75000; // krótki limit na jeden serwer — mały fragment powinien się skończyć szybko, a wolny serwer zastępujemy kolejnym
-  const HGV_COMPANIES_SCHEME = 40;               // wersja podziału (zapisywana w cache; zmiana = pobranie od nowa)
-  const HGV_COMPANIES_MAX_SPLIT = 2;             // ile razy wolno dzielić fragment na pół, gdy mimo ponowień serwer go odrzuca
-  const HGV_COMPANIES_RETRY_BACKOFF_MS = 3000;   // przerwa przed ponowieniem tego samego fragmentu (rośnie z kolejną próbą)
-
-  // Siatka małych fragmentów (ok. 70 km x 130 km) tylko nad lądem, zamiast kilku wielkich zapytań.
-  // Mały obszar = zapytanie, które Overpass akceptuje i szybko liczy. Gęste rejony (Londyn, Midlands,
-  // Manchester/Liverpool, Glasgow/Edynburg) są cięte drobniej. Gdy jakiś fragment mimo to zostanie
-  // odrzucony, aplikacja sama dzieli go na pół i próbuje jeszcze raz (patrz downloadHgvCompaniesBands).
-  const HGV_COMPANIES_BANDS = (function(){
-    const rows = [
-      [49.864, 50.5,  [-6.45,-4.4,-2.4]],
-      [50.5,   51.1,  [-5.8,-3.6,-1.6,-0.5,0.4,1.8]],
-      [51.1,   51.7,  [-5.4,-3.4,-1.6,-0.5,0.3,1.8]],
-      [51.7,   52.3,  [-5.4,-3.2,-1.8,-0.5,1.0,1.8]],
-      [52.3,   52.9,  [-5.4,-3.2,-1.8,-0.5,1.8]],
-      [52.9,   53.5,  [-5.4,-3.2,-2.0,-0.8,0.6]],
-      [53.5,   54.2,  [-3.9,-2.4,-1.2,0.3]],
-      [54.2,   54.9,  [-8.0,-5.4,-3.9,-2.2,-0.6]],
-      [54.9,   55.812,[-6.4,-4.4,-3.0,-1.5]],
-      [55.812, 56.5,  [-6.4,-4.4,-3.0,-1.7]],
-      [56.5,   57.5,  [-6.4,-4.0,-1.7]],
-      [57.5,   58.7,  [-8.7,-4.5,-1.7]],
-      [58.7,   60.86, [-8.7,-0.7]]
-    ];
-    const out = [];
-    rows.forEach(([south, north, lons]) => {
-      for(let i = 0; i < lons.length - 1; i++){
-        out.push({ name: `${south}–${north}°N, ${lons[i]}…${lons[i+1]}°`, box: [south, lons[i], north, lons[i+1]] });
-      }
-    });
-    return out;
-  })();
   const HGV_COMPANIES_MAX_RETRIES = 3;
   let hgvCompaniesRetries = 0;
 
@@ -3544,7 +3534,7 @@
   function fetchHgvCompaniesBand(box){
     const [south, west, north, east] = box;
     const query = `
-      [out:json][timeout:60];
+      [out:json][timeout:120];
       (
         node["name"]["office"](${south},${west},${north},${east});
         way["name"]["building"~"^(industrial|warehouse|commercial)$"](${south},${west},${north},${east});
@@ -3552,71 +3542,46 @@
       );
       out center;
     `;
-    return tryEndpoints(query, 0, HGV_COMPANIES_ATTEMPT_TIMEOUT_MS);
+    return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
   }
 
-  function splitBandInHalf(box){
-    const [south, west, north, east] = box;
-    // dzielimy wzdłuż dłuższego boku (w km: 1° szerokości ≈ 111 km, 1° długości ≈ 65 km na tej szerokości)
-    if((north - south) * 111 >= (east - west) * 65){
-      const mid = (south + north) / 2;
-      return [[south, west, mid, east], [mid, west, north, east]];
-    }
-    const mid = (west + east) / 2;
-    return [[south, west, north, mid], [south, mid, north, east]];
-  }
-
-  function downloadHgvCompaniesBands(bands, onBandDone, onSplit){
+  function downloadHgvCompaniesBands(bands, onBandDone){
     const nodes = new Map();
     const failedBands = [];
-    const wait = ms => new Promise(res => setTimeout(res, ms));
+    let chain = Promise.resolve();
 
-    function collect(data){
-      (data.elements || []).forEach(el => {
-        if(!el.tags || !el.tags.name || nodes.has(el.id)) return;
-        const lat = el.type === "node" ? el.lat : el.center && el.center.lat;
-        const lon = el.type === "node" ? el.lon : el.center && el.center.lon;
-        if(lat == null || lon == null) return;
-        nodes.set(el.id, {
-          type: "Feature",
-          properties: { name: el.tags.name, osm_id: el.id },
-          geometry: { type: "Point", coordinates: [lon, lat] }
+    bands.forEach(({ name, box }) => {
+      chain = chain.then(() => {
+        function attempt(retriesLeft){
+          return fetchHgvCompaniesBand(box)
+            .then(data => {
+              (data.elements || []).forEach(el => {
+                if(!el.tags || !el.tags.name || nodes.has(el.id)) return;
+                const lat = el.type === "node" ? el.lat : el.center && el.center.lat;
+                const lon = el.type === "node" ? el.lon : el.center && el.center.lon;
+                if(lat == null || lon == null) return;
+                nodes.set(el.id, {
+                  type: "Feature",
+                  properties: { name: el.tags.name, osm_id: el.id },
+                  geometry: { type: "Point", coordinates: [lon, lat] }
+                });
+              });
+              return true;
+            })
+            .catch(err => {
+              if(retriesLeft > 0) return attempt(retriesLeft - 1);
+              console.warn(`Firmy ${name} [${box.join(",")}]: pominięto:`, err.message || err);
+              debugLog("warn", `Firmy/operatorzy: ${name} pominięta (błąd Overpass)`);
+              failedBands.push({ name, box });
+              return false;
+            });
+        }
+        return attempt(HGV_COMPANIES_BAND_RETRIES).then(success => {
+          if(typeof onBandDone === "function") onBandDone({ features: Array.from(nodes.values()), name, box, success });
         });
       });
-    }
+    });
 
-    // jeden fragment: ponowienia z przerwą; po wyczerpaniu — podział na pół i osobne próby dla połówek
-    function processBand(name, box, depth){
-      function attempt(n){
-        return fetchHgvCompaniesBand(box)
-          .then(data => { collect(data); return true; })
-          .catch(err => {
-            if(n < HGV_COMPANIES_BAND_RETRIES){
-              return wait(HGV_COMPANIES_RETRY_BACKOFF_MS * (n + 1)).then(() => attempt(n + 1));
-            }
-            console.warn(`Firmy ${name} [${box.join(",")}]: odrzucone:`, err.message || err);
-            return false;
-          });
-      }
-      return attempt(0).then(success => {
-        if(success){
-          if(typeof onBandDone === "function") onBandDone({ features: Array.from(nodes.values()), name, box, success:true });
-          return;
-        }
-        if(depth < HGV_COMPANIES_MAX_SPLIT){
-          debugLog("warn", `Firmy/operatorzy: ${name} odrzucona — dzielę na 2 mniejsze części`);
-          if(typeof onSplit === "function") onSplit();
-          const [a, b] = splitBandInHalf(box);
-          return processBand(name, a, depth + 1).then(() => processBand(name, b, depth + 1));
-        }
-        debugLog("warn", `Firmy/operatorzy: ${name} pominięta (błąd Overpass)`);
-        failedBands.push({ name, box });
-        if(typeof onBandDone === "function") onBandDone({ features: Array.from(nodes.values()), name, box, success:false });
-      });
-    }
-
-    let chain = Promise.resolve();
-    bands.forEach(({ name, box }) => { chain = chain.then(() => processBand(name, box, 0)); });
     return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
   }
 
@@ -3635,10 +3600,7 @@
         const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps && !force){ sharedDataMarkResolved("hgv"); return; }
-        if(hasGaps && cached.scheme !== HGV_COMPANIES_SCHEME){
-          // luki z dawnego podziału na 7 dużych fragmentów — nie dociągamy ich, tylko pobieramy wszystko na nowo w 12 mniejszych
-          baseFeatures = [];
-        } else if(hasGaps){
+        if(hasGaps){
           bandsToFetch = cached.failedBands;
         } else {
           baseFeatures = [];
@@ -3673,7 +3635,7 @@
   }
 
   function runHgvCompaniesOverpass(baseFeatures, bandsToFetch){
-    const bands = bandsToFetch || HGV_COMPANIES_BANDS;
+    const bands = bandsToFetch || flattenRestrictionsRegions();
     sharedDataMarkOverpassStart("hgv", bands.length);
     debugLog("info", bandsToFetch
       ? `Firmy/operatorzy: dociąganie ${bands.length} fragmentu(ów) (${[...new Set(bands.map(b => b.name))].join(", ")})…`
@@ -3682,10 +3644,6 @@
     downloadHgvCompaniesBands(bands, ({ features }) => {
       setHgvCompaniesData(baseFeatures.concat(features));
       sharedDataMarkOverpassBand("hgv");
-    }, () => {
-      // fragment podzielony na dwie części: w miejsce 1 do wykonania są 2
-      if(sharedDataState.hgv) sharedDataState.hgv.opTotal += 1;
-      renderSharedDataProgress();
     }).then(({ features, failedBands }) => {
       const all = baseFeatures.concat(features);
       setHgvCompaniesData(all);
@@ -3695,8 +3653,7 @@
         localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({
           savedAt: Date.now(),
           features: roundCoordsForCache(all),
-          failedBands,
-          scheme: HGV_COMPANIES_SCHEME
+          failedBands
         }));
       }catch(e){
         console.warn("Nie udało się zapisać cache firm/operatorów:", e);
@@ -6160,6 +6117,7 @@
     followUser = true;
     updateLocateBtnVisibility();
     is3D = true;
+    northUp = false;
     document.getElementById("btnDim").classList.add("active");
     document.getElementById("dimIcon").textContent = "2D";
     applyDrivingCamera(true);
@@ -8214,6 +8172,7 @@
   ============================================================ */
   document.getElementById("btnDim").addEventListener("click", () => {
     is3D = !is3D;
+    northUp = false;
     document.getElementById("btnDim").classList.toggle("active", is3D);
     document.getElementById("dimIcon").textContent = is3D ? "2D" : "3D";
     applyDrivingCamera(is3D);
@@ -8296,6 +8255,14 @@
 
   document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
 
+  // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
+  // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
+  document.getElementById("btnCompass").addEventListener("click", () => {
+    if(!map) return;
+    northUp = true;
+    map.easeTo({ bearing: 0, duration: 500 });
+  });
+
   document.getElementById("btnReportMenu").addEventListener("click", () => {
     const menu = document.getElementById("reportSubMenu");
     const open = menu.classList.toggle("open");
@@ -8319,6 +8286,9 @@
   // jeśli użytkownik ręcznie przesunie mapę, wyłącz podążanie do czasu ponownego kliknięcia "wyśrodkuj"
   function attachDragListener(){
     map.on("dragstart", () => { followUser = false; updateLocateBtnVisibility(); });
+    map.on("rotate", updateCompassBtn);
+    map.on("rotateend", updateCompassBtn);
+    updateCompassBtn();
     map.on("zoom", updateReportBtnVisibility);
     try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
     map.on("load", updateReportBtnVisibility);
