@@ -6919,8 +6919,8 @@
   /* ============================================================
      ALERTY NA TRASIE: niskie mosty, limity tonażu i szerokości
      Dane: znaki z Overpass/Supabase (maxheight / maxweight / maxwidth), porównywane z HGV_PROFILE.
-     Ograniczenie liczy się jako "na trasie", gdy droga z tagiem biegnie wzdłuż trasy (min. 2 punkty w promieniu
-     15 m) — boczna droga przecinająca trasę na skrzyżowaniu nie wywołuje alertu.
+     Ograniczenie liczy się jako "na trasie", gdy droga z tagiem biegnie wzdłuż trasy (odcinek drogi przy trasie,
+     w tym samym kierunku) — boczna droga przecinająca trasę na skrzyżowaniu nie wywołuje alertu.
   ============================================================ */
   const RESTR_NEAR_M = 15, RESTR_HEIGHT_MARGIN = 0.3, RESTR_WIDTH_MARGIN = 0.15;
   const RESTR_NAMES = { height: "wysokości", weight: "tonażu", width: "szerokości" };
@@ -6984,7 +6984,7 @@
         for(const i of a){
           if(tested.has(i)) continue; tested.add(i);
           const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
-          if(q.distM <= RESTR_NEAR_M && (!best || q.distM < best.d)) best = { d: q.distM, lat: q.lat, lon: q.lon, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
+          if(q.distM <= RESTR_NEAR_M && (!best || q.distM < best.d)) best = { d: q.distM, lat: q.lat, lon: q.lon, seg: i, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
         }
       }
       return best;
@@ -6993,13 +6993,28 @@
     cand.forEach(j => {
       const it = idx.items[j], sev = restrictionSeverity(it.kind, it.value);
       if(!sev) return;
+      /* Ograniczenie liczy się TYLKO wtedy, gdy trasa faktycznie jedzie tą drogą, a nie tylko ją mija.
+         Wystarczy, że jeden odcinek drogi (dwa kolejne punkty) leży przy trasie, biegnie w TYM SAMYM kierunku
+         (±30°) i jego długość zgadza się z przejechanym fragmentem trasy. Boczna droga, która dochodzi do trasy
+         pod kątem (skrzyżowanie), ma kierunek prostopadły i jest pomijana — nawet jeśli jej pierwsze punkty
+         leżą blisko trasy. */
+      const hs = it.co.map(v => nearRoute(v[1], v[0]));
+      const ang = (p1, p2) => Math.atan2(p2[1] - p1[1], (p2[0] - p1[0]) * Math.cos(p1[1] * Math.PI / 180)) * 180 / Math.PI;
       let hits = 0, minA = Infinity, maxA = -Infinity, first = null;
-      for(const v of it.co){
-        const h = nearRoute(v[1], v[0]);
-        if(h){ hits++; if(h.along < minA){ minA = h.along; first = h; } if(h.along > maxA) maxA = h.along; }
+      for(let k = 0; k < hs.length - 1; k++){
+        const a = hs[k], b = hs[k + 1];
+        if(!a || !b) continue;
+        const wlen = haversine(it.co[k][1], it.co[k][0], it.co[k + 1][1], it.co[k + 1][0]);
+        if(wlen < 1) continue;
+        let diff = Math.abs(((ang(it.co[k], it.co[k + 1]) - ang(c[a.seg], c[a.seg + 1])) % 180 + 180) % 180);
+        diff = Math.min(diff, 180 - diff);
+        if(diff > 30) continue;                                              // inny kierunek = skrzyżowanie, nie jedziemy tą drogą
+        if(Math.abs(Math.abs(b.along - a.along) - wlen) > Math.max(12, wlen * 0.5)) continue;   // to nie ten sam odcinek co trasa
+        hits++;
+        [a, b].forEach(h => { if(h.along < minA){ minA = h.along; first = h; } if(h.along > maxA) maxA = h.along; });
       }
       // lat/lon = dokładny punkt na trasie, w którym zaczyna się ograniczenie; to = gdzie się kończy
-      if(hits >= 2) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
+      if(hits >= 1) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
     });
     route._restr.cum = cum;
     found.sort((a, b) => a.along - b.along);
