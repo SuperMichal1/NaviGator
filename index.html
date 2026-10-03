@@ -314,6 +314,39 @@
     font-size:12px; font-weight:700; letter-spacing:.04em;
     color: var(--text-dim); text-transform:uppercase;
   }
+  #navTruckBtn{
+    width:26px; height:26px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:15px; cursor:pointer; background: rgba(255,255,255,0.06);
+  }
+  #navTruckBtn.active{ background: var(--gator-dark); box-shadow: 0 0 0 1px var(--gator); }
+  body:not(.night) #navTruckBtn{ background: rgba(0,0,0,0.08); }
+  body:not(.night) #navTruckBtn.active{ background: var(--gator-dark); }
+  /* zakładka z parametrami ciężarówki zajmuje miejsce szczegółów trasy */
+  #navTruckBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; }
+  body:not(.night) #navTruckBlock{ background: rgba(255,255,255,0.55); }
+  #navPanel.truck-open #navTruckBlock{ display:flex; }
+  #navPanel.truck-open #navRouteInfo{ display:none !important; }
+  .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); }
+  .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
+  .truckField{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; }
+  .truckInputWrap{ position:relative; }
+  .truckInputWrap input{
+    width:100%; box-sizing:border-box; padding:9px 26px 9px 10px; border-radius:9px;
+    border:1px solid var(--panel-border); background: rgba(255,255,255,0.07);
+    color: var(--text-main); font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+  }
+  body:not(.night) .truckInputWrap input{ background: rgba(255,255,255,0.8); }
+  .truckInputWrap input:focus{ outline:none; border-color: var(--accent); }
+  .truckInputWrap input.bad{ border-color:#ff4d4d; }
+  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color: var(--text-dim); pointer-events:none; }
+  .truckResetWrap{ justify-content:flex-end; }
+  .truckResetWrap button{
+    padding:9px 8px; border-radius:9px; cursor:pointer; font:600 12px 'Inter', system-ui, sans-serif;
+    background:transparent; color: var(--text-dim); border:1px solid var(--panel-border);
+  }
+  .truckNote{ font-size:11px; line-height:1.35; color: var(--text-dim); }
   #navSettingsBtn{
     width:26px; height:26px; border-radius:8px;
     display:flex; align-items:center; justify-content:center;
@@ -1114,6 +1147,7 @@
   <div class="navHeader">
     <div class="navTitle">Nawigator</div>
     <div class="navHeaderActions">
+      <div id="navTruckBtn" title="Parametry ciężarówki" role="button" aria-label="Parametry ciężarówki" aria-pressed="false">🚛</div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
     </div>
@@ -1164,6 +1198,19 @@
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
       <button id="navStartBtn">▶ Rozpocznij jazdę</button>
     </div>
+  </div>
+
+  <div id="navTruckBlock">
+    <div class="truckHead">🚛 Parametry ciężarówki</div>
+    <div class="truckGrid">
+      <label class="truckField"><span>Wysokość</span><div class="truckInputWrap"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
+      <label class="truckField"><span>Szerokość</span><div class="truckInputWrap"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
+      <label class="truckField"><span>Długość</span><div class="truckInputWrap"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
+      <label class="truckField"><span>Masa całkowita</span><div class="truckInputWrap"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></label>
+      <label class="truckField"><span>Maks. obciążenie osi</span><div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></label>
+      <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
+    </div>
+    <div class="truckNote" id="tpNote">Zapisuje się automatycznie. Nowe wartości obowiązują od następnego wyznaczenia trasy; ostrzeżenia o wysokości, szerokości i tonażu odświeżają się od razu.</div>
   </div>
 </div>
 
@@ -1484,6 +1531,19 @@
   const HGV_PROFILE = { // dostosuj do swojego pojazdu (metry / tony)
     height: 4.2, width: 2.55, length: 16.5, weight: 44, axle_load: 10, hazmat: false
   };
+  const HGV_DEFAULT = Object.assign({}, HGV_PROFILE);
+  const HGV_PROFILE_KEY = "nawigator_hgv_profile";
+  const HGV_LIMITS = { height:[1, 6], width:[1, 4], length:[3, 30], weight:[1, 80], axle_load:[1, 30] };
+  (function loadHgvProfile(){   // zapisane przez użytkownika parametry ciężarówki nadpisują domyślne
+    try{
+      const saved = JSON.parse(localStorage.getItem(HGV_PROFILE_KEY) || "null");
+      if(!saved) return;
+      Object.keys(HGV_LIMITS).forEach(k => {
+        const v = Number(saved[k]);
+        if(isFinite(v) && v >= HGV_LIMITS[k][0] && v <= HGV_LIMITS[k][1]) HGV_PROFILE[k] = v;
+      });
+    }catch(e){}
+  })();
   const TRUCK_ROUTE_TIMEOUT_MS = 30000;
   // Profile tras dla ciężarówki: SZYBKA (zrównoważona) i ŁATWA (maksymalnie autostrady/drogi główne,
   // płatne odcinki dozwolone, duża kara za każdy manewr = mniej skrętów i zjazdów). Edycja ręczna używa profilu ŁATWEGO.
@@ -7541,6 +7601,42 @@
   setTimeout(updateNavIconRowHeightVar, 400); // po doładowaniu fontów wysokości bywają inne
 
   document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
+
+  // ---------- zakładka "Parametry ciężarówki" (zamiast szczegółów trasy) ----------
+  safeInit("parametry ciężarówki", () => {
+    const panel = document.getElementById("navPanel"), btn = document.getElementById("navTruckBtn");
+    const FIELDS = { height:"tpHeight", width:"tpWidth", length:"tpLength", weight:"tpWeight", axle_load:"tpAxle" };
+    const fmt = v => String(Math.round(v * 100) / 100).replace(".", ",");
+    const parse = t => Number(String(t).trim().replace(",", "."));
+    function fill(){ Object.keys(FIELDS).forEach(k => { document.getElementById(FIELDS[k]).value = fmt(HGV_PROFILE[k]); }); }
+    function persist(){
+      try{ localStorage.setItem(HGV_PROFILE_KEY, JSON.stringify(HGV_PROFILE)); }catch(e){}
+      if(activeRoute){ activeRoute._restr = null; try{ updateRouteConflicts(); }catch(e){} }   // przelicz ostrzeżenia od razu
+    }
+    function setOpen(on){
+      panel.classList.toggle("truck-open", on);
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      if(on){ fill(); if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false); }
+    }
+    btn.addEventListener("click", () => setOpen(!panel.classList.contains("truck-open")));
+    Object.keys(FIELDS).forEach(k => {
+      const el = document.getElementById(FIELDS[k]), [lo, hi] = HGV_LIMITS[k];
+      const valid = () => { const v = parse(el.value); return isFinite(v) && v >= lo && v <= hi ? v : null; };
+      el.addEventListener("input", () => {
+        const v = valid();
+        el.classList.toggle("bad", v === null && el.value.trim() !== "");
+        if(v !== null){ HGV_PROFILE[k] = v; persist(); }
+      });
+      el.addEventListener("blur", () => { el.classList.remove("bad"); el.value = fmt(HGV_PROFILE[k]); });   // błędny wpis wraca do ostatniej dobrej wartości
+      el.addEventListener("keydown", e => { if(e.key === "Enter") el.blur(); });
+    });
+    document.getElementById("tpReset").addEventListener("click", () => {
+      Object.keys(FIELDS).forEach(k => { HGV_PROFILE[k] = HGV_DEFAULT[k]; });
+      fill(); persist();
+    });
+    fill();
+  });
   document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
   document.getElementById("navSettingsBackdrop").addEventListener("click", closeNavSettings);
 
