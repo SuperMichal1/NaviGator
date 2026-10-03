@@ -21,8 +21,8 @@
     --sign-face: #FFFFFF;
     --sign-ring: #E53935;
     --sign-text: #14181c;
-    --ctrl-active-bg: var(--accent);
-    --ctrl-active-text: #0c0f12;
+    --ctrl-active-bg: var(--gator-dark);
+    --ctrl-active-text: var(--gator-on);
     /* paleta "aliGator": nazwa NaviGator + przyciski w dzień */
     --gator: #7c9a3a;          /* zieleń skóry aligatora — napis "gator" na ekranie startowym */
     --gator-dark: #3f5a24;     /* ciemna aligatorowa zieleń — tło przycisków (start i dzień) */
@@ -41,8 +41,8 @@
     --sign-face: #1a1512;
     --sign-ring: #cc4a3a;
     --sign-text: #ffd9a0;
-    --ctrl-active-bg: #6e2c22;
-    --ctrl-active-text: #ffcdbd;
+    --ctrl-active-bg: var(--gator-dark);   /* wcześniej ciemnoczerwony */
+    --ctrl-active-text: var(--gator-on);
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body{
@@ -330,11 +330,12 @@
   #navPanel[data-navstate="nav"] #navSearchBlock,
   #navPanel[data-navstate="nav"] #navConfirmBlock{ display:none; }
   #navConfirmLabel{ font-size:13px; color: var(--text-main); }
-  #navConfirmHint{ display:none; font-size:11px; line-height:1.35; color: var(--text-dim); }
-  #navPanel[data-navstate="confirm"] #navConfirmHint{ display:block; }
   /* pinezka celu podróży */
   .dest-pin{ width:36px; height:48px; cursor:grab; touch-action:none; }
   .dest-pin:active{ cursor:grabbing; }
+  .dest-pin{ transition: opacity .2s; }
+  .dest-pin.locked{ opacity:.6; cursor:default; }
+  .dest-pin.locked:active{ cursor:default; }
   .dest-pin svg{ display:block; overflow:visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
   #navDestWrap{ position:relative; }
   .navStopWrap{ position:relative; }
@@ -874,7 +875,7 @@
     border-radius:10px;
     border:1px solid var(--panel-border);
     background: var(--accent);
-    color: var(--ctrl-active-text);
+    color: #0c0f12;
     font-weight:700;
     font-size:13px;
     cursor:pointer;
@@ -958,19 +959,28 @@
   }
 
   /* ---------- Tryb dzienny: przyciski w ciemnej zieleni aligatora (jak wybór GPS na ekranie startowym) ---------- */
-  body:not(.night) .ctrl-btn,
-  body:not(.night) #btnLocate, body:not(.night) #btnFitRoute, body:not(.night) #btnCompass,
-  body:not(.night) #reportFloat .ctrl-btn{
+  /* Przyciski ikon, "Centruj", "Cała trasa", kompas i zgłoszenia zostają w dzień przezroczyste (szkło);
+     ciemna zieleń aligatora pojawia się dopiero, gdy przycisk jest wciśnięty albo włączony (.active). */
+  body:not(.night) #btnLocate:active, body:not(.night) #btnFitRoute:active, body:not(.night) #btnCompass:active,
+  body:not(.night) .ctrl-btn:active, body:not(.night) #reportFloat .ctrl-btn:active{
     background: var(--gator-dark);
-    border-color: rgba(255,255,255,0.18);
     color: var(--gator-on);
   }
-  body:not(.night) .ctrl-btn.active{ background: var(--gator-active); color:#101a07; }
+  body:not(.night) .ctrl-btn.active{ background: var(--gator-dark); color: var(--gator-on); }
   body:not(.night) #navGoBtn, body:not(.night) #navStartBtn, body:not(.night) #debugConsoleActions button{
     background: var(--gator-dark); color: var(--gator-on);
   }
   body:not(.night) #navPlanBtn{ color: var(--gator-dark); border-color: var(--gator-dark); }
   body:not(.night) .voiceSeg button.active{ background: var(--gator-dark); border-color: var(--gator-dark); color: var(--gator-on); }
+
+  /* Noc: informacje o celu i podpowiedź do edycji trasy — czarny tekst na jasnym, półprzezroczystym tle,
+     żeby było je widać na szkle niezależnie od mapy pod spodem */
+  body.night #navConfirmLabel, body.night #navPlanHint{
+    color:#000;
+    background: rgba(255,255,255,0.78);
+    border-radius:10px;
+    padding:8px 10px;
+  }
 
   @media (max-width: 380px){
     #speedValue{ font-size:36px; }
@@ -1113,7 +1123,6 @@
 
   <div id="navConfirmBlock">
     <div id="navConfirmLabel"></div>
-    <div id="navConfirmHint">📍 Pinezka pokazuje, dokąd dokładnie poprowadzi GPS. Przeciągnij ją albo kliknij dwukrotnie w mapę, żeby zmienić to miejsce.</div>
     <div id="navRoutePicker">
       <div class="navRouteChoice" id="navChooseMain">
         <span class="rcTitle">Trasa TomTom</span>
@@ -5557,17 +5566,28 @@
   const DOUBLE_TAP_MS = 400;     // maks. odstęp między dwoma kliknięciami
   const DOUBLE_TAP_PX = 30;      // maks. odległość między nimi (px)
 
-  // pinezkę można poprawiać, dopóki nie wybrano trasy (potwierdzanie celu i wybór trasy)
-  function destPinEditable(){
+  // faza, w której pinezka celu w ogóle istnieje jako "do poprawienia" (potwierdzanie celu i wybór trasy)
+  function destPinPhase(){
     return !!navSelectedDest && (navUiState === "confirm" || navUiState === "picker");
+  }
+  // Pinezkę można przesuwać (przeciągnięciem lub dwukliknięciem) tylko po przybliżeniu na tyle,
+  // żeby widać było budynki (w nocy obrysy budynków są w 100% od zoomu 15.5). Dalej jest zablokowana.
+  const DEST_PIN_MIN_ZOOM = 15.5;
+  function destPinEditable(){
+    return destPinPhase() && !!map && map.getZoom() >= DEST_PIN_MIN_ZOOM;
   }
 
   function updateDestPinInteractivity(){
-    if(destMarker) destMarker.setDraggable(destPinEditable());
-    if(destMarkerEl) destMarkerEl.style.cursor = destPinEditable() ? "" : "default";
+    const editable = destPinEditable();
+    if(destMarker) destMarker.setDraggable(editable);
+    if(destMarkerEl){
+      destMarkerEl.style.cursor = editable ? "" : "default";
+      destMarkerEl.classList.toggle("locked", destPinPhase() && !editable);   // przygaszona = zablokowana
+    }
     // dwuklik/dwuklik-dotyk przesuwa pinezkę, więc w tym czasie nie może przybliżać mapy
+    // (przy oddaleniu pinezka jest zablokowana, więc dwuklik normalnie przybliża mapę)
     if(map){
-      if(destPinEditable()) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
+      if(editable) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
     }
   }
 
@@ -5666,6 +5686,13 @@
   // Dwukrotne kliknięcie/dotknięcie mapy przesuwa pinezkę. Własne wykrywanie, bo mapa
   // nie zgłasza zdarzenia "dblclick" przy dotyku.
   function setupDestinationPinInteractions(){
+    let lastEditable = null;
+    const onZoom = () => {
+      const now = destPinEditable();
+      if(now !== lastEditable){ lastEditable = now; updateDestPinInteractivity(); }
+    };
+    map.on("zoom", onZoom);
+    map.on("zoomend", onZoom);
     map.on("click", (e) => {
       if(!destPinEditable()) { lastMapTap = null; return; }
       const t = e.originalEvent && e.originalEvent.target;
@@ -5969,7 +5996,7 @@
 
   function setupPoiClick(){
     map.on("click", (e) => {
-      if(navUiState === "nav" || routeEditMode || destPinEditable()) return;
+      if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
       if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
       const poiLayers = map.getStyle().layers
@@ -6463,7 +6490,7 @@
     document.querySelector("#navChooseAlt .rcTitle").textContent = altTitle;
   }
   function renderTruckPicker(){
-    setPickerTitles("Szybka trasa", "Łatwa trasa (więcej autostrad)");
+    setPickerTitles("Szybka trasa", "Trasa alternatywna");
     document.getElementById("navChooseAlt").style.display = "";
     const f = pendingRoutes.main, e = pendingRoutes.alt;
     const label = r => `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`;
@@ -7204,7 +7231,7 @@
     if(!activeRoute){ info.classList.remove("show"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
-      : activeRoute.source === "truck-easy" ? " · łatwa trasa (więcej autostrad)" : "";
+      : activeRoute.source === "truck-easy" ? " · trasa alternatywna" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
