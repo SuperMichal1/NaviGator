@@ -10,8 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --accent: #1FD6C1;
-    --accent-dim: #14a396;
+    --accent: #5a7a2e;        /* zieleń skóry aligatora (dzień); w nocy zostaje bursztyn */
+    --accent-dim: #3f5a24;
     --danger: #FF4757;
     --panel-bg: rgba(18, 24, 30, 0.82);
     --panel-bg-solid: #12181e;
@@ -232,6 +232,19 @@
     transition: opacity .25s ease, transform .25s ease, background .25s, bottom .25s ease;
     pointer-events:none;
   }
+  #zoomChip{
+    position:fixed; right:10px; z-index:34; pointer-events:none;
+    top: max(10px, env(safe-area-inset-top));
+    padding:5px 10px; border-radius:12px;
+    font:700 12px/1 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+    color: var(--text-main); background: var(--panel-bg);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 2px 10px rgba(0,0,0,.28);
+  }
+  #zoomChip small{ font-weight:600; opacity:.7; margin-right:4px; letter-spacing:.04em; text-transform:uppercase; font-size:10px; }
+  /* przy włączonej tablicy z instrukcjami wskaźnik schodzi pod nią, żeby jej nie zasłaniać */
+  body.guidance-on #zoomChip{ top: calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); }
   #btnLocate{ left:16px; }
   #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnCompass svg{ display:block; transition: transform .12s linear; }
@@ -1033,6 +1046,8 @@
   </div>
   <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
 </div>
+
+<div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
 
 <div id="btnCompass" title="Ustaw mapę północą do góry" role="button" aria-label="Ustaw mapę północą do góry">
   <svg id="compassNeedle" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
@@ -2855,6 +2870,8 @@
       }
       try{
         setupDestinationPinInteractions();
+        setupZoomChip();
+        setupRouteConflictLayers();
         setupPoiClick();
       }catch(e){
         console.warn("Nie udało się włączyć przesuwania pinezki celu:", e);
@@ -4022,6 +4039,8 @@
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
     if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
+    // dane o ograniczeniach mogły dojść już po wyznaczeniu trasy — odśwież znaczniki konfliktów
+    if(activeRoute){ try{ updateRouteConflicts(); }catch(e){ console.warn("Znaczniki ograniczeń:", e); } }
   }
 
   // odtwarza heightFeatures/weightFeatures/widthFeatures/signFeatures z wierszy Supabase
@@ -5685,6 +5704,21 @@
 
   // Dwukrotne kliknięcie/dotknięcie mapy przesuwa pinezkę. Własne wykrywanie, bo mapa
   // nie zgłasza zdarzenia "dblclick" przy dotyku.
+  // wskaźnik poziomu zoomu w prawym górnym rogu (jedno miejsce po przecinku)
+  function setupZoomChip(){
+    const el = document.getElementById("zoomChipVal");
+    if(!el) return;
+    let raf = 0, last = "";
+    const upd = () => {
+      raf = 0;
+      const t = map.getZoom().toFixed(1);
+      if(t !== last){ last = t; el.textContent = t; }
+    };
+    const sched = () => { if(!raf) raf = requestAnimationFrame(upd); };
+    map.on("zoom", sched); map.on("zoomend", sched); map.on("load", sched);
+    upd();
+  }
+
   function setupDestinationPinInteractions(){
     let lastEditable = null;
     const onZoom = () => {
@@ -6950,7 +6984,7 @@
         for(const i of a){
           if(tested.has(i)) continue; tested.add(i);
           const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
-          if(q.distM <= RESTR_NEAR_M && (!best || q.distM < best.d)) best = { d: q.distM, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
+          if(q.distM <= RESTR_NEAR_M && (!best || q.distM < best.d)) best = { d: q.distM, lat: q.lat, lon: q.lon, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
         }
       }
       return best;
@@ -6959,22 +6993,112 @@
     cand.forEach(j => {
       const it = idx.items[j], sev = restrictionSeverity(it.kind, it.value);
       if(!sev) return;
-      let hits = 0, minA = Infinity;
+      let hits = 0, minA = Infinity, maxA = -Infinity, first = null;
       for(const v of it.co){
         const h = nearRoute(v[1], v[0]);
-        if(h){ hits++; if(h.along < minA) minA = h.along; }
+        if(h){ hits++; if(h.along < minA){ minA = h.along; first = h; } if(h.along > maxA) maxA = h.along; }
       }
-      if(hits >= 2) found.push({ kind: it.kind, value: it.value, sev, along: minA, id: it.id, said: {} });
+      // lat/lon = dokładny punkt na trasie, w którym zaczyna się ograniczenie; to = gdzie się kończy
+      if(hits >= 2) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
     });
+    route._restr.cum = cum;
     found.sort((a, b) => a.along - b.along);
     // ten sam rodzaj w odstępie < 60 m (np. dwie jezdnie tego samego mostu) = jedno ostrzeżenie, ostrzejsze zostaje
     found.forEach(r => {
       const prev = list[list.length - 1];
       if(prev && prev.kind === r.kind && r.along - prev.along < 60){
+        if(r.to > prev.to) prev.to = r.to;
         if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
       } else list.push(r);
     });
     return list;
+  }
+
+  /* ---------- zaznaczenie na mapie miejsc, w których pojazd NIE spełnia ograniczeń ----------
+     Czerwony (bursztynowy przy małym zapasie) odcinek na trasie + znak z wartością i podpisem "limit … · masz …". */
+  const RESTR_SEV_COLOR = { danger: "#ff1f3d", warn: "#ffb020" };
+  function setupRouteConflictLayers(){
+    if(map.getSource("route-conflicts-lines")) return;
+    const sevColor = ["match", ["get", "sev"], "danger", RESTR_SEV_COLOR.danger, RESTR_SEV_COLOR.warn];
+    map.addSource("route-conflicts-lines", { type:"geojson", data: emptyFC() });
+    map.addSource("route-conflicts-pts", { type:"geojson", data: emptyFC() });
+    map.addLayer({
+      id: "route-conflicts-casing", type: "line", source: "route-conflicts-lines",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#ffffff", "line-opacity": 0.95,
+               "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 14, 12, 18, 18] }
+    });
+    map.addLayer({
+      id: "route-conflicts-line", type: "line", source: "route-conflicts-lines",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": sevColor,
+               "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 14, 8, 18, 13] }
+    });
+    map.addLayer({
+      id: "route-conflicts-halo", type: "circle", source: "route-conflicts-pts",
+      paint: { "circle-color": sevColor, "circle-opacity": 0.3,
+               "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 12, 14, 20, 18, 30],
+               "circle-stroke-color": sevColor, "circle-stroke-width": 2 }
+    });
+    map.addLayer({
+      id: "route-conflicts-icon", type: "symbol", source: "route-conflicts-pts",
+      layout: {
+        "icon-image": ["match", ["get", "kind"], "weight", "restriction-sign-weight", "width", "restriction-sign-width", "restriction-sign-height"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.7, 14, 1.05, 18, 1.4],
+        "icon-allow-overlap": true, "icon-ignore-placement": true,
+        "text-field": ["get", "short"], "text-font": ["Noto Sans Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 14, 11, 18, 14],
+        "text-allow-overlap": true, "text-ignore-placement": true, "text-anchor": "center"
+      },
+      paint: { "text-color": "#14181c" }
+    });
+    map.addLayer({
+      id: "route-conflicts-label", type: "symbol", source: "route-conflicts-pts",
+      minzoom: 10,
+      layout: {
+        "text-field": ["get", "label"], "text-font": ["Noto Sans Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 18, 14],
+        "text-anchor": "top", "text-offset": [0, 1.9], "text-max-width": 14,
+        "text-allow-overlap": true, "text-ignore-placement": true
+      },
+      paint: { "text-color": sevColor, "text-halo-color": "#ffffff", "text-halo-width": 2.2 }
+    });
+  }
+  function sliceRouteAlong(c, cum, a0, a1){
+    const out = [], n = c.length;
+    const pt = (i, a) => { const t = (a - cum[i]) / Math.max(1e-6, cum[i + 1] - cum[i]);
+      return [c[i][0] + (c[i + 1][0] - c[i][0]) * t, c[i][1] + (c[i + 1][1] - c[i][1]) * t]; };
+    for(let i = 0; i < n - 1; i++){
+      if(cum[i + 1] < a0) continue;
+      if(cum[i] > a1) break;
+      if(!out.length) out.push(cum[i] >= a0 ? c[i] : pt(i, a0));
+      out.push(cum[i + 1] <= a1 ? c[i + 1] : pt(i, a1));
+    }
+    return out;
+  }
+  function updateRouteConflicts(){
+    if(!map || !map.getSource("route-conflicts-pts")) return;
+    const lines = [], pts = [];
+    if(activeRoute){
+      const list = routeRestrictions(activeRoute);
+      const cum = activeRoute._restr && activeRoute._restr.cum;
+      if(list.length && cum){
+        list.forEach(r => {
+          if(r.lat == null || r.lon == null) return;
+          const unit = r.kind === "weight" ? " t" : " m";
+          const mine = plNum(HGV_PROFILE[r.kind]) + unit;
+          const limit = plNum(r.value) + unit;
+          pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev,
+            short: plNum(r.value) + (r.kind === "weight" ? "t" : ""),
+            label: "limit " + limit + " · masz " + mine },
+            geometry: { type:"Point", coordinates: [r.lon, r.lat] } });
+          const seg = sliceRouteAlong(activeRoute.coords, cum, Math.max(0, r.along - 15), Math.max((r.to || r.along) + 15, r.along + 35));
+          if(seg.length >= 2) lines.push({ type:"Feature", properties: { sev: r.sev }, geometry: { type:"LineString", coordinates: seg } });
+        });
+      }
+    }
+    map.getSource("route-conflicts-lines").setData({ type:"FeatureCollection", features: lines });
+    map.getSource("route-conflicts-pts").setData({ type:"FeatureCollection", features: pts });
   }
 
   const RESTR_LABEL = { height: "Ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
@@ -7018,12 +7142,13 @@
   // po wybraniu trasy: krótkie podsumowanie, ile ograniczeń dotyczy Twojego pojazdu na tej trasie
   function announceRouteRestrictions(){
     if(!activeRoute) return;
+    try{ updateRouteConflicts(); }catch(e){ console.warn("Znaczniki ograniczeń:", e); }
     const list = routeRestrictions(activeRoute);
     if(!list.length) return;
     const danger = list.filter(r => r.sev === "danger");
     const top = (danger.length ? danger : list).slice(0, 2).map(r =>
       RESTR_LABEL[r.kind].replace("Ograniczenie ", "").replace("Limit ", "") + " " + restrictionValueLabel(r.kind, r.value) + " (za " + guideDistLabel(r.along) + ")");
-    showBanner("OGRANICZENIA NA TRASIE (" + list.length + ")", top.join(" · ") + (list.length > 2 ? " …" : ""), danger.length > 0);
+    showBanner("OGRANICZENIA NA TRASIE (" + list.length + ")", top.join(" · ") + (list.length > 2 ? " …" : "") + " — zaznaczone na mapie", danger.length > 0);
     if(danger.length) guideSay("Uwaga. Na tej trasie są ograniczenia, których Twój pojazd nie spełnia. Sprawdź trasę.");
   }
 
@@ -7266,6 +7391,7 @@
     removeDestPin();
     hidePoiAsk();
     activeRoute = null;
+    try{ updateRouteConflicts(); }catch(e){}
     pendingRoutes = { main:null, alt:null };
     routeSpeedSegments = [];
     routeTrafficIncidents = [];
