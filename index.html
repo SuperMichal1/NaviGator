@@ -315,7 +315,7 @@
     color: var(--text-dim); text-transform:uppercase;
   }
   #navTruckBtn{
-    width:26px; height:26px; border-radius:8px;
+    width:30px; height:30px; border-radius:9px;
     display:flex; align-items:center; justify-content:center;
     font-size:15px; cursor:pointer; background: rgba(255,255,255,0.06);
   }
@@ -326,8 +326,18 @@
   #navTruckBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; }
   body:not(.night) #navTruckBlock{ background: rgba(255,255,255,0.55); }
   #navPanel.truck-open #navTruckBlock{ display:flex; }
-  #navPanel.truck-open #navRouteInfo{ display:none !important; }
-  .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); }
+  /* zakładka ciężarówki rozwija się pod nagłówkiem zamiast celu podróży i szczegółów trasy */
+  #navPanel.truck-open > :not(#navDragHandle):not(.navHeader):not(#navTruckBlock){ display:none !important; }
+  .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .unitSeg{ display:flex; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; }
+  .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
+  #navTruckBlock.units-imperial .unitSeg button[data-u="imperial"], #navTruckBlock.units-metric .unitSeg button[data-u="metric"]{ background: var(--gator-dark); color: var(--gator-on); }
+  .truckImpWrap{ display:flex; gap:6px; }
+  .truckImpWrap .truckInputWrap{ flex:1; min-width:0; }
+  .truckImpWrap input{ padding-right:22px !important; }
+  .truckConv{ font-size:11px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-height:13px; }
+  #navTruckBlock.units-imperial .metOnly{ display:none; }
+  #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
   .truckField{ display:flex; flex-direction:column; gap:3px; min-width:0; }
   .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; }
@@ -348,14 +358,17 @@
   }
   .truckNote{ font-size:11px; line-height:1.35; color: var(--text-dim); }
   #navSettingsBtn{
-    width:26px; height:26px; border-radius:8px;
+    width:30px; height:30px; border-radius:9px;
     display:flex; align-items:center; justify-content:center;
     color: var(--text-dim); font-size:16px; cursor:pointer;
     background: rgba(255,255,255,0.06);
   }
-  .navHeaderActions{ display:flex; align-items:center; gap:6px; }
+  .navHeaderActions{ display:flex; align-items:center; gap:16px; }   /* większy odstęp między 🚛, ⋮ i ✕ */
+  /* "Nawigator" jest zakładką: podkreślona, gdy otwarta jest część z celem i trasą */
+  #navTabNav{ cursor:pointer; padding:5px 2px; border-bottom:2px solid transparent; -webkit-tap-highlight-color: transparent; }
+  #navPanel:not(.truck-open) #navTabNav{ color: var(--text-main); border-bottom-color: var(--gator); }
   #navCloseBtn{
-    width:26px; height:26px; border-radius:8px;
+    width:30px; height:30px; border-radius:9px;
     display:none; align-items:center; justify-content:center;
     color: var(--text-main); font-size:14px; cursor:pointer;
     background: rgba(255,255,255,0.10);
@@ -468,6 +481,13 @@
   .navSaved .savedBtns{ display:flex; gap:2px; flex:0 0 auto; }
   .svBtn{ border:none; background:transparent; font-size:17px; line-height:1; padding:7px; border-radius:8px; cursor:pointer; color:inherit; }
   .svBtn:active{ background:rgba(0,0,0,.1); }
+  .navSavedTabs{ display:flex; gap:6px; padding:8px 10px 6px; background:rgba(0,0,0,.04); position:sticky; top:0; z-index:1; }
+  .navSavedTabs button{ flex:1; padding:8px 6px; border-radius:9px; border:1px solid rgba(0,0,0,.15); background:transparent; color:inherit; font:700 12px 'Inter', system-ui, sans-serif; cursor:pointer; }
+  .navSavedTabs button.active{ background: var(--gator-dark); border-color: var(--gator-dark); color: var(--gator-on); }
+  .navSavedEmpty{ padding:14px 12px; font-size:12px; color:#5b6570; text-align:center; }
+  body.night .navSavedTabs{ background:rgba(255,255,255,.05); }
+  body.night .navSavedTabs button{ border-color: var(--panel-border); }
+  body.night .navSavedEmpty{ color: var(--text-dim); }
   .navSavedHead{ padding:7px 12px 4px; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#5b6570; background:rgba(0,0,0,.04); }
   .navSuggestions.saved{ max-height:46vh; overflow-y:auto; }
   #navDestWrap{ position:relative; }
@@ -1145,7 +1165,7 @@
 <div id="navPanel" data-navstate="search" class="collapsed">
   <div id="navDragHandle" title="Przeciągnij lub dotknij, żeby zwinąć/rozwinąć"><span class="navGrip"></span></div>
   <div class="navHeader">
-    <div class="navTitle">Nawigator</div>
+    <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
     <div class="navHeaderActions">
       <div id="navTruckBtn" title="Parametry ciężarówki" role="button" aria-label="Parametry ciężarówki" aria-pressed="false">🚛</div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
@@ -1200,17 +1220,43 @@
     </div>
   </div>
 
-  <div id="navTruckBlock">
-    <div class="truckHead">🚛 Parametry ciężarówki</div>
+  <div id="navTruckBlock" class="units-imperial">
+    <div class="truckHead"><span>🚛 Parametry ciężarówki</span>
+      <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · lb</button><button type="button" data-u="metric">m · t</button></div>
+    </div>
     <div class="truckGrid">
-      <label class="truckField"><span>Wysokość</span><div class="truckInputWrap"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
-      <label class="truckField"><span>Szerokość</span><div class="truckInputWrap"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
-      <label class="truckField"><span>Długość</span><div class="truckInputWrap"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div></label>
-      <label class="truckField"><span>Masa całkowita</span><div class="truckInputWrap"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></label>
-      <label class="truckField"><span>Maks. obciążenie osi</span><div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></label>
+      <div class="truckField"><span>Wysokość</span>
+        <div class="truckInputWrap metOnly"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
+        <div class="truckImpWrap impOnly">
+          <div class="truckInputWrap"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
+          <div class="truckInputWrap"><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
+        </div>
+        <div class="truckConv" id="tpHeightConv"></div></div>
+      <div class="truckField"><span>Szerokość</span>
+        <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
+        <div class="truckImpWrap impOnly">
+          <div class="truckInputWrap"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
+          <div class="truckInputWrap"><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
+        </div>
+        <div class="truckConv" id="tpWidthConv"></div></div>
+      <div class="truckField"><span>Długość</span>
+        <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
+        <div class="truckImpWrap impOnly">
+          <div class="truckInputWrap"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
+          <div class="truckInputWrap"><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
+        </div>
+        <div class="truckConv" id="tpLengthConv"></div></div>
+      <div class="truckField"><span>Masa całkowita</span>
+        <div class="truckInputWrap metOnly"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
+        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
+        <div class="truckConv" id="tpWeightConv"></div></div>
+      <div class="truckField"><span>Maks. obciążenie osi</span>
+        <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
+        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
+        <div class="truckConv" id="tpAxleConv"></div></div>
       <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
     </div>
-    <div class="truckNote" id="tpNote">Zapisuje się automatycznie. Nowe wartości obowiązują od następnego wyznaczenia trasy; ostrzeżenia o wysokości, szerokości i tonażu odświeżają się od razu.</div>
+    <div class="truckNote" id="tpNote">Miary angielskie (stopy, cale, funty) są domyślne; pod polami widać automatyczny przelicznik na metry, centymetry i tony. Zapisuje się samo. Nowe wartości obowiązują od następnego wyznaczenia trasy; ostrzeżenia o wysokości, szerokości i tonażu odświeżają się od razu.</div>
   </div>
 </div>
 
@@ -5335,6 +5381,7 @@
     showBanner("HISTORIA WYCZYSZCZONA", "Ulubione zostały", false);
   });
 
+  let savedTab = "hist";   // domyślnie Historia; jedno dotknięcie przełącza na Ulubione i z powrotem
   function createStopSearch(wrapEl, input, box, opts){
     opts = opts || {};
     let abort = null;
@@ -5347,10 +5394,18 @@
     }
     // pusty obrys pola: ulubione + ostatnie cele
     function renderSaved(){
-      const favs = favorites.slice(), hist = destHistory.filter(h => !findFav(h)).slice(0, HIST_SHOWN);
+      const favs = favorites.slice(), hist = destHistory.slice(0, HIST_SHOWN * 2);
       if(!favs.length && !hist.length){ clear(); return; }
       box.innerHTML = "";
-      const head = t => { const d = document.createElement("div"); d.className = "navSavedHead"; d.textContent = t; box.appendChild(d); };
+      const tabs = document.createElement("div");
+      tabs.className = "navSavedTabs";
+      [["hist", "🕘 Historia (" + destHistory.length + ")"], ["fav", "⭐ Ulubione (" + favs.length + ")"]].forEach(([id, txt]) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = txt; b.className = savedTab === id ? "active" : "";
+        b.addEventListener("click", e => { e.stopPropagation(); savedTab = id; renderSaved(); });
+        tabs.appendChild(b);
+      });
+      box.appendChild(tabs);
       const mkBtn = (txt, title, fn) => {
         const b = document.createElement("button");
         b.type = "button"; b.className = "svBtn"; b.textContent = txt; b.title = title;
@@ -5381,7 +5436,7 @@
             favorites = favorites.filter(x => x !== it); writePlaceList(FAV_KEY, favorites); renderSaved(); refreshDestFavBtn();
           }));
         } else {
-          btns.appendChild(mkBtn("☆", "Dodaj do ulubionych", () => { toggleFavorite(it); renderSaved(); refreshDestFavBtn(); }));
+          btns.appendChild(mkBtn(findFav(it) ? "⭐" : "☆", findFav(it) ? "Usuń z ulubionych" : "Dodaj do ulubionych", () => { toggleFavorite(it); renderSaved(); refreshDestFavBtn(); }));
           btns.appendChild(mkBtn("✕", "Usuń z historii", () => {
             destHistory = destHistory.filter(x => x !== it); writePlaceList(HIST_KEY, destHistory); renderSaved();
           }));
@@ -5393,8 +5448,13 @@
         });
         box.appendChild(el);
       };
-      if(favs.length){ head("⭐ Ulubione"); favs.forEach(f => row(f, "fav")); }
-      if(hist.length){ head("🕘 Ostatnie cele"); hist.forEach(h => row(h, "hist")); }
+      const list = savedTab === "fav" ? favs : hist;
+      if(list.length) list.forEach(x => row(x, savedTab));
+      else {
+        const e = document.createElement("div"); e.className = "navSavedEmpty";
+        e.textContent = savedTab === "fav" ? "Brak ulubionych — dotknij ☆ przy wybranym celu." : "Historia jest pusta.";
+        box.appendChild(e);
+      }
       box.classList.add("open", "saved");
     }
     function render(results){
@@ -7602,17 +7662,107 @@
 
   document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
 
-  // ---------- zakładka "Parametry ciężarówki" (zamiast szczegółów trasy) ----------
+  // ---------- zakładka "Ciężarówka" (rozwija się zamiast celu podróży i szczegółów trasy) ----------
+  // Wartości trzymane są wewnętrznie w metrach i tonach (tak ich używa Valhalla); miary angielskie to tylko widok.
   safeInit("parametry ciężarówki", () => {
     const panel = document.getElementById("navPanel"), btn = document.getElementById("navTruckBtn");
-    const FIELDS = { height:"tpHeight", width:"tpWidth", length:"tpLength", weight:"tpWeight", axle_load:"tpAxle" };
-    const fmt = v => String(Math.round(v * 100) / 100).replace(".", ",");
-    const parse = t => Number(String(t).trim().replace(",", "."));
-    function fill(){ Object.keys(FIELDS).forEach(k => { document.getElementById(FIELDS[k]).value = fmt(HGV_PROFILE[k]); }); }
+    const block = document.getElementById("navTruckBlock");
+    const IN_M = 0.0254, LB_T = 0.00045359237;                      // 1 cal = 2,54 cm; 1 funt = 0,4536 kg
+    const UNITS_KEY = "nawigator_hgv_units";
+    let units = "imperial";
+    try{ if(localStorage.getItem(UNITS_KEY) === "metric") units = "metric"; }catch(e){}
+    const DIMS = {
+      height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn", conv:"tpHeightConv" },
+      width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn",  conv:"tpWidthConv"  },
+      length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn", conv:"tpLengthConv" }
+    };
+    const WTS = {
+      weight:   { t:"tpWeight", lb:"tpWeightLb", conv:"tpWeightConv" },
+      axle_load:{ t:"tpAxle",   lb:"tpAxleLb",   conv:"tpAxleConv"   }
+    };
+    const $ = id => document.getElementById(id);
+    const comma = n => String(n).replace(".", ",");
+    const num = t => { const v = Number(String(t).replace(/\s/g, "").replace(",", ".")); return String(t).trim() === "" ? NaN : v; };
+    const thousands = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    function mToFtIn(m){
+      const tot = Math.round(m / IN_M * 10) / 10;
+      let ft = Math.floor(tot / 12 + 1e-9), inch = Math.round((tot - ft * 12) * 10) / 10;
+      if(inch >= 12){ ft += 1; inch = 0; }
+      return { ft, inch };
+    }
+    const ftInLabel = m => { const x = mToFtIn(m); return x.ft + "′ " + comma(x.inch) + "″"; };
+    const mLabel = m => comma(Math.round(m * 100) / 100) + " m (" + Math.round(m * 100) + " cm)";
+    const tLabel = t => comma(Math.round(t * 100) / 100) + " t (" + thousands(t * 1000) + " kg)";
+    const lbLabel = t => thousands(t / LB_T) + " lb";
+
+    function fillDim(k){
+      const d = DIMS[k], m = HGV_PROFILE[k], x = mToFtIn(m);
+      $(d.m).value = comma(Math.round(m * 100) / 100);
+      $(d.ft).value = x.ft; $(d.inch).value = comma(x.inch);
+      $(d.conv).textContent = "= " + (units === "imperial" ? mLabel(m) : ftInLabel(m));
+    }
+    function fillWt(k){
+      const w = WTS[k], t = HGV_PROFILE[k];
+      $(w.t).value = comma(Math.round(t * 100) / 100);
+      $(w.lb).value = thousands(t / LB_T);
+      $(w.conv).textContent = "= " + (units === "imperial" ? tLabel(t) : lbLabel(t));
+    }
+    function fill(){
+      block.classList.toggle("units-imperial", units === "imperial");
+      block.classList.toggle("units-metric", units === "metric");
+      Object.keys(DIMS).forEach(fillDim); Object.keys(WTS).forEach(fillWt);
+    }
     function persist(){
       try{ localStorage.setItem(HGV_PROFILE_KEY, JSON.stringify(HGV_PROFILE)); }catch(e){}
       if(activeRoute){ activeRoute._restr = null; try{ updateRouteConflicts(); }catch(e){} }   // przelicz ostrzeżenia od razu
     }
+    const inRange = (k, v) => isFinite(v) && v >= HGV_LIMITS[k][0] && v <= HGV_LIMITS[k][1];
+    function updateConv(k){   // przelicznik na żywo, także gdy wartość jest chwilowo niepełna
+      if(DIMS[k]) $(DIMS[k].conv).textContent = "= " + (units === "imperial" ? mLabel(HGV_PROFILE[k]) : ftInLabel(HGV_PROFILE[k]));
+      else $(WTS[k].conv).textContent = "= " + (units === "imperial" ? tLabel(HGV_PROFILE[k]) : lbLabel(HGV_PROFILE[k]));
+    }
+    function accept(k, v, els){
+      const ok = inRange(k, v);
+      els.forEach(el => el.classList.toggle("bad", !ok && el.value.trim() !== ""));
+      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); updateConv(k); }
+    }
+    function refillWhenLeft(wrapIds, refill){
+      wrapIds.forEach(id => {
+        $(id).addEventListener("blur", () => setTimeout(() => {
+          if(wrapIds.some(x => document.activeElement === $(x))) return;
+          wrapIds.forEach(x => $(x).classList.remove("bad")); refill();
+        }, 0));
+        $(id).addEventListener("keydown", e => { if(e.key === "Enter") $(id).blur(); });
+      });
+    }
+
+    Object.keys(DIMS).forEach(k => {
+      const d = DIMS[k], mi = $(d.m), fi = $(d.ft), ii = $(d.inch);
+      mi.addEventListener("input", () => accept(k, num(mi.value), [mi]));
+      const fromImp = () => {
+        const ft = fi.value.trim() === "" ? 0 : num(fi.value), inch = ii.value.trim() === "" ? 0 : num(ii.value);
+        accept(k, (ft * 12 + inch) * IN_M, [fi, ii]);   // cale → metry automatycznie
+      };
+      fi.addEventListener("input", fromImp); ii.addEventListener("input", fromImp);
+      refillWhenLeft([d.m], () => fillDim(k)); refillWhenLeft([d.ft, d.inch], () => fillDim(k));
+    });
+    Object.keys(WTS).forEach(k => {
+      const w = WTS[k], ti = $(w.t), li = $(w.lb);
+      ti.addEventListener("input", () => accept(k, num(ti.value), [ti]));
+      li.addEventListener("input", () => accept(k, num(li.value) * LB_T, [li]));   // funty → tony automatycznie
+      refillWhenLeft([w.t], () => fillWt(k)); refillWhenLeft([w.lb], () => fillWt(k));
+    });
+
+    document.querySelectorAll("#tpUnits button").forEach(b => b.addEventListener("click", () => {
+      units = b.dataset.u;
+      try{ localStorage.setItem(UNITS_KEY, units); }catch(e){}
+      fill();
+    }));
+    $("tpReset").addEventListener("click", () => {
+      Object.keys(HGV_LIMITS).forEach(k => { HGV_PROFILE[k] = HGV_DEFAULT[k]; });
+      fill(); persist();
+    });
+
     function setOpen(on){
       panel.classList.toggle("truck-open", on);
       btn.classList.toggle("active", on);
@@ -7620,21 +7770,9 @@
       if(on){ fill(); if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false); }
     }
     btn.addEventListener("click", () => setOpen(!panel.classList.contains("truck-open")));
-    Object.keys(FIELDS).forEach(k => {
-      const el = document.getElementById(FIELDS[k]), [lo, hi] = HGV_LIMITS[k];
-      const valid = () => { const v = parse(el.value); return isFinite(v) && v >= lo && v <= hi ? v : null; };
-      el.addEventListener("input", () => {
-        const v = valid();
-        el.classList.toggle("bad", v === null && el.value.trim() !== "");
-        if(v !== null){ HGV_PROFILE[k] = v; persist(); }
-      });
-      el.addEventListener("blur", () => { el.classList.remove("bad"); el.value = fmt(HGV_PROFILE[k]); });   // błędny wpis wraca do ostatniej dobrej wartości
-      el.addEventListener("keydown", e => { if(e.key === "Enter") el.blur(); });
-    });
-    document.getElementById("tpReset").addEventListener("click", () => {
-      Object.keys(FIELDS).forEach(k => { HGV_PROFILE[k] = HGV_DEFAULT[k]; });
-      fill(); persist();
-    });
+    const tabNav = $("navTabNav");
+    tabNav.addEventListener("click", () => setOpen(false));
+    tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); });
     fill();
   });
   document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
