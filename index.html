@@ -335,7 +335,6 @@
   .truckImpWrap{ display:flex; gap:6px; }
   .truckImpWrap .truckInputWrap{ flex:1; min-width:0; }
   .truckImpWrap input{ padding-right:22px !important; }
-  .truckConv{ font-size:11px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-height:13px; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -344,19 +343,22 @@
   .truckInputWrap{ position:relative; }
   .truckInputWrap input{
     width:100%; box-sizing:border-box; padding:9px 26px 9px 10px; border-radius:9px;
-    border:1px solid var(--panel-border); background: rgba(255,255,255,0.07);
-    color: var(--text-main); font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+    background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); color:#14181c;
+    font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
   }
-  body:not(.night) .truckInputWrap input{ background: rgba(255,255,255,0.8); }
+  /* w nocy: to samo ciemne tło, ramka i jasny tekst co w polu "Wpisz cel podróży" */
+  body.night .truckInputWrap input{
+    background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); color: var(--text-main);
+  }
   .truckInputWrap input:focus{ outline:none; border-color: var(--accent); }
   .truckInputWrap input.bad{ border-color:#ff4d4d; }
-  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color: var(--text-dim); pointer-events:none; }
+  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color:#5b6570; pointer-events:none; }
+  body.night .truckInputWrap em{ color: var(--text-dim); }
   .truckResetWrap{ justify-content:flex-end; }
   .truckResetWrap button{
     padding:9px 8px; border-radius:9px; cursor:pointer; font:600 12px 'Inter', system-ui, sans-serif;
     background:transparent; color: var(--text-dim); border:1px solid var(--panel-border);
   }
-  .truckNote{ font-size:11px; line-height:1.35; color: var(--text-dim); }
   #navSettingsBtn{
     width:30px; height:30px; border-radius:9px;
     display:flex; align-items:center; justify-content:center;
@@ -1230,33 +1232,27 @@
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div>
-        <div class="truckConv" id="tpHeightConv"></div></div>
+        </div></div>
       <div class="truckField"><span>Szerokość</span>
         <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div>
-        <div class="truckConv" id="tpWidthConv"></div></div>
+        </div></div>
       <div class="truckField"><span>Długość</span>
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div>
-        <div class="truckConv" id="tpLengthConv"></div></div>
+        </div></div>
       <div class="truckField"><span>Masa całkowita</span>
         <div class="truckInputWrap metOnly"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
-        <div class="truckConv" id="tpWeightConv"></div></div>
+        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
       <div class="truckField"><span>Maks. obciążenie osi</span>
         <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
-        <div class="truckConv" id="tpAxleConv"></div></div>
+        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
       <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
     </div>
-    <div class="truckNote" id="tpNote">Miary angielskie (stopy, cale, funty) są domyślne; pod polami widać automatyczny przelicznik na metry, centymetry i tony. Zapisuje się samo. Nowe wartości obowiązują od następnego wyznaczenia trasy; ostrzeżenia o wysokości, szerokości i tonażu odświeżają się od razu.</div>
   </div>
 </div>
 
@@ -7672,13 +7668,13 @@
     let units = "imperial";
     try{ if(localStorage.getItem(UNITS_KEY) === "metric") units = "metric"; }catch(e){}
     const DIMS = {
-      height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn", conv:"tpHeightConv" },
-      width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn",  conv:"tpWidthConv"  },
-      length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn", conv:"tpLengthConv" }
+      height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn" },
+      width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn"  },
+      length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn" }
     };
     const WTS = {
-      weight:   { t:"tpWeight", lb:"tpWeightLb", conv:"tpWeightConv" },
-      axle_load:{ t:"tpAxle",   lb:"tpAxleLb",   conv:"tpAxleConv"   }
+      weight:   { t:"tpWeight", lb:"tpWeightLb" },
+      axle_load:{ t:"tpAxle",   lb:"tpAxleLb"   }
     };
     const $ = id => document.getElementById(id);
     const comma = n => String(n).replace(".", ",");
@@ -7690,22 +7686,16 @@
       if(inch >= 12){ ft += 1; inch = 0; }
       return { ft, inch };
     }
-    const ftInLabel = m => { const x = mToFtIn(m); return x.ft + "′ " + comma(x.inch) + "″"; };
-    const mLabel = m => comma(Math.round(m * 100) / 100) + " m (" + Math.round(m * 100) + " cm)";
-    const tLabel = t => comma(Math.round(t * 100) / 100) + " t (" + thousands(t * 1000) + " kg)";
-    const lbLabel = t => thousands(t / LB_T) + " lb";
 
     function fillDim(k){
       const d = DIMS[k], m = HGV_PROFILE[k], x = mToFtIn(m);
       $(d.m).value = comma(Math.round(m * 100) / 100);
       $(d.ft).value = x.ft; $(d.inch).value = comma(x.inch);
-      $(d.conv).textContent = "= " + (units === "imperial" ? mLabel(m) : ftInLabel(m));
     }
     function fillWt(k){
       const w = WTS[k], t = HGV_PROFILE[k];
       $(w.t).value = comma(Math.round(t * 100) / 100);
       $(w.lb).value = thousands(t / LB_T);
-      $(w.conv).textContent = "= " + (units === "imperial" ? tLabel(t) : lbLabel(t));
     }
     function fill(){
       block.classList.toggle("units-imperial", units === "imperial");
@@ -7717,14 +7707,10 @@
       if(activeRoute){ activeRoute._restr = null; try{ updateRouteConflicts(); }catch(e){} }   // przelicz ostrzeżenia od razu
     }
     const inRange = (k, v) => isFinite(v) && v >= HGV_LIMITS[k][0] && v <= HGV_LIMITS[k][1];
-    function updateConv(k){   // przelicznik na żywo, także gdy wartość jest chwilowo niepełna
-      if(DIMS[k]) $(DIMS[k].conv).textContent = "= " + (units === "imperial" ? mLabel(HGV_PROFILE[k]) : ftInLabel(HGV_PROFILE[k]));
-      else $(WTS[k].conv).textContent = "= " + (units === "imperial" ? tLabel(HGV_PROFILE[k]) : lbLabel(HGV_PROFILE[k]));
-    }
     function accept(k, v, els){
       const ok = inRange(k, v);
       els.forEach(el => el.classList.toggle("bad", !ok && el.value.trim() !== ""));
-      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); updateConv(k); }
+      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); }
     }
     function refillWhenLeft(wrapIds, refill){
       wrapIds.forEach(id => {
