@@ -643,7 +643,8 @@
   #navTripStats{ display:none; justify-content:space-between; gap:8px; }
   #navTripStats .ts{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
   #navTripStats .ts b{ font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  #navTripStats .ts span{ font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  #navTripStats .ts span{ display:none; }
+  #navTripStats .ts span.old{ font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
   #navRouteInfo:not(.planning) #navRouteMain,
   #navRouteInfo:not(.planning) #navRouteSub,
   #navRouteInfo:not(.planning) #navRouteTraffic{ display:none; }
@@ -674,7 +675,10 @@
   #navPanel.compact .navHeader,
   #navPanel.compact #navExpandHint,
   #navPanel.compact #navCustomize{ display:none !important; }
-  #navPanel.compact{ padding-bottom:10px; }
+  #navPanel.compact{ padding-bottom:2px; gap:0; border-radius:14px 14px 0 0; }
+  #navPanel.compact #navDragHandle{ padding:4px 0 2px; }
+  #navPanel.compact #navRouteInfo{ padding:0 12px 4px; background:transparent; }
+  #navPanel.compact #navTripStats .ts b{ font-size:18px; line-height:1.15; }
   #navRouteInfo .rMain{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px; font-weight:700;
@@ -2049,7 +2053,9 @@
   // SHIELD_SPACING_PX pikseli (niżej: jedna na odcinek). Mniejsza liczba = częściej.
   // Zderzające się tablice i tablice zasłaniające numer zjazdu są i tak pomijane.
   const SHIELD_LINE_FROM_ZOOM = 10;
-  const SHIELD_SPACING_PX = 350;
+  // Odstęp liczony w pikselach rośnie z zoomem tak, by na ekranie odpowiadał stałemu dystansowi:
+  // od zoomu 14 to ok. 1 mili (2^zoom / 30 px przy ~52° szer.), poniżej jak dawniej (350 px).
+  const SHIELD_SPACING_PX = ["interpolate", ["exponential", 2], ["zoom"], 10, 350, 14, 547, 19, 17504];
 
   function shieldRoundRect(ctx, x, y, w, h, r){
     r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -3341,19 +3347,56 @@
     applyUserMarkerStyle();
   }
 
+  /* ---------- płynny ruch avatara ----------
+     GPS daje nowy odczyt ok. raz na sekundę, więc samo ustawianie markera przy odczycie = skoki.
+     Pętla animacji (każda klatka) przewiduje pozycję z prędkości i kierunku, a wyświetlaną pozycję
+     i obrót wygładza wykładniczo; kamera (gdy podąża za pojazdem) jedzie razem z avatarem. */
+  const avSm = { init:false, fixLat:0, fixLon:0, fixHdg:0, fixT:0, v:0, lat:0, lon:0, hdg:0, lastT:0, calT:0, lastRot:null };
+  function angDiff(a, b){ return ((b - a + 540) % 360) - 180; }
   function updateUserMarker(lat, lon, heading){
     if(!userMarker) return;
-    userMarker.setLngLat([lon, lat]);
-    if(heading !== null && !isNaN(heading)){
-      userMarkerEl.querySelector("svg").style.transform = `rotate(${heading}deg)`;
+    const now = performance.now();
+    if(heading === null || heading === undefined || isNaN(heading)) heading = avSm.init ? avSm.fixHdg : 0;
+    avSm.fixLat = lat; avSm.fixLon = lon; avSm.fixHdg = heading; avSm.fixT = now;
+    avSm.v = (currentSpeedKmh || 0) / 3.6;
+    if(!avSm.init){ avSm.init = true; avSm.lat = lat; avSm.lon = lon; avSm.hdg = heading; avSm.lastT = now; }
+    if(!avSm.running){ avSm.running = true; requestAnimationFrame(avatarFrame); }
+  }
+  function avatarFrame(t){
+    requestAnimationFrame(avatarFrame);
+    if(!userMarker || !avSm.init) return;
+    const dt = Math.min(0.1, Math.max(0.001, (t - avSm.lastT) / 1000)); avSm.lastT = t;
+    // przewidywana pozycja: ostatni odczyt + prędkość × czas od odczytu (max 1,5 s)
+    const age = Math.min(1.5, Math.max(0, (t - avSm.fixT) / 1000));
+    const d = avSm.v > 0.8 ? avSm.v * age : 0, hr = avSm.fixHdg * Math.PI / 180;
+    const pLat = avSm.fixLat + d * Math.cos(hr) / 111320;
+    const pLon = avSm.fixLon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.fixLat * Math.PI / 180)));
+    const k = 1 - Math.exp(-dt / 0.15);
+    avSm.lat += (pLat - avSm.lat) * k;
+    avSm.lon += (pLon - avSm.lon) * k;
+    avSm.hdg = (avSm.hdg + angDiff(avSm.hdg, avSm.fixHdg) * k + 360) % 360;
+    userMarker.setLngLat([avSm.lon, avSm.lat]);
+    if(avSm.lastRot === null || Math.abs(angDiff(avSm.lastRot, avSm.hdg)) > 0.15){
+      avSm.lastRot = avSm.hdg;
+      const sv = userMarkerEl.querySelector("svg"); if(sv) sv.style.transform = `rotate(${avSm.hdg.toFixed(2)}deg)`;
     }
-    if(followUser){
-      map.easeTo({
-        center: [lon, lat],
-        bearing: (heading !== null && !isNaN(heading) && is3D && !northUp) ? heading : map.getBearing(),
-        duration: 600
-      });
+    if(followUser && map && !map.isEasing()){
+      map.jumpTo({ center: [avSm.lon, avSm.lat], bearing: (is3D && !northUp) ? avSm.hdg : map.getBearing() });
     }
+    if(t - avSm.calT > 700){ avSm.calT = t; try{ calibrateAvatarPosition(); }catch(e){} }
+  }
+  // utrzymuje avatar nad dolnym paskiem: pozycję avatara na ekranie mierzymy i delikatnie korygujemy górny padding kamery
+  function calibrateAvatarPosition(){
+    if(!map || !followUser || !is3D || !navIsDriving() || !userMarkerEl || map.isEasing()) return;
+    const h = map.getContainer().clientHeight || window.innerHeight;
+    const r = userMarkerEl.getBoundingClientRect();
+    const yNow = r.top + r.height / 2;
+    const target = Math.max(h * 0.3, h - getNavBottomChromeHeight() - 80);
+    const err = target - yNow;
+    if(Math.abs(err) < 10) return;
+    const pad = map.getPadding();
+    const top = Math.max(0, Math.min(h * 0.9, pad.top + err));   // marker leży w środku obszaru po odjęciu paddingu, więc korekta = 2 × (err / 2)
+    map.setPadding({ top, bottom: 0, left: 0, right: 0 });
   }
 
   /* ============================================================
@@ -7670,7 +7713,8 @@
     if(!r) return;
     const rem = (r._remain && r._remain.ref === r.coords) ? r._remain : { m: r.distanceM, s: r.timeS };
     const set = (id, v) => { const el = document.getElementById(id); if(el && el.textContent !== v) el.textContent = v; };
-    set("tsTime", secondsToTimeLabel(rem.s));
+    const tm = Math.max(0, Math.round(rem.s / 60)), th = Math.floor(tm / 60);
+    set("tsTime", th > 0 ? `${th}h ${String(tm % 60).padStart(2, "0")}min` : `${tm}min`);
     set("tsDist", metersToDistanceLabel(rem.m));
     set("tsEta", new Date(Date.now() + rem.s * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" }));
   }
