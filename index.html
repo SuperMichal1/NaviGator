@@ -669,6 +669,12 @@
   .routeSw.active{ box-shadow:0 0 0 3px var(--gator); }
   .routeSw.auto{ background:conic-gradient(#1FD6C1 0 50%,#1DF5FF 50% 100%); }
   #navCustomize #navRerouteRow{ display:block; margin-top:2px; }
+  /* zminimalizowane okno jazdy: tylko uchwyt + pozostały czas, mile i godzina przyjazdu */
+  #navPanel.compact{ transform:none; }
+  #navPanel.compact .navHeader,
+  #navPanel.compact #navExpandHint,
+  #navPanel.compact #navCustomize{ display:none !important; }
+  #navPanel.compact{ padding-bottom:10px; }
   #navRouteInfo .rMain{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px; font-weight:700;
@@ -2725,7 +2731,6 @@
       center: [lon, lat],
       zoom: 16.5,
       pitch: 0,
-      maxPitch: 85,             // pozwala na mocne pochylenie widoku jazdy (patrz DRIVE_PITCH)
       bearing: 0,
       attributionControl: false,
       maxBounds: GB_BOUNDS,
@@ -5791,14 +5796,18 @@
   // rozwinięcie okna jazdy: avatar pojazdu i kolor trasy
   function setNavExpanded(on){
     const panel = document.getElementById("navPanel");
+    if(on && panel.classList.contains("collapsed")) setNavPanelCollapsed(false);
     panel.classList.toggle("nav-expanded", !!on);
     requestAnimationFrame(() => { if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); });
   }
   document.addEventListener("click", ev => { if(ev.target.closest && ev.target.closest("#navExpandHint")) setNavExpanded(true); });
 
+  function navIsDriving(){ return !!(navUiState === "nav" && activeRoute && !activeRoute.planning); }
   function setNavPanelCollapsed(collapsed){
     const panel = document.getElementById("navPanel");
     panel.classList.toggle("collapsed", collapsed);
+    panel.classList.toggle("compact", !!collapsed && navIsDriving());   // w jeździe zostają widoczne statystyki
+    if(collapsed) panel.classList.remove("nav-expanded");
     document.getElementById("btnNav").classList.toggle("active", !collapsed);
     if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar();
   }
@@ -6535,8 +6544,8 @@
   }
 
   // widok jazdy: pełny ekran, 3D, kamera podąża za pojazdem
-  const DRIVE_PITCH = 72;   // mocne pochylenie 3D: widać drogę jak najdalej przed pojazdem
-  const DRIVE_ZOOM = 16.4;  // nieco szerszy kadr niż wcześniej (17), żeby zobaczyć dalej
+  const DRIVE_PITCH = 60;   // pochylenie widoku jazdy 3D (jak w oryginale)
+  const DRIVE_ZOOM = 17;    // przybliżenie widoku jazdy (jak w oryginale)
   function enterDrivingView(){
     enterFullscreen();
     followUser = true;
@@ -7676,6 +7685,8 @@
       : activeRoute.source === "truck-easy" ? " · trasa alternatywna" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
     updateNavTripStats();
+    { const pn = document.getElementById("navPanel");
+      if(pn.classList.contains("collapsed")){ pn.classList.toggle("compact", navIsDriving()); if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); } }
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
       : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
@@ -7758,6 +7769,7 @@
     const panel = document.getElementById("navPanel");
     const handle = document.getElementById("navDragHandle");
     const header = panel.querySelector(".navHeader");
+    if(panel.classList.contains("compact")){ panel.style.setProperty("--nav-collapsed-shift", "0px"); return; }
     const panelH = panel.offsetHeight; // transform nie zmienia offsetHeight, więc to zawsze "pełna" wysokość
     const peekH = (handle ? handle.offsetHeight : 0) + (header ? header.offsetHeight : 0);
     panel.style.setProperty("--nav-collapsed-shift", Math.max(panelH - peekH, 40) + "px");
@@ -7817,10 +7829,10 @@
       const { wasCollapsed, moved, shiftPx, lastPx, dy } = dragState;
       dragState = null;
       // w trakcie jazdy: w górę = rozwiń (avatar, kolor trasy), w dół = zwiń z powrotem do podsumowania
-      if(moved && navUiState === "nav" && !wasCollapsed && activeRoute && !activeRoute.planning){
+      if(moved && navIsDriving()){
         const expanded = panel.classList.contains("nav-expanded");
         if(dy < -40 && !expanded){ setNavExpanded(true); return; }
-        if(dy > 40 && expanded){ setNavExpanded(false); return; }
+        if(dy > 40 && !wasCollapsed){ setNavPanelCollapsed(true); return; }
       }
       if(!moved){
         // zwykłe dotknięcie uchwytu (bez przeciągania) = przełącz zwinięcie/rozwinięcie
@@ -8079,9 +8091,7 @@
       onEnd: px => {
         panel.classList.remove("dragging");
         panel.style.transform = "";
-        if(px > Math.min(70, shift * 0.5)){
-          if(panel.classList.contains("nav-expanded")) setNavExpanded(false); else setNavPanelCollapsed(true);
-        }
+        if(px > Math.min(70, shift * 0.5)) setNavPanelCollapsed(true);
       }
     });
   });
