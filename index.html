@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --accent: #5a7a2e;        /* zieleń skóry aligatora (dzień); w nocy zostaje bursztyn */
@@ -66,6 +66,38 @@
     backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
   }
   #guidanceCard.show{ display:flex; }
+
+  /* ---------- Tablice w stylu brytyjskim (UK Road Signage): autostrada / Primary A / lokalne A i B ---------- */
+  #guidanceCard{ flex-wrap:wrap; font-family:'Overpass','Transport',Frutiger,Arial,sans-serif; border-radius:12px; transition:background .2s; }
+  #guidanceCard .gDist, #guidanceCard .gText, #guidanceCard .gThen{ font-family:inherit; }
+  #guidanceCard .gText{ font-weight:700; }
+  #guidanceCard .gText .to{ display:block; font-weight:600; font-size:13px; opacity:.95; margin-top:2px; }
+  #guidanceCard.sign-motorway{ background:#0067b2; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #0067b2, 0 10px 30px rgba(0,0,0,.45); }
+  #guidanceCard.sign-primary{ background:#00703c; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #00703c, 0 10px 30px rgba(0,0,0,.45); }
+  #guidanceCard.sign-local{ background:#fff; color:#111; border:3px solid #111; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  #guidanceCard.sign-motorway .gIcon, #guidanceCard.sign-primary .gIcon{ background:rgba(255,255,255,.14); color:#fff; }
+  #guidanceCard.sign-local .gIcon{ background:rgba(0,0,0,.07); color:#111; }
+  #guidanceCard.sign-local #gVoiceBtn{ background:rgba(0,0,0,.07); border-color:rgba(0,0,0,.35); color:#111; }
+  body.night #guidanceCard.sign-local{ background:#e9e9e9; }
+  body.night #guidanceCard.sign-motorway, body.night #guidanceCard.sign-primary{ filter:brightness(.92); }
+  #guidanceCard .gDist:empty{ display:none; }
+  /* plakietki numerów dróg */
+  .rb{ display:inline-block; font-weight:800; letter-spacing:.02em; line-height:1; white-space:nowrap; vertical-align:baseline; }
+  .rb-motorway{ background:#004c87; color:#fff; border:1.5px solid #fff; border-radius:4px; padding:2px 6px; }
+  .rb-primary{ color:#ffd800; }
+  .rb-local{ color:#111; }
+  #guidanceCard.sign-motorway .rb-primary, #guidanceCard.sign-motorway .rb-local{ color:#fff; }
+  #guidanceCard.sign-local .rb-motorway{ background:#0067b2; border-color:#fff; box-shadow:0 0 0 1.5px #0067b2; }
+  /* ostrzeżenia HGV pod tablicą */
+  .gHgv{ flex:0 0 100%; display:none; flex-wrap:wrap; gap:6px; padding-top:8px; border-top:1px solid rgba(255,255,255,.35); }
+  #guidanceCard.sign-local .gHgv{ border-top-color:rgba(0,0,0,.25); }
+  .gHgv.show{ display:flex; }
+  .hgvChip{ display:flex; align-items:center; gap:7px; background:#fff; color:#111; border:3px solid #d1131f; border-radius:9px; padding:3px 9px 3px 5px; font-weight:800; font-size:13px; line-height:1.1; }
+  .hgvChip.warn{ border-color:#f59e0b; }
+  .hgvChip .hv{ font-size:17px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .hgvChip .hl{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; line-height:1.15; }
+  .hgvChip .hl small{ display:block; font-weight:600; opacity:.75; text-transform:none; letter-spacing:0; }
+  .hgvChip .ico{ width:26px; height:26px; flex:0 0 26px; }
   #guidanceCard .gIcon{
     flex:0 0 58px; height:58px; border-radius:12px; background:#0b7a6d;
     display:flex; align-items:center; justify-content:center; font-size:30px; line-height:1;
@@ -1467,6 +1499,7 @@
     <div class="gThen" id="gThen"></div>
   </div>
   <button id="gVoiceBtn" type="button" title="Dotknij: wł./wył. · Przytrzymaj: ustawienia głosu" aria-label="Komunikaty głosowe">🔊</button>
+  <div class="gHgv" id="gHgv"></div>
 </div>
 
 <div id="statusPill">
@@ -7339,21 +7372,157 @@
     const card = document.getElementById("guidanceCard");
     if(card.classList.contains("show")){ card.classList.remove("show"); document.body.classList.remove("guidance-on"); }
   }
+
+  /* ============================================================
+     TABLICE UK — klasa drogi → kolor tablicy, plakietki numerów, ostrzeżenia HGV
+     Klasyfikacja po numerze drogi (dane trasy nie mówią, czy A-road jest „primary”):
+       M…, A…(M)          → autostrada (niebieska, biały tekst)
+       A + max. 3 cyfry   → Primary A-road (zielona, żółty numer) — heurystyka
+       A + 4 cyfry, B…, ulica bez numeru → lokalna (biała, czarna ramka i tekst)
+  ============================================================ */
+  const UK_SIGN_PRIMARY_MAX_DIGITS = 3;
+  function ukRoadClass(ref){
+    if(!ref) return "local";
+    const r = String(ref).toUpperCase().replace(/\s+/g, "");
+    if(/^M\d+/.test(r) || /\(M\)$/.test(r)) return "motorway";
+    const m = r.match(/^A(\d+)/);
+    if(m) return m[1].length <= UK_SIGN_PRIMARY_MAX_DIGITS ? "primary" : "local";
+    return "local";
+  }
+  const escHtml = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+  const ukBadge = ref => ref ? `<span class="rb rb-${ukRoadClass(ref)}">${escHtml(String(ref).toUpperCase().replace(/\s+/g, ""))}</span>` : "";
+
+  // odległość jak na brytyjskiej tablicy: yds do ¼ mili, potem ułamki mili (¼ ½ ¾ 1½ …), od 10 mi całe
+  function ukDist(m){
+    if(unitSystem !== "mph") return guideDistLabel(m);
+    const yd = m * 1.09361;
+    if(yd < 440) return Math.max(10, Math.round(yd / 10) * 10) + " yds";
+    const mi = m / 1609.344;
+    if(mi >= 10) return Math.round(mi) + " mi";
+    const q = Math.round(mi * 4) / 4, whole = Math.floor(q), fr = q - whole;
+    const frac = fr === 0.25 ? "¼" : fr === 0.5 ? "½" : fr === 0.75 ? "¾" : "";
+    return ((whole || !frac) ? whole : "") + frac + " mi";
+  }
+  // wysokość w stopach i calach w zapisie z brytyjskich znaków: 14'-6"
+  function ukFtIn(m){
+    const totalIn = Math.round(m / 0.0254);
+    return Math.floor(totalIn / 12) + "'-" + (totalIn % 12) + '"';
+  }
+  function ukWeight(t){ return (Math.round(t * 10) / 10).toString() + "t"; }
+
+  const UK_ORD = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
+  // tekst manewru po angielsku (jak na tablicy); zwraca { html, sub }
+  function ukManoeuvre(step, curRef, curCls){
+    const t = step.t, ref = step.ref, ex = step.exit;
+    const onto = ref ? " " + (/^(exit|ramp)/.test(t) ? "to" : "onto") + " " + ukBadge(ref)
+               : (step.street ? " onto " + escHtml(step.street) : "");
+    const sub = step.toward ? `<span class="to">${escHtml(step.toward)}</span>` : "";
+    let html;
+    if(t.indexOf("arrive") === 0) html = t === "arrive-left" ? "Destination on the left" : t === "arrive-right" ? "Destination on the right" : "Destination ahead";
+    else if(/^(exit|ramp)/.test(t)){
+      const where = ex ? ((curCls === "motorway" || (ref && ukRoadClass(ref) === "motorway")) ? "Junction " + escHtml(ex) : "Exit " + escHtml(ex)) : "Slip road";
+      html = (t.indexOf("ramp") === 0 ? "Take slip road " : "Exit ") + (ex ? "at " + where : (t.endsWith("left") ? "on the left" : t.endsWith("right") ? "on the right" : "")) + onto;
+      html = html.replace(/\s+/g, " ").trim();
+    }
+    else if(t === "keep-left" || t === "keep-right") html = "Keep " + t.slice(5) + (ref ? " on " + ukBadge(ref) : onto);
+    else if(t === "merge") html = "Merge" + (onto || (curRef ? " onto " + ukBadge(curRef) : ""));
+    else if(t === "roundabout") html = "At the roundabout take the " + (UK_ORD[step.rb] || (step.rb ? step.rb + "th" : "next")) + " exit" + onto;
+    else if(t === "uturn") html = "Make a U-turn";
+    else if(t === "ferry") html = "Take the ferry";
+    else if(t === "straight") html = "Continue" + (ref ? " on " + ukBadge(ref) : onto);
+    else {
+      const verb = { left:"Turn left", right:"Turn right", "slight-left":"Bear left", "slight-right":"Bear right", "sharp-left":"Turn sharp left", "sharp-right":"Turn sharp right" }[t] || "Continue";
+      html = verb + onto;
+    }
+    return { html, sub };
+  }
+
+  // jaką drogą jedziemy teraz: ref z ostatnio minionego kroku
+  function ukCurrentRoad(g){
+    for(let i = g.ptr - 1; i >= 0; i--){ const x = g.steps[i]; if(x && x.ref) return x.ref; }
+    return null;
+  }
+
+  // ostrzeżenia HGV: ograniczenia wysokości/tonażu/szerokości z trasy (tylko te, które dotyczą Twojego pojazdu),
+  // leżące przy manewrze (do 250 m za nim) albo najbliższe na trasie w ciągu ~2 mil
+  const UK_HGV_LOOKAHEAD_M = 3200, UK_HGV_AT_STEP_M = 250;
+  function ukHgvChips(along, step){
+    let list = [];
+    try{ list = routeRestrictions(activeRoute) || []; }catch(e){ return ""; }
+    const hit = [];
+    for(const r of list){
+      const d = r.along - along;
+      if(d < -20) continue;
+      if(d > UK_HGV_LOOKAHEAD_M) break;
+      const atStep = r.along >= step.d - 40 && r.along <= step.d + UK_HGV_AT_STEP_M;
+      hit.push({ r, d: Math.max(0, d), atStep });
+      if(hit.length >= 2) break;
+    }
+    const ring = (inner) => `<svg class="ico" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="#fff" stroke="#d1131f" stroke-width="3"/>${inner}</svg>`;
+    const tri = `<svg class="ico" viewBox="0 0 26 26"><path d="M13 2.5 L24.5 22.5 H1.5 Z" fill="#fff" stroke="#d1131f" stroke-width="2.6" stroke-linejoin="round"/><path d="M13 9v6.5" stroke="#111" stroke-width="2.4" stroke-linecap="round"/><circle cx="13" cy="19" r="1.4" fill="#111"/></svg>`;
+    return hit.map(({ r, d, atStep }) => {
+      const warn = r.sev === "warn";
+      const when = atStep ? "at junction · " : "";
+      let ico, val, lbl, mine;
+      if(r.kind === "height"){
+        ico = tri; val = ukFtIn(r.value); lbl = "Low bridge"; mine = "your vehicle " + ukFtIn(HGV_PROFILE.height);
+      } else if(r.kind === "weight"){
+        ico = ring('<text x="13" y="16.5" text-anchor="middle" font-size="9" font-weight="800" fill="#111" font-family="Arial,sans-serif">' + ukWeight(r.value).replace("t", "") + 't</text>');
+        val = ukWeight(r.value); lbl = "Max gross weight"; mine = "your vehicle " + ukWeight(HGV_PROFILE.weight);
+      } else {
+        ico = ring('<path d="M7 13h12M7 13l3-3M7 13l3 3M19 13l-3-3M19 13l-3 3" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>');
+        val = ukFtIn(r.value); lbl = "Width limit · narrow road"; mine = "your vehicle " + ukFtIn(HGV_PROFILE.width);
+      }
+      return `<div class="hgvChip${warn ? " warn" : ""}">${ico}<span class="hv">${val}</span><span class="hl">${lbl}<small>${when}in ${escHtml(ukDist(d))} · ${mine}${warn ? " · tight" : ""}</small></span></div>`;
+    }).join("");
+  }
+
   function renderGuidance(step, dist, next, g){
     const card = document.getElementById("guidanceCard");
-    const icon = guideIcon(step);
-    document.getElementById("gIcon").innerHTML = icon;
-    document.getElementById("gDist").textContent = dist < 25 && step.t.indexOf("arrive") !== 0 ? "Teraz" : guideDistLabel(dist);
-    document.getElementById("gText").textContent = (step.t.indexOf("arrive") === 0 && dist <= 35) ? "Dotarłeś do celu" : guideCap(guideSentence(step, { noToward: !!(step.ref || step.street) }));
+    const arrive = step.t.indexOf("arrive") === 0;
+    const along = step.d - dist;
+    const curRef = ukCurrentRoad(g), curCls = curRef ? ukRoadClass(curRef) : null;
+    const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
+    let cls, distTxt, main;
+    if(arrive && dist <= 35){
+      cls = "local"; distTxt = ""; main = { html:"You have arrived", sub:"" };
+    } else if(keepOn){
+      const side = /right/.test(step.t) ? "right" : "left";
+      cls = curCls;
+      distTxt = "";
+      main = { html: (curCls === "motorway" ? "Keep " + side + " on " : "Continue on ") + ukBadge(curRef) + " for " + escHtml(ukDist(dist)), sub:"" };
+    } else {
+      const exitish = /^(exit|ramp|keep|merge)/.test(step.t);
+      cls = exitish && curCls === "motorway" ? "motorway"
+          : step.ref ? ukRoadClass(step.ref)
+          : step.street ? "local"
+          : (curCls || "local");
+      distTxt = dist < 25 && !arrive ? "Now" : ukDist(dist);
+      main = ukManoeuvre(step, curRef, curCls);
+    }
+    card.classList.remove("sign-motorway", "sign-primary", "sign-local");
+    card.classList.add("sign-" + cls);
+    document.getElementById("gIcon").innerHTML = guideIcon(step);
+    document.getElementById("gDist").textContent = distTxt;
+    document.getElementById("gText").innerHTML = main.html + (main.sub || "");
     const then = [];
-    // "Potem:" tylko gdy kolejny manewr jest tuż-tuż (inaczej to zbędny tekst na tablicy)
-    if(next && next.t !== "straight" && next.t.indexOf("arrive") !== 0 && next.d - step.d < 400) then.push("Potem: " + guideSentence(next, { noToward: true }) + " (za " + guideDistLabel(next.d - step.d) + ")");
-    if(g.approx) then.push("Instrukcje przybliżone");
+    if(keepOn){
+      const m = ukManoeuvre(step, curRef, curCls);
+      then.push("Then: " + m.html.replace(/<[^>]+>/g, "") );
+    } else if(next && next.t !== "straight" && next.t.indexOf("arrive") !== 0 && next.d - step.d < 400){
+      then.push("Then: " + ukManoeuvre(next, ref_of(step, curRef), curCls).html.replace(/<[^>]+>/g, "") + " (in " + ukDist(next.d - step.d) + ")");
+    }
+    if(g.approx) then.push("Approximate directions");
     document.getElementById("gThen").textContent = then.join(" · ");
+    const hgv = document.getElementById("gHgv");
+    const chips = arrive ? "" : ukHgvChips(along, step);
+    hgv.innerHTML = chips;
+    hgv.classList.toggle("show", !!chips);
     if(!card.classList.contains("show")) card.classList.add("show");
     document.body.classList.add("guidance-on");
     document.documentElement.style.setProperty("--guidance-h", (card.offsetHeight + 10) + "px");
   }
+  const ref_of = (step, cur) => step.ref || cur;
   function guideSpeak(g, step, dist, next){
     if(!prefVoice || step.t === "straight") return;
     const v = currentSpeedKmh / 3.6;                                  // m/s
