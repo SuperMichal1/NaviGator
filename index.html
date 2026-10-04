@@ -2254,13 +2254,13 @@
           "width", "restriction-sign-width",
           "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 19, 1.15],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
+        "icon-allow-overlap": false,
+        "icon-ignore-placement": false,
         "text-field": ["get", "label"],
         "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 14, 8, 16, 10, 19, 13],
-        "text-allow-overlap": true,
-        "text-ignore-placement": true,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
         "text-anchor": "center"
       },
       paint: { "text-color": "#14181c" }
@@ -7294,7 +7294,7 @@
     return null;
   }
   // lista ograniczeń na trasie (tylko takie, które dotyczą Twojego pojazdu), posortowana wg odległości od startu trasy
-  function routeRestrictions(route){
+  function routeRestrictionsRaw(route){
     if(!route || !route.coords || route.coords.length < 2) return [];
     const idx = restrictionIndexGet();
     if(route._restr && route._restr.coordsRef === route.coords && route._restr.ver === idx.ver) return route._restr.list;
@@ -7368,7 +7368,98 @@
         if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
       } else list.push(r);
     });
+    list.forEach(r => restrictionVerifyInit(route, r));
     return list;
+  }
+  // do alertów i na mapę trafiają tylko ograniczenia potwierdzone jako dotyczące drogi, którą faktycznie jedziemy
+  function routeRestrictions(route){
+    return routeRestrictionsRaw(route).filter(r => r.ok === true);
+  }
+
+  /* ---------- weryfikacja: czy ograniczenie leży na DRODZE TRASY, a nie na drodze obok / pod nią ----------
+     Przykład fałszywego alarmu: autostrada na estakadzie nad kanałem i lokalną ulicą z limitem 3,5 t — obie biegną
+     tuż przy trasie w tym samym kierunku. Dla każdego ograniczenia pytamy Overpass o wszystkie drogi w promieniu 25 m,
+     a potem sprawdzamy, która z nich pokrywa się z trasą najlepiej (a przy równej odległości — która jest wyższej klasy
+     / na innym poziomie). Jeśli to nie droga z ograniczeniem, ostrzeżenie jest pomijane. Wynik jest zapamiętany.
+     Dopóki weryfikacja trwa, ostrzeżenie nie jest pokazywane; przy braku sieci pokazujemy je (bezpieczniej). */
+  const RESTR_VERIFY_KEY = "nav_restr_verify_v1";
+  const RESTR_CLASS_RANK = { motorway:9, motorway_link:8, trunk:8, trunk_link:7, primary:7, primary_link:6, secondary:6, secondary_link:5, tertiary:5, tertiary_link:4, unclassified:3, residential:2, living_street:1, service:1 };
+  const RESTR_SKIP_CLASSES = { footway:1, path:1, cycleway:1, steps:1, pedestrian:1, bridleway:1, corridor:1, platform:1, proposed:1, construction:1 };
+  let restrVerdicts = {};
+  try{ restrVerdicts = JSON.parse(localStorage.getItem(RESTR_VERIFY_KEY) || "{}") || {}; }catch(e){ restrVerdicts = {}; }
+  function restrVerdictSave(){
+    try{
+      const keys = Object.keys(restrVerdicts);
+      if(keys.length > 600) keys.slice(0, keys.length - 600).forEach(k => delete restrVerdicts[k]);
+      localStorage.setItem(RESTR_VERIFY_KEY, JSON.stringify(restrVerdicts));
+    }catch(e){}
+  }
+  function restrVerdictKey(r){ return r.id + "|" + r.lat.toFixed(4) + "," + r.lon.toFixed(4); }
+  function restrictionVerifyInit(route, r){
+    if(r.lat == null || r.lon == null){ r.ok = true; return; }
+    const k = restrVerdictKey(r);
+    if(k in restrVerdicts){ r.ok = restrVerdicts[k]; return; }
+    r.ok = null;                                                   // oczekuje na weryfikację
+    restrictionVerifyRun(route, r, k).then(() => {
+      if(route !== activeRoute) return;
+      try{ updateRouteConflicts(); }catch(e){}
+      // gdy wszystkie ograniczenia są już sprawdzone, a jeszcze nic nie ogłoszono — podsumowanie na starcie trasy
+      const raw = (route._restr && route._restr.list) || [];
+      if(!route._restrAnnounced && !raw.some(x => x.ok === null)) try{ announceRouteRestrictions(); }catch(e){}
+    });
+  }
+  function restrictionVerifyRun(route, r, key){
+    const q = `[out:json][timeout:15];way(around:25,${r.lat},${r.lon})["highway"];out geom tags;`;
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000));
+    return Promise.race([tryEndpoints(q, 0, 12000), timeout]).then(data => {
+      const ok = restrictionVerifyDecide(route, r, data);
+      restrVerdicts[key] = ok; restrVerdictSave();
+      r.ok = ok;
+    }).catch(err => {
+      console.warn("Weryfikacja ograniczenia nieudana — zostaje jako ostrzeżenie:", err && err.message || err);
+      r.ok = true;                                                 // bez zapisu do cache: spróbujemy przy następnej trasie
+    });
+  }
+  function restrictionVerifyDecide(route, r, data){
+    const wayId = Number(String(r.id).split(":")[1]);
+    const ways = ((data && data.elements) || []).filter(e => e.type === "way" && e.geometry && e.geometry.length > 1 && e.tags && !RESTR_SKIP_CLASSES[e.tags.highway]);
+    const mine = ways.find(w => w.id === wayId);
+    if(!mine) return true;
+    // punkty próbkowania na trasie wokół początku ograniczenia
+    const cum = route._restr && route._restr.cum, c = route.coords;
+    if(!cum) return true;
+    const smp = sliceRouteAlong(c, cum, Math.max(0, r.along - 10), Math.min(cum[cum.length - 1], Math.max(r.to || r.along, r.along) + 25));
+    const pts = [];
+    for(let i = 0; i < smp.length - 1; i++){
+      const L = haversine(smp[i][1], smp[i][0], smp[i + 1][1], smp[i + 1][0]), n = Math.max(1, Math.ceil(L / 5));
+      for(let t = 0; t < n; t++) pts.push([smp[i][0] + (smp[i + 1][0] - smp[i][0]) * t / n, smp[i][1] + (smp[i + 1][1] - smp[i][1]) * t / n]);
+    }
+    if(smp.length) pts.push(smp[smp.length - 1]);
+    if(!pts.length) return true;
+    const score = w => {
+      let sum = 0;
+      pts.forEach(pt => {
+        let best = Infinity;
+        for(let i = 0; i < w.geometry.length - 1; i++){
+          const a = w.geometry[i], b = w.geometry[i + 1];
+          const d = projectPointToSegment(pt[1], pt[0], [a.lon, a.lat], [b.lon, b.lat]).distM;
+          if(d < best) best = d;
+        }
+        sum += Math.min(best, 40);                                  // droga krótsza niż odcinek nie może mieć nieskończonej kary
+      });
+      return sum / pts.length;
+    };
+    const sc = new Map(ways.map(w => [w.id, score(w)]));
+    const bestScore = Math.min(...sc.values());
+    const myScore = sc.get(wayId);
+    if(myScore > bestScore + 4) return false;                       // trasa biegnie wyraźnie bliżej innej drogi
+    // pokrywają się (np. estakada nad drogą): wybieramy drogę wyższej klasy, a przy równej — położoną wyżej
+    const group = ways.filter(w => sc.get(w.id) <= bestScore + 4);
+    const lvl = w => (Number(w.tags.layer) || 0) + (w.tags.bridge && w.tags.bridge !== "no" ? 0.5 : 0) - (w.tags.tunnel && w.tags.tunnel !== "no" ? 0.5 : 0);
+    const rank = w => RESTR_CLASS_RANK[w.tags.highway] || 0;
+    const top = group.slice().sort((a, b) => (rank(b) - rank(a)) || (lvl(b) - lvl(a)))[0];
+    if(top && top.id !== wayId && (rank(top) > rank(mine) || lvl(top) !== lvl(mine))) return false;
+    return true;
   }
 
   /* ---------- zaznaczenie na mapie miejsc, w których pojazd NIE spełnia ograniczeń ----------
@@ -7402,10 +7493,11 @@
       layout: {
         "icon-image": ["match", ["get", "kind"], "weight", "restriction-sign-weight", "width", "restriction-sign-width", "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.7, 14, 1.05, 18, 1.4],
-        "icon-allow-overlap": true, "icon-ignore-placement": true,
+        "symbol-sort-key": ["get", "sk"],
+        "icon-allow-overlap": false, "icon-ignore-placement": false,
         "text-field": ["get", "short"], "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 14, 11, 18, 14],
-        "text-allow-overlap": true, "text-ignore-placement": true, "text-anchor": "center"
+        "text-allow-overlap": false, "text-ignore-placement": false, "text-anchor": "center"
       },
       paint: { "text-color": "#14181c" }
     });
@@ -7416,7 +7508,8 @@
         "text-field": ["get", "label"], "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 18, 14],
         "text-anchor": "top", "text-offset": [0, 1.9], "text-max-width": 14,
-        "text-allow-overlap": true, "text-ignore-placement": true
+        "symbol-sort-key": ["get", "sk"],
+        "text-allow-overlap": false, "text-ignore-placement": false
       },
       paint: { "text-color": sevColor, "text-halo-color": "#ffffff", "text-halo-width": 2.2 }
     });
@@ -7445,7 +7538,7 @@
           const unit = r.kind === "weight" ? " t" : " m";
           const mine = plNum(HGV_PROFILE[r.kind]) + unit;
           const limit = plNum(r.value) + unit;
-          pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev,
+          pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev, sk: (r.sev === "danger" ? 0 : 10) + Math.min(9, r.value / 10),
             short: plNum(r.value) + (r.kind === "weight" ? "t" : ""),
             label: "limit " + limit + " · masz " + mine },
             geometry: { type:"Point", coordinates: [r.lon, r.lat] } });
@@ -7502,6 +7595,7 @@
     try{ updateRouteConflicts(); }catch(e){ console.warn("Znaczniki ograniczeń:", e); }
     const list = routeRestrictions(activeRoute);
     if(!list.length) return;
+    activeRoute._restrAnnounced = true;
     const danger = list.filter(r => r.sev === "danger");
     const top = (danger.length ? danger : list).slice(0, 2).map(r =>
       RESTR_LABEL[r.kind].replace("Ograniczenie ", "").replace("Limit ", "") + " " + restrictionValueLabel(r.kind, r.value) + " (za " + guideDistLabel(r.along) + ")");
