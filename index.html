@@ -1273,7 +1273,7 @@
       <div class="ts"><b id="tsDist">–</b><span>pozostało</span></div>
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
-    <div id="navTollNote">£ Na trasie są odcinki płatne (zaznaczone na mapie)</div>
+    <div id="navTollNote">£ Mimo unikania trasa ma odcinki płatne (zaznaczone na mapie)</div>
     <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
     <div id="navCustomize">
       <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
@@ -1670,11 +1670,34 @@
   let allowTolls = false;
   try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
   const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
+  const TOLL_CAND = new WeakMap();        // trasy Valhalli z podejrzeniem opłat → dane do dokładnego sprawdzenia
+  const tollRefining = new WeakSet();
+  // dokładne odcinki płatne: Valhalla trace_attributes (edge_walk po własnym kształcie trasy) → flaga toll na każdej krawędzi
+  function refineTollSegments(coords){
+    const cand = TOLL_CAND.get(coords);
+    if(!cand || tollRefining.has(coords)) return;
+    tollRefining.add(coords);
+    const url = VALHALLA_URL.replace("/route", "/trace_attributes");
+    const walk = leg => fetch(url, {
+      method: "POST", headers: { "Content-Type": "text/plain" },   // text/plain = bez preflightu CORS
+      body: JSON.stringify({
+        encoded_polyline: leg.shape, costing: "truck", costing_options: cand.costing, shape_match: "edge_walk",
+        filters: { attributes: ["edge.toll", "edge.begin_shape_index", "edge.end_shape_index"], action: "include" }
+      })
+    }).then(r => r.json().then(d => { if(!r.ok || !d.edges) throw new Error("TRACE_" + r.status); return d; }))
+      .then(d => d.edges.filter(e => e.toll).map(e => [leg.off + (e.begin_shape_index || 0), leg.off + (e.end_shape_index || 0)]));
+    Promise.all(cand.legs.map(l => l.hasToll ? walk(l) : []))
+      .then(parts => { TOLL_BY_COORDS.set(coords, [].concat.apply([], parts)); })
+      .catch(e => { console.warn("Odcinki płatne (trace_attributes):", e); TOLL_BY_COORDS.set(coords, []); })
+      .then(() => { TOLL_CAND.delete(coords); if(activeRoute && activeRoute.coords === coords) updateTollMarking(); });
+  }
   let tollMarkers = [];
   function updateTollMarking(){
     tollMarkers.forEach(m => m.remove()); tollMarkers = [];
     let segs = [];
-    if(activeRoute && activeRoute.coords && !activeRoute.manuallyEdited){
+    // oznaczamy tylko przy „Unikaj płatnych” (przy „Płatne dozwolone” opłaty są akceptowane, więc nie ostrzegamy)
+    if(activeRoute && activeRoute.coords && !activeRoute.manuallyEdited && !allowTolls){
+      if(!TOLL_BY_COORDS.has(activeRoute.coords)) refineTollSegments(activeRoute.coords);
       const raw = (TOLL_BY_COORDS.get(activeRoute.coords) || []).filter(x => x[1] > x[0]).sort((a, b) => a[0] - b[0]);
       raw.forEach(x => { const last = segs[segs.length - 1]; if(last && x[0] <= last[1] + 1) last[1] = Math.max(last[1], x[1]); else segs.push([x[0], x[1]]); });
     }
@@ -3384,6 +3407,7 @@
       allowTolls = b.dataset.toll === "paid";
       try{ localStorage.setItem(TOLL_KEY, allowTolls ? "1" : "0"); }catch(e){}
       paint();
+      try{ updateTollMarking(); }catch(e){}
     });
   });
   safeInit("avatar i kolor trasy", () => {
@@ -6494,7 +6518,7 @@
       const panelH = getNavBottomChromeHeight() || 0;
       map.easeTo({
         center: [navSelectedDest.lon, navSelectedDest.lat],
-        zoom: 16, pitch: 0, bearing: 0,
+        zoom: 14, pitch: 0, bearing: 0,   // zoom 14: widać zarys budynków i nazwę firmy
         offset: [0, -Math.round(panelH / 2)],
         duration: 600
       });
@@ -6754,17 +6778,23 @@
         }
         const parseTrip = trip => {
           if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
-          const coords = [], steps = [], tollSegs = [];
+          const coords = [], steps = [], tollLegs = [];
+          let legHasToll = false;
           trip.legs.forEach(leg => {
             const pts = decodePolyline(leg.shape, 6), off = coords.length;
             (leg.maneuvers || []).forEach(m => {
               const st = valhallaStep(m, off); if(st) steps.push(st);
-              if(m.toll) tollSegs.push([off + (m.begin_shape_index || 0), off + (m.end_shape_index || 0)]);
+              if(m.toll) legHasToll = true;
             });
+            tollLegs.push({ shape: leg.shape, off, hasToll: legHasToll });
+            legHasToll = false;
             pts.forEach(c => coords.push(c));
           });
           if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
-          TOLL_BY_COORDS.set(coords, tollSegs);
+          // manewr Valhalli bywa długi (cała M25), więc jego flaga „płatny” jest zbyt szeroka:
+          // dokładne odcinki ustalamy leniwie, dopiero gdy trasa zostanie wybrana (refineTollSegments)
+          if(tollLegs.some(l => l.hasToll)) TOLL_CAND.set(coords, { legs: tollLegs, costing: request.costing_options });
+          else TOLL_BY_COORDS.set(coords, []);
           return { coords, steps, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
         const main = parseTrip(data.trip);
