@@ -640,6 +640,15 @@
   #navRouteInfo.show{ display:flex; }
 
   /* ---------- Okno jazdy: tylko pozostały czas, pozostałe mile i godzina przyjazdu ---------- */
+  #setTabs{ display:flex; gap:6px; }
+  #setTabs button{ flex:1; padding:10px 4px; border-radius:10px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #setTabs button.active{ background:var(--gator-dark); border-color:var(--gator); color:var(--gator-on); }
+  .setPane{ display:none; flex-direction:column; gap:10px; }
+  .setPane.active{ display:flex; }
+  .tollTag{ width:22px; height:22px; border-radius:50%; background:#FF8A00; color:#fff; font:800 13px/22px system-ui,sans-serif; text-align:center; border:2px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.5); pointer-events:none; }
+  #navTollNote{ display:none; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:700; color:#FF8A00; }
+  #navTollNote.show{ display:flex; }
+  #navRouteInfo.planning #navTollNote{ display:none; }
   .tollSeg{ display:flex; border:1px solid var(--panel-border,rgba(255,255,255,.2)); border-radius:10px; overflow:hidden; margin-top:6px; }
   .tollSeg button{ flex:1; border:none; background:transparent; color:inherit; font:700 13px 'Inter',system-ui,sans-serif; padding:10px 6px; cursor:pointer; }
   .tollSeg button.active{ background:var(--gator-dark); color:var(--gator-on); }
@@ -658,7 +667,7 @@
   #navPanel.nav-expanded #navExpandHint{ display:none; }
   #navCustomize{ display:none; flex-direction:column; gap:8px; margin-top:6px; padding-top:10px; border-top:1px solid var(--panel-border); }
   #navPanel.nav-expanded #navRouteInfo:not(.planning) #navCustomize{ display:flex; }
-  #navCustomize .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
+  .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
   #avatarGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
   .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
   .avatarOpt svg{ width:100%; height:100%; }
@@ -743,7 +752,7 @@
   }
   .voiceSeg button.active{ background: var(--accent); border-color: var(--accent); color:#0b1a1c; }
   #vpFreqDesc{ font-size:12px; color: var(--text-dim); line-height:1.35; min-height:32px; }
-  #voicePanel.off .voiceDim{ opacity:.4; pointer-events:none; }
+  #soundPane.off .voiceDim{ opacity:.4; pointer-events:none; }
   .navSettingsHeader{
     display:flex; align-items:center; justify-content:space-between;
     font-size:14px; font-weight:700; color: var(--text-main);
@@ -1264,14 +1273,10 @@
       <div class="ts"><b id="tsDist">–</b><span>pozostało</span></div>
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
-    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: avatar i kolor trasy</div>
+    <div id="navTollNote">£ Na trasie są odcinki płatne (zaznaczone na mapie)</div>
+    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
     <div id="navCustomize">
       <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
-      <div class="cuTitle">Avatar pojazdu</div>
-      <div id="avatarGrid"></div>
-      <div class="cuTitle">Kolor trasy</div>
-      <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
-      <div id="routeSwatches"></div>
     </div>
     <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
@@ -1336,31 +1341,6 @@
   </div>
 </div>
 
-<div id="voicePanel">
-  <div id="voiceBackdrop"></div>
-  <div id="voiceCard">
-    <span class="sheetGrip"></span>
-    <div class="navSettingsHeader">
-      <span>🔊 Komunikaty głosowe</span>
-      <div id="voiceClose">✕</div>
-    </div>
-    <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
-    <div class="voiceDim">
-      <div class="voiceRow">
-        <span>Głośność</span>
-        <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
-        <span id="vpVolVal">100%</span>
-      </div>
-      <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
-      <div class="voiceSeg" id="vpFreq">
-        <button type="button" data-f="1">Rzadko</button>
-        <button type="button" data-f="2">Normalnie</button>
-        <button type="button" data-f="3">Często</button>
-      </div>
-      <div id="vpFreqDesc"></div>
-    </div>
-  </div>
-</div>
 
 <div id="navSettingsPanel">
   <div id="navSettingsBackdrop"></div>
@@ -1371,24 +1351,57 @@
       <div id="navSettingsClose">✕</div>
     </div>
 
-    <div class="navTitle">Widoczność na ekranie</div>
-    <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-    <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-    <label class="navPrefLabel">Tryb mapy:
-      <select id="navPrefTheme">
-        <option value="auto">Auto (wschód/zachód słońca)</option>
-        <option value="day">Dzień</option>
-        <option value="night">Noc</option>
-      </select>
-    </label>
-    <label class="navPrefLabel"><input type="checkbox" id="navPrefVoice"> Komunikaty głosowe (prowadzenie)</label>
-    <div class="navTitle" style="margin-top:12px">Rodzaj dróg</div>
-    <div id="tollSeg" class="tollSeg" role="group" aria-label="Trasy niepłatne lub płatne">
-      <button type="button" data-toll="free">Niepłatne (domyślnie)</button>
-      <button type="button" data-toll="paid">Płatne</button>
+    <div id="setTabs" role="tablist">
+      <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
+      <button type="button" data-tab="sound">🔊 Dźwięk</button>
+      <button type="button" data-tab="system">⚙️ System</button>
     </div>
-    <div class="tollHint">Dotyczy kolejnych wyznaczonych tras. Aby przeliczyć trwającą, użyj „Zmień trasę”.</div>
-    <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
+
+    <div class="setPane active" data-pane="screen">
+      <div class="navTitle">Widoczność na ekranie</div>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+      <label class="navPrefLabel">Tryb mapy:
+        <select id="navPrefTheme">
+          <option value="auto">Auto (wschód/zachód słońca)</option>
+          <option value="day">Dzień</option>
+          <option value="night">Noc</option>
+        </select>
+      </label>
+      <div class="navTitle" style="margin-top:12px">Avatar pojazdu</div>
+      <div id="avatarGrid"></div>
+      <div class="navTitle" style="margin-top:12px">Kolor trasy</div>
+      <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
+      <div id="routeSwatches"></div>
+    </div>
+
+    <div class="setPane" data-pane="sound" id="soundPane">
+      <div class="navTitle">Komunikaty głosowe</div>
+      <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
+      <div class="voiceDim">
+        <div class="voiceRow">
+          <span>Głośność</span>
+          <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
+          <span id="vpVolVal">100%</span>
+        </div>
+        <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
+        <div class="voiceSeg" id="vpFreq">
+          <button type="button" data-f="1">Rzadko</button>
+          <button type="button" data-f="2">Normalnie</button>
+          <button type="button" data-f="3">Często</button>
+        </div>
+        <div id="vpFreqDesc"></div>
+      </div>
+    </div>
+
+    <div class="setPane" data-pane="system">
+      <div class="navTitle">Drogi płatne</div>
+      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
+        <button type="button" data-toll="free">Unikaj płatnych</button>
+        <button type="button" data-toll="paid">Płatne dozwolone</button>
+      </div>
+      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz przyciskiem „Zmień trasę”.</div>
+      <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
     <div id="navKeyToggle">
       <span>🔑 Klucz API TomTom</span>
@@ -1431,6 +1444,7 @@
         <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
         <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
       </div>
+    </div>
     </div>
   </div>
 </div>
@@ -1655,6 +1669,25 @@
   const TOLL_KEY = "nawigator_allow_tolls";
   let allowTolls = false;
   try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
+  const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
+  let tollMarkers = [];
+  function updateTollMarking(){
+    tollMarkers.forEach(m => m.remove()); tollMarkers = [];
+    let segs = [];
+    if(activeRoute && activeRoute.coords && !activeRoute.manuallyEdited){
+      const raw = (TOLL_BY_COORDS.get(activeRoute.coords) || []).filter(x => x[1] > x[0]).sort((a, b) => a[0] - b[0]);
+      raw.forEach(x => { const last = segs[segs.length - 1]; if(last && x[0] <= last[1] + 1) last[1] = Math.max(last[1], x[1]); else segs.push([x[0], x[1]]); });
+    }
+    const c = activeRoute && activeRoute.coords;
+    const src = map && map.getSource && map.getSource("route-toll");
+    if(src) src.setData({ type:"FeatureCollection", features: segs.map(x => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c.slice(x[0], x[1] + 1) } })) });
+    if(map) segs.slice(0, 6).forEach(x => {
+      const el = document.createElement("div"); el.className = "tollTag"; el.textContent = "£";
+      tollMarkers.push(new maplibregl.Marker({ element: el }).setLngLat(c[x[0]]).addTo(map));
+    });
+    const note = document.getElementById("navTollNote");
+    if(note) note.classList.toggle("show", segs.length > 0);
+  }
   function tollOpts(){ return { use_tolls: allowTolls ? 1.0 : 0 }; }
   // Profile tras dla ciężarówki: SZYBKA (zrównoważona) i ŁATWA (maksymalnie autostrady/drogi główne,
   // płatne odcinki dozwolone, duża kara za każdy manewr = mniej skrętów i zjazdów). Edycja ręczna używa profilu ŁATWEGO.
@@ -2915,6 +2948,14 @@
         source:"route-line",
         layout:{ "line-cap":"round", "line-join":"round" },
         paint:{ "line-color": "#1FD6C1", "line-width":5 }
+      }, "cameras-glow");
+
+      // odcinki płatne na wybranej trasie (pomarańczowa nakładka)
+      map.addSource("route-toll", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"route-toll-line", type:"line", source:"route-toll",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#FF8A00", "line-width":6 }
       }, "cameras-glow");
 
       // źródło trasy alternatywnej (lokalna, głównymi drogami) — widoczne tylko przy wyborze trasy
@@ -5454,9 +5495,18 @@
     el.classList.toggle("show", !!msg);
   }
 
-  function openNavSettings(){
+  function setSettingsTab(name){
+    document.querySelectorAll("#setTabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".setPane").forEach(p => p.classList.toggle("active", p.dataset.pane === name));
+  }
+  function openNavSettings(tab){
+    if(typeof tab === "string") setSettingsTab(tab);
+    try{ if(typeof syncVoicePanel === "function") syncVoicePanel(); }catch(e){}
     document.getElementById("navSettingsPanel").classList.add("open");
   }
+  document.getElementById("setTabs").addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if(b) setSettingsTab(b.dataset.tab);
+  });
   function closeNavSettings(){
     document.getElementById("navSettingsPanel").classList.remove("open");
   }
@@ -5464,7 +5514,7 @@
   function setNavKeyRowOpen(open){
     document.getElementById("navKeyRow").classList.toggle("open", open);
     document.getElementById("navKeyToggle").classList.toggle("open", open);
-    if(open) openNavSettings();
+    if(open) openNavSettings("system");
   }
 
   function saveApiKey(key){
@@ -6468,7 +6518,7 @@
       language: "pl-PL", report: "effectiveSettings"
     });
     if(!allowTolls) params.append("avoid", "tollRoads");
-    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&instructionsType=text`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&instructionsType=text`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -6481,8 +6531,10 @@
       (route.legs || []).forEach(leg => (leg.points || []).forEach(p => coords.push([p.longitude, p.latitude])));
       const speedSegments = [];
       const incidents = [];
+      const tollSegs = [];
       (route.sections || []).forEach(sec => {
-        if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
+        if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
+        else if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
           for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
             speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
           }
@@ -6494,6 +6546,7 @@
       });
       const steps = [];
       ((route.guidance && route.guidance.instructions) || []).forEach(x => { const st = tomtomStep(x, coords.length); if(st) steps.push(st); });
+      TOLL_BY_COORDS.set(coords, tollSegs);
       return {
         coords, steps,
         distanceM: route.summary.lengthInMeters,
@@ -6701,13 +6754,17 @@
         }
         const parseTrip = trip => {
           if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
-          const coords = [], steps = [];
+          const coords = [], steps = [], tollSegs = [];
           trip.legs.forEach(leg => {
             const pts = decodePolyline(leg.shape, 6), off = coords.length;
-            (leg.maneuvers || []).forEach(m => { const st = valhallaStep(m, off); if(st) steps.push(st); });
+            (leg.maneuvers || []).forEach(m => {
+              const st = valhallaStep(m, off); if(st) steps.push(st);
+              if(m.toll) tollSegs.push([off + (m.begin_shape_index || 0), off + (m.end_shape_index || 0)]);
+            });
             pts.forEach(c => coords.push(c));
           });
           if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
+          TOLL_BY_COORDS.set(coords, tollSegs);
           return { coords, steps, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
         const main = parseTrip(data.trip);
@@ -7856,6 +7913,7 @@
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
+    try{ updateTollMarking(); }catch(e){ console.warn("Oznaczanie dróg płatnych:", e); }
     if(!activeRoute){ info.classList.remove("show"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
@@ -7917,6 +7975,7 @@
     showNavStatus("");
     exitFullscreen();
     applyDrivingCamera(false);
+    try{ updateTollMarking(); }catch(e){}
     if(map){
       map.getCanvas().style.cursor = "";
       map.dragPan.enable();
@@ -8153,11 +8212,8 @@
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
   navPrefLimitSignInput.checked = prefShowLimitSign;
   applyDisplayPrefs();
-  const navPrefVoiceInput = document.getElementById("navPrefVoice");
-  navPrefVoiceInput.checked = prefVoice;
-  navPrefVoiceInput.addEventListener("change", e => setPrefVoice(e.target.checked));
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
-  const voicePanel = document.getElementById("voicePanel");
+  const voicePanel = document.getElementById("soundPane");
   const VOICE_FREQ_DESC = {
     1: "Jedna zapowiedź przed manewrem. Bez „Teraz” i bez zapowiedzi kolejnego skrętu.",
     2: "Zapowiedź przed manewrem oraz krótkie „Teraz”. Bez wcześniejszych i dodatkowych zapowiedzi.",
@@ -8174,8 +8230,8 @@
     document.querySelectorAll("#vpFreq button").forEach(b => b.classList.toggle("active", +b.dataset.f === prefVoiceFreq));
     document.getElementById("vpFreqDesc").textContent = VOICE_FREQ_DESC[prefVoiceFreq];
   }
-  function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); voicePanel.classList.add("open"); }
-  function closeVoicePanel(){ voicePanel.classList.remove("open"); }
+  function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); openNavSettings("sound"); }
+  function closeVoicePanel(){ closeNavSettings(); }
   function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
   safeInit("okno głosu", () => {
   document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
@@ -8191,10 +8247,6 @@
     try{ localStorage.setItem(PREF_VOICE_FREQ, String(prefVoiceFreq)); }catch(e){}
     syncVoicePanel();
   }));
-  document.getElementById("voiceClose").addEventListener("click", closeVoicePanel);
-  document.getElementById("voiceBackdrop").addEventListener("click", () => {
-    if(Date.now() - voiceOpenedAt > 500) closeVoicePanel();   // puszczenie palca po długim przytrzymaniu nie zamyka okna
-  });
   });
 
   safeInit("długie przytrzymanie głośnika", function setupVoiceLongPress(){
@@ -8292,7 +8344,6 @@
     });
   }
   safeInit("przeciąganie ustawień", () => makeSheetSwipeClose("navSettingsCard", closeNavSettings));
-  safeInit("przeciąganie okna głosu", () => makeSheetSwipeClose("voiceCard", closeVoicePanel));
 
   navPrefSpeedometerInput.addEventListener("change", (e) => {
     prefShowSpeedometer = e.target.checked;
