@@ -638,6 +638,37 @@
     padding:10px 12px;
   }
   #navRouteInfo.show{ display:flex; }
+
+  /* ---------- Okno jazdy: tylko pozostały czas, pozostałe mile i godzina przyjazdu ---------- */
+  #navTripStats{ display:none; justify-content:space-between; gap:8px; }
+  #navTripStats .ts{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  #navTripStats .ts b{ font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #navTripStats .ts span{ font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  #navRouteInfo:not(.planning) #navRouteMain,
+  #navRouteInfo:not(.planning) #navRouteSub,
+  #navRouteInfo:not(.planning) #navRouteTraffic{ display:none; }
+  #navRouteInfo:not(.planning) #navTripStats{ display:flex; }
+  #navExpandHint{ display:none; text-align:center; font-size:11px; color:var(--text-dim); cursor:pointer; padding:2px 0 0; }
+  #navRouteInfo:not(.planning) #navExpandHint{ display:block; }
+  #navPanel.nav-expanded #navExpandHint{ display:none; }
+  #navCustomize{ display:none; flex-direction:column; gap:8px; margin-top:6px; padding-top:10px; border-top:1px solid var(--panel-border); }
+  #navPanel.nav-expanded #navRouteInfo:not(.planning) #navCustomize{ display:flex; }
+  #navCustomize .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
+  #avatarGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
+  .avatarOpt svg{ width:100%; height:100%; }
+  .avatarOpt.active{ border-color:var(--gator); background:rgba(124,154,58,.22); }
+  #routeHue{
+    -webkit-appearance:none; appearance:none; width:100%; height:18px; border-radius:9px; outline:none; border:1px solid rgba(0,0,0,.25);
+    background:linear-gradient(90deg,hsl(0,95%,55%),hsl(60,95%,55%),hsl(120,95%,55%),hsl(180,95%,55%),hsl(240,95%,55%),hsl(300,95%,55%),hsl(359,95%,55%));
+  }
+  #routeHue::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #14181c; box-shadow:0 1px 5px rgba(0,0,0,.5); }
+  #routeHue::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #14181c; }
+  #routeSwatches{ display:flex; flex-wrap:wrap; gap:10px; }
+  .routeSw{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,.85); box-shadow:0 0 0 1px rgba(0,0,0,.4); }
+  .routeSw.active{ box-shadow:0 0 0 3px var(--gator); }
+  .routeSw.auto{ background:conic-gradient(#1FD6C1 0 50%,#1DF5FF 50% 100%); }
+  #navCustomize #navRerouteRow{ display:block; margin-top:2px; }
   #navRouteInfo .rMain{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px; font-weight:700;
@@ -1164,7 +1195,7 @@
   </div>
 </div>
 
-<div id="navPanel" data-navstate="search" class="collapsed">
+<div id="navPanel" data-navstate="search">
   <div id="navDragHandle" title="Przeciągnij lub dotknij, żeby zwinąć/rozwinąć"><span class="navGrip"></span></div>
   <div class="navHeader">
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
@@ -1214,7 +1245,20 @@
     <div class="rMain" id="navRouteMain">–</div>
     <div class="rSub" id="navRouteSub"></div>
     <div class="rTraffic" id="navRouteTraffic"></div>
-    <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
+    <div id="navTripStats">
+      <div class="ts"><b id="tsTime">–</b><span>pozostały czas</span></div>
+      <div class="ts"><b id="tsDist">–</b><span>pozostało</span></div>
+      <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
+    </div>
+    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: avatar i kolor trasy</div>
+    <div id="navCustomize">
+      <div class="cuTitle">Avatar pojazdu</div>
+      <div id="avatarGrid"></div>
+      <div class="cuTitle">Kolor trasy</div>
+      <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
+      <div id="routeSwatches"></div>
+      <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
+    </div>
     <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
@@ -2681,6 +2725,7 @@
       center: [lon, lat],
       zoom: 16.5,
       pitch: 0,
+      maxPitch: 85,             // pozwala na mocne pochylenie widoku jazdy (patrz DRIVE_PITCH)
       bearing: 0,
       attributionControl: false,
       maxBounds: GB_BOUNDS,
@@ -3145,11 +3190,14 @@
   }
 
   // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
+  const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar";
+  let customRouteColor = null, vehicleAvatar = "arrow";
+  try{ customRouteColor = localStorage.getItem(ROUTE_COLOR_KEY) || null; vehicleAvatar = localStorage.getItem(AVATAR_KEY) || "arrow"; }catch(e){}
   function applyRouteNightStyle(){
     if(!map || !map.getLayer("route-line-main")) return;
     const night = document.body.classList.contains("night");
-    map.setPaintProperty("route-line-main", "line-color", night ? "#1DF5FF" : "#1FD6C1");
-    map.setPaintProperty("route-line-casing", "line-color", night ? "#00B4FF" : "#0c0f12");
+    map.setPaintProperty("route-line-main", "line-color", customRouteColor || (night ? "#1DF5FF" : "#1FD6C1"));
+    map.setPaintProperty("route-line-casing", "line-color", customRouteColor ? (night ? customRouteColor : "#0c0f12") : (night ? "#00B4FF" : "#0c0f12"));
     map.setPaintProperty("route-line-casing", "line-opacity", night ? 0.55 : 0.55);
     map.setPaintProperty("route-line-casing", "line-blur", night ? 5 : 0);
     if(map.getLayer("route-line-alt-main"))
@@ -3179,17 +3227,98 @@
         <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
   }
 
+  // avatary pojazdu: widok z góry, „nos” skierowany do góry (marker obraca się wg kierunku jazdy)
+  const AVATARS = {
+    arrow: { name:"Strzałka" },
+    truck: { name:"Ciężarówka", svg: c => `<ellipse cx="26" cy="27" rx="18" ry="22" fill="${c}" opacity=".25"/>
+      <rect x="17" y="19" width="18" height="26" rx="2.5" fill="#eef2f4" stroke="#0c0f12" stroke-width="1.4"/>
+      <rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
+      <rect x="20" y="9.5" width="12" height="3.6" rx="1.2" fill="#0c0f12" opacity=".75"/>` },
+    car: { name:"Auto", svg: c => `<ellipse cx="26" cy="26" rx="16" ry="23" fill="${c}" opacity=".25"/>
+      <rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
+      <path d="M20.5 16 Q26 12.5 31.5 16 L30.5 22 L21.5 22 Z" fill="#0c0f12" opacity=".75"/>
+      <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>` },
+    gator: { name:"Aligator", svg: c => `<ellipse cx="26" cy="26" rx="20" ry="23" fill="${c}" opacity=".22"/>
+      <path d="M21.5 34 L26 50 L30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/>
+      <g fill="#5a7a2e" stroke="#0c0f12" stroke-width="1.1">
+        <ellipse cx="15.5" cy="21" rx="4.2" ry="2.3" transform="rotate(-30 15.5 21)"/><ellipse cx="36.5" cy="21" rx="4.2" ry="2.3" transform="rotate(30 36.5 21)"/>
+        <ellipse cx="16" cy="35" rx="4.2" ry="2.3" transform="rotate(30 16 35)"/><ellipse cx="36" cy="35" rx="4.2" ry="2.3" transform="rotate(-30 36 35)"/>
+      </g>
+      <ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136" stroke="#0c0f12" stroke-width="1.2"/>
+      <path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>
+      <circle cx="22.6" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/><circle cx="29.4" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/>` },
+    dot: { name:"Punkt", svg: c => `<circle cx="26" cy="27" r="19" fill="${c}" opacity=".25"/>
+      <circle cx="26" cy="27" r="10" fill="${c}" stroke="#fff" stroke-width="3"/>
+      <path d="M26 4 L33 17 L19 17 Z" fill="${c}" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>` }
+  };
+  function avatarAccent(){ return customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
+  function avatarSvgInner(key){
+    if(key === "arrow" || !AVATARS[key] || !AVATARS[key].svg) return null;
+    return AVATARS[key].svg(avatarAccent());
+  }
   function applyUserMarkerStyle(){
     if(!userMarkerEl) return;
     const night = document.body.classList.contains("night");
     const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
+    const av = avatarSvgInner(vehicleAvatar);
+    if(av){
+      svg.setAttribute("viewBox", "0 0 52 52");
+      svg.setAttribute("width", 46); svg.setAttribute("height", 46);
+      svg.innerHTML = av;
+      userMarkerEl.style.width = userMarkerEl.style.height = "46px";
+      return;
+    }
     svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
     userMarkerEl.style.width = userMarkerEl.style.height = (night ? 52 : 26) + "px";
   }
+
+  function hslToHex(h, sat, l){
+    sat /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
+    const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
+    return "#" + f(0) + f(8) + f(4);
+  }
+  function setRouteColor(hex){
+    customRouteColor = hex || null;
+    try{ if(hex) localStorage.setItem(ROUTE_COLOR_KEY, hex); else localStorage.removeItem(ROUTE_COLOR_KEY); }catch(e){}
+    applyRouteNightStyle();
+    applyUserMarkerStyle();
+    refreshCustomizeUi();
+  }
+  function setVehicleAvatar(key){
+    vehicleAvatar = AVATARS[key] ? key : "arrow";
+    try{ localStorage.setItem(AVATAR_KEY, vehicleAvatar); }catch(e){}
+    applyUserMarkerStyle();
+    refreshCustomizeUi();
+  }
+  const ROUTE_SWATCHES = ["#FF3B30","#FF9500","#FFD60A","#34C759","#1FD6C1","#0A84FF","#BF5AF2","#FF2D95","#FFFFFF"];
+  function refreshCustomizeUi(){
+    const grid = document.getElementById("avatarGrid"), sw = document.getElementById("routeSwatches");
+    if(!grid || !sw) return;
+    grid.innerHTML = Object.keys(AVATARS).map(k => {
+      const inner = avatarSvgInner(k);
+      const svg = inner ? `<svg viewBox="0 0 52 52">${inner}</svg>`
+        : `<svg viewBox="0 0 52 52"><path d="M26 6 L38 42 L26 34 L14 42 Z" fill="${avatarAccent()}" stroke="#0c0f12" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+      return `<div class="avatarOpt${k === vehicleAvatar ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
+    }).join("");
+    sw.innerHTML = `<div class="routeSw auto${customRouteColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
+      ROUTE_SWATCHES.map(c => `<div class="routeSw${customRouteColor && customRouteColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
+  }
+  safeInit("avatar i kolor trasy", () => {
+    refreshCustomizeUi();
+    document.getElementById("avatarGrid").addEventListener("click", ev => {
+      const el = ev.target.closest(".avatarOpt"); if(el) setVehicleAvatar(el.dataset.av);
+    });
+    document.getElementById("routeSwatches").addEventListener("click", ev => {
+      const el = ev.target.closest(".routeSw"); if(el) setRouteColor(el.dataset.col || null);
+    });
+    const hue = document.getElementById("routeHue");
+    hue.addEventListener("input", () => setRouteColor(hslToHex(+hue.value, 95, 55)));
+  });
 
   function addUserMarker(lat, lon){
     userMarkerEl = document.createElement("div");
@@ -5659,6 +5788,14 @@
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
   updateAddWaypointVisibility();
 
+  // rozwinięcie okna jazdy: avatar pojazdu i kolor trasy
+  function setNavExpanded(on){
+    const panel = document.getElementById("navPanel");
+    panel.classList.toggle("nav-expanded", !!on);
+    requestAnimationFrame(() => { if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); });
+  }
+  document.addEventListener("click", ev => { if(ev.target.closest && ev.target.closest("#navExpandHint")) setNavExpanded(true); });
+
   function setNavPanelCollapsed(collapsed){
     const panel = document.getElementById("navPanel");
     panel.classList.toggle("collapsed", collapsed);
@@ -5687,6 +5824,7 @@
   function setNavUiState(state){
     navUiState = state;
     document.getElementById("navPanel").dataset.navstate = state;
+    if(state !== "nav") document.getElementById("navPanel").classList.remove("nav-expanded");
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
@@ -6397,6 +6535,8 @@
   }
 
   // widok jazdy: pełny ekran, 3D, kamera podąża za pojazdem
+  const DRIVE_PITCH = 72;   // mocne pochylenie 3D: widać drogę jak najdalej przed pojazdem
+  const DRIVE_ZOOM = 16.4;  // nieco szerszy kadr niż wcześniej (17), żeby zobaczyć dalej
   function enterDrivingView(){
     enterFullscreen();
     followUser = true;
@@ -6408,8 +6548,8 @@
     applyDrivingCamera(true);
     map.easeTo({
       center: [lastPos.lon, lastPos.lat],
-      zoom: 17,
-      pitch: 60,
+      zoom: DRIVE_ZOOM,
+      pitch: DRIVE_PITCH,
       bearing: currentHeading,
       duration: 800
     });
@@ -6657,6 +6797,34 @@
     const all = f.coords.concat(e.coords);
     const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
     map.fitBounds(bounds, { padding: 70, duration: 600 });
+  }
+
+  // wybrana trasa (szybka / alternatywna) → od razu nawigacja w widoku 3D, bez etapu edycji
+  function startDrivingRoute(route, source){
+    recordHistory(navSelectedDest);
+    activeRoute = {
+      coords: route.coords,
+      distanceM: route.distanceM,
+      timeS: route.timeS,
+      trafficDelayS: 0,
+      manuallyEdited: false,
+      source: source || "truck",
+      steps: route.steps || null,
+      planning: false
+    };
+    setTimeout(announceRouteRestrictions, 600);
+    routeSpeedSegments = [];
+    routeTrafficIncidents = [];
+    pendingRoutes = { main:null, alt:null };
+    setRouteLineCoords(activeRoute.coords, "route-line");
+    setRouteLineCoords([], "route-line-alt");
+    if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
+    routeEditMode = false;
+    applyRouteEditVisuals();
+    map.getCanvas().style.cursor = "";
+    renderNavRouteInfo();
+    setNavUiState("nav");
+    if(lastPos) enterDrivingView(); else fitActiveRouteToView();
   }
 
   // pokazuje zaplanowaną trasę w całości i od razu włącza jej edycję (łapanie i przeciąganie)
@@ -7015,6 +7183,12 @@
     if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
     const along = guideProgress(g, lat, lon);
     if(along === null) return;
+    const totalM = g.cum[g.cum.length - 1];
+    if(totalM > 0){
+      const f = Math.max(0, Math.min(1, (totalM - along) / totalM));
+      activeRoute._remain = { ref: activeRoute.coords, m: activeRoute.distanceM * f, s: activeRoute.timeS * f };
+      updateNavTripStats();
+    }
     try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
     const step = g.steps[g.ptr];
@@ -7472,14 +7646,26 @@
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.main) applyChosenReroute(pendingRoutes.main, "truck");
-    else if(pendingRoutes.truck && pendingRoutes.main) startPlannedRoute(pendingRoutes.main, "truck");
+    else if(pendingRoutes.truck && pendingRoutes.main) startDrivingRoute(pendingRoutes.main, "truck");
     else if(pendingRoutes.main) selectRoute("main");
   });
   document.getElementById("navChooseAlt").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.alt) applyChosenReroute(pendingRoutes.alt, "truck-easy");
-    else if(pendingRoutes.truck && pendingRoutes.alt) startPlannedRoute(pendingRoutes.alt, "truck-easy");
+    else if(pendingRoutes.truck && pendingRoutes.alt) startDrivingRoute(pendingRoutes.alt, "truck-easy");
     else if(pendingRoutes.alt) selectRoute("alt");
   });
+
+  // pozostały czas, pozostałe mile i godzina przyjazdu (liczone na żywo z postępu na trasie)
+  function updateNavTripStats(){
+    const r = activeRoute;
+    if(!r) return;
+    const rem = (r._remain && r._remain.ref === r.coords) ? r._remain : { m: r.distanceM, s: r.timeS };
+    const set = (id, v) => { const el = document.getElementById(id); if(el && el.textContent !== v) el.textContent = v; };
+    set("tsTime", secondsToTimeLabel(rem.s));
+    set("tsDist", metersToDistanceLabel(rem.m));
+    set("tsEta", new Date(Date.now() + rem.s * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" }));
+  }
+  setInterval(() => { if(activeRoute) updateNavTripStats(); }, 20000);
 
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
@@ -7489,6 +7675,7 @@
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
       : activeRoute.source === "truck-easy" ? " · trasa alternatywna" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
+    updateNavTripStats();
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
       : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
@@ -7608,6 +7795,7 @@
     function onDragMove(e){
       if(!dragState) return;
       const dy = clientY(e) - dragState.startY;
+      dragState.dy = dy;
       if(Math.abs(dy) > TAP_MAX_MOVE_PX) dragState.moved = true;
       if(!dragState.moved) return;
       e.preventDefault();
@@ -7626,8 +7814,14 @@
       panel.classList.remove("dragging");
       panel.style.transform = "";
       if(!dragState) return;
-      const { wasCollapsed, moved, shiftPx, lastPx } = dragState;
+      const { wasCollapsed, moved, shiftPx, lastPx, dy } = dragState;
       dragState = null;
+      // w trakcie jazdy: w górę = rozwiń (avatar, kolor trasy), w dół = zwiń z powrotem do podsumowania
+      if(moved && navUiState === "nav" && !wasCollapsed && activeRoute && !activeRoute.planning){
+        const expanded = panel.classList.contains("nav-expanded");
+        if(dy < -40 && !expanded){ setNavExpanded(true); return; }
+        if(dy > 40 && expanded){ setNavExpanded(false); return; }
+      }
       if(!moved){
         // zwykłe dotknięcie uchwytu (bez przeciągania) = przełącz zwinięcie/rozwinięcie
         setNavPanelCollapsed(!wasCollapsed);
@@ -7652,6 +7846,7 @@
     updateNavPanelPeek();
     document.documentElement.style.setProperty("--side-widgets-bottom", (getNavBottomChromeHeight() + 14) + "px");
   }
+  setNavPanelCollapsed(false);   // po starcie pole „Wpisz cel podróży” ma być od razu widoczne
   updateNavIconRowHeightVar();
   window.addEventListener("resize", updateNavIconRowHeightVar);
   setTimeout(updateNavIconRowHeightVar, 400); // po doładowaniu fontów wysokości bywają inne
@@ -7884,7 +8079,9 @@
       onEnd: px => {
         panel.classList.remove("dragging");
         panel.style.transform = "";
-        if(px > Math.min(70, shift * 0.5)) setNavPanelCollapsed(true);
+        if(px > Math.min(70, shift * 0.5)){
+          if(panel.classList.contains("nav-expanded")) setNavExpanded(false); else setNavPanelCollapsed(true);
+        }
       }
     });
   });
@@ -8815,7 +9012,7 @@
     applyDrivingCamera(is3D);
     if(map){
       map.easeTo({
-        pitch: is3D ? 60 : 0,
+        pitch: is3D ? DRIVE_PITCH : 0,
         bearing: is3D ? currentHeading : 0,
         duration: 700
       });
