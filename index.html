@@ -1670,26 +1670,57 @@
   let allowTolls = false;
   try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
   const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
-  const TOLL_CAND = new WeakMap();        // trasy Valhalli z podejrzeniem opłat → dane do dokładnego sprawdzenia
-  const tollRefining = new WeakSet();
-  // dokładne odcinki płatne: Valhalla trace_attributes (edge_walk po własnym kształcie trasy) → flaga toll na każdej krawędzi
-  function refineTollSegments(coords){
-    const cand = TOLL_CAND.get(coords);
-    if(!cand || tollRefining.has(coords)) return;
-    tollRefining.add(coords);
-    const url = VALHALLA_URL.replace("/route", "/trace_attributes");
-    const walk = leg => fetch(url, {
-      method: "POST", headers: { "Content-Type": "text/plain" },   // text/plain = bez preflightu CORS
-      body: JSON.stringify({
-        encoded_polyline: leg.shape, costing: "truck", costing_options: cand.costing, shape_match: "edge_walk",
-        filters: { attributes: ["edge.toll", "edge.begin_shape_index", "edge.end_shape_index"], action: "include" }
-      })
-    }).then(r => r.json().then(d => { if(!r.ok || !d.edges) throw new Error("TRACE_" + r.status); return d; }))
-      .then(d => d.edges.filter(e => e.toll).map(e => [leg.off + (e.begin_shape_index || 0), leg.off + (e.end_shape_index || 0)]));
-    Promise.all(cand.legs.map(l => l.hasToll ? walk(l) : []))
-      .then(parts => { TOLL_BY_COORDS.set(coords, [].concat.apply([], parts)); })
-      .catch(e => { console.warn("Odcinki płatne (trace_attributes):", e); TOLL_BY_COORDS.set(coords, []); })
-      .then(() => { TOLL_CAND.delete(coords); if(activeRoute && activeRoute.coords === coords) updateTollMarking(); });
+  /* ---------- własna lista płatnych przejazdów w UK (bez żadnych zapytań do serwera) ----------
+     Zasięg każdego obiektu to „korytarz” wokół linii (pts, promień r w metrach).
+     solo:true  → odcinek trasy w korytarzu jest płatny zawsze (Dartford Crossing: opłata dotyczy tylko przeprawy,
+                  a mapa oznacza całą M25 jako płatną, więc zawężamy ją do korytarza).
+     solo:false → płatny jest tylko fragment, który mapa (OSM/Valhalla) sama oznaczyła jako płatny ORAZ leży w korytarzu;
+                  korytarz odsiewa przypadkowe oznaczenia (parkingi, prywatne drogi).
+     Współrzędne są przybliżone — przy błędnym zasięgu popraw pts/r poniżej. */
+  const TOLL_FACILITIES = [
+    { n:"Dartford Crossing (QEII + tunele)", solo:true,  r:450,  pts:[[51.4500,0.2570],[51.4700,0.2650]] },
+    { n:"M6 Toll",                           solo:false, r:3500, pts:[[52.4960,-1.6750],[52.5400,-1.7800],[52.6050,-1.8450],[52.6560,-1.9600],[52.6700,-2.0500]] },
+    { n:"Mersey Gateway",                    solo:false, r:2500, pts:[[53.3430,-2.7270]] },
+    { n:"Tunele Mersey (Kingsway/Queensway)",solo:false, r:3000, pts:[[53.4050,-2.9930],[53.4215,-3.0285]] },
+    { n:"Humber Bridge",                     solo:false, r:2500, pts:[[53.7010,-0.4480],[53.7120,-0.4550]] },
+    { n:"Tyne Tunnel (A19)",                 solo:false, r:3000, pts:[[54.9990,-1.4800]] },
+    { n:"Tamar Bridge",                      solo:false, r:2000, pts:[[50.4083,-4.2020]] },
+    { n:"Silvertown / Blackwall Tunnel",     solo:false, r:3000, pts:[[51.5030,0.0300],[51.5010,0.0050]] }
+  ];
+  const TOLL_FLAGGED = new WeakMap();   // trasa Valhalli → zakresy indeksów oznaczone przez mapę jako płatne (zbyt szerokie, same nie wystarczą)
+  const TOLL_STATIC = new WeakMap();    // cache: trasa → odcinki płatne z własnej listy
+  function tollDistM(lat, lon, pts){
+    const k = Math.cos(lat * Math.PI / 180) * 111320, ky = 110540;
+    let best = Infinity;
+    for(let i = 0; i < pts.length; i++){
+      const a = pts[i], b = pts[Math.min(i + 1, pts.length - 1)];
+      const ax = (a[1] - lon) * k, ay = (a[0] - lat) * ky, bx = (b[1] - lon) * k, by = (b[0] - lat) * ky;
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      const t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
+      best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+    return best;
+  }
+  function staticTollSegments(coords){
+    if(TOLL_STATIC.has(coords)) return TOLL_STATIC.get(coords);
+    const out = [], flagged = TOLL_FLAGGED.get(coords) || [];
+    const inFlagged = i => flagged.some(g => i >= g[0] && i <= g[1]);
+    TOLL_FACILITIES.forEach(f => {
+      // prefiltr po ramce, żeby nie liczyć odległości dla każdego punktu trasy
+      const padLat = f.r / 110540 + 0.002, padLon = f.r / 68000 + 0.003;
+      let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
+      f.pts.forEach(q => { minLa = Math.min(minLa, q[0]); maxLa = Math.max(maxLa, q[0]); minLo = Math.min(minLo, q[1]); maxLo = Math.max(maxLo, q[1]); });
+      let cur = null, gap = 0;
+      for(let i = 0; i < coords.length; i++){
+        const lo = coords[i][0], la = coords[i][1];
+        let hit = la >= minLa - padLat && la <= maxLa + padLat && lo >= minLo - padLon && lo <= maxLo + padLon
+               && (f.solo || inFlagged(i)) && tollDistM(la, lo, f.pts) <= f.r;
+        if(hit){ if(!cur){ cur = [i, i]; out.push(cur); } cur[1] = i; gap = 0; }
+        else if(cur && ++gap > 4) cur = null;
+      }
+    });
+    TOLL_STATIC.set(coords, out);
+    return out;
   }
   let tollMarkers = [];
   function updateTollMarking(){
@@ -1697,8 +1728,9 @@
     let segs = [];
     // oznaczamy tylko przy „Unikaj płatnych” (przy „Płatne dozwolone” opłaty są akceptowane, więc nie ostrzegamy)
     if(activeRoute && activeRoute.coords && !activeRoute.manuallyEdited && !allowTolls){
-      if(!TOLL_BY_COORDS.has(activeRoute.coords)) refineTollSegments(activeRoute.coords);
-      const raw = (TOLL_BY_COORDS.get(activeRoute.coords) || []).filter(x => x[1] > x[0]).sort((a, b) => a[0] - b[0]);
+      // odcinki płatne z TomTom (dokładne) + z własnej listy przejazdów
+      const raw = (TOLL_BY_COORDS.get(activeRoute.coords) || []).concat(staticTollSegments(activeRoute.coords))
+        .filter(x => x[1] > x[0]).sort((a, b) => a[0] - b[0]);
       raw.forEach(x => { const last = segs[segs.length - 1]; if(last && x[0] <= last[1] + 1) last[1] = Math.max(last[1], x[1]); else segs.push([x[0], x[1]]); });
     }
     const c = activeRoute && activeRoute.coords;
@@ -6779,22 +6811,17 @@
         const parseTrip = trip => {
           if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
           const coords = [], steps = [], tollLegs = [];
-          let legHasToll = false;
           trip.legs.forEach(leg => {
             const pts = decodePolyline(leg.shape, 6), off = coords.length;
             (leg.maneuvers || []).forEach(m => {
               const st = valhallaStep(m, off); if(st) steps.push(st);
-              if(m.toll) legHasToll = true;
+              if(m.toll) tollLegs.push([off + (m.begin_shape_index || 0), off + (m.end_shape_index || 0)]);
             });
-            tollLegs.push({ shape: leg.shape, off, hasToll: legHasToll });
-            legHasToll = false;
             pts.forEach(c => coords.push(c));
           });
           if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
-          // manewr Valhalli bywa długi (cała M25), więc jego flaga „płatny” jest zbyt szeroka:
-          // dokładne odcinki ustalamy leniwie, dopiero gdy trasa zostanie wybrana (refineTollSegments)
-          if(tollLegs.some(l => l.hasToll)) TOLL_CAND.set(coords, { legs: tollLegs, costing: request.costing_options });
-          else TOLL_BY_COORDS.set(coords, []);
+          // flaga „płatny” dotyczy całego manewru (np. całej M25), więc służy tylko jako filtr dla własnej listy
+          TOLL_FLAGGED.set(coords, tollLegs);
           return { coords, steps, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
         const main = parseTrip(data.trip);
@@ -7468,7 +7495,8 @@
          leżą blisko trasy. */
       const hs = it.co.map(v => nearRoute(v[1], v[0]));
       const ang = (p1, p2) => Math.atan2(p2[1] - p1[1], (p2[0] - p1[0]) * Math.cos(p1[1] * Math.PI / 180)) * 180 / Math.PI;
-      let hits = 0, minA = Infinity, maxA = -Infinity, first = null;
+      let hits = 0, minA = Infinity, maxA = -Infinity, first = null, matchedLen = 0, totalLen = 0;
+      for(let k = 0; k < it.co.length - 1; k++) totalLen += haversine(it.co[k][1], it.co[k][0], it.co[k + 1][1], it.co[k + 1][0]);
       for(let k = 0; k < hs.length - 1; k++){
         const a = hs[k], b = hs[k + 1];
         if(!a || !b) continue;
@@ -7478,11 +7506,14 @@
         diff = Math.min(diff, 180 - diff);
         if(diff > 30) continue;                                              // inny kierunek = skrzyżowanie, nie jedziemy tą drogą
         if(Math.abs(Math.abs(b.along - a.along) - wlen) > Math.max(12, wlen * 0.5)) continue;   // to nie ten sam odcinek co trasa
-        hits++;
+        hits++; matchedLen += wlen;
         [a, b].forEach(h => { if(h.along < minA){ minA = h.along; first = h; } if(h.along > maxA) maxA = h.along; });
       }
       // lat/lon = dokładny punkt na trasie, w którym zaczyna się ograniczenie; to = gdzie się kończy
-      if(hits >= 1) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
+      /* Droga równoległa (np. zjazd/łącznik obok autostrady), która dopiero na końcu dochodzi do trasy, ma z nią
+         wspólny tylko krótki ułamek swojej długości — to nie jest droga, którą jedziemy. Prawdziwe ograniczenie
+         (most, tunel, odcinek ulicy) pokrywa się z trasą w większości albo na długim odcinku. */
+      if(hits >= 1 && (matchedLen >= totalLen * 0.6 || matchedLen >= 200)) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
     });
     route._restr.cum = cum;
     found.sort((a, b) => a.along - b.along);
