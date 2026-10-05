@@ -72,9 +72,9 @@
   #guidanceCard .gDist, #guidanceCard .gText, #guidanceCard .gThen{ font-family:inherit; }
   #guidanceCard .gText{ font-weight:700; }
   #guidanceCard .gText .to{ display:block; font-weight:600; font-size:13px; opacity:.95; margin-top:2px; }
-  #guidanceCard.sign-motorway{ background:#0067b2; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #0067b2, 0 10px 30px rgba(0,0,0,.45); }
-  #guidanceCard.sign-primary{ background:#00703c; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #00703c, 0 10px 30px rgba(0,0,0,.45); }
-  #guidanceCard.sign-local{ background:#fff; color:#111; border:3px solid #111; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  #guidanceCard.sign-motorway{ background:#0079C1; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #0079C1, 0 10px 30px rgba(0,0,0,.45); }
+  #guidanceCard.sign-primary{ background:#006633; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #006633, 0 10px 30px rgba(0,0,0,.45); }
+  #guidanceCard.sign-local{ background:#f5f5f5; color:#111; border:3px solid #111; box-shadow:0 10px 30px rgba(0,0,0,.4); }
   #guidanceCard.sign-motorway .gIcon, #guidanceCard.sign-primary .gIcon{ background:rgba(255,255,255,.14); color:#fff; }
   #guidanceCard.sign-local .gIcon{ background:rgba(0,0,0,.07); color:#111; }
   #guidanceCard.sign-local #gVoiceBtn{ background:rgba(0,0,0,.07); border-color:rgba(0,0,0,.35); color:#111; }
@@ -82,13 +82,13 @@
   body.night #guidanceCard.sign-motorway, body.night #guidanceCard.sign-primary{ filter:brightness(.92); }
   #guidanceCard .gDist:empty{ display:none; }
   /* plakietki numerów dróg */
-  .rb{ display:inline-block; font-weight:800; letter-spacing:.02em; line-height:1; white-space:nowrap; vertical-align:baseline; }
-  .rb-motorway{ background:#004c87; color:#fff; border:1.5px solid #fff; border-radius:4px; padding:2px 6px; }
-  .rb-primary{ color:#ffd800; }
-  .rb-local{ color:#111; }
-  #guidanceCard.sign-motorway .rb-primary, #guidanceCard.sign-motorway .rb-local{ color:#fff; }
-  #guidanceCard.sign-local .rb-motorway{ background:#0067b2; border-color:#fff; box-shadow:0 0 0 1.5px #0067b2; }
+  .rb{ display:inline-block; font-weight:800; letter-spacing:.02em; line-height:1; white-space:nowrap; vertical-align:baseline; padding:2px 6px; border-radius:4px; border:1.5px solid; }
+  .rb-motorway{ background:#0079C1; color:#fff; border-color:#fff; }
+  .rb-primary{ background:#006633; color:#FFD800; border-color:#fff; }
+  .rb-local{ background:#fff; color:#111; border-color:#111; }
+  #guidanceCard.sign-local .rb-motorway, #guidanceCard.sign-local .rb-primary{ box-shadow:0 0 0 1px rgba(0,0,0,.35); }
   /* ostrzeżenia HGV pod tablicą */
+  #guidanceCard .gText .to .rb{ font-size:12px; padding:1px 5px; }
   .gHgv{ flex:0 0 100%; display:none; flex-wrap:wrap; gap:6px; padding-top:8px; border-top:1px solid rgba(255,255,255,.35); }
   #guidanceCard.sign-local .gHgv{ border-top-color:rgba(0,0,0,.25); }
   .gHgv.show{ display:flex; }
@@ -3454,10 +3454,43 @@
     return p;
   }
 
+
+  /* ---------- przenoszenie liczby pasów między sekcjami TomTom ----------
+     TomTom podaje sekcje LANES głównie przy zjazdach/skrzyżowaniach. Na autostradzie liczba pasów zmienia się rzadko,
+     więc ostatnia znana wartość obowiązuje aż do następnej sekcji (albo do najbliższego zjazdu/skrętu na trasie lub
+     MW_LANES_CARRY_MAX_M). Przeniesione odcinki dostają domyślne linie (krawędzie ciągłe, podziały przerywane).
+     Uwaga: sekcja tuż przy zjeździe może zawierać pas wyjazdowy, więc po zjeździe liczba może być o 1 za duża.
+     MW_LANES_CARRY_MAX_M = 0 wyłącza przenoszenie. */
+  const MW_LANES_CARRY_MAX_M = 15000;
+  const mwCarryCache = new WeakMap();      // coords → sekcje rzeczywiste + przeniesione
+  const MW_CARRY_STOP = /^(exit|ramp|left|right|sharp|slight|uturn|roundabout|ferry|arrive)/;
+  function mwSectionsWithCarry(r){
+    const secs = LANES_BY_COORDS.get(r.coords);
+    if(!secs || !secs.length) return null;
+    const cached = mwCarryCache.get(r.coords);
+    if(cached && cached.steps === r.steps) return cached.list;
+    const list = secs.slice().sort((x, y) => x.a - y.a);
+    if(MW_LANES_CARRY_MAX_M > 0){
+      const c = r.coords, cum = new Float64Array(c.length);
+      for(let i = 1; i < c.length; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
+      const stops = (r.steps || []).filter(st => MW_CARRY_STOP.test(st.t)).map(st => st.i).sort((x, y) => x - y);
+      secs.slice().sort((x, y) => x.a - y.a).forEach((sec, idx, arr) => {
+        const next = arr[idx + 1];
+        let end = next ? next.a : c.length - 1;
+        const stop = stops.find(i => i > sec.b);               // najbliższy zjazd/skręt za sekcją
+        if(stop != null && stop < end) end = stop;
+        while(end > sec.b && cum[end] - cum[sec.b] > MW_LANES_CARRY_MAX_M) end--;
+        if(end - sec.b >= 1) list.push({ a: sec.b, b: end, n: sec.n, seps: [], carried: true });
+      });
+    }
+    mwCarryCache.set(r.coords, { steps: r.steps, list });
+    return list;
+  }
+
   // sekcje LANES aktywnej trasy TomTom leżące w pobliżu pojazdu, z geometrią w metrach względem (lat,lon)
   function mwNearLaneSections(lat, lon){
     const r = typeof activeRoute !== "undefined" ? activeRoute : null;
-    const secs = r && r.coords ? LANES_BY_COORDS.get(r.coords) : null;
+    const secs = r && r.coords ? mwSectionsWithCarry(r) : null;
     if(!secs || !secs.length) return null;
     const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), lim2 = Math.pow(MW_ASPHALT_RADIUS_M + 400, 2);
     const near = [];
@@ -3588,7 +3621,7 @@
         });
       });
     });
-    if(near && !mwRouteLogged){ mwRouteLogged = true; console.info("Asfalt autostrad: " + withRoute + " odcinków z liczbą pasów z TomTom"); }
+    if(near && !mwRouteLogged){ mwRouteLogged = true; console.info("Asfalt autostrad: " + withRoute + " odcinków z liczbą pasów z TomTom (w tym przeniesionych z poprzedniej sekcji)"); }
     if(!mwLanesLogged && total){
       mwLanesLogged = true;
       console.info("Asfalt autostrad: " + withTag + "/" + total + " odcinków ma właściwość lanes w kafelkach" + (withTag ? "" : " — używam wartości domyślnych wg class"));
@@ -7524,13 +7557,23 @@
     ROUNDABOUT_CROSS:"roundabout", ROUNDABOUT_RIGHT:"roundabout", ROUNDABOUT_LEFT:"roundabout", ROUNDABOUT_BACK:"roundabout",
     TAKE_FERRY:"ferry" };
 
+  // uzupełnia krok o numer drogi (M/A/B) i numer zjazdu (J2 / Junction 2) odczytane z tekstu instrukcji
+  function ukEnrichStep(st, texts){
+    const joined = (texts || []).filter(Boolean).join(" | ");
+    const parsed = ukParseRoadText(joined);
+    const norm = ukNormRef(st.ref);
+    if(norm) st.ref = norm;
+    else if(parsed.refs.length) st.ref = parsed.refs[parsed.refs.length - 1];   // „z M6 na A4600” → droga docelowa jest ostatnia
+    if(!st.exit && parsed.junction && /^(exit|ramp)/.test(st.t)) st.exit = parsed.junction;
+    return st;
+  }
   function valhallaStep(m, off){
     const t = VAL_TYPES[m.type];
     if(!t) return null;
     const sign = m.sign || {};
     const txt = a => (a || []).map(x => x && x.text).filter(Boolean);
     const names = (m.street_names || []).concat(txt(sign.exit_branch));
-    return {
+    const st = {
       i: off + (m.begin_shape_index || 0), t,
       ref: names.find(n => ROAD_REF_RE.test(n)) || null,
       street: names.find(n => !ROAD_REF_RE.test(n)) || null,
@@ -7538,12 +7581,13 @@
       exit: txt(sign.exit_number)[0] || null,
       rb: m.roundabout_exit_count || null
     };
+    return ukEnrichStep(st, [m.instruction, m.verbal_pre_transition_instruction, sign && txt(sign.exit_toward).join(" ")]);
   }
   function tomtomStep(x, nPts){
     const t = TT_TYPES[x.maneuver];
     if(!t) return null;
     const roads = x.roadNumbers || [];
-    return {
+    const st = {
       i: Math.max(0, Math.min(nPts - 1, x.pointIndex || 0)), t,
       ref: roads.find(n => ROAD_REF_RE.test(n)) || roads[0] || null,
       street: x.street || null,
@@ -7551,6 +7595,7 @@
       exit: x.exitNumber || null,
       rb: x.roundaboutExitNumber || null
     };
+    return ukEnrichStep(st, [x.message, x.combinedMessage, x.signpostText, x.street]);
   }
 
   // instrukcje przybliżone z samej geometrii (po ręcznej edycji trasy / lokalnym silniku): zakręty >= 45° bez nazw ulic
@@ -7734,22 +7779,51 @@
 
   /* ============================================================
      TABLICE UK — klasa drogi → kolor tablicy, plakietki numerów, ostrzeżenia HGV
-     Klasyfikacja po numerze drogi (dane trasy nie mówią, czy A-road jest „primary”):
-       M…, A…(M)          → autostrada (niebieska, biały tekst)
-       A + max. 3 cyfry   → Primary A-road (zielona, żółty numer) — heurystyka
-       A + 4 cyfry, B…, ulica bez numeru → lokalna (biała, czarna ramka i tekst)
+       M…, A…(M), A…M     → autostrada (niebieska #0079C1, biały tekst)
+       A…                 → główna droga A (zielona #006633, żółty numer)
+       B…, ulica bez numeru → lokalna (biała, czarna ramka, czarny tekst)
+     Tło GŁÓWNEJ tablicy zależy od drogi, po której jedziemy teraz; plakietki w treści mają kolor własnej klasy.
   ============================================================ */
-  const UK_SIGN_PRIMARY_MAX_DIGITS = 3;
+  // parser numerów dróg i zjazdów z dowolnego tekstu (angielskiego lub polskiego komunikatu TomTom/Valhalla)
+  const UK_REF_IN_TEXT = /\b(?:M\s?\d{1,4}|A\s?\d{1,4}(?:\s?\(\s?M\s?\)|M\b)?|B\s?\d{1,4})(?!\d)/gi;
+  const UK_JUNCTION_RE = /\b(?:J|Jct\.?|Junction|Junc\.?|Zjazd(?:em|u)?(?:\s+nr)?|Węzeł|Wezel|Wyjazd(?:em)?)\s*\.?\s*(\d{1,3}[A-Z]?)(?![\dA-Za-z])/i;
+  function ukNormRef(r){
+    if(!r) return null;
+    let t = String(r).toUpperCase().replace(/\s+/g, "");
+    t = t.replace(/^(A\d{1,4})M$/, "$1(M)");            // A1M → A1(M)
+    return /^(?:M\d{1,4}|A\d{1,4}(?:\(M\))?|B\d{1,4})$/.test(t) ? t : null;
+  }
+  function ukParseRoadText(text){
+    const refs = [];
+    String(text || "").replace(UK_REF_IN_TEXT, m => { const n = ukNormRef(m); if(n) refs.push(n); return m; });
+    const j = UK_JUNCTION_RE.exec(String(text || ""));
+    return { refs, junction: j ? j[1].toUpperCase() : null };
+  }
   function ukRoadClass(ref){
-    if(!ref) return "local";
-    const r = String(ref).toUpperCase().replace(/\s+/g, "");
-    if(/^M\d+/.test(r) || /\(M\)$/.test(r)) return "motorway";
-    const m = r.match(/^A(\d+)/);
-    if(m) return m[1].length <= UK_SIGN_PRIMARY_MAX_DIGITS ? "primary" : "local";
+    const r = ukNormRef(ref);
+    if(!r) return "local";
+    if(r[0] === "M" || /\(M\)$/.test(r)) return "motorway";
+    if(r[0] === "A") return "primary";
     return "local";
   }
   const escHtml = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
-  const ukBadge = ref => ref ? `<span class="rb rb-${ukRoadClass(ref)}">${escHtml(String(ref).toUpperCase().replace(/\s+/g, ""))}</span>` : "";
+  const ukBadge = ref => {
+    if(!ref) return "";
+    const n = ukNormRef(ref) || String(ref).toUpperCase().replace(/\s+/g, "");
+    return `<span class="rb rb-${ukRoadClass(n)}">${escHtml(n)}</span>`;
+  };
+  // tekst z numerami dróg zamienionymi na plakietki (np. kierunkowskaz „A4600 Birmingham”)
+  function ukRichText(text){
+    const src = String(text || ""); let out = "", last = 0, m;
+    const re = new RegExp(UK_REF_IN_TEXT.source, "gi");
+    while((m = re.exec(src))){
+      const n = ukNormRef(m[0]);
+      if(!n) continue;
+      out += escHtml(src.slice(last, m.index)) + ukBadge(n);
+      last = m.index + m[0].length;
+    }
+    return out + escHtml(src.slice(last));
+  }
 
   // odległość jak na brytyjskiej tablicy: yds do ¼ mili, potem ułamki mili (¼ ½ ¾ 1½ …), od 10 mi całe
   function ukDist(m){
@@ -7773,33 +7847,33 @@
   // tekst manewru po angielsku (jak na tablicy); zwraca { html, sub }
   function ukManoeuvre(step, curRef, curCls){
     const t = step.t, ref = step.ref, ex = step.exit;
-    const onto = ref ? " " + (/^(exit|ramp)/.test(t) ? "to" : "onto") + " " + ukBadge(ref)
-               : (step.street ? " onto " + escHtml(step.street) : "");
-    const sub = step.toward ? `<span class="to">${escHtml(step.toward)}</span>` : "";
+    const side = /left$/.test(t) ? "left" : /right$/.test(t) ? "right" : "";
+    const dest = (prep) => ref ? " " + prep + " " + ukBadge(ref) : (step.street ? " onto " + escHtml(step.street) : "");
+    const sub = step.toward ? `<span class="to">${ukRichText(step.toward)}</span>` : "";
     let html;
     if(t.indexOf("arrive") === 0) html = t === "arrive-left" ? "Destination on the left" : t === "arrive-right" ? "Destination on the right" : "Destination ahead";
     else if(/^(exit|ramp)/.test(t)){
-      const where = ex ? ((curCls === "motorway" || (ref && ukRoadClass(ref) === "motorway")) ? "Junction " + escHtml(ex) : "Exit " + escHtml(ex)) : "Slip road";
-      html = (t.indexOf("ramp") === 0 ? "Take slip road " : "Exit ") + (ex ? "at " + where : (t.endsWith("left") ? "on the left" : t.endsWith("right") ? "on the right" : "")) + onto;
-      html = html.replace(/\s+/g, " ").trim();
+      const motorwayish = curCls === "motorway" || (ref && ukRoadClass(ref) === "motorway");
+      if(ex) html = "Exit at " + (motorwayish ? "J" : "exit ") + escHtml(ex) + dest("to");              // „Exit at J2 to [A4600]”
+      else html = (t.indexOf("ramp") === 0 ? "Take the slip road" : "Exit") + (side ? " on the " + side : "") + dest("onto");   // „Exit on the left onto [A4600]”
     }
-    else if(t === "keep-left" || t === "keep-right") html = "Keep " + t.slice(5) + (ref ? " on " + ukBadge(ref) : onto);
-    else if(t === "merge") html = "Merge" + (onto || (curRef ? " onto " + ukBadge(curRef) : ""));
-    else if(t === "roundabout") html = "At the roundabout take the " + (UK_ORD[step.rb] || (step.rb ? step.rb + "th" : "next")) + " exit" + onto;
+    else if(t === "keep-left" || t === "keep-right") html = "Keep " + t.slice(5) + (ref ? " on " + ukBadge(ref) : dest("onto"));
+    else if(t === "merge") html = "Merge" + (ref ? " onto " + ukBadge(ref) : (curRef ? " onto " + ukBadge(curRef) : dest("onto")));
+    else if(t === "roundabout") html = "At the roundabout take the " + (UK_ORD[step.rb] || (step.rb ? step.rb + "th" : "next")) + " exit" + dest("onto");
     else if(t === "uturn") html = "Make a U-turn";
     else if(t === "ferry") html = "Take the ferry";
-    else if(t === "straight") html = "Continue" + (ref ? " on " + ukBadge(ref) : onto);
+    else if(t === "straight") html = "Continue" + (ref ? " on " + ukBadge(ref) : dest("onto"));
     else {
       const verb = { left:"Turn left", right:"Turn right", "slight-left":"Bear left", "slight-right":"Bear right", "sharp-left":"Turn sharp left", "sharp-right":"Turn sharp right" }[t] || "Continue";
-      html = verb + onto;
+      html = verb + dest("onto");
     }
     return { html, sub };
   }
 
-  // jaką drogą jedziemy teraz: ref z ostatnio minionego kroku
+  // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
-    for(let i = g.ptr - 1; i >= 0; i--){ const x = g.steps[i]; if(x && x.ref) return x.ref; }
-    return null;
+    const prev = g.steps[g.ptr - 1];
+    return prev && prev.ref ? prev.ref : null;
   }
 
   // ostrzeżenia HGV: ograniczenia wysokości/tonażu/szerokości z trasy (tylko te, które dotyczą Twojego pojazdu),
@@ -7840,7 +7914,7 @@
     const card = document.getElementById("guidanceCard");
     const arrive = step.t.indexOf("arrive") === 0;
     const along = step.d - dist;
-    const curRef = ukCurrentRoad(g), curCls = curRef ? ukRoadClass(curRef) : null;
+    const curRef = ukCurrentRoad(g), curCls = ukRoadClass(curRef);
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
@@ -7851,11 +7925,7 @@
       distTxt = "";
       main = { html: (curCls === "motorway" ? "Keep " + side + " on " : "Continue on ") + ukBadge(curRef) + " for " + escHtml(ukDist(dist)), sub:"" };
     } else {
-      const exitish = /^(exit|ramp|keep|merge)/.test(step.t);
-      cls = exitish && curCls === "motorway" ? "motorway"
-          : step.ref ? ukRoadClass(step.ref)
-          : step.street ? "local"
-          : (curCls || "local");
+      cls = curCls || "local";    // tło = droga, po której jedziemy teraz (plakietki w treści mają kolor drogi docelowej)
       distTxt = dist < 25 && !arrive ? "Now" : ukDist(dist);
       main = ukManoeuvre(step, curRef, curCls);
     }
