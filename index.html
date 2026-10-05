@@ -3304,20 +3304,33 @@
   const MW_SRC = "mw-asphalt-src";
   const MW_TEX_ID = "mw-asphalt";
   const MW_SPRITE_SIZE = 128, MW_SPRITE_PR = 2;
+  // Klasy dróg rysowane z teksturą (domyślnie tylko autostrady; dopisz "trunk", "primary"… żeby objąć też je)
+  const MW_ASPHALT_CLASSES = ["motorway"];
+  // Liczba pasów, gdy kafelki nie mają właściwości „lanes”: wg class (reszta klas → 1)
+  const MW_LANES_FALLBACK = { motorway: 3, trunk: 2, primary: 2 };
+  const MW_LANES_FALLBACK_DEFAULT = 1;
+  const MW_MAX_LANES = 6;               // górny limit (tyle warstw podziałów jest przygotowanych)
+  // Szerokość jednego pasa wg class (m)
+  const MW_LANE_WIDTH_BY_CLASS = { motorway: LANE_WIDTH_M, trunk: 3.5, primary: 3.25 };
+  const MW_LANE_WIDTH_DEFAULT = 3.0;
   const MW_ROAD_FILTER = ["all",
-    ["==", ["get", "class"], "motorway"],
+    ["match", ["get", "class"], MW_ASPHALT_CLASSES, true, false],
     ["!=", ["get", "ramp"], 1],
     ["!=", ["get", "brunnel"], "tunnel"]];
   let mwVectorSource = "openmaptiles", mwMarkIds = [], mwLayerIds = [];
-  let mwActive = false, mwAnchor = null, mwLatUsed = MW_LAT_REF, mwRefreshAt = 0;
+  let mwLanesLogged = false, mwActive = false, mwAnchor = null, mwLatUsed = MW_LAT_REF, mwRefreshAt = 0;
   const mwSpriteCache = {};             // "day" | "night" → ImageData (jedno wygenerowanie na sesję)
 
-  // metry → piksele ekranu w zależności od zoomu (dokładnie skaluje się 2× na zoom)
-  function mwMetersToPx(m, lat){
+  // metry → piksele ekranu w zależności od zoomu (skaluje się dokładnie 2× na zoom);
+  // valueExpr może być liczbą albo wyrażeniem właściwości odcinka, np. ["get","tw"]
+  function mwMetersToPx(valueExpr, lat){
     const mpp0 = 78271.517 * Math.cos((lat == null ? MW_LAT_REF : lat) * Math.PI / 180);
     const z0 = Math.floor(MW_ASPHALT_MINZOOM), z1 = 22;
-    return ["interpolate", ["exponential", 2], ["zoom"], z0, m * Math.pow(2, z0) / mpp0, z1, m * Math.pow(2, z1) / mpp0];
+    const k = z => Math.pow(2, z) / mpp0;
+    return ["interpolate", ["exponential", 2], ["zoom"], z0, ["*", valueExpr, k(z0)], z1, ["*", valueExpr, k(z1)]];
   }
+  // wartości (w metrach) zależne od właściwości odcinka: id warstwy → { właściwość paint, wyrażenie w metrach }
+  const mwMetric = [];
 
   // bezszwowa tekstura asfaltu: deterministyczny szum (ten sam wzór przy każdym uruchomieniu)
   function mwMakeAsphaltSprite(theme){
@@ -3372,28 +3385,31 @@
 
     const base = { type:"line", source: MW_SRC, minzoom: MW_ASPHALT_MINZOOM };
     const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
-    const lanes = LANE_DEFAULT_COUNT, W = LANE_WIDTH_M;
-    const asphaltW = lanes * W + 2 * LANE_SHOULDER_M;
     const mark = LANE_COLORS[mwTheme()].marking;
-
+    // Każdy odcinek dostaje przy wycinaniu właściwości: lanes (liczba pasów), lw (szerokość pasa, m),
+    // hw (połowa szerokości jezdni, m), tw (szerokość asfaltu z poboczami, m) — patrz mwRefreshData().
     map.addLayer(Object.assign({ id: MW_TEX_ID, layout,
-      paint: { "line-pattern": "mw-asphalt-" + mwTheme(), "line-width": mwMetersToPx(asphaltW) } }, base), before);
-    mwLayerIds = [MW_TEX_ID]; mwMarkIds = [];
-    // krawędzie jezdni: linie ciągłe
+      paint: { "line-pattern": "mw-asphalt-" + mwTheme() } }, base), before);
+    mwLayerIds = [MW_TEX_ID]; mwMarkIds = []; mwMetric.length = 0;
+    mwMetric.push({ id: MW_TEX_ID, prop: "line-width", value: ["get", "tw"] });
+    // krawędzie jezdni: linie ciągłe po obu stronach
     [-1, 1].forEach(side => {
       const id = "mw-edge-" + (side < 0 ? "l" : "r");
       map.addLayer(Object.assign({ id, layout,
-        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH, "line-offset": mwMetersToPx(side * lanes * W / 2) } }, base), before);
+        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH } }, base), before);
       mwLayerIds.push(id); mwMarkIds.push(id);
+      mwMetric.push({ id, prop: "line-offset", value: ["*", ["get", "hw"], side] });
     });
-    // podziały pasów: linie przerywane (kreska ≈ 2 m, przerwa ≈ 7 m — jak wcześniej)
-    for(let k = 1; k < lanes; k++){
+    // podziały pasów: k-ty podział istnieje tylko, gdy odcinek ma więcej niż k pasów
+    // (kreska ≈ 2 m, przerwa ≈ 7 m)
+    for(let k = 1; k < MW_MAX_LANES; k++){
       const id = "mw-div-" + k;
-      map.addLayer(Object.assign({ id, layout,
-        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH, "line-dasharray": [10, 35],
-                 "line-offset": mwMetersToPx(k * W - lanes * W / 2) } }, base), before);
+      map.addLayer(Object.assign({ id, layout, filter: [">", ["get", "lanes"], k],
+        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH, "line-dasharray": [10, 35] } }, base), before);
       mwLayerIds.push(id); mwMarkIds.push(id);
+      mwMetric.push({ id, prop: "line-offset", value: ["-", ["*", k, ["get", "lw"]], ["get", "hw"]] });
     }
+    mwApplyMetric(MW_LAT_REF);
 
     // sprite z cache po przeładowaniu stylu / utracie obrazu
     map.on("styleimagemissing", e => {
@@ -3406,6 +3422,22 @@
     map.on("sourcedata", e => {
       if(mwActive && e.sourceId === mwVectorSource && e.isSourceLoaded && Date.now() - mwRefreshAt > 2000) motorwayAsphaltTick(true);
     });
+  }
+
+  function mwApplyMetric(lat){
+    mwLatUsed = lat;
+    mwMetric.forEach(m => { if(map.getLayer(m.id)) map.setPaintProperty(m.id, m.prop, mwMetersToPx(m.value, lat)); });
+  }
+
+  // liczba pasów z właściwości „lanes” kafelka (np. 2, "3", "3;4"); brak → fallback wg class
+  function mwLaneInfo(props){
+    const m = props && props.lanes != null ? String(props.lanes).match(/\d+/) : null;
+    const n = m ? parseInt(m[0], 10) : 0;
+    const explicit = n >= 1;
+    const cls = props && props.class;
+    const lanes = Math.min(MW_MAX_LANES, explicit ? n : (MW_LANES_FALLBACK[cls] != null ? MW_LANES_FALLBACK[cls] : MW_LANES_FALLBACK_DEFAULT));
+    const lw = MW_LANE_WIDTH_BY_CLASS[cls] || MW_LANE_WIDTH_DEFAULT;
+    return { lanes, lw, explicit };
   }
 
   function mwSetVisible(on){
@@ -3448,15 +3480,24 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_ROAD_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad: querySourceFeatures", e); return; }
-    const lines = [];
+    const out = [];
+    let withTag = 0, total = 0;
     feats.forEach(f => {
       const g = f.geometry;
       if(!g) return;
-      if(g.type === "LineString") lines.push(g.coordinates);
-      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+      const parts = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+      if(!parts.length) return;
+      const info = mwLaneInfo(f.properties);
+      total++; if(info.explicit) withTag++;
+      const props = { lanes: info.lanes, lw: info.lw, hw: info.lanes * info.lw / 2, tw: info.lanes * info.lw + 2 * LANE_SHOULDER_M };
+      mwClipLinesToRadius(parts, lat, lon, MW_ASPHALT_RADIUS_M).forEach(c =>
+        out.push({ type:"Feature", properties: props, geometry:{ type:"LineString", coordinates: c } }));
     });
-    const clipped = mwClipLinesToRadius(lines, lat, lon, MW_ASPHALT_RADIUS_M);
-    src.setData({ type:"FeatureCollection", features: clipped.map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } })) });
+    if(!mwLanesLogged && total){
+      mwLanesLogged = true;
+      console.info("Asfalt autostrad: " + withTag + "/" + total + " odcinków ma właściwość lanes w kafelkach" + (withTag ? "" : " — używam wartości domyślnych wg class"));
+    }
+    src.setData({ type:"FeatureCollection", features: out });
   }
 
   function motorwayAsphaltTick(force){
@@ -3474,13 +3515,7 @@
     const { lat, lon } = lastPos;
     if(force || !mwAnchor || haversine(lat, lon, mwAnchor.lat, mwAnchor.lon) >= MW_ASPHALT_REANCHOR_M){
       mwAnchor = { lat, lon };
-      if(Math.abs(lat - mwLatUsed) >= 0.5){            // szerokość geogr. mocno się zmieniła → popraw przelicznik m→px
-        mwLatUsed = lat;
-        const lanes = LANE_DEFAULT_COUNT, W = LANE_WIDTH_M;
-        map.setPaintProperty(MW_TEX_ID, "line-width", mwMetersToPx(lanes * W + 2 * LANE_SHOULDER_M, lat));
-        [-1, 1].forEach(side => map.setPaintProperty("mw-edge-" + (side < 0 ? "l" : "r"), "line-offset", mwMetersToPx(side * lanes * W / 2, lat)));
-        for(let k = 1; k < lanes; k++) map.setPaintProperty("mw-div-" + k, "line-offset", mwMetersToPx(k * W - lanes * W / 2, lat));
-      }
+      if(Math.abs(lat - mwLatUsed) >= 0.5) mwApplyMetric(lat);   // szerokość geogr. mocno się zmieniła → popraw przelicznik m→px
       mwRefreshData(lat, lon);
     }
   }
