@@ -671,6 +671,15 @@
   }
   #navRouteInfo.show{ display:flex; }
 
+  /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
+  @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
+  @keyframes gLegStep{ from{ transform:translateY(-1.8px); } to{ transform:translateY(1.8px); } }
+  .gTail{ transform-origin:26px 34px; animation:gTailWag .7s ease-in-out infinite alternate; animation-play-state:paused; }
+  .gLegA{ animation:gLegStep .35s ease-in-out infinite alternate; animation-play-state:paused; }
+  .gLegB{ animation:gLegStep .35s ease-in-out infinite alternate-reverse; animation-play-state:paused; }
+  .avMoving .gTail, .avMoving .gLegA, .avMoving .gLegB{ animation-play-state:running; }
+  @media (prefers-reduced-motion: reduce){ .gTail, .gLegA, .gLegB{ animation:none; } }
+
   /* ---------- Okno jazdy: tylko pozostały czas, pozostałe mile i godzina przyjazdu ---------- */
   #setTabs{ display:flex; gap:6px; }
   #setTabs button{ flex:1; padding:10px 4px; border-radius:10px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
@@ -2527,8 +2536,8 @@
   const NIGHT_ROADS = {
     motorway: { fill: "#2f7fe0", casing: "#10346a" },  // niebieski jak tablice autostradowe w UK (jaśniejszy odcień, żeby odcinał się od ciemnego tła)
     major:    {
-      fillFar: "#3f9467", casingFar: "#17402b",        // z daleka: stonowana zieleń jak tablice dróg A
-      fillNear: "#35b26a", casingNear: "#14502d"        // po przybliżeniu: wyraźna zieleń tablic dróg A, odmienna od tła i autostrad
+      fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
+      fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
     },
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
@@ -3149,6 +3158,7 @@
         }
       });
 
+      try{ setupMotorwayFlat(); }catch(e){ console.warn("Nie udało się dodać szarej warstwy autostrad:", e); }
       // zabezpieczenie: numery zjazdów zawsze nad wszystkim, co rysujemy na drogach
       try{
         JUNCTION_LAYER_IDS.forEach(id => { if(map.getLayer(id)) map.moveLayer(id); });
@@ -3193,6 +3203,34 @@
         console.warn("Nie udało się uruchomić ładowania znaków wysokości/tonażu:", e);
       }
     });
+  }
+
+  // Płaska szara nakładka na autostrady (class=motorway z kafelków mapy) — jeden prosty styl, bez tekstur i bez zapytań
+  const MOTORWAY_FLAT = { day: "#6f7378", night: "#3f4a4d", widthM: 12.2, minZoom: 11, latRef: 53 };
+  function setupMotorwayFlat(){
+    if(map.getLayer("motorway-flat")) return;
+    const styleLayers = map.getStyle().layers || [];
+    const tl = styleLayers.find(l => l["source-layer"] === "transportation");
+    if(!tl) return;
+    const idx = id => styleLayers.findIndex(l => l.id === id);
+    const own = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line", "roads-maxwidth-line",
+      "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot", "cameras-glow", "avg-speed-cameras-glow",
+      "motorway-junction-circle", "motorway-junction-label", "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
+    const firstSymbol = styleLayers.find(l => l.type === "symbol");
+    const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
+    const mpp0 = 78271.517 * Math.cos(MOTORWAY_FLAT.latRef * Math.PI / 180);
+    const px = z => MOTORWAY_FLAT.widthM * Math.pow(2, z) / mpp0;
+    map.addLayer({
+      id: "motorway-flat", type: "line", source: tl.source, "source-layer": "transportation", minzoom: MOTORWAY_FLAT.minZoom,
+      filter: ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": document.body.classList.contains("night") ? MOTORWAY_FLAT.night : MOTORWAY_FLAT.day,
+               "line-width": ["interpolate", ["exponential", 2], ["zoom"], MOTORWAY_FLAT.minZoom, px(MOTORWAY_FLAT.minZoom), 22, px(22)] }
+    }, anchors[0]);
+  }
+  function applyMotorwayFlatColor(){
+    if(map && map.getLayer("motorway-flat"))
+      map.setPaintProperty("motorway-flat", "line-color", document.body.classList.contains("night") ? MOTORWAY_FLAT.night : MOTORWAY_FLAT.day);
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -3304,10 +3342,12 @@
       <path d="M20.5 16 Q26 12.5 31.5 16 L30.5 22 L21.5 22 Z" fill="#0c0f12" opacity=".75"/>
       <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>` },
     gator: { name:"Aligator", svg: c => `<ellipse cx="26" cy="26" rx="20" ry="23" fill="${c}" opacity=".22"/>
-      <path d="M21.5 34 L26 50 L30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/>
+      <g class="gTail"><path d="M21.5 34 Q24 43 26 51 Q28 43 30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/></g>
       <g fill="#5a7a2e" stroke="#0c0f12" stroke-width="1.1">
-        <ellipse cx="15.5" cy="21" rx="4.2" ry="2.3" transform="rotate(-30 15.5 21)"/><ellipse cx="36.5" cy="21" rx="4.2" ry="2.3" transform="rotate(30 36.5 21)"/>
-        <ellipse cx="16" cy="35" rx="4.2" ry="2.3" transform="rotate(30 16 35)"/><ellipse cx="36" cy="35" rx="4.2" ry="2.3" transform="rotate(-30 36 35)"/>
+        <g class="gLegA"><ellipse cx="15.5" cy="21" rx="4.2" ry="2.3" transform="rotate(-30 15.5 21)"/></g>
+        <g class="gLegB"><ellipse cx="36.5" cy="21" rx="4.2" ry="2.3" transform="rotate(30 36.5 21)"/></g>
+        <g class="gLegB"><ellipse cx="16" cy="35" rx="4.2" ry="2.3" transform="rotate(30 16 35)"/></g>
+        <g class="gLegA"><ellipse cx="36" cy="35" rx="4.2" ry="2.3" transform="rotate(-30 36 35)"/></g>
       </g>
       <ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136" stroke="#0c0f12" stroke-width="1.2"/>
       <path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>
@@ -3321,6 +3361,35 @@
     if(key === "arrow" || !AVATARS[key] || !AVATARS[key].svg) return null;
     return AVATARS[key].svg(avatarAccent());
   }
+  // Rozmiar avatara: w 2D bez zmian; w 3D rośnie wraz z przybliżeniem (jak prawdziwy pojazd ~20 m), w granicach 64–150 px
+  const AVATAR_3D_MIN_PX = 64, AVATAR_3D_MAX_PX = 150, AVATAR_3D_LENGTH_M = 20;
+  function avatarBasePx(){
+    const night = document.body.classList.contains("night");
+    return (vehicleAvatar !== "arrow" && AVATARS[vehicleAvatar] && AVATARS[vehicleAvatar].svg) ? 46 : (night ? 52 : 26);
+  }
+  function avatarPx(){
+    const base = avatarBasePx();
+    if(!is3D || !map) return base;
+    const lat = lastPos ? lastPos.lat : 53;
+    const px = AVATAR_3D_LENGTH_M * Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
+    return Math.round(Math.max(AVATAR_3D_MIN_PX, Math.min(AVATAR_3D_MAX_PX, px)));
+  }
+  function applyAvatarSize(){
+    if(!userMarkerEl) return;
+    const svg = userMarkerEl.querySelector("svg");
+    if(!svg) return;
+    const px = avatarPx();
+    if(svg._px === px) return;
+    svg._px = px;
+    svg.setAttribute("width", px); svg.setAttribute("height", px);
+    userMarkerEl.style.width = userMarkerEl.style.height = px + "px";
+  }
+  let avatarSizeQueued = false;
+  function queueAvatarSize(){
+    if(avatarSizeQueued) return;
+    avatarSizeQueued = true;
+    requestAnimationFrame(() => { avatarSizeQueued = false; applyAvatarSize(); });
+  }
   function applyUserMarkerStyle(){
     if(!userMarkerEl) return;
     const night = document.body.classList.contains("night");
@@ -3331,14 +3400,14 @@
       svg.setAttribute("viewBox", "0 0 52 52");
       svg.setAttribute("width", 46); svg.setAttribute("height", 46);
       svg.innerHTML = av;
-      userMarkerEl.style.width = userMarkerEl.style.height = "46px";
+      svg._px = null; applyAvatarSize();
       return;
     }
     svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
-    userMarkerEl.style.width = userMarkerEl.style.height = (night ? 52 : 26) + "px";
+    svg._px = null; applyAvatarSize();
   }
 
   function hslToHex(h, sat, l){
@@ -3411,6 +3480,8 @@
       .setLngLat([lon, lat])
       .addTo(map);
     applyUserMarkerStyle();
+    map.on("zoom", queueAvatarSize);
+    map.on("pitch", queueAvatarSize);
   }
 
   /* ---------- płynny ruch avatara ----------
@@ -3435,6 +3506,7 @@
     if(heading === null || heading === undefined || isNaN(heading)) heading = avSm.init ? avSm.fixHdg : 0;
     avSm.fixLat = lat; avSm.fixLon = lon; avSm.fixHdg = heading; avSm.fixT = now;
     avSm.v = (currentSpeedKmh || 0) / 3.6;
+    userMarkerEl.classList.toggle("avMoving", currentSpeedKmh >= 3);   // animacja aligatora tylko w ruchu
     if(!avSm.init){ avSm.init = true; avSm.lat = lat; avSm.lon = lon; avSm.hdg = heading; avSm.lastT = now; }
     if(!avSm.running){ avSm.running = true; requestAnimationFrame(avatarFrame); }
   }
@@ -9398,7 +9470,7 @@
   function setNightMode(on){
     if(document.body.classList.contains("night") !== on){
       document.body.classList.toggle("night", on);
-      try{ applyShieldMode(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
+      try{ applyShieldMode(); applyMotorwayFlatColor(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
     }
     updateThemeBtn();
   }
