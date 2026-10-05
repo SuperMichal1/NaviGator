@@ -1702,6 +1702,7 @@
   const TOLL_KEY = "nawigator_allow_tolls";
   let allowTolls = false;
   try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
+  const LANES_BY_COORDS = new WeakMap();  // tablica współrzędnych trasy TomTom → sekcje pasów [{a, b, n, seps}] (Valhalla: brak wpisu)
   const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
   /* ---------- własna lista płatnych przejazdów w UK (bez żadnych zapytań do serwera) ----------
      Zasięg każdego obiektu to „korytarz” wokół linii (pts, promień r w metrach).
@@ -3318,7 +3319,7 @@
     ["!=", ["get", "ramp"], 1],
     ["!=", ["get", "brunnel"], "tunnel"]];
   let mwVectorSource = "openmaptiles", mwMarkIds = [], mwLayerIds = [];
-  let mwLanesLogged = false, mwActive = false, mwAnchor = null, mwLatUsed = MW_LAT_REF, mwRefreshAt = 0;
+  let mwRouteLogged = false, mwLanesLogged = false, mwActive = false, mwAnchor = null, mwLatUsed = MW_LAT_REF, mwRefreshAt = 0;
   const mwSpriteCache = {};             // "day" | "night" → ImageData (jedno wygenerowanie na sesję)
 
   // metry → piksele ekranu w zależności od zoomu (skaluje się dokładnie 2× na zoom);
@@ -3392,22 +3393,26 @@
       paint: { "line-pattern": "mw-asphalt-" + mwTheme() } }, base), before);
     mwLayerIds = [MW_TEX_ID]; mwMarkIds = []; mwMetric.length = 0;
     mwMetric.push({ id: MW_TEX_ID, prop: "line-width", value: ["get", "tw"] });
-    // krawędzie jezdni: linie ciągłe po obu stronach
+    // krawędzie jezdni: linie ciągłe po obu stronach (właściwości el / er = "none" gdy TomTom podaje brak oznakowania)
     [-1, 1].forEach(side => {
       const id = "mw-edge-" + (side < 0 ? "l" : "r");
-      map.addLayer(Object.assign({ id, layout,
+      map.addLayer(Object.assign({ id, layout, filter: ["!=", ["get", side < 0 ? "el" : "er"], "none"],
         paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH } }, base), before);
       mwLayerIds.push(id); mwMarkIds.push(id);
       mwMetric.push({ id, prop: "line-offset", value: ["*", ["get", "hw"], side] });
     });
-    // podziały pasów: k-ty podział istnieje tylko, gdy odcinek ma więcej niż k pasów
-    // (kreska ≈ 2 m, przerwa ≈ 7 m)
+    // podziały pasów: k-ty podział istnieje tylko, gdy odcinek ma więcej niż k pasów; styl (s1…s5) = "dash" | "solid" | "none"
+    // przerywane: kreska ≈ 2 m, przerwa ≈ 7 m
     for(let k = 1; k < MW_MAX_LANES; k++){
-      const id = "mw-div-" + k;
-      map.addLayer(Object.assign({ id, layout, filter: [">", ["get", "lanes"], k],
-        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH, "line-dasharray": [10, 35] } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-      mwMetric.push({ id, prop: "line-offset", value: ["-", ["*", k, ["get", "lw"]], ["get", "hw"]] });
+      [["dash", [10, 35]], ["solid", null]].forEach(([style, dash]) => {
+        const id = "mw-div-" + style + "-" + k;
+        const paint = { "line-color": mark, "line-width": LANE_MARKING_WIDTH };
+        if(dash) paint["line-dasharray"] = dash;
+        map.addLayer(Object.assign({ id, layout,
+          filter: ["all", [">", ["get", "lanes"], k], ["==", ["get", "s" + k], style]], paint }, base), before);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+        mwMetric.push({ id, prop: "line-offset", value: ["-", ["*", k, ["get", "lw"]], ["get", "hw"]] });
+      });
     }
     mwApplyMetric(MW_LAT_REF);
 
@@ -3422,6 +3427,89 @@
     map.on("sourcedata", e => {
       if(mwActive && e.sourceId === mwVectorSource && e.isSourceLoaded && Date.now() - mwRefreshAt > 2000) motorwayAsphaltTick(true);
     });
+  }
+
+
+  /* ---------- pasy z TomTom (sectionType=lanes) → nakładka asfaltu ----------
+     Dotyczy tylko tras TomTom (LANES_BY_COORDS ma wpis tylko dla nich). Trasa Valhalla zostaje na kafelkach + fallbacku.
+     Geometria nadal pochodzi z kafelków; wierzchołki odcinka leżące ≤ MW_ROUTE_MATCH_M od fragmentu trasy
+     z sekcji LANES dostają liczbę pasów i rodzaj linii z TomTom, a odcinek jest dzielony tam, gdzie zmienia się sekcja. */
+  const MW_ROUTE_MATCH_M = 9;           // tolerancja dopasowania kafelek ↔ geometria TomTom (jezdnie dwujezdniowe dzieli >15 m)
+  let mwRouteRef = null;
+
+  function mwSepStyle(type){              // typ linii TomTom → "dash" | "solid" | "none" | null (nieznany)
+    if(!type) return null;
+    const t = String(type).toUpperCase();
+    if(/DASH/.test(t)) return "dash";
+    if(/SOLID/.test(t)) return "solid";
+    if(/NO_|NONE|UNKNOWN/.test(t)) return "none";
+    return null;
+  }
+  function mwBuildProps(n, lw, seps){      // seps: tablica typów linii od lewej do prawej lub null (kafelki/fallback)
+    const lanes = Math.min(MW_MAX_LANES, Math.max(1, n));
+    const p = { lanes, lw, hw: lanes * lw / 2, tw: lanes * lw + 2 * LANE_SHOULDER_M };
+    p.el = seps && seps.length ? (mwSepStyle(seps[0]) || "solid") : "solid";
+    p.er = seps && seps.length ? (mwSepStyle(seps[seps.length - 1]) || "solid") : "solid";
+    for(let k = 1; k < MW_MAX_LANES; k++) p["s" + k] = (seps && seps.length > k && seps.length === n + 1 ? mwSepStyle(seps[k]) : null) || "dash";
+    return p;
+  }
+
+  // sekcje LANES aktywnej trasy TomTom leżące w pobliżu pojazdu, z geometrią w metrach względem (lat,lon)
+  function mwNearLaneSections(lat, lon){
+    const r = typeof activeRoute !== "undefined" ? activeRoute : null;
+    const secs = r && r.coords ? LANES_BY_COORDS.get(r.coords) : null;
+    if(!secs || !secs.length) return null;
+    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), lim2 = Math.pow(MW_ASPHALT_RADIUS_M + 400, 2);
+    const near = [];
+    secs.forEach(sec => {
+      let first = -1, last = -1;
+      for(let i = sec.a; i <= sec.b && i < r.coords.length; i++){
+        const x = (r.coords[i][0] - lon) * mLon, y = (r.coords[i][1] - lat) * mLat;
+        if(x * x + y * y <= lim2){ if(first < 0) first = i; last = i; }
+      }
+      if(first < 0) return;
+      first = Math.max(sec.a, first - 1); last = Math.min(sec.b, r.coords.length - 1, last + 1);
+      const pts = [];
+      for(let i = first; i <= last; i++) pts.push({ x: (r.coords[i][0] - lon) * mLon, y: (r.coords[i][1] - lat) * mLat, idx: i });
+      if(pts.length > 1) near.push({ sec, pts });
+    });
+    return near.length ? near : null;
+  }
+
+  // dzieli linię z kafelka na odcinki wg sekcji LANES; zwraca [{ coords, lanes?: {n, seps} }]
+  function mwSplitByRouteLanes(coords, near, lat, lon){
+    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), M2 = MW_ROUTE_MATCH_M * MW_ROUTE_MATCH_M;
+    const tag = coords.map(c => {
+      const x = (c[0] - lon) * mLon, y = (c[1] - lat) * mLat;
+      let best = null, bd = M2;
+      for(const s of near){
+        const P = s.pts;
+        for(let i = 0; i < P.length - 1; i++){
+          const ax = P[i].x, ay = P[i].y, dx = P[i + 1].x - ax, dy = P[i + 1].y - ay, L = dx * dx + dy * dy;
+          let t = L > 0 ? ((x - ax) * dx + (y - ay) * dy) / L : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const ex = x - (ax + dx * t), ey = y - (ay + dy * t), d2 = ex * ex + ey * ey;
+          if(d2 < bd){ bd = d2; best = { s: s.sec, pos: P[i].idx + t }; }
+        }
+      }
+      return best;
+    });
+    const out = [];
+    let start = 0;
+    for(let i = 1; i <= coords.length; i++){
+      const sameGroup = i < coords.length && ((tag[i] && tag[i].s) || null) === ((tag[start] && tag[start].s) || null);
+      if(sameGroup) continue;
+      const seg = coords.slice(start, Math.min(coords.length, i + 1));   // wspólny wierzchołek z następną grupą → bez szczelin
+      if(seg.length > 1){
+        const t0 = tag[start], t1 = tag[i - 1];
+        if(t0){
+          const fwd = !t1 || t1.pos >= t0.pos;          // linia kafelka biegnie zgodnie z kierunkiem trasy?
+          const seps = fwd ? t0.s.seps : t0.s.seps.slice().reverse();   // lewa/prawa strona względem kierunku LINII
+          out.push({ coords: seg, lanes: { n: t0.s.n, seps } });
+        } else out.push({ coords: seg, lanes: null });
+      }
+      start = i;
+    }
+    return out;
   }
 
   function mwApplyMetric(lat){
@@ -3481,7 +3569,8 @@
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_ROAD_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad: querySourceFeatures", e); return; }
     const out = [];
-    let withTag = 0, total = 0;
+    let withTag = 0, total = 0, withRoute = 0;
+    const near = mwNearLaneSections(lat, lon);        // null → trasa Valhalla / brak sekcji LANES → tylko kafelki + fallback
     feats.forEach(f => {
       const g = f.geometry;
       if(!g) return;
@@ -3489,10 +3578,17 @@
       if(!parts.length) return;
       const info = mwLaneInfo(f.properties);
       total++; if(info.explicit) withTag++;
-      const props = { lanes: info.lanes, lw: info.lw, hw: info.lanes * info.lw / 2, tw: info.lanes * info.lw + 2 * LANE_SHOULDER_M };
-      mwClipLinesToRadius(parts, lat, lon, MW_ASPHALT_RADIUS_M).forEach(c =>
-        out.push({ type:"Feature", properties: props, geometry:{ type:"LineString", coordinates: c } }));
+      const baseProps = mwBuildProps(info.lanes, info.lw, null);
+      mwClipLinesToRadius(parts, lat, lon, MW_ASPHALT_RADIUS_M).forEach(c => {
+        if(!near){ out.push({ type:"Feature", properties: baseProps, geometry:{ type:"LineString", coordinates: c } }); return; }
+        mwSplitByRouteLanes(c, near, lat, lon).forEach(piece => {
+          let props = baseProps;
+          if(piece.lanes){ withRoute++; props = mwBuildProps(piece.lanes.n, info.lw, piece.lanes.seps); }
+          out.push({ type:"Feature", properties: props, geometry:{ type:"LineString", coordinates: piece.coords } });
+        });
+      });
     });
+    if(near && !mwRouteLogged){ mwRouteLogged = true; console.info("Asfalt autostrad: " + withRoute + " odcinków z liczbą pasów z TomTom"); }
     if(!mwLanesLogged && total){
       mwLanesLogged = true;
       console.info("Asfalt autostrad: " + withTag + "/" + total + " odcinków ma właściwość lanes w kafelkach" + (withTag ? "" : " — używam wartości domyślnych wg class"));
@@ -3513,6 +3609,8 @@
       mwSetVisible(true);
     }
     const { lat, lon } = lastPos;
+    const rc = typeof activeRoute !== "undefined" && activeRoute ? activeRoute.coords : null;
+    if(rc !== mwRouteRef){ mwRouteRef = rc; mwRouteLogged = false; force = true; }   // nowa trasa → przelicz pasy
     if(force || !mwAnchor || haversine(lat, lon, mwAnchor.lat, mwAnchor.lon) >= MW_ASPHALT_REANCHOR_M){
       mwAnchor = { lat, lon };
       if(Math.abs(lat - mwLatUsed) >= 0.5) mwApplyMetric(lat);   // szerokość geogr. mocno się zmieniła → popraw przelicznik m→px
@@ -6858,7 +6956,7 @@
       language: "pl-PL", report: "effectiveSettings"
     });
     if(!allowTolls) params.append("avoid", "tollRoads");
-    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&instructionsType=text`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&sectionType=lanes&instructionsType=text&instructionAnnouncementPoints=all`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -6872,8 +6970,16 @@
       const speedSegments = [];
       const incidents = [];
       const tollSegs = [];
+      const laneSegs = [];
       (route.sections || []).forEach(sec => {
-        if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
+        if(sec.sectionType === "LANES"){
+          // pasy są podane od lewej do prawej w kierunku jazdy; laneSeparators ma n+1 elementów (krawędź, podziały, krawędź)
+          if(Array.isArray(sec.lanes) && sec.lanes.length && sec.endPointIndex > sec.startPointIndex){
+            laneSegs.push({ a: sec.startPointIndex, b: sec.endPointIndex, n: sec.lanes.length,
+              seps: Array.isArray(sec.laneSeparators) ? sec.laneSeparators : [] });
+          }
+        }
+        else if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
         else if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
           for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
             speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
@@ -6887,6 +6993,8 @@
       const steps = [];
       ((route.guidance && route.guidance.instructions) || []).forEach(x => { const st = tomtomStep(x, coords.length); if(st) steps.push(st); });
       TOLL_BY_COORDS.set(coords, tollSegs);
+      LANES_BY_COORDS.set(coords, laneSegs);
+      console.info("TomTom: " + laneSegs.length + " sekcji LANES na trasie" + (laneSegs.length ? "" : " — tekstura użyje liczby pasów z kafelków/fallbacku"));
       return {
         coords, steps,
         distanceM: route.summary.lengthInMeters,
