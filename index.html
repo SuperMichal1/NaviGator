@@ -2534,7 +2534,8 @@
   // żeby sieć dróg była zawsze widoczna): z daleka stonowana zieleń wtopiona w tło, po przybliżeniu
   // wyraźna, nasycona zieleń — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fill: "#2f7fe0", casing: "#10346a" },  // niebieski jak tablice autostradowe w UK (jaśniejszy odcień, żeby odcinał się od ciemnego tła)
+    motorway: { fillFar: "#3b6aa8", casingFar: "#142f55",    // z daleka: stonowany niebieski
+                fillNear: "#2A75D3", casingNear: "#10346a" },  // po przybliżeniu: #2A75D3
     major:    {
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
@@ -2685,7 +2686,7 @@
   // to zwykły stały kolor.
   function nightRoadColorValue(cls, isCasing){
     const spec = NIGHT_ROADS[cls];
-    if(cls === "major"){
+    if(cls === "major" || cls === "motorway"){
       const [zFar, zNear] = NIGHT_ROADS.majorColorZoom;
       const far = isCasing ? spec.casingFar : spec.fillFar;
       const near = isCasing ? spec.casingNear : spec.fillNear;
@@ -3158,7 +3159,7 @@
         }
       });
 
-      try{ setupMotorwayFlat(); }catch(e){ console.warn("Nie udało się dodać szarej warstwy autostrad:", e); }
+      try{ setupMotorwayAsphalt(); }catch(e){ console.warn("Nie udało się dodać asfaltu autostrad:", e); }
       // zabezpieczenie: numery zjazdów zawsze nad wszystkim, co rysujemy na drogach
       try{
         JUNCTION_LAYER_IDS.forEach(id => { if(map.getLayer(id)) map.moveLayer(id); });
@@ -3205,32 +3206,162 @@
     });
   }
 
-  // Płaska szara nakładka na autostrady (class=motorway z kafelków mapy) — jeden prosty styl, bez tekstur i bez zapytań
-  const MOTORWAY_FLAT = { day: "#6f7378", night: "#3f4a4d", widthM: 12.2, minZoom: 11, latRef: 53 };
-  function setupMotorwayFlat(){
-    if(map.getLayer("motorway-flat")) return;
+  /* ============================================================
+     ASFALT AUTOSTRAD W 3D (tylko class=motorway z kafelków mapy; zero zapytań sieciowych)
+     • tylko w widoku pochylonym (3D) i przy dużym zoomie — poza tym zwykła droga ze stylu mapy
+     • tylko okno wokół pojazdu: MW.ahead m do przodu, MW.behind m do tyłu (wg kierunku jazdy), ±MW.side m na boki
+     • tekstura = powtarzalny wzór generowany raz w pamięci (dzień/noc), bez pobierania z serwera
+     ============================================================ */
+  const MW = { minZoom: 15.5, minPitch: 40, ahead: 3000, behind: 100, side: 300, reanchorM: 250, reanchorDeg: 20,
+               lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
+               asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
+  const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
+  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
+  let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
+  const mwSprites = {};
+  const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
+  // metry → piksele (skaluje się 2× na zoom)
+  function mwPx(m){
+    const mpp0 = 78271.517 * Math.cos(MW.latRef * Math.PI / 180), z0 = Math.floor(MW.minZoom);
+    return ["interpolate", ["exponential", 2], ["zoom"], z0, m * Math.pow(2, z0) / mpp0, 22, m * Math.pow(2, 22) / mpp0];
+  }
+  function mwMakeSprite(theme){
+    const S = 128, cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = MW.asphalt[theme]; ctx.fillRect(0, 0, S, S);
+    let seed = theme === "night" ? 1337 : 7331;
+    const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const k = theme === "night" ? 0.7 : 1;
+    for(let i = 0; i < 30; i++){
+      const x = rnd() * S, y = rnd() * S, r = 6 + rnd() * 16, light = rnd() < 0.5;
+      ctx.fillStyle = (light ? "rgba(255,255,255," : "rgba(0,0,0,") + ((0.03 + rnd() * 0.05) * k).toFixed(3) + ")";
+      for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){ ctx.beginPath(); ctx.arc(x + dx * S, y + dy * S, r, 0, Math.PI * 2); ctx.fill(); }
+    }
+    for(let i = 0; i < 1500; i++){
+      ctx.fillStyle = (rnd() < 0.5 ? "rgba(255,255,255," : "rgba(0,0,0,") + ((0.08 + rnd() * 0.16) * k).toFixed(3) + ")";
+      ctx.fillRect(Math.floor(rnd() * S), Math.floor(rnd() * S), 1, 1);
+    }
+    return ctx.getImageData(0, 0, S, S);
+  }
+  function mwEnsureSprite(theme){
+    const id = "mw-asphalt-" + theme;
+    if(!map.hasImage(id)) map.addImage(id, mwSprites[theme] || (mwSprites[theme] = mwMakeSprite(theme)), { pixelRatio: 2 });
+    return id;
+  }
+
+  function setupMotorwayAsphalt(){
+    if(map.getSource(MW_SRC)) return;
     const styleLayers = map.getStyle().layers || [];
     const tl = styleLayers.find(l => l["source-layer"] === "transportation");
-    if(!tl) return;
+    if(tl && tl.source) mwVectorSource = tl.source;
+    map.addSource(MW_SRC, { type:"geojson", data: emptyFC(), buffer: 128, tolerance: 0.3 });
+    // pod pierwszą warstwą tekstową i pod naszymi warstwami (tablice, trasa, zjazdy…)
     const idx = id => styleLayers.findIndex(l => l.id === id);
     const own = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line", "roads-maxwidth-line",
       "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot", "cameras-glow", "avg-speed-cameras-glow",
       "motorway-junction-circle", "motorway-junction-label", "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
     const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
-    const mpp0 = 78271.517 * Math.cos(MOTORWAY_FLAT.latRef * Math.PI / 180);
-    const px = z => MOTORWAY_FLAT.widthM * Math.pow(2, z) / mpp0;
-    map.addLayer({
-      id: "motorway-flat", type: "line", source: tl.source, "source-layer": "transportation", minzoom: MOTORWAY_FLAT.minZoom,
-      filter: ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]],
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": document.body.classList.contains("night") ? MOTORWAY_FLAT.night : MOTORWAY_FLAT.day,
-               "line-width": ["interpolate", ["exponential", 2], ["zoom"], MOTORWAY_FLAT.minZoom, px(MOTORWAY_FLAT.minZoom), 22, px(22)] }
-    }, anchors[0]);
+    const before = anchors[0];
+    const th = mwTheme(), W = MW.laneW, N = MW.lanes;
+    const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom };
+    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+    const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
+    map.addLayer(Object.assign({ id: MW_TEX, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), before);
+    mwLayerIds = [MW_TEX]; mwMarkIds = [];
+    [-1, 1].forEach(side => {                       // krawędzie jezdni
+      const id = "mw-edge-" + (side < 0 ? "l" : "r");
+      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), before);
+      mwLayerIds.push(id); mwMarkIds.push(id);
+    });
+    for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+      const id = "mw-div-" + k;
+      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), before);
+      mwLayerIds.push(id); mwMarkIds.push(id);
+    }
+    map.on("styleimagemissing", e => {
+      const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
+      if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSprites[m[1]] || (mwSprites[m[1]] = mwMakeSprite(m[1])), { pixelRatio: 2 });
+    });
+    ["moveend", "pitchend", "zoomend"].forEach(ev => map.on(ev, () => motorwayAsphaltTick(false)));
+    map.on("sourcedata", e => {      // doładowane kafelki przed pojazdem (max co 2 s)
+      if(mwActive && e.sourceId === mwVectorSource && e.isSourceLoaded && Date.now() - mwRefreshAt > 2000) motorwayAsphaltTick(true);
+    });
   }
-  function applyMotorwayFlatColor(){
-    if(map && map.getLayer("motorway-flat"))
-      map.setPaintProperty("motorway-flat", "line-color", document.body.classList.contains("night") ? MOTORWAY_FLAT.night : MOTORWAY_FLAT.day);
+
+  function mwSetVisible(on){ mwLayerIds.forEach(id => { if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); }); }
+
+  // Wycina linie do prostokąta zorientowanego wg kierunku jazdy: [-behind, +ahead] wzdłuż, ±side w bok (Liang–Barsky)
+  function mwClipToWindow(lines, lat, lon, hdgDeg){
+    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180);
+    const h = hdgDeg * Math.PI / 180, sn = Math.sin(h), cs = Math.cos(h);
+    const toLocal = p => { const x = (p[0] - lon) * mLon, y = (p[1] - lat) * mLat; return [x * sn + y * cs, x * cs - y * sn]; };   // [wzdłuż, w bok]
+    const toLL = a => [lon + (a[0] * sn + a[1] * cs) / mLon, lat + (a[0] * cs - a[1] * sn) / mLat];
+    const x0 = -MW.behind, x1 = MW.ahead, y0 = -MW.side, y1 = MW.side, out = [];
+    lines.forEach(line => {
+      const pts = line.map(toLocal);
+      let run = null;
+      for(let i = 0; i < pts.length - 1; i++){
+        const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1];
+        let t0 = 0, t1 = 1, ok = true;
+        const edge = (pp, qq) => { if(pp === 0){ if(qq < 0) ok = false; return; } const r = qq / pp; if(pp < 0){ if(r > t1) ok = false; else if(r > t0) t0 = r; } else { if(r < t0) ok = false; else if(r < t1) t1 = r; } };
+        edge(-dx, a[0] - x0); edge(dx, x1 - a[0]); edge(-dy, a[1] - y0); edge(dy, y1 - a[1]);
+        if(!ok || t0 > t1){ if(run){ if(run.length > 1) out.push(run.map(toLL)); run = null; } continue; }
+        const p0 = [a[0] + dx * t0, a[1] + dy * t0], p1 = [a[0] + dx * t1, a[1] + dy * t1];
+        if(!run) run = [p0];
+        else if(t0 > 0){ if(run.length > 1) out.push(run.map(toLL)); run = [p0]; }
+        run.push(p1);
+        if(t1 < 1){ out.push(run.map(toLL)); run = null; }
+      }
+      if(run && run.length > 1) out.push(run.map(toLL));
+    });
+    return out;
+  }
+
+  function mwRefresh(lat, lon, hdg){
+    mwRefreshAt = Date.now();
+    const src = map.getSource(MW_SRC); if(!src) return;
+    let feats = [];
+    try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
+    catch(e){ console.warn("Asfalt autostrad:", e); return; }
+    const lines = [];
+    feats.forEach(f => {
+      const g = f.geometry; if(!g) return;
+      if(g.type === "LineString") lines.push(g.coordinates);
+      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+    });
+    const out = mwClipToWindow(lines, lat, lon, hdg).map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } }));
+    src.setData({ type:"FeatureCollection", features: out });
+  }
+
+  function motorwayAsphaltTick(force){
+    if(!map || !map.getSource(MW_SRC)) return;
+    const on = map.getZoom() >= MW.minZoom && map.getPitch() >= MW.minPitch;
+    if(!on){
+      if(mwActive){ mwActive = false; mwAnchor = null; mwSetVisible(false); map.getSource(MW_SRC).setData(emptyFC()); }
+      return;
+    }
+    if(!mwActive){
+      mwActive = true; force = true;
+      map.setPaintProperty(MW_TEX, "line-pattern", mwEnsureSprite(mwTheme()));
+      mwSetVisible(true);
+    }
+    // pozycja i kierunek pojazdu; bez GPS — środek i kierunek kamery
+    const c = map.getCenter();
+    const lat = lastPos ? lastPos.lat : c.lat, lon = lastPos ? lastPos.lon : c.lng;
+    const hdg = lastPos ? ((currentSpeedKmh >= 3 || !mwAnchor) ? currentHeading : mwAnchor.hdg) : map.getBearing();
+    if(force || !mwAnchor || haversine(lat, lon, mwAnchor.lat, mwAnchor.lon) >= MW.reanchorM || Math.abs(angDiff(mwAnchor.hdg, hdg)) >= MW.reanchorDeg){
+      mwAnchor = { lat, lon, hdg };
+      mwRefresh(lat, lon, hdg);
+    }
+  }
+
+  function applyMotorwayAsphaltTheme(){
+    if(!map || !map.getLayer(MW_TEX)) return;
+    const th = mwTheme();
+    mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", MW.marking[th]));
+    map.setPaintProperty(MW_TEX, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th);
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -4282,7 +4413,7 @@
     })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
   }
 
-  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v1";
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v2";   // v2: bez ścieżek/kanałów — dane pobiorą się raz od nowa
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
   const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
@@ -4334,10 +4465,23 @@
     return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
   }
 
+  // Ograniczenia mają sens tylko na drogach, którymi może jechać ciężarówka: pomijamy ścieżki, chodniki,
+  // kanały i inne drogi wodne (np. 1,9 m = szerokość kanału dla łodzi) oraz drogi zamknięte dla HGV.
+  const HGV_ROAD_TYPES = /^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|service|living_street|road|(motorway|trunk|primary|secondary|tertiary)_link)$/;
+  function isHgvRelevantWay(t){
+    if(!t || !HGV_ROAD_TYPES.test(t.highway || "")) return false;
+    if(t.waterway || t.boat || t.route === "ferry") return false;
+    for(const k of ["hgv", "goods", "motor_vehicle", "vehicle", "access"]){
+      if(t[k] !== undefined) return t[k] !== "no" && t[k] !== "private";
+    }
+    return true;
+  }
+
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
   function applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs){
     (data.elements || []).forEach(el => {
       if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
+      if(!isHgvRelevantWay(el.tags)) return;
 
       if(el.tags.maxheight && !heightWays.has(el.id)){
         const hm = parseMaxheightMeters(el.tags.maxheight);
@@ -9470,7 +9614,7 @@
   function setNightMode(on){
     if(document.body.classList.contains("night") !== on){
       document.body.classList.toggle("night", on);
-      try{ applyShieldMode(); applyMotorwayFlatColor(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
+      try{ applyShieldMode(); applyMotorwayAsphaltTheme(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
     }
     updateThemeBtn();
   }
