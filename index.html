@@ -1650,14 +1650,6 @@
   const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
   const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
 
-  /* ---------- Autostrady rysowane "pasami" (szary asfalt + białe linie) ----------
-     Rysujemy tylko drogi z tej listy (ref z OSM). Kolejne autostrady dopisz tutaj. */
-  const LANE_RENDER_REFS = ["M6", "M40"];
-  const LANE_RENDER_RADIUS_M = 20000;   // zasięg pobierania odcinków tych dróg wokół pozycji
-  const LANE_WIDTH_M = 3.65;            // szerokość pasa (typowa dla autostrad w UK)
-  const LANE_DEFAULT_COUNT = 3;         // gdy w OSM brak tagu lanes
-  const LANE_SHOULDER_M = 0.6;          // pobocze asfaltu poza skrajną linią
-  const LANE_RENDER_MINZOOM = 15;       // od tego zoomu pokazujemy pasy
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
 
   /* ---------- Supabase — wspólna, współdzielona baza fotoradarów/parkingów HGV ---------- */
@@ -1702,7 +1694,6 @@
   const TOLL_KEY = "nawigator_allow_tolls";
   let allowTolls = false;
   try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
-  const LANES_BY_COORDS = new WeakMap();  // tablica współrzędnych trasy TomTom → sekcje pasów [{a, b, n, seps}] (Valhalla: brak wpisu)
   const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
   /* ---------- własna lista płatnych przejazdów w UK (bez żadnych zapytań do serwera) ----------
      Zasięg każdego obiektu to „korytarz” wokół linii (pts, promień r w metrach).
@@ -3158,13 +3149,6 @@
         }
       });
 
-      // Autostrady z listy LANE_RENDER_REFS rysowane pasami: szary asfalt, ciągłe linie
-      // krawędziowe i przerywane linie między pasami.
-      try{
-        setupMotorwayAsphalt();   // tekstura asfaltu z kafelków wektorowych (bez Overpass), tylko 3D + wysoki zoom + 2 km
-      }catch(e){
-        console.warn("Nie udało się dodać warstw asfaltu autostrady:", e);
-      }
       // zabezpieczenie: numery zjazdów zawsze nad wszystkim, co rysujemy na drogach
       try{
         JUNCTION_LAYER_IDS.forEach(id => { if(map.getLayer(id)) map.moveLayer(id); });
@@ -3212,463 +3196,6 @@
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
-
-  /* ============================================================
-     AUTOSTRADY Z PASAMI (LANE_RENDER_REFS)
-     ------------------------------------------------------------
-     Dane: ways z Overpass (highway=motorway + ref z listy). Z linii środkowej każdej
-     jezdni liczymy równoległe linie: asfalt (wielokąt), krawędzie i podziały pasów.
-     Geometria jest w metrach, więc sama skaluje się razem z zoomem mapy.
-  ============================================================ */
-  // Kolory pasów: w nocy ciemny grafit i przygaszone linie, żeby nie oślepiały (dzień bez zmian).
-  const LANE_COLORS = {
-    day:   { asphalt: "#6f7378", marking: "#ffffff" },
-    night: { asphalt: "#3f4a4d", marking: "#b8c4c5" }
-  };
-
-  // szerokość linii w px dla 0,2 m rzeczywistej szerokości (rośnie ~2x na każdy zoom),
-  // z dolnym ograniczeniem, żeby przy małym zoomie linie nie znikały
-  const LANE_MARKING_WIDTH = ["interpolate", ["exponential", 2], ["zoom"],
-    12, 0.4, 17, 0.9, 18, 1.2, 20, 4.3, 22, 17.4];
-
-  function setupMotorwayLanes(){
-    map.addSource("motorway-lanes", { type:"geojson", data: emptyFC() });
-
-    // Pasy leżą pod pierwszą warstwą tekstową mapy ORAZ pod każdą naszą warstwą (tablice, trasa,
-    // fotoradary, numery zjazdów, parkingi) — wybieramy tę, która jest najniżej w stosie.
-    // Bez tego asfalt mógłby przykryć numery zjazdów.
-    const styleLayers = map.getStyle().layers || [];
-    const stackIdx = id => styleLayers.findIndex(l => l.id === id);
-    const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line",
-      "roads-maxwidth-line",
-      "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot",
-      "cameras-glow", "avg-speed-cameras-glow", "motorway-junction-circle", "motorway-junction-label",
-      "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
-    const firstSymbol = styleLayers.find(l => l.type === "symbol");
-    const anchors = [firstSymbol && firstSymbol.id].concat(ownLayerIds).filter(id => id && stackIdx(id) >= 0);
-    anchors.sort((x, y) => stackIdx(x) - stackIdx(y));
-    const before = anchors.length ? anchors[0] : undefined;
-    const isRole = role => ["==", ["get", "role"], role];
-    const c = LANE_COLORS[document.body.classList.contains("night") ? "night" : "day"];
-
-    map.addLayer({
-      id: "motorway-lanes-asphalt", type: "fill", source: "motorway-lanes",
-      minzoom: LANE_RENDER_MINZOOM, filter: isRole("asphalt"),
-      paint: { "fill-color": c.asphalt, "fill-antialias": true }
-    }, before);
-    // cienki obrys w kolorze asfaltu zasłania szwy między kolejnymi odcinkami dróg
-    map.addLayer({
-      id: "motorway-lanes-asphalt-seam", type: "line", source: "motorway-lanes",
-      minzoom: LANE_RENDER_MINZOOM, filter: isRole("asphalt"),
-      layout: { "line-join": "round" },
-      paint: { "line-color": c.asphalt, "line-width": 1.5 }
-    }, before);
-    map.addLayer({
-      id: "motorway-lanes-edge", type: "line", source: "motorway-lanes",
-      minzoom: LANE_RENDER_MINZOOM, filter: isRole("edge"),
-      layout: { "line-join": "round" },
-      paint: { "line-color": c.marking, "line-width": LANE_MARKING_WIDTH }
-    }, before);
-    map.addLayer({
-      id: "motorway-lanes-divider", type: "line", source: "motorway-lanes",
-      minzoom: LANE_RENDER_MINZOOM, filter: isRole("divider"),
-      layout: { "line-join": "round" },
-      // dasharray liczone jest w szerokościach linii (0,2 m): kreska ok. 2 m, przerwa ok. 7 m
-      paint: { "line-color": c.marking, "line-width": LANE_MARKING_WIDTH, "line-dasharray": [10, 35] }
-    }, before);
-  }
-
-
-  /* ============================================================
-     ASFALT AUTOSTRAD W 3D — z kafelków wektorowych, bez Overpass
-     ------------------------------------------------------------
-     Zasady (optymalizacja GPU/CPU/sieci):
-      • Dane: wyłącznie kafelki wektorowe, które mapa i tak ma w pamięci — warstwa „transportation”,
-        class = motorway (bez zjazdów/łącznic i tuneli). Zero zapytań HTTP; M6, M40 i każda inna autostrada.
-      • Zasięg: tylko ≤ MW_ASPHALT_RADIUS_M (2 km) od pojazdu. Geometria jest wycinana do koła z
-        querySourceFeatures() do małego źródła GeoJSON — bez przeładowywania kafelków całej mapy
-        (zmiana filtra warstwy kafelkowej przeładowałaby wszystkie kafelki źródła). Przeliczenie dopiero po
-        przejechaniu MW_ASPHALT_REANCHOR_M, więc promień od pojazdu waha się ok. 1,7–2,3 km.
-      • Warunki: widok pochylony (≥ MW_ASPHALT_MINPITCH) ORAZ zoom ≥ MW_ASPHALT_MINZOOM. W przeciwnym razie warstwy
-        są ukryte (visibility:none = zero pracy GPU), źródło opróżnione, a drogę rysuje zwykły, płaski styl mapy.
-      • Sprite: tekstura asfaltu to powtarzalny wzór (line-pattern) generowany JEDNORAZOWO w pamięci
-        (canvas → ImageData → map.addImage, po jednym na motyw dzień/noc) i trzymany w cache; ładowany ponownie
-        z cache przy „styleimagemissing”. Nic nie jest pobierane z serwera.
-      • Oznakowanie (krawędzie ciągłe, podziały pasów przerywane) to cienkie linie z przesunięciem (line-offset) —
-        bez żadnych tekstur.
-  ============================================================ */
-  const MW_ASPHALT_MINZOOM = 15.5;      // poniżej: płaski styl mapy
-  const MW_ASPHALT_MINPITCH = 40;       // poniżej (widok 2D / mały kąt): płaski styl mapy
-  const MW_ASPHALT_RADIUS_M = 2000;     // zasięg tekstury wokół pojazdu
-  const MW_ASPHALT_REANCHOR_M = 300;    // co tyle metrów jazdy przeliczamy wycinek
-  const MW_LAT_REF = 53;                // szerokość geograficzna do przeliczenia metry → piksele (UK: 50–59°)
-  const MW_SRC = "mw-asphalt-src";
-  const MW_TEX_ID = "mw-asphalt";
-  const MW_SPRITE_SIZE = 128, MW_SPRITE_PR = 2;
-  // Klasy dróg rysowane z teksturą (domyślnie tylko autostrady; dopisz "trunk", "primary"… żeby objąć też je)
-  const MW_ASPHALT_CLASSES = ["motorway"];
-  // Liczba pasów, gdy kafelki nie mają właściwości „lanes”: wg class (reszta klas → 1)
-  const MW_LANES_FALLBACK = { motorway: 3, trunk: 2, primary: 2 };
-  const MW_LANES_FALLBACK_DEFAULT = 1;
-  const MW_MAX_LANES = 6;               // górny limit (tyle warstw podziałów jest przygotowanych)
-  // Szerokość jednego pasa wg class (m)
-  const MW_LANE_WIDTH_BY_CLASS = { motorway: LANE_WIDTH_M, trunk: 3.5, primary: 3.25 };
-  const MW_LANE_WIDTH_DEFAULT = 3.0;
-  const MW_ROAD_FILTER = ["all",
-    ["match", ["get", "class"], MW_ASPHALT_CLASSES, true, false],
-    ["!=", ["get", "ramp"], 1],
-    ["!=", ["get", "brunnel"], "tunnel"]];
-  let mwVectorSource = "openmaptiles", mwMarkIds = [], mwLayerIds = [];
-  let mwRouteLogged = false, mwLanesLogged = false, mwActive = false, mwAnchor = null, mwLatUsed = MW_LAT_REF, mwRefreshAt = 0;
-  const mwSpriteCache = {};             // "day" | "night" → ImageData (jedno wygenerowanie na sesję)
-
-  // metry → piksele ekranu w zależności od zoomu (skaluje się dokładnie 2× na zoom);
-  // valueExpr może być liczbą albo wyrażeniem właściwości odcinka, np. ["get","tw"]
-  function mwMetersToPx(valueExpr, lat){
-    const mpp0 = 78271.517 * Math.cos((lat == null ? MW_LAT_REF : lat) * Math.PI / 180);
-    const z0 = Math.floor(MW_ASPHALT_MINZOOM), z1 = 22;
-    const k = z => Math.pow(2, z) / mpp0;
-    return ["interpolate", ["exponential", 2], ["zoom"], z0, ["*", valueExpr, k(z0)], z1, ["*", valueExpr, k(z1)]];
-  }
-  // wartości (w metrach) zależne od właściwości odcinka: id warstwy → { właściwość paint, wyrażenie w metrach }
-  const mwMetric = [];
-
-  // bezszwowa tekstura asfaltu: deterministyczny szum (ten sam wzór przy każdym uruchomieniu)
-  function mwMakeAsphaltSprite(theme){
-    const S = MW_SPRITE_SIZE, cv = document.createElement("canvas");
-    cv.width = cv.height = S;
-    const ctx = cv.getContext("2d");
-    ctx.fillStyle = LANE_COLORS[theme].asphalt;
-    ctx.fillRect(0, 0, S, S);
-    let seed = theme === "night" ? 1337 : 7331;
-    const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-    const k = theme === "night" ? 0.7 : 1;
-    for(let i = 0; i < 30; i++){                       // miękkie plamy (rysowane z zawinięciem → brak szwów)
-      const x = rnd() * S, y = rnd() * S, r = 6 + rnd() * 16, light = rnd() < 0.5;
-      ctx.fillStyle = (light ? "rgba(255,255,255," : "rgba(0,0,0,") + ((0.03 + rnd() * 0.05) * k).toFixed(3) + ")";
-      for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
-        ctx.beginPath(); ctx.arc(x + dx * S, y + dy * S, r, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    for(let i = 0; i < 1500; i++){                     // ziarno kruszywa
-      ctx.fillStyle = (rnd() < 0.5 ? "rgba(255,255,255," : "rgba(0,0,0,") + ((0.08 + rnd() * 0.16) * k).toFixed(3) + ")";
-      ctx.fillRect(Math.floor(rnd() * S), Math.floor(rnd() * S), 1, 1);
-    }
-    return ctx.getImageData(0, 0, S, S);               // addImage w tej wersji MapLibre wymaga ImageData
-  }
-  function mwEnsureSprite(theme){
-    const id = "mw-asphalt-" + theme;
-    if(!map.hasImage(id)){
-      map.addImage(id, mwSpriteCache[theme] || (mwSpriteCache[theme] = mwMakeAsphaltSprite(theme)), { pixelRatio: MW_SPRITE_PR });
-    }
-    return id;
-  }
-  const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
-
-  function setupMotorwayAsphalt(){
-    if(map.getSource(MW_SRC)) return;
-    const styleLayers = map.getStyle().layers || [];
-    const tl = styleLayers.find(l => l["source-layer"] === "transportation");
-    if(tl && tl.source) mwVectorSource = tl.source;
-    map.addSource(MW_SRC, { type:"geojson", data: emptyFC(), buffer: 128, tolerance: 0.3 });
-
-    // pod pierwszą warstwą tekstową i pod naszymi warstwami (numery zjazdów, trasa, znaki) — jak wcześniej pasy
-    const stackIdx = id => styleLayers.findIndex(l => l.id === id);
-    const ownLayerIds = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line",
-      "roads-maxwidth-line", "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot",
-      "cameras-glow", "avg-speed-cameras-glow", "motorway-junction-circle", "motorway-junction-label",
-      "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
-    const firstSymbol = styleLayers.find(l => l.type === "symbol");
-    const anchors = [firstSymbol && firstSymbol.id].concat(ownLayerIds).filter(id => id && stackIdx(id) >= 0);
-    anchors.sort((x, y) => stackIdx(x) - stackIdx(y));
-    const before = anchors.length ? anchors[0] : undefined;
-
-    const base = { type:"line", source: MW_SRC, minzoom: MW_ASPHALT_MINZOOM };
-    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
-    const mark = LANE_COLORS[mwTheme()].marking;
-    // Każdy odcinek dostaje przy wycinaniu właściwości: lanes (liczba pasów), lw (szerokość pasa, m),
-    // hw (połowa szerokości jezdni, m), tw (szerokość asfaltu z poboczami, m) — patrz mwRefreshData().
-    map.addLayer(Object.assign({ id: MW_TEX_ID, layout,
-      paint: { "line-pattern": "mw-asphalt-" + mwTheme() } }, base), before);
-    mwLayerIds = [MW_TEX_ID]; mwMarkIds = []; mwMetric.length = 0;
-    mwMetric.push({ id: MW_TEX_ID, prop: "line-width", value: ["get", "tw"] });
-    // krawędzie jezdni: linie ciągłe po obu stronach (właściwości el / er = "none" gdy TomTom podaje brak oznakowania)
-    [-1, 1].forEach(side => {
-      const id = "mw-edge-" + (side < 0 ? "l" : "r");
-      map.addLayer(Object.assign({ id, layout, filter: ["!=", ["get", side < 0 ? "el" : "er"], "none"],
-        paint: { "line-color": mark, "line-width": LANE_MARKING_WIDTH } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-      mwMetric.push({ id, prop: "line-offset", value: ["*", ["get", "hw"], side] });
-    });
-    // podziały pasów: k-ty podział istnieje tylko, gdy odcinek ma więcej niż k pasów; styl (s1…s5) = "dash" | "solid" | "none"
-    // przerywane: kreska ≈ 2 m, przerwa ≈ 7 m
-    for(let k = 1; k < MW_MAX_LANES; k++){
-      [["dash", [10, 35]], ["solid", null]].forEach(([style, dash]) => {
-        const id = "mw-div-" + style + "-" + k;
-        const paint = { "line-color": mark, "line-width": LANE_MARKING_WIDTH };
-        if(dash) paint["line-dasharray"] = dash;
-        map.addLayer(Object.assign({ id, layout,
-          filter: ["all", [">", ["get", "lanes"], k], ["==", ["get", "s" + k], style]], paint }, base), before);
-        mwLayerIds.push(id); mwMarkIds.push(id);
-        mwMetric.push({ id, prop: "line-offset", value: ["-", ["*", k, ["get", "lw"]], ["get", "hw"]] });
-      });
-    }
-    mwApplyMetric(MW_LAT_REF);
-
-    // sprite z cache po przeładowaniu stylu / utracie obrazu
-    map.on("styleimagemissing", e => {
-      const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
-      if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSpriteCache[m[1]] || (mwSpriteCache[m[1]] = mwMakeAsphaltSprite(m[1])), { pixelRatio: MW_SPRITE_PR });
-    });
-    // sprawdzenie warunków TYLKO po zakończeniu ruchu kamery (nie co klatkę)
-    ["moveend", "pitchend", "zoomend"].forEach(ev => map.on(ev, () => motorwayAsphaltTick(false)));
-    // nowo doładowane kafelki przed pojazdem (z limitem częstotliwości)
-    map.on("sourcedata", e => {
-      if(mwActive && e.sourceId === mwVectorSource && e.isSourceLoaded && Date.now() - mwRefreshAt > 2000) motorwayAsphaltTick(true);
-    });
-  }
-
-
-  /* ---------- pasy z TomTom (sectionType=lanes) → nakładka asfaltu ----------
-     Dotyczy tylko tras TomTom (LANES_BY_COORDS ma wpis tylko dla nich). Trasa Valhalla zostaje na kafelkach + fallbacku.
-     Geometria nadal pochodzi z kafelków; wierzchołki odcinka leżące ≤ MW_ROUTE_MATCH_M od fragmentu trasy
-     z sekcji LANES dostają liczbę pasów i rodzaj linii z TomTom, a odcinek jest dzielony tam, gdzie zmienia się sekcja. */
-  const MW_ROUTE_MATCH_M = 9;           // tolerancja dopasowania kafelek ↔ geometria TomTom (jezdnie dwujezdniowe dzieli >15 m)
-  let mwRouteRef = null;
-
-  function mwSepStyle(type){              // typ linii TomTom → "dash" | "solid" | "none" | null (nieznany)
-    if(!type) return null;
-    const t = String(type).toUpperCase();
-    if(/DASH/.test(t)) return "dash";
-    if(/SOLID/.test(t)) return "solid";
-    if(/NO_|NONE|UNKNOWN/.test(t)) return "none";
-    return null;
-  }
-  function mwBuildProps(n, lw, seps){      // seps: tablica typów linii od lewej do prawej lub null (kafelki/fallback)
-    const lanes = Math.min(MW_MAX_LANES, Math.max(1, n));
-    const p = { lanes, lw, hw: lanes * lw / 2, tw: lanes * lw + 2 * LANE_SHOULDER_M };
-    p.el = seps && seps.length ? (mwSepStyle(seps[0]) || "solid") : "solid";
-    p.er = seps && seps.length ? (mwSepStyle(seps[seps.length - 1]) || "solid") : "solid";
-    for(let k = 1; k < MW_MAX_LANES; k++) p["s" + k] = (seps && seps.length > k && seps.length === n + 1 ? mwSepStyle(seps[k]) : null) || "dash";
-    return p;
-  }
-
-
-  /* ---------- przenoszenie liczby pasów między sekcjami TomTom ----------
-     TomTom podaje sekcje LANES głównie przy zjazdach/skrzyżowaniach. Na autostradzie liczba pasów zmienia się rzadko,
-     więc ostatnia znana wartość obowiązuje aż do następnej sekcji (albo do najbliższego zjazdu/skrętu na trasie lub
-     MW_LANES_CARRY_MAX_M). Przeniesione odcinki dostają domyślne linie (krawędzie ciągłe, podziały przerywane).
-     Uwaga: sekcja tuż przy zjeździe może zawierać pas wyjazdowy, więc po zjeździe liczba może być o 1 za duża.
-     MW_LANES_CARRY_MAX_M = 0 wyłącza przenoszenie. */
-  const MW_LANES_CARRY_MAX_M = 15000;
-  const mwCarryCache = new WeakMap();      // coords → sekcje rzeczywiste + przeniesione
-  const MW_CARRY_STOP = /^(exit|ramp|left|right|sharp|slight|uturn|roundabout|ferry|arrive)/;
-  function mwSectionsWithCarry(r){
-    const secs = LANES_BY_COORDS.get(r.coords);
-    if(!secs || !secs.length) return null;
-    const cached = mwCarryCache.get(r.coords);
-    if(cached && cached.steps === r.steps) return cached.list;
-    const list = secs.slice().sort((x, y) => x.a - y.a);
-    if(MW_LANES_CARRY_MAX_M > 0){
-      const c = r.coords, cum = new Float64Array(c.length);
-      for(let i = 1; i < c.length; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
-      const stops = (r.steps || []).filter(st => MW_CARRY_STOP.test(st.t)).map(st => st.i).sort((x, y) => x - y);
-      secs.slice().sort((x, y) => x.a - y.a).forEach((sec, idx, arr) => {
-        const next = arr[idx + 1];
-        let end = next ? next.a : c.length - 1;
-        const stop = stops.find(i => i > sec.b);               // najbliższy zjazd/skręt za sekcją
-        if(stop != null && stop < end) end = stop;
-        while(end > sec.b && cum[end] - cum[sec.b] > MW_LANES_CARRY_MAX_M) end--;
-        if(end - sec.b >= 1) list.push({ a: sec.b, b: end, n: sec.n, seps: [], carried: true });
-      });
-    }
-    mwCarryCache.set(r.coords, { steps: r.steps, list });
-    return list;
-  }
-
-  // sekcje LANES aktywnej trasy TomTom leżące w pobliżu pojazdu, z geometrią w metrach względem (lat,lon)
-  function mwNearLaneSections(lat, lon){
-    const r = typeof activeRoute !== "undefined" ? activeRoute : null;
-    const secs = r && r.coords ? mwSectionsWithCarry(r) : null;
-    if(!secs || !secs.length) return null;
-    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), lim2 = Math.pow(MW_ASPHALT_RADIUS_M + 400, 2);
-    const near = [];
-    secs.forEach(sec => {
-      let first = -1, last = -1;
-      for(let i = sec.a; i <= sec.b && i < r.coords.length; i++){
-        const x = (r.coords[i][0] - lon) * mLon, y = (r.coords[i][1] - lat) * mLat;
-        if(x * x + y * y <= lim2){ if(first < 0) first = i; last = i; }
-      }
-      if(first < 0) return;
-      first = Math.max(sec.a, first - 1); last = Math.min(sec.b, r.coords.length - 1, last + 1);
-      const pts = [];
-      for(let i = first; i <= last; i++) pts.push({ x: (r.coords[i][0] - lon) * mLon, y: (r.coords[i][1] - lat) * mLat, idx: i });
-      if(pts.length > 1) near.push({ sec, pts });
-    });
-    return near.length ? near : null;
-  }
-
-  // dzieli linię z kafelka na odcinki wg sekcji LANES; zwraca [{ coords, lanes?: {n, seps} }]
-  function mwSplitByRouteLanes(coords, near, lat, lon){
-    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), M2 = MW_ROUTE_MATCH_M * MW_ROUTE_MATCH_M;
-    const tag = coords.map(c => {
-      const x = (c[0] - lon) * mLon, y = (c[1] - lat) * mLat;
-      let best = null, bd = M2;
-      for(const s of near){
-        const P = s.pts;
-        for(let i = 0; i < P.length - 1; i++){
-          const ax = P[i].x, ay = P[i].y, dx = P[i + 1].x - ax, dy = P[i + 1].y - ay, L = dx * dx + dy * dy;
-          let t = L > 0 ? ((x - ax) * dx + (y - ay) * dy) / L : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
-          const ex = x - (ax + dx * t), ey = y - (ay + dy * t), d2 = ex * ex + ey * ey;
-          if(d2 < bd){ bd = d2; best = { s: s.sec, pos: P[i].idx + t }; }
-        }
-      }
-      return best;
-    });
-    const out = [];
-    let start = 0;
-    for(let i = 1; i <= coords.length; i++){
-      const sameGroup = i < coords.length && ((tag[i] && tag[i].s) || null) === ((tag[start] && tag[start].s) || null);
-      if(sameGroup) continue;
-      const seg = coords.slice(start, Math.min(coords.length, i + 1));   // wspólny wierzchołek z następną grupą → bez szczelin
-      if(seg.length > 1){
-        const t0 = tag[start], t1 = tag[i - 1];
-        if(t0){
-          const fwd = !t1 || t1.pos >= t0.pos;          // linia kafelka biegnie zgodnie z kierunkiem trasy?
-          const seps = fwd ? t0.s.seps : t0.s.seps.slice().reverse();   // lewa/prawa strona względem kierunku LINII
-          out.push({ coords: seg, lanes: { n: t0.s.n, seps } });
-        } else out.push({ coords: seg, lanes: null });
-      }
-      start = i;
-    }
-    return out;
-  }
-
-  function mwApplyMetric(lat){
-    mwLatUsed = lat;
-    mwMetric.forEach(m => { if(map.getLayer(m.id)) map.setPaintProperty(m.id, m.prop, mwMetersToPx(m.value, lat)); });
-  }
-
-  // liczba pasów z właściwości „lanes” kafelka (np. 2, "3", "3;4"); brak → fallback wg class
-  function mwLaneInfo(props){
-    const m = props && props.lanes != null ? String(props.lanes).match(/\d+/) : null;
-    const n = m ? parseInt(m[0], 10) : 0;
-    const explicit = n >= 1;
-    const cls = props && props.class;
-    const lanes = Math.min(MW_MAX_LANES, explicit ? n : (MW_LANES_FALLBACK[cls] != null ? MW_LANES_FALLBACK[cls] : MW_LANES_FALLBACK_DEFAULT));
-    const lw = MW_LANE_WIDTH_BY_CLASS[cls] || MW_LANE_WIDTH_DEFAULT;
-    return { lanes, lw, explicit };
-  }
-
-  function mwSetVisible(on){
-    mwLayerIds.forEach(id => { if(map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
-  }
-
-  // wycina linie (tablice [lon,lat]) do koła o promieniu R wokół (lat,lon); końce docinane dokładnie na brzegu koła
-  function mwClipLinesToRadius(lines, lat, lon, R){
-    const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180), R2 = R * R, out = [];
-    const toM = p => [(p[0] - lon) * mLon, (p[1] - lat) * mLat];
-    const toLL = m => [lon + m[0] / mLon, lat + m[1] / mLat];
-    const edge = (a, b) => {                 // a w kole, b poza kołem → punkt na okręgu
-      const dx = b[0] - a[0], dy = b[1] - a[1];
-      const A = dx * dx + dy * dy, B = 2 * (a[0] * dx + a[1] * dy), C = a[0] * a[0] + a[1] * a[1] - R2;
-      const t = A > 0 ? (-B + Math.sqrt(Math.max(0, B * B - 4 * A * C))) / (2 * A) : 0;
-      return [a[0] + dx * t, a[1] + dy * t];
-    };
-    lines.forEach(line => {
-      const pts = line.map(toM);
-      let run = null;
-      for(let i = 0; i < pts.length; i++){
-        const p = pts[i];
-        if(p[0] * p[0] + p[1] * p[1] <= R2){
-          if(!run){ run = []; if(i > 0) run.push(edge(p, pts[i - 1])); }
-          run.push(p);
-        } else if(run){
-          run.push(edge(pts[i - 1], p));
-          out.push(run.map(toLL)); run = null;
-        }
-      }
-      if(run && run.length > 1) out.push(run.map(toLL));
-    });
-    return out;
-  }
-
-  function mwRefreshData(lat, lon){
-    mwRefreshAt = Date.now();
-    const src = map.getSource(MW_SRC);
-    if(!src) return;
-    let feats = [];
-    try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_ROAD_FILTER }); }
-    catch(e){ console.warn("Asfalt autostrad: querySourceFeatures", e); return; }
-    const out = [];
-    let withTag = 0, total = 0, withRoute = 0;
-    const near = mwNearLaneSections(lat, lon);        // null → trasa Valhalla / brak sekcji LANES → tylko kafelki + fallback
-    feats.forEach(f => {
-      const g = f.geometry;
-      if(!g) return;
-      const parts = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
-      if(!parts.length) return;
-      const info = mwLaneInfo(f.properties);
-      total++; if(info.explicit) withTag++;
-      const baseProps = mwBuildProps(info.lanes, info.lw, null);
-      mwClipLinesToRadius(parts, lat, lon, MW_ASPHALT_RADIUS_M).forEach(c => {
-        if(!near){ out.push({ type:"Feature", properties: baseProps, geometry:{ type:"LineString", coordinates: c } }); return; }
-        mwSplitByRouteLanes(c, near, lat, lon).forEach(piece => {
-          let props = baseProps;
-          if(piece.lanes){ withRoute++; props = mwBuildProps(piece.lanes.n, info.lw, piece.lanes.seps); }
-          out.push({ type:"Feature", properties: props, geometry:{ type:"LineString", coordinates: piece.coords } });
-        });
-      });
-    });
-    if(near && !mwRouteLogged){ mwRouteLogged = true; console.info("Asfalt autostrad: " + withRoute + " odcinków z liczbą pasów z TomTom (w tym przeniesionych z poprzedniej sekcji)"); }
-    if(!mwLanesLogged && total){
-      mwLanesLogged = true;
-      console.info("Asfalt autostrad: " + withTag + "/" + total + " odcinków ma właściwość lanes w kafelkach" + (withTag ? "" : " — używam wartości domyślnych wg class"));
-    }
-    src.setData({ type:"FeatureCollection", features: out });
-  }
-
-  function motorwayAsphaltTick(force){
-    if(!map || !map.getSource(MW_SRC)) return;
-    const on = !!lastPos && map.getZoom() >= MW_ASPHALT_MINZOOM && map.getPitch() >= MW_ASPHALT_MINPITCH;
-    if(!on){
-      if(mwActive){ mwActive = false; mwAnchor = null; mwSetVisible(false); map.getSource(MW_SRC).setData(emptyFC()); }
-      return;
-    }
-    if(!mwActive){
-      mwActive = true; force = true;
-      map.setPaintProperty(MW_TEX_ID, "line-pattern", mwEnsureSprite(mwTheme()));
-      mwSetVisible(true);
-    }
-    const { lat, lon } = lastPos;
-    const rc = typeof activeRoute !== "undefined" && activeRoute ? activeRoute.coords : null;
-    if(rc !== mwRouteRef){ mwRouteRef = rc; mwRouteLogged = false; force = true; }   // nowa trasa → przelicz pasy
-    if(force || !mwAnchor || haversine(lat, lon, mwAnchor.lat, mwAnchor.lon) >= MW_ASPHALT_REANCHOR_M){
-      mwAnchor = { lat, lon };
-      if(Math.abs(lat - mwLatUsed) >= 0.5) mwApplyMetric(lat);   // szerokość geogr. mocno się zmieniła → popraw przelicznik m→px
-      mwRefreshData(lat, lon);
-    }
-  }
-
-  // po zmianie trybu dzień/noc: kolor oznakowania + sprite danego motywu (z cache)
-  function applyMotorwayAsphaltTheme(){
-    if(!map || !map.getLayer(MW_TEX_ID)) return;
-    const theme = mwTheme();
-    mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", LANE_COLORS[theme].marking));
-    if(mwActive) map.setPaintProperty(MW_TEX_ID, "line-pattern", mwEnsureSprite(theme));   // nieaktywny: sprite powstanie przy wejściu w 3D
-    else map.setPaintProperty(MW_TEX_ID, "line-pattern", "mw-asphalt-" + theme);
-  }
-
-  // (stare, nieużywane) — pasy z Overpass zastąpione przez setupMotorwayAsphalt()
-  function applyMotorwayLaneColors(){
-    if(!map || !map.getLayer("motorway-lanes-asphalt")) return;
-    const c = LANE_COLORS[document.body.classList.contains("night") ? "night" : "day"];
-    map.setPaintProperty("motorway-lanes-asphalt", "fill-color", c.asphalt);
-    map.setPaintProperty("motorway-lanes-asphalt-seam", "line-color", c.asphalt);
-    map.setPaintProperty("motorway-lanes-edge", "line-color", c.marking);
-    map.setPaintProperty("motorway-lanes-divider", "line-color", c.marking);
-  }
 
   // Pokazuje błąd na ekranie telefonu (bez potrzeby konsoli deweloperskiej) —
   // czarno-czerwony pasek na górze, znika po dotknięciu.
@@ -5542,69 +5069,6 @@
     return false;
   }
 
-  function isLaneRenderWay(el){
-    if(!el.tags || el.tags.highway !== "motorway") return false;
-    const refs = String(el.tags.ref || "").split(";").map(r => r.trim());
-    return refs.some(r => LANE_RENDER_REFS.indexOf(r) !== -1);
-  }
-
-  // przesuwa listę punktów [lon,lat] równolegle o offsetM metrów; normalna w każdym
-  // punkcie to uśredniona, znormalizowana normalna sąsiednich odcinków (jak w skrypcie JOSM)
-  function offsetLineCoords(coords, offsetM){
-    if(coords.length < 2) return coords.slice();
-    const refLat = coords[0][1];
-    const mPerDegLat = 111320;
-    const mPerDegLon = 111320 * Math.cos(toRad(refLat));
-    const pts = coords.map(c => ({ x: c[0]*mPerDegLon, y: c[1]*mPerDegLat }));
-    const out = [];
-    for(let i=0;i<pts.length;i++){
-      let nx=0, ny=0, count=0;
-      if(i>0){
-        const dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y;
-        const len=Math.hypot(dx,dy)||1;
-        nx += dy/len; ny += -dx/len; count++;
-      }
-      if(i<pts.length-1){
-        const dx=pts[i+1].x-pts[i].x, dy=pts[i+1].y-pts[i].y;
-        const len=Math.hypot(dx,dy)||1;
-        nx += dy/len; ny += -dx/len; count++;
-      }
-      nx/=count; ny/=count;
-      const nlen=Math.hypot(nx,ny)||1;
-      nx/=nlen; ny/=nlen;
-      out.push([ (pts[i].x + nx*offsetM)/mPerDegLon, (pts[i].y + ny*offsetM)/mPerDegLat ]);
-    }
-    return out;
-  }
-
-  // Z linii środkowej jezdni buduje: asfalt (wielokąt), linie krawędziowe i podziały pasów.
-  function buildLaneFeatures(coords, lanesTag){
-    let lanes = parseInt(lanesTag, 10);
-    if(!(lanes >= 1)) lanes = LANE_DEFAULT_COUNT;
-    lanes = Math.min(lanes, 6);
-
-    const half = lanes * LANE_WIDTH_M / 2;
-    const feats = [];
-    const line = (role, offset) => feats.push({
-      type:"Feature", properties:{ role },
-      geometry:{ type:"LineString", coordinates: offsetLineCoords(coords, offset) }
-    });
-
-    // asfalt: wielokąt między lewą i prawą krawędzią (z poboczem)
-    const left  = offsetLineCoords(coords, -(half + LANE_SHOULDER_M));
-    const right = offsetLineCoords(coords,  (half + LANE_SHOULDER_M));
-    feats.push({
-      type:"Feature", properties:{ role:"asphalt" },
-      geometry:{ type:"Polygon", coordinates:[ left.concat(right.slice().reverse(), [left[0]]) ] }
-    });
-
-    // ciągłe linie krawędziowe (lekko od skraju asfaltu)
-    line("edge", -half); line("edge", half);
-    // przerywane linie między pasami
-    for(let k = 1; k < lanes; k++) line("divider", -half + k * LANE_WIDTH_M);
-    return feats;
-  }
-
   function applyOverpassResult(data, supaReports){
     supaReports = supaReports || [];
     const newCameras = [];
@@ -5612,14 +5076,8 @@
     const roadFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
-    const laneFeatures = [];
 
     (data.elements || []).forEach(el => {
-      if(isLaneRenderWay(el) && el.geometry && el.geometry.length > 1){
-        const coords = el.geometry.map(g => [g.lon, g.lat]);
-        buildLaneFeatures(coords, el.tags.lanes).forEach(f => laneFeatures.push(f));
-      }
-
       if(isHgvParkingElement(el)){
         let lat, lon;
         if(el.type === "node"){ lat = el.lat; lon = el.lon; }
@@ -5710,9 +5168,6 @@
     }
     if(map.getSource("hgv-parking-community")){
       map.getSource("hgv-parking-community").setData({ type:"FeatureCollection", features: communityParkingFeatures });
-    }
-    if(map.getSource("motorway-lanes")){
-      map.getSource("motorway-lanes").setData({ type:"FeatureCollection", features: laneFeatures });
     }
   }
 
@@ -6989,7 +6444,7 @@
       language: "pl-PL", report: "effectiveSettings"
     });
     if(!allowTolls) params.append("avoid", "tollRoads");
-    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&sectionType=lanes&instructionsType=text&instructionAnnouncementPoints=all`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&instructionsType=text`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -7003,16 +6458,8 @@
       const speedSegments = [];
       const incidents = [];
       const tollSegs = [];
-      const laneSegs = [];
       (route.sections || []).forEach(sec => {
-        if(sec.sectionType === "LANES"){
-          // pasy są podane od lewej do prawej w kierunku jazdy; laneSeparators ma n+1 elementów (krawędź, podziały, krawędź)
-          if(Array.isArray(sec.lanes) && sec.lanes.length && sec.endPointIndex > sec.startPointIndex){
-            laneSegs.push({ a: sec.startPointIndex, b: sec.endPointIndex, n: sec.lanes.length,
-              seps: Array.isArray(sec.laneSeparators) ? sec.laneSeparators : [] });
-          }
-        }
-        else if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
+        if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
         else if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
           for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
             speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
@@ -7026,8 +6473,6 @@
       const steps = [];
       ((route.guidance && route.guidance.instructions) || []).forEach(x => { const st = tomtomStep(x, coords.length); if(st) steps.push(st); });
       TOLL_BY_COORDS.set(coords, tollSegs);
-      LANES_BY_COORDS.set(coords, laneSegs);
-      console.info("TomTom: " + laneSegs.length + " sekcji LANES na trasie" + (laneSegs.length ? "" : " — tekstura użyje liczby pasów z kafelków/fallbacku"));
       return {
         coords, steps,
         distanceM: route.summary.lengthInMeters,
@@ -9953,7 +9398,7 @@
   function setNightMode(on){
     if(document.body.classList.contains("night") !== on){
       document.body.classList.toggle("night", on);
-      try{ applyShieldMode(); applyMotorwayAsphaltTheme(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
+      try{ applyShieldMode(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
     }
     updateThemeBtn();
   }
