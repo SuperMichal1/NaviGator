@@ -416,7 +416,7 @@
   #navConfirmBlock, #navRoutePicker{ display:none; }
   #navPanel[data-navstate="confirm"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
   #navPanel[data-navstate="picker"] #navConfirmBlock{ display:flex; flex-direction:column; gap:8px; }
-  #navPanel[data-navstate="picker"] #navRoutePicker{ display:flex; }
+  #navPanel[data-navstate="picker"] #navRoutePicker{ display:none; }
   #navPanel[data-navstate="picker"] #navGoRow{ display:none; }
   #navPanel[data-navstate="confirm"] #navSearchBlock,
   #navPanel[data-navstate="picker"] #navSearchBlock,
@@ -671,27 +671,33 @@
   }
   #navRouteInfo.show{ display:flex; }
 
-  /* ---------- Okno wyboru tras: Zmień trasę + punkty trasy (dodawanie i zmiana kolejności) ---------- */
+  /* ---------- Okno wyboru tras: trasy na mapie, na dole jeden wąski pasek ---------- */
   #navRetryBtn{ display:none; align-self:flex-start; padding:8px 12px; border-radius:10px; border:1px solid var(--accent); background:transparent; color:var(--accent); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
   #navRetryBtn.show{ display:inline-block; }
   #navPickEdit{ display:none; flex-direction:column; gap:8px; }
-  #navPanel[data-navstate="picker"]:not(.picker-reroute) #navPickEdit{ display:flex; }
-  #navPickEdit .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); margin-top:2px; }
-  #pickRerouteBtn{ width:100%; background:transparent; color:var(--text-main); border:1px solid var(--panel-border); padding:10px 12px; border-radius:10px; font:700 14px 'Inter',system-ui,sans-serif; cursor:pointer; }
-  #pickRerouteBtn:active{ transform:scale(.98); }
-  #pickStops{ display:flex; flex-direction:column; gap:6px; }
-  .pickRow{ display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid var(--panel-border); user-select:none; -webkit-user-select:none; }
+  #navPanel[data-navstate="picker"] #navPickEdit{ display:flex; }
+  #navPanel[data-navstate="picker"] #navConfirmLabel,
+  #navPanel[data-navstate="picker"] .navTitle,
+  #navPanel[data-navstate="picker"] #navTruckBtn,
+  #navPanel[data-navstate="picker"] #navSettingsBtn{ display:none; }
+  #navPanel[data-navstate="picker"] .navHeader{ justify-content:flex-end; min-height:0; margin:0; }
+  #pickSummary{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); font-variant-numeric:tabular-nums; }
+  #pickActions{ display:flex; gap:8px; }
+  #pickActions button{ flex:1 1 auto; min-width:0; padding:12px 6px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; white-space:nowrap; cursor:pointer; border:1px solid var(--panel-border); background:rgba(128,128,128,.16); color:var(--text-main); }
+  #pickActions button:active{ transform:scale(.97); }
+  #pickActions #pickGoBtn{ flex:1.3 1 auto; font-size:15px; background:var(--accent); color:#0c0f12; border-color:transparent; }
+  #pickActions #pickGoBtn:disabled{ opacity:.5; }
+  #navPanel.picker-reroute #pickChangeBtn, #navPanel.picker-reroute #pickAddBtn, #navPanel.picker-reroute #pickStops{ display:none; }
+  #pickStops{ display:flex; flex-direction:column; gap:5px; }
+  #pickStops:empty{ display:none; }
+  .pickRow{ display:flex; align-items:center; gap:8px; padding:4px 6px 4px 8px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid var(--panel-border); user-select:none; -webkit-user-select:none; }
   body:not(.night) .pickRow{ background:rgba(255,255,255,.55); }
-  .pickRow .pk{ flex:0 0 22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font:700 11px 'Inter',system-ui,sans-serif; background:var(--gator-dark); color:var(--gator-on); }
-  .pickRow.fixed .pk{ background:#5b6570; }
+  .pickRow .pk{ flex:0 0 20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font:700 11px 'Inter',system-ui,sans-serif; background:var(--gator-dark); color:var(--gator-on); }
   .pickRow .pl{ flex:1; min-width:0; font-size:13px; font-weight:600; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .pickRow .pbtn{ flex:0 0 auto; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(128,128,128,.18); color:var(--text-main); font-size:13px; cursor:pointer; }
+  .pickRow .pbtn{ flex:0 0 auto; width:32px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:15px; cursor:pointer; }
   .pickRow .pbtn:active{ transform:scale(.92); }
-  .pickRow .pbtn.off{ opacity:.3; pointer-events:none; }
-  .pickRow .grip{ touch-action:none; cursor:grab; font-size:19px; line-height:1; }
+  .pickRow .grip{ touch-action:none; cursor:grab; font-size:20px; line-height:1; }
   .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
-  #pickAddBtn{ align-self:flex-start; padding:8px 12px; border-radius:10px; border:1px dashed var(--accent); background:transparent; color:var(--accent); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
-  #pickHint{ font-size:11px; line-height:1.35; color:var(--text-dim); }
 
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
@@ -1323,15 +1329,17 @@
       </div>
     </div>
     <div id="navPickEdit">
-      <button id="pickRerouteBtn" type="button">🔀 Zmień trasę</button>
-      <div class="cuTitle">Punkty trasy</div>
+      <div id="pickSummary"></div>
       <div id="pickStops"></div>
       <div id="pickAddWrap" class="navStopWrap" style="display:none">
-        <input type="text" id="pickAddInput" class="navStopInput" placeholder="Wpisz punkt pośredni…" autocomplete="off">
+        <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
-      <button id="pickAddBtn" type="button">+ Dodaj punkt trasy</button>
-      <div id="pickHint">Przytrzymaj ⠿ i przeciągnij punkt (albo użyj ▲ ▼), aby zmienić kolejność. Trasa przeliczy się sama.</div>
+      <div id="pickActions">
+        <button id="pickGoBtn" type="button">Jedziemy</button>
+        <button id="pickChangeBtn" type="button">Zmień trasę</button>
+        <button id="pickAddBtn" type="button">＋ Dodaj przystanek</button>
+      </div>
     </div>
     <div id="navGoRow">
       <button id="navGoBtn">Jedź</button>
@@ -6181,16 +6189,74 @@
   }
 
 
-  /* ---------- Edytor punktów trasy w oknie wyboru tras ---------- */
-  var pickReplanTimer = null;
+  /* ---------- Wybór trasy na mapie + przystanki ---------- */
+  var pickReplanTimer = null, pickDirty = false;
   function pickWraps(){ return Array.from(document.querySelectorAll("#navWaypointsList .navWaypointWrap")); }
+  function pickSel(){
+    const p = pendingRoutes || {};
+    if(p.sel && p[p.sel]) return p.sel;
+    return p.main ? "main" : "alt";
+  }
+  function paintPicker(fit){
+    const p = pendingRoutes;
+    if(!p || !(p.main || p.alt)) return;
+    const sel = pickSel(), oth = sel === "main" ? "alt" : "main";
+    const S = p[sel], O = p[oth];
+    p.sel = sel;
+    setRouteLineCoords(S ? S.coords : [], "route-line");        // wybrana: pełny kolor
+    setRouteLineCoords(O ? O.coords : [], "route-line-alt");    // druga: jasna, dotknij żeby wybrać
+    if(S && O) showAltLabel(O, S, () => pickSelect(oth)); else removeAltLabel();
+    const sum = document.getElementById("pickSummary");
+    if(sum) sum.textContent = S ? `${secondsToTimeLabel(S.timeS)} · ${metersToDistanceLabel(S.distanceM)}` : "";
+    if(fit){
+      const all = (S ? S.coords : []).concat(O ? O.coords : []);
+      if(all.length > 1){
+        const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
+        map.fitBounds(bounds, { padding: { top: 90, bottom: 230, left: 40, right: 40 }, duration: 600 });
+      }
+    }
+  }
+  function pickSelect(k){
+    if(!pendingRoutes || !pendingRoutes[k]) return;
+    pendingRoutes.sel = k;
+    paintPicker(false);
+  }
+  // dotknięcie drugiej trasy na mapie wybiera ją (liczy się odległość w pikselach do obu tras)
+  function routeDistPx(coords, pt){
+    let best = Infinity, prev = null;
+    for(let i = 0; i < coords.length; i++){
+      const q = map.project(coords[i]);
+      if(prev){
+        const dx = q.x - prev.x, dy = q.y - prev.y, l2 = dx * dx + dy * dy;
+        let t = l2 ? ((pt.x - prev.x) * dx + (pt.y - prev.y) * dy) / l2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.hypot(pt.x - (prev.x + t * dx), pt.y - (prev.y + t * dy));
+        if(d < best) best = d;
+      }
+      prev = q;
+    }
+    return best;
+  }
+  function pickTapOtherRoute(e){
+    const p = pendingRoutes;
+    if(!p || !p.main || !p.alt) return false;
+    const sel = pickSel(), oth = sel === "main" ? "alt" : "main";
+    const dO = routeDistPx(p[oth].coords, e.point);
+    if(dO > 26) return false;
+    if(dO + 1 >= routeDistPx(p[sel].coords, e.point)) return false;   // wspólny odcinek / bliżej wybranej → bez zmiany
+    pickSelect(oth);
+    return true;
+  }
+
   function schedulePickReplan(){
     clearTimeout(pickReplanTimer);
-    showNavStatus("Zmieniono punkty — przeliczam trasę…");
+    pickDirty = true;
+    const g = document.getElementById("pickGoBtn"); if(g) g.disabled = true;
+    showNavStatus("Przeliczam trasę…");
     pickReplanTimer = setTimeout(() => {
       if(navUiState === "picker" && !(pendingRoutes && pendingRoutes.reroute)) replanCurrent();
-      else showNavStatus("");
-    }, 1200);
+      else { pickDirty = false; showNavStatus(""); if(g) g.disabled = false; }
+    }, 1000);
   }
   function renderPickStops(){
     const list = document.getElementById("pickStops");
@@ -6198,30 +6264,21 @@
     pickWraps().forEach(w => { if(!w._navPoint) w.remove(); });   // puste, niewybrane pola pomijamy
     const wraps = pickWraps();
     list.innerHTML = "";
-    const mk = (cls, badge, text) => {
-      const r = document.createElement("div"); r.className = "pickRow " + cls;
-      r.innerHTML = '<div class="pk"></div><div class="pl"></div>';
-      r.querySelector(".pk").textContent = badge; r.querySelector(".pl").textContent = text;
-      return r;
-    };
-    list.appendChild(mk("fixed", "A", navSelectedOrigin ? navSelectedOrigin.label : "Twoja pozycja"));
     wraps.forEach((w, i) => {
-      const r = mk("wp", String(i + 1), w._navPoint.label);
-      r.dataset.wp = String(i);
+      const r = document.createElement("div"); r.className = "pickRow wp";
+      r.innerHTML = '<div class="pk"></div><div class="pl"></div>';
+      r.querySelector(".pk").textContent = String(i + 1);
+      r.querySelector(".pl").textContent = w._navPoint.label;
       r._wrap = w;
-      const up = document.createElement("div"); up.className = "pbtn" + (i === 0 ? " off" : ""); up.textContent = "▲"; up.title = "Wyżej";
-      const dn = document.createElement("div"); dn.className = "pbtn" + (i === wraps.length - 1 ? " off" : ""); dn.textContent = "▼"; dn.title = "Niżej";
-      const rm = document.createElement("div"); rm.className = "pbtn"; rm.textContent = "✕"; rm.title = "Usuń punkt";
-      const gr = document.createElement("div"); gr.className = "pbtn grip"; gr.textContent = "⠿"; gr.title = "Przeciągnij";
-      up.addEventListener("click", () => { const wl = document.getElementById("navWaypointsList"); wl.insertBefore(w, wraps[i - 1]); renderPickStops(); schedulePickReplan(); });
-      dn.addEventListener("click", () => { const wl = document.getElementById("navWaypointsList"); wl.insertBefore(wraps[i + 1], w); renderPickStops(); schedulePickReplan(); });
+      const rm = document.createElement("div"); rm.className = "pbtn"; rm.textContent = "✕"; rm.setAttribute("aria-label", "Usuń przystanek");
+      const gr = document.createElement("div"); gr.className = "pbtn grip"; gr.textContent = "⠿"; gr.setAttribute("aria-label", "Przeciągnij, aby zmienić kolejność");
       rm.addEventListener("click", () => { w.remove(); updateAddWaypointVisibility(); renderPickStops(); schedulePickReplan(); });
       gr.addEventListener("pointerdown", ev => {
         ev.preventDefault();
         r.classList.add("dragging");
         try{ gr.setPointerCapture(ev.pointerId); }catch(e){}
         const move = e => {
-          const others = Array.from(list.querySelectorAll(".pickRow.wp")).filter(x => x !== r);
+          const others = Array.from(list.querySelectorAll(".pickRow")).filter(x => x !== r);
           for(const o of others){
             const b = o.getBoundingClientRect();
             if(e.clientY > b.top && e.clientY < b.bottom){
@@ -6230,28 +6287,27 @@
             }
           }
         };
-        const up2 = () => {
+        const done = () => {
           gr.removeEventListener("pointermove", move);
-          gr.removeEventListener("pointerup", up2);
-          gr.removeEventListener("pointercancel", up2);
+          gr.removeEventListener("pointerup", done);
+          gr.removeEventListener("pointercancel", done);
           r.classList.remove("dragging");
-          const order = Array.from(list.querySelectorAll(".pickRow.wp")).map(x => x._wrap);
+          const order = Array.from(list.querySelectorAll(".pickRow")).map(x => x._wrap);
           const changed = order.some((x, k) => x !== wraps[k]);
           if(changed){ const wl = document.getElementById("navWaypointsList"); order.forEach(x => wl.appendChild(x)); }
           renderPickStops();
           if(changed) schedulePickReplan();
         };
         gr.addEventListener("pointermove", move);
-        gr.addEventListener("pointerup", up2);
-        gr.addEventListener("pointercancel", up2);
+        gr.addEventListener("pointerup", done);
+        gr.addEventListener("pointercancel", done);
       });
-      r.appendChild(up); r.appendChild(dn); r.appendChild(rm); r.appendChild(gr);
+      r.appendChild(gr); r.appendChild(rm);
       list.appendChild(r);
     });
-    list.appendChild(mk("fixed", "B", navSelectedDest ? navSelectedDest.label : "Cel"));
     document.getElementById("pickAddBtn").style.display = wraps.length >= NAV_MAX_WAYPOINTS ? "none" : "";
   }
-  safeInit("edytor punktów trasy", () => {
+  safeInit("pasek wyboru trasy", () => {
     const addWrap = document.getElementById("pickAddWrap"), addInput = document.getElementById("pickAddInput");
     createStopSearch(addWrap, addInput, document.getElementById("pickAddSuggestions"), {
       onSelect: (r) => {
@@ -6269,12 +6325,21 @@
     document.getElementById("pickAddBtn").addEventListener("click", () => {
       addWrap.style.display = ""; addInput.focus();
     });
-    document.getElementById("pickRerouteBtn").addEventListener("click", () => {
-      // „Zmień trasę”: świeże trasy od AKTUALNEJ pozycji do tych samych punktów
-      navSelectedOrigin = null;
-      document.getElementById("navOrigin").value = "";
-      renderPickStops();
-      replanCurrent();
+    // Jedziemy: zaakceptowana (zaznaczona na mapie) trasa → od razu nawigacja
+    document.getElementById("pickGoBtn").addEventListener("click", () => {
+      if(pickDirty){ clearTimeout(pickReplanTimer); replanCurrent(); return; }   // punkty się zmieniły → najpierw świeże trasy
+      const p = pendingRoutes, k = pickSel(), r = p && p[k];
+      if(!r) return;
+      const src = k === "main" ? "truck" : "truck-easy";
+      if(p.reroute) applyChosenReroute(r, src);
+      else if(p.truck) startDrivingRoute(r, src);
+    });
+    // Zmień trasę: wybrana trasa trafia do ręcznej edycji (łapiesz ją i przeciągasz)
+    document.getElementById("pickChangeBtn").addEventListener("click", () => {
+      if(pickDirty){ clearTimeout(pickReplanTimer); replanCurrent(); return; }
+      const p = pendingRoutes, k = pickSel(), r = p && p[k];
+      if(!r || !p.truck) return;
+      startPlannedRoute(r, k === "main" ? "truck" : "truck-easy");
     });
     document.getElementById("navRetryBtn").addEventListener("click", () => { showNavError(""); replanCurrent(); });
   });
@@ -6285,6 +6350,7 @@
     if(state !== "nav") document.getElementById("navPanel").classList.remove("nav-expanded");
     document.getElementById("navPanel").classList.toggle("picker-reroute", state === "picker" && !!(pendingRoutes && pendingRoutes.reroute));
     if(state === "picker" && typeof renderPickStops === "function") renderPickStops();
+    if(state !== "picker"){ const aw = document.getElementById("pickAddWrap"); if(aw) aw.style.display = "none"; }
     if(state !== "picker" && typeof pickReplanTimer !== "undefined") clearTimeout(pickReplanTimer);
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
@@ -6745,6 +6811,7 @@
 
   function setupPoiClick(){
     map.on("click", (e) => {
+      if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
       if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
@@ -6882,7 +6949,7 @@
   // (lokalnie, głównymi drogami, bez TomTom) i pokazujemy obie do wyboru
   function planRoutes(){
     lastPlanKind = "tomtom";
-    clearTimeout(pickReplanTimer);
+    clearTimeout(pickReplanTimer); pickDirty = false;
     showNavError("");
     if(!tomtomApiKey){
       showNavError("Wklej klucz API TomTom w ustawieniach (⋮), aby wyznaczyć trasę.");
@@ -7197,7 +7264,7 @@
   function replanCurrent(){ if(lastPlanKind === "tomtom") planRoutes(); else planTruckRoute(); }
   function planTruckRoute(){
     lastPlanKind = "truck";
-    clearTimeout(pickReplanTimer);
+    clearTimeout(pickReplanTimer); pickDirty = false;
     showNavError("");
     routeBeforeEdit = null;
     if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
@@ -7207,6 +7274,7 @@
     const planBtn = document.getElementById("navPlanBtn");
     const goBtn = document.getElementById("navGoBtn");
     planBtn.disabled = true; goBtn.disabled = true;
+    { const pg = document.getElementById("pickGoBtn"); if(pg) pg.disabled = true; }
     showNavStatus("Planuję trasę dla ciężarówki…");
 
     const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
@@ -7256,6 +7324,7 @@
       valhallaOnRetry = null;
       showNavStatus("");
       planBtn.disabled = false; goBtn.disabled = false;
+      { const pg = document.getElementById("pickGoBtn"); if(pg) pg.disabled = false; }
     });
   }
 
@@ -7265,31 +7334,8 @@
     document.querySelector("#navChooseAlt .rcTitle").textContent = altTitle;
   }
   function renderTruckPicker(){
-    setPickerTitles("Szybka trasa", "Trasa alternatywna");
-    const f = pendingRoutes.main, e = pendingRoutes.alt;
-    const mainBtn = document.getElementById("navChooseMain"), altBtn = document.getElementById("navChooseAlt");
-    altBtn.style.display = "";
-    const label = r => `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`;
-    mainBtn.classList.toggle("unavailable", !f);
-    altBtn.classList.toggle("unavailable", !e);
-    document.getElementById("navChooseMainSub").textContent = f ? label(f) : "Niedostępna — dotknij, aby spróbować ponownie";
-    if(e){
-      let t = label(e);
-      if(f){
-        const dT = Math.round((e.timeS - f.timeS) / 60), dD = (e.distanceM - f.distanceM) / 1000;
-        t += ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)` +
-          (e.overlap > TRUCK_OVERLAP_MAX ? ` · pokrywa się z szybką w ${Math.round(e.overlap * 100)}%` : "");
-      }
-      document.getElementById("navChooseAltSub").textContent = t;
-    } else document.getElementById("navChooseAltSub").textContent = "Niedostępna — dotknij, aby spróbować ponownie";
-    setRouteLineCoords(f ? f.coords : [], "route-line");
-    setRouteLineCoords(e ? e.coords : [], "route-line-alt");
-    if(f && e) showAltLabel(e, f, () => document.getElementById("navChooseAlt").click()); else removeAltLabel();
-    const all = (f ? f.coords : []).concat(e ? e.coords : []);
-    if(all.length > 1){
-      const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
-      map.fitBounds(bounds, { padding: 70, duration: 600 });
-    }
+    if(!pendingRoutes.sel) pendingRoutes.sel = pendingRoutes.main ? "main" : "alt";
+    paintPicker(true);
   }
 
   // wybrana trasa (szybka / alternatywna) → od razu nawigacja w widoku 3D, bez etapu edycji
