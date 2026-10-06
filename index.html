@@ -736,6 +736,14 @@
   .tollSeg button{ flex:1; border:none; background:transparent; color:inherit; font:700 13px 'Inter',system-ui,sans-serif; padding:10px 6px; cursor:pointer; }
   .tollSeg button.active{ background:var(--gator-dark); color:var(--gator-on); }
   .tollHint{ font-size:11px; opacity:.7; margin:6px 0 4px; line-height:1.35; }
+  #satBox{ display:none; flex-direction:column; gap:2px; margin-top:8px; }
+  #satBox.show{ display:flex; }
+  #satStatus{ font-size:12px; line-height:1.35; color:var(--text-dim); min-height:16px; }
+  #satStatus.err{ color:var(--danger); }
+  #satStatus.ok{ color:#5a9e3a; }
+  #baseSeg button.active{ background:var(--gator-dark); color:var(--gator-on); }
+  #satAttrib{ display:none; position:fixed; left:6px; bottom:calc(var(--nav-icon-row-h, 64px) + 3px); z-index:40; font:9px/1.2 'Inter',sans-serif; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000; pointer-events:none; }
+  body.sat-on #satAttrib{ display:block; }
   #navTripStats{ display:none; justify-content:space-between; gap:8px; }
   #navTripStats .ts{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
   #navTripStats .ts b{ font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -1464,6 +1472,20 @@
           <option value="night">Noc</option>
         </select>
       </label>
+      <div class="navTitle" style="margin-top:12px">Podkład mapy</div>
+      <div class="voiceSeg" id="baseSeg" role="group" aria-label="Podkład mapy">
+        <button type="button" data-base="std">🗺 Standardowa</button>
+        <button type="button" data-base="sat">🛰 Satelitarna</button>
+      </div>
+      <div id="satBox">
+        <label class="navPrefLabel"><input type="checkbox" id="satLabels"> Nazwy ulic i miejscowości na satelicie</label>
+        <div class="navTitle" style="margin:8px 0 4px">Mapbox — Default public token</div>
+        <div class="navKeyRow" style="display:flex; gap:6px; align-items:center;">
+          <input type="text" id="mapboxToken" class="navApiKeyInput" placeholder="pk.eyJ1…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;">
+          <button type="button" id="mapboxTokenSave" class="navPrefBtn" style="width:auto; margin:0; padding:9px 12px;">Zapisz</button>
+        </div>
+        <div id="satStatus"></div>
+      </div>
       <div class="navTitle" style="margin-top:12px">Avatar pojazdu</div>
       <div id="avatarGrid"></div>
       <div class="navTitle" style="margin-top:12px">Kolor trasy</div>
@@ -2869,6 +2891,7 @@
     applyNightDetail(night);
     applyNightZones(night);
     applyMinorRoadZoom(night);
+    try{ applySatBrightness(); }catch(e){}
   }
 
   // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu).
@@ -2980,6 +3003,8 @@
     });
 
     map.on("load", () => {
+      try{ const L = map.getStyle().layers; satBaseTopId = L.length ? L[L.length - 1].id : null; }catch(e){}
+      try{ applyBaseMap(); }catch(e){ console.warn("Mapa satelitarna:", e); }
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
       setupNightZones();
@@ -3636,6 +3661,105 @@
     svg.innerHTML = userMarkerSvgInner(night);
     svg._px = null; applyAvatarSize();
   }
+
+  /* ---------- Mapa satelitarna (Mapbox Raster Tiles API) ----------
+     Wystarczy „Default public token” (pk.…) z konta Mapbox — osobny klucz API nie jest potrzebny.
+     Kafelki rastrowe leżą nad stylem OpenFreeMap, a pod warstwami aplikacji (trasa, fotoradary,
+     ograniczenia, tarcze dróg, parkingi). */
+  const MAPBOX_TOKEN_KEY = "nawigator_mapbox_token", BASE_KEY = "nawigator_map_base", SAT_LABELS_KEY = "nawigator_sat_labels";
+  let satBaseTopId = null, satErrShown = false;
+  let mapboxToken = "", baseWanted = "std", satLabels = true;
+  try{
+    mapboxToken = localStorage.getItem(MAPBOX_TOKEN_KEY) || "";
+    baseWanted = localStorage.getItem(BASE_KEY) === "sat" ? "sat" : "std";
+    satLabels = localStorage.getItem(SAT_LABELS_KEY) !== "0";
+  }catch(e){}
+  const satStyleId = () => satLabels ? "satellite-streets-v12" : "satellite-v9";
+  function setSatStatus(msg, kind){
+    const el = document.getElementById("satStatus"); if(!el) return;
+    el.textContent = msg || ""; el.className = kind || "";
+  }
+  function removeSatLayer(){
+    if(!map) return;
+    if(map.getLayer("mapbox-sat")) map.removeLayer("mapbox-sat");
+    if(map.getSource("mapbox-sat")) map.removeSource("mapbox-sat");
+  }
+  function applySatBrightness(){
+    if(!map || !map.getLayer("mapbox-sat")) return;
+    const night = document.body.classList.contains("night");
+    map.setPaintProperty("mapbox-sat", "raster-brightness-max", night ? 0.6 : 1);
+  }
+  function applyBaseMap(){
+    const want = baseWanted === "sat";
+    document.querySelectorAll("#baseSeg button").forEach(b => b.classList.toggle("active", b.dataset.base === baseWanted));
+    const box = document.getElementById("satBox"); if(box) box.classList.toggle("show", want);
+    const inp = document.getElementById("mapboxToken"); if(inp && document.activeElement !== inp) inp.value = mapboxToken;
+    const ok = want && /^pk\./.test(mapboxToken);
+    document.body.classList.toggle("sat-on", ok);
+    if(!map || !map.isStyleLoaded || !map.getStyle()) return;
+    removeSatLayer();
+    if(!want){ setSatStatus(""); return; }
+    if(!ok){
+      setSatStatus(mapboxToken ? "To nie jest publiczny token (musi zaczynać się od pk.)." : "Wklej Default public token z konta Mapbox (zaczyna się od pk.), aby włączyć satelitę.", mapboxToken ? "err" : "");
+      return;
+    }
+    satErrShown = false;
+    map.addSource("mapbox-sat", {
+      type: "raster", tileSize: 256, maxzoom: 20,
+      tiles: [`https://api.mapbox.com/styles/v1/mapbox/${satStyleId()}/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(mapboxToken)}`],
+      attribution: "© Mapbox © Maxar © OpenStreetMap"
+    });
+    let beforeId;
+    try{
+      const L = map.getStyle().layers, i = satBaseTopId ? L.findIndex(l => l.id === satBaseTopId) : -1;
+      if(i >= 0 && L[i + 1]) beforeId = L[i + 1].id;
+    }catch(e){}
+    map.addLayer({ id:"mapbox-sat", type:"raster", source:"mapbox-sat", paint:{ "raster-fade-duration": 0 } }, beforeId);
+    applySatBrightness();
+    setSatStatus("Satelita włączona ✓", "ok");
+  }
+  function setBaseMap(b){
+    baseWanted = b === "sat" ? "sat" : "std";
+    try{ localStorage.setItem(BASE_KEY, baseWanted); }catch(e){}
+    applyBaseMap();
+  }
+  safeInit("mapa satelitarna", () => {
+    document.getElementById("baseSeg").addEventListener("click", ev => {
+      const b = ev.target.closest("button[data-base]"); if(b) setBaseMap(b.dataset.base);
+    });
+    const lab = document.getElementById("satLabels");
+    lab.checked = satLabels;
+    lab.addEventListener("change", () => {
+      satLabels = lab.checked;
+      try{ localStorage.setItem(SAT_LABELS_KEY, satLabels ? "1" : "0"); }catch(e){}
+      applyBaseMap();
+    });
+    const inp = document.getElementById("mapboxToken");
+    const save = () => {
+      const v = inp.value.trim();
+      if(v && /^sk\./.test(v)){ setSatStatus("To token tajny (sk.). Użyj Default public token (pk.) — tajnego nie wklejaj do aplikacji.", "err"); return; }
+      mapboxToken = v;
+      try{ if(v) localStorage.setItem(MAPBOX_TOKEN_KEY, v); else localStorage.removeItem(MAPBOX_TOKEN_KEY); }catch(e){}
+      applyBaseMap();
+    };
+    document.getElementById("mapboxTokenSave").addEventListener("click", save);
+    inp.addEventListener("keydown", ev => { if(ev.key === "Enter"){ ev.preventDefault(); save(); } });
+    inp.addEventListener("paste", () => setTimeout(save, 0));
+    applyBaseMap();
+    // błędy kafelków Mapbox (zły/wygasły token, ograniczenie URL, limit) — pokaż w ustawieniach
+    const hook = () => {
+      if(!map) { setTimeout(hook, 500); return; }
+      map.on("error", e => {
+        if(!e || e.sourceId !== "mapbox-sat" || satErrShown) return;
+        const st = e.error && e.error.status;
+        satErrShown = true;
+        setSatStatus(st === 401 || st === 403
+          ? "Mapbox odrzucił token (401/403). Sprawdź token i ewentualne ograniczenie adresów URL w koncie Mapbox."
+          : "Nie udało się pobrać kafelków satelity (brak internetu lub limit Mapbox).", "err");
+      });
+    };
+    hook();
+  });
 
   function hslToHex(h, sat, l){
     sat /= 100; l /= 100;
@@ -10388,5 +10512,6 @@
 
 })();
 </script>
+<div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
 </html>
