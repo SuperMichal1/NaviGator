@@ -671,6 +671,16 @@
   }
   #navRouteInfo.show{ display:flex; }
 
+  /* ---------- Okno edycji trasy: tylko czas i dystans + przyciski ---------- */
+  #navRouteInfo.planning #navRouteSub,
+  #navRouteInfo.planning #navRouteTraffic,
+  #navRouteInfo.planning #navPlanHint{ display:none; }
+  #navRouteInfo.planning #navRouteMain{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
+  #navPanel.planning-mode .navTitle,
+  #navPanel.planning-mode #navTruckBtn,
+  #navPanel.planning-mode #navSettingsBtn{ display:none; }
+  #navPanel.planning-mode .navHeader{ justify-content:flex-end; min-height:0; margin:0; }
+
   /* ---------- Okno wyboru tras: trasy na mapie, na dole jeden wąski pasek ---------- */
   #navRetryBtn{ display:none; align-self:flex-start; padding:8px 12px; border-radius:10px; border:1px solid var(--accent); background:transparent; color:var(--accent); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
   #navRetryBtn.show{ display:inline-block; }
@@ -1361,10 +1371,9 @@
     <div id="navCustomize">
       <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
     </div>
-    <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
-      <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
-      <button id="navStartBtn">▶ Rozpocznij jazdę</button>
+      <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
+      <button id="navStartBtn">Jedziemy</button>
     </div>
   </div>
 
@@ -8484,17 +8493,20 @@
     const info = document.getElementById("navRouteInfo");
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
     try{ updateTollMarking(); }catch(e){ console.warn("Oznaczanie dróg płatnych:", e); }
-    if(!activeRoute){ info.classList.remove("show"); return; }
+    if(!activeRoute){ info.classList.remove("show"); document.getElementById("navPanel").classList.remove("planning-mode"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
       : activeRoute.source === "truck-easy" ? " · trasa alternatywna" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
+    document.getElementById("navPanel").classList.toggle("planning-mode", !!activeRoute.planning);
     updateNavTripStats();
     { const pn = document.getElementById("navPanel");
       if(pn.classList.contains("collapsed")){ pn.classList.toggle("compact", navIsDriving()); if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); } }
-    document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
-      ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
-      : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
+    document.getElementById("navRouteMain").textContent = activeRoute.planning
+      ? `${secondsToTimeLabel(activeRoute.timeS)} · ${metersToDistanceLabel(activeRoute.distanceM)}`
+      : activeRoute.manuallyEdited
+        ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
+        : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
     document.getElementById("navRouteSub").textContent =
       navSelectedDest ? `Cel: ${navSelectedDest.label}` : "";
     document.getElementById("navUndoEditBtn").classList.toggle("show", !!routeBeforeEdit);
@@ -8539,6 +8551,7 @@
     document.getElementById("navWaypointsList").innerHTML = "";
     updateAddWaypointVisibility();
     document.getElementById("navRouteInfo").classList.remove("show", "planning");
+    document.getElementById("navPanel").classList.remove("planning-mode");
     document.getElementById("btnFitRoute").classList.remove("visible");
     clearNavSuggestions();
     showNavError("");
@@ -9513,7 +9526,7 @@
   }
 
   // Zwraca: pełną nową listę współrzędnych trasy, null (brak sensownego wyniku) albo rzuca błąd (sieć/serwer).
-  async function computeEditViaDestination(beforeIdx, dropLL, beforeBearing, origCoords, spanStartIdx){
+  async function computeEditViaDestination(beforeIdx, dropLL, beforeBearing, origCoords, spanStartIdx, opts){
     const beforeLL = origCoords[beforeIdx];
     const destLL = origCoords[origCoords.length - 1];
     // Kierunek jazdy w upuszczonym punkcie: najpierw "w stronę celu", potem "od miejsca złapania trasy do
@@ -9526,6 +9539,8 @@
       { minClass: "primary",   maxSnapM: TRUCK_EDIT_SNAP_PRIMARY_M,   headings: [headToDest, headFromAnchor, null] },
       { minClass: "secondary", maxSnapM: TRUCK_EDIT_SNAP_SECONDARY_M, headings: [headToDest, headFromAnchor, null] }
     ];
+    // tryb „na żywo” (podczas przeciągania): jedna, najszybsza próba — pełne warianty zostają na moment puszczenia palca
+    if(opts && opts.quick){ attempts.length = 1; attempts[0].headings = [headToDest]; }
     for(const att of attempts){
       for(const dragHeading of att.headings){
         let coords;
@@ -9655,15 +9670,47 @@
     map.once("touchend", onRouteDragEnd);
   }
 
+  // kotwice dla edycji przy danym miejscu upuszczenia (ta sama logika, której używa puszczenie palca)
+  function dragEditParams(coords, grabIdx, dropLL){
+    let dropIdx = grabIdx, best = Infinity;
+    for(let i = 0; i < coords.length; i++){
+      const d = haversine(dropLL[1], dropLL[0], coords[i][1], coords[i][0]);
+      if(d < best){ best = d; dropIdx = i; }
+    }
+    const a = Math.min(grabIdx, dropIdx), b = Math.max(grabIdx, dropIdx);
+    const spanM = routeLengthMeters(coords.slice(a, b + 1));
+    const anchorBackIdx = (spanM <= LOCAL_ROUTE_REANCHOR_MAX_SPAN_M) ? a : grabIdx;
+    const editBeforeIdx = walkAlongRoute(coords, anchorBackIdx, LOCAL_ROUTE_ANCHOR_M, -1);
+    const editBeforeBearing = (editBeforeIdx === coords.length - 1) ? null
+      : bearingBetween(coords[editBeforeIdx][1], coords[editBeforeIdx][0], coords[editBeforeIdx + 1][1], coords[editBeforeIdx + 1][0]);
+    return { anchorBackIdx, editBeforeIdx, editBeforeBearing };
+  }
+  // Trasa liczona NA ŻYWO: gdy palec się przesuwa, w tle liczymy trasę do jego aktualnego położenia
+  // (jedno zapytanie naraz, zawsze do najnowszego punktu) i od razu ją rysujemy — bez czekania na puszczenie.
+  function maybeRunLiveEdit(st){
+    if(routeDragState !== st || st.liveBusy || !activeRoute) return;
+    const ll = st.currentLL;
+    if(st.lastLiveLL && haversine(ll[1], ll[0], st.lastLiveLL[1], st.lastLiveLL[0]) < 25) return;
+    st.liveBusy = true; st.lastLiveLL = ll;
+    const coords = activeRoute.coords;
+    const prm = dragEditParams(coords, st.grabIdx, ll);
+    computeEditViaDestination(prm.editBeforeIdx, ll, prm.editBeforeBearing, coords, prm.anchorBackIdx, { quick: true })
+      .then(res => {
+        if(routeDragState === st && res && res.length > 1){ st.liveResult = { ll, coords: res }; setRouteLineCoords(res); }
+      })
+      .catch(() => {})
+      .then(() => { st.liveBusy = false; maybeRunLiveEdit(st); });
+  }
   function onRouteDragMove(e){
     if(!routeDragState) return;
+    const st = routeDragState;
     const ll = [e.lngLat.lng, e.lngLat.lat];
-    routeDragState.currentLL = ll;
-    const coords = activeRoute.coords;
-    const preview = coords.slice(0, routeDragState.beforeIdx + 1)
-      .concat([ll])
-      .concat(coords.slice(routeDragState.afterIdx));
-    setRouteLineCoords(preview);
+    st.currentLL = ll;
+    if(!st.liveResult){   // do pierwszego wyniku z serwera: prosta linia przez palec
+      const coords = activeRoute.coords;
+      setRouteLineCoords(coords.slice(0, st.beforeIdx + 1).concat([ll]).concat(coords.slice(st.afterIdx)));
+    }
+    maybeRunLiveEdit(st);
   }
 
   function onRouteDragEnd(e){
@@ -9672,7 +9719,7 @@
     map.dragPan.enable();
     map.getCanvas().style.cursor = routeEditMode ? "grab" : "";
     if(!routeDragState) return;
-    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL, beforeBearing, afterBearing, origLenM, grabIdx } = routeDragState;
+    const { beforeIdx, afterIdx, beforeLL, afterLL, currentLL, beforeBearing, afterBearing, origLenM, grabIdx, liveResult } = routeDragState;
     const dropLL = currentLL || [e.lngLat.lng, e.lngLat.lat];
     routeDragState = null;
 
@@ -9712,7 +9759,9 @@
     // (span zbyt duży: zostajemy przy pierwotnych, stałych kotwicach z chwili złapania trasy —
     // sanity-checki długości w computeLocalDetour i tak odrzucą bezsensowny wynik)
 
-    showNavStatus("Dopasowuję nowy fragment do głównych dróg…");
+    // trasa policzona na żywo dla miejsca (prawie) tam, gdzie puszczono palec → bierzemy ją od razu
+    const useLive = !!(liveResult && haversine(dropLL[1], dropLL[0], liveResult.ll[1], liveResult.ll[0]) < 40);
+    showNavStatus(useLive ? "" : "Liczę trasę…");
 
     // Główna metoda: przez upuszczony punkt do celu (kotwica z tyłu, ale BEZ zawracania do kotwicy z przodu).
     // Rozciągnięcie okna edycji wstecz (spanStartIdx) działa tak samo jak wcześniej.
@@ -9728,16 +9777,16 @@
     }).then(newSub => (!newSub || newSub.length < 2) ? null
       : coords.slice(0, finalBeforeIdx).concat(newSub).concat(coords.slice(finalAfterIdx + 1)));
 
-    computeEditViaDestination(editBeforeIdx, dropLL, editBeforeBearing, coords, anchorBackIdx)
+    (useLive ? Promise.resolve(liveResult.coords) : computeEditViaDestination(editBeforeIdx, dropLL, editBeforeBearing, coords, anchorBackIdx)
       .catch(err => {
         console.warn("Edycja trasy przez Valhalla nie powiodła się, próbuję metody awaryjnej:", err);
         return oldStyleFallback();
-      })
+      }))
       .then(newCoords => {
         showNavStatus("");
         if(!activeRoute || activeRoute.coords !== coords) return; // trasa zmieniła się w międzyczasie
         if(!newCoords || newCoords.length < 2){
-          showNavError("Nie znalazłem przejazdu głównymi drogami (M/A) bez zawracania przez ten punkt — przeciągnij bliżej autostrady/drogi A albo dalej wzdłuż niej. Przywracam poprzednią trasę.");
+          showNavError("Tamtędy nie ma przejazdu głównymi drogami — przeciągnij bliżej drogi.");
           setRouteLineCoords(activeRoute.coords);
           return;
         }
