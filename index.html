@@ -671,6 +671,28 @@
   }
   #navRouteInfo.show{ display:flex; }
 
+  /* ---------- Okno wyboru tras: Zmień trasę + punkty trasy (dodawanie i zmiana kolejności) ---------- */
+  #navRetryBtn{ display:none; align-self:flex-start; padding:8px 12px; border-radius:10px; border:1px solid var(--accent); background:transparent; color:var(--accent); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #navRetryBtn.show{ display:inline-block; }
+  #navPickEdit{ display:none; flex-direction:column; gap:8px; }
+  #navPanel[data-navstate="picker"]:not(.picker-reroute) #navPickEdit{ display:flex; }
+  #navPickEdit .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); margin-top:2px; }
+  #pickRerouteBtn{ width:100%; background:transparent; color:var(--text-main); border:1px solid var(--panel-border); padding:10px 12px; border-radius:10px; font:700 14px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #pickRerouteBtn:active{ transform:scale(.98); }
+  #pickStops{ display:flex; flex-direction:column; gap:6px; }
+  .pickRow{ display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid var(--panel-border); user-select:none; -webkit-user-select:none; }
+  body:not(.night) .pickRow{ background:rgba(255,255,255,.55); }
+  .pickRow .pk{ flex:0 0 22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font:700 11px 'Inter',system-ui,sans-serif; background:var(--gator-dark); color:var(--gator-on); }
+  .pickRow.fixed .pk{ background:#5b6570; }
+  .pickRow .pl{ flex:1; min-width:0; font-size:13px; font-weight:600; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pickRow .pbtn{ flex:0 0 auto; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(128,128,128,.18); color:var(--text-main); font-size:13px; cursor:pointer; }
+  .pickRow .pbtn:active{ transform:scale(.92); }
+  .pickRow .pbtn.off{ opacity:.3; pointer-events:none; }
+  .pickRow .grip{ touch-action:none; cursor:grab; font-size:19px; line-height:1; }
+  .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
+  #pickAddBtn{ align-self:flex-start; padding:8px 12px; border-radius:10px; border:1px dashed var(--accent); background:transparent; color:var(--accent); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #pickHint{ font-size:11px; line-height:1.35; color:var(--text-dim); }
+
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
   @keyframes gLegStep{ from{ transform:translateY(-1.8px); } to{ transform:translateY(1.8px); } }
@@ -1285,6 +1307,7 @@
   </div>
 
   <div id="navError"></div>
+  <button id="navRetryBtn" type="button">↻ Spróbuj ponownie</button>
   <div id="navStatus"></div>
 
   <div id="navConfirmBlock">
@@ -1298,6 +1321,17 @@
         <span class="rcTitle">Trasa alternatywna (główne drogi)</span>
         <span class="rcSub" id="navChooseAltSub"></span>
       </div>
+    </div>
+    <div id="navPickEdit">
+      <button id="pickRerouteBtn" type="button">🔀 Zmień trasę</button>
+      <div class="cuTitle">Punkty trasy</div>
+      <div id="pickStops"></div>
+      <div id="pickAddWrap" class="navStopWrap" style="display:none">
+        <input type="text" id="pickAddInput" class="navStopInput" placeholder="Wpisz punkt pośredni…" autocomplete="off">
+        <div id="pickAddSuggestions" class="navSuggestions"></div>
+      </div>
+      <button id="pickAddBtn" type="button">+ Dodaj punkt trasy</button>
+      <div id="pickHint">Przytrzymaj ⠿ i przeciągnij punkt (albo użyj ▲ ▼), aby zmienić kolejność. Trasa przeliczy się sama.</div>
     </div>
     <div id="navGoRow">
       <button id="navGoBtn">Jedź</button>
@@ -1699,6 +1733,47 @@
     }catch(e){}
   })();
   const TRUCK_ROUTE_TIMEOUT_MS = 30000;
+  // Publiczny serwer Valhalla bywa przeciążony: każde zapytanie ma WŁASNY limit czasu i do 3 prób
+  // (z rosnącym limitem), zamiast jednego wspólnego przerwania, które zabijało wszystkie zapytania naraz.
+  const VALHALLA_TRY_TIMEOUTS_MS = [15000, 22000, 30000];
+  let valhallaOnRetry = null;   // (nr próby, liczba prób) → komunikat o ponawianiu
+  function valhallaRequest(request, parent, maxAttempts){
+    const url = `${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    let n = 0;
+    const attempt = () => {
+      if(parent && parent.signal.aborted){
+        const e = new Error("ABORTED"); e.name = "AbortError"; e.userAbort = true; return Promise.reject(e);
+      }
+      const ctrl = new AbortController();
+      let timedOut = false;
+      const onAbort = () => ctrl.abort();
+      if(parent) parent.signal.addEventListener("abort", onAbort);
+      const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, VALHALLA_TRY_TIMEOUTS_MS[Math.min(n, VALHALLA_TRY_TIMEOUTS_MS.length - 1)]);
+      return fetch(url, { signal: ctrl.signal })
+        .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, status: r.status, data })))
+        .then(res => {
+          if(!res.ok && (res.status >= 500 || res.status === 429)){
+            const e = new Error("VALHALLA_" + res.status); e.status = res.status; e.retriable = true; throw e;
+          }
+          return res;
+        })
+        .catch(err => {
+          if(timedOut){ err = new Error("VALHALLA_TIMEOUT"); err.timedOut = true; err.retriable = true; }
+          else if(err && err.name === "AbortError"){ err.userAbort = true; }
+          else if(err && err.retriable === undefined){ err.retriable = true; }   // błąd sieci (TypeError)
+          throw err;
+        })
+        .finally(() => { clearTimeout(timer); if(parent) parent.signal.removeEventListener("abort", onAbort); });
+    };
+    const run = () => attempt().catch(err => {
+      n++;
+      if(err.userAbort || !err.retriable || n >= maxAttempts || (parent && parent.signal.aborted)) throw err;
+      if(valhallaOnRetry) valhallaOnRetry(n + 1, maxAttempts);
+      return sleep(600 * n).then(run);
+    });
+    return run();
+  }
   // Rodzaj dróg: domyślnie niepłatne; „płatne” pozwala na odcinki z opłatami (ustawienie w menu ⋮)
   const TOLL_KEY = "nawigator_allow_tolls";
   let allowTolls = false;
@@ -5629,7 +5704,9 @@
     const el = document.getElementById("navError");
     el.textContent = msg;
     el.classList.toggle("show", !!msg);
+    if(!msg){ const rb = document.getElementById("navRetryBtn"); if(rb) rb.classList.remove("show"); }
   }
+  function showNavRetry(){ const rb = document.getElementById("navRetryBtn"); if(rb) rb.classList.add("show"); }
 
   function showNavStatus(msg){
     const el = document.getElementById("navStatus");
@@ -6103,10 +6180,112 @@
     return rowH + getNavPanelVisibleHeight();
   }
 
+
+  /* ---------- Edytor punktów trasy w oknie wyboru tras ---------- */
+  var pickReplanTimer = null;
+  function pickWraps(){ return Array.from(document.querySelectorAll("#navWaypointsList .navWaypointWrap")); }
+  function schedulePickReplan(){
+    clearTimeout(pickReplanTimer);
+    showNavStatus("Zmieniono punkty — przeliczam trasę…");
+    pickReplanTimer = setTimeout(() => {
+      if(navUiState === "picker" && !(pendingRoutes && pendingRoutes.reroute)) replanCurrent();
+      else showNavStatus("");
+    }, 1200);
+  }
+  function renderPickStops(){
+    const list = document.getElementById("pickStops");
+    if(!list) return;
+    pickWraps().forEach(w => { if(!w._navPoint) w.remove(); });   // puste, niewybrane pola pomijamy
+    const wraps = pickWraps();
+    list.innerHTML = "";
+    const mk = (cls, badge, text) => {
+      const r = document.createElement("div"); r.className = "pickRow " + cls;
+      r.innerHTML = '<div class="pk"></div><div class="pl"></div>';
+      r.querySelector(".pk").textContent = badge; r.querySelector(".pl").textContent = text;
+      return r;
+    };
+    list.appendChild(mk("fixed", "A", navSelectedOrigin ? navSelectedOrigin.label : "Twoja pozycja"));
+    wraps.forEach((w, i) => {
+      const r = mk("wp", String(i + 1), w._navPoint.label);
+      r.dataset.wp = String(i);
+      r._wrap = w;
+      const up = document.createElement("div"); up.className = "pbtn" + (i === 0 ? " off" : ""); up.textContent = "▲"; up.title = "Wyżej";
+      const dn = document.createElement("div"); dn.className = "pbtn" + (i === wraps.length - 1 ? " off" : ""); dn.textContent = "▼"; dn.title = "Niżej";
+      const rm = document.createElement("div"); rm.className = "pbtn"; rm.textContent = "✕"; rm.title = "Usuń punkt";
+      const gr = document.createElement("div"); gr.className = "pbtn grip"; gr.textContent = "⠿"; gr.title = "Przeciągnij";
+      up.addEventListener("click", () => { const wl = document.getElementById("navWaypointsList"); wl.insertBefore(w, wraps[i - 1]); renderPickStops(); schedulePickReplan(); });
+      dn.addEventListener("click", () => { const wl = document.getElementById("navWaypointsList"); wl.insertBefore(wraps[i + 1], w); renderPickStops(); schedulePickReplan(); });
+      rm.addEventListener("click", () => { w.remove(); updateAddWaypointVisibility(); renderPickStops(); schedulePickReplan(); });
+      gr.addEventListener("pointerdown", ev => {
+        ev.preventDefault();
+        r.classList.add("dragging");
+        try{ gr.setPointerCapture(ev.pointerId); }catch(e){}
+        const move = e => {
+          const others = Array.from(list.querySelectorAll(".pickRow.wp")).filter(x => x !== r);
+          for(const o of others){
+            const b = o.getBoundingClientRect();
+            if(e.clientY > b.top && e.clientY < b.bottom){
+              if(e.clientY < b.top + b.height / 2) list.insertBefore(r, o); else list.insertBefore(r, o.nextSibling);
+              break;
+            }
+          }
+        };
+        const up2 = () => {
+          gr.removeEventListener("pointermove", move);
+          gr.removeEventListener("pointerup", up2);
+          gr.removeEventListener("pointercancel", up2);
+          r.classList.remove("dragging");
+          const order = Array.from(list.querySelectorAll(".pickRow.wp")).map(x => x._wrap);
+          const changed = order.some((x, k) => x !== wraps[k]);
+          if(changed){ const wl = document.getElementById("navWaypointsList"); order.forEach(x => wl.appendChild(x)); }
+          renderPickStops();
+          if(changed) schedulePickReplan();
+        };
+        gr.addEventListener("pointermove", move);
+        gr.addEventListener("pointerup", up2);
+        gr.addEventListener("pointercancel", up2);
+      });
+      r.appendChild(up); r.appendChild(dn); r.appendChild(rm); r.appendChild(gr);
+      list.appendChild(r);
+    });
+    list.appendChild(mk("fixed", "B", navSelectedDest ? navSelectedDest.label : "Cel"));
+    document.getElementById("pickAddBtn").style.display = wraps.length >= NAV_MAX_WAYPOINTS ? "none" : "";
+  }
+  safeInit("edytor punktów trasy", () => {
+    const addWrap = document.getElementById("pickAddWrap"), addInput = document.getElementById("pickAddInput");
+    createStopSearch(addWrap, addInput, document.getElementById("pickAddSuggestions"), {
+      onSelect: (r) => {
+        if(pickWraps().length >= NAV_MAX_WAYPOINTS) return;
+        const label = navResultLabel(r), pos = r.position;
+        addWaypointRow();
+        const w = pickWraps().pop();
+        w._navPoint = { lat: pos.lat, lon: pos.lon, label };
+        w.querySelector("input").value = label;
+        addInput.value = ""; addWrap.style.display = "none";
+        renderPickStops();
+        schedulePickReplan();
+      }
+    });
+    document.getElementById("pickAddBtn").addEventListener("click", () => {
+      addWrap.style.display = ""; addInput.focus();
+    });
+    document.getElementById("pickRerouteBtn").addEventListener("click", () => {
+      // „Zmień trasę”: świeże trasy od AKTUALNEJ pozycji do tych samych punktów
+      navSelectedOrigin = null;
+      document.getElementById("navOrigin").value = "";
+      renderPickStops();
+      replanCurrent();
+    });
+    document.getElementById("navRetryBtn").addEventListener("click", () => { showNavError(""); replanCurrent(); });
+  });
+
   function setNavUiState(state){
     navUiState = state;
     document.getElementById("navPanel").dataset.navstate = state;
     if(state !== "nav") document.getElementById("navPanel").classList.remove("nav-expanded");
+    document.getElementById("navPanel").classList.toggle("picker-reroute", state === "picker" && !!(pendingRoutes && pendingRoutes.reroute));
+    if(state === "picker" && typeof renderPickStops === "function") renderPickStops();
+    if(state !== "picker" && typeof pickReplanTimer !== "undefined") clearTimeout(pickReplanTimer);
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
@@ -6702,6 +6881,8 @@
   // krok 2: "Wyznacz trasę" — liczymy RÓWNOLEGLE trasę główną (TomTom) i alternatywną
   // (lokalnie, głównymi drogami, bez TomTom) i pokazujemy obie do wyboru
   function planRoutes(){
+    lastPlanKind = "tomtom";
+    clearTimeout(pickReplanTimer);
     showNavError("");
     if(!tomtomApiKey){
       showNavError("Wklej klucz API TomTom w ustawieniach (⋮), aby wyznaczyć trasę.");
@@ -6869,7 +7050,6 @@
       truckRouteAbort = new AbortController();
       ctrl = truckRouteAbort;
     }
-    const timer = setTimeout(() => ctrl.abort(), TRUCK_ROUTE_TIMEOUT_MS);
 
     // pierwszy i ostatni punkt to "break" (start/cel), punkty pośrednie — "through"
     // (trasa musi przez nie przejechać, ale bez zawracania/postoju w nich)
@@ -6886,8 +7066,8 @@
     };
     if(extra) Object.assign(request, extra); // np. alternates, exclude_locations
     // GET z parametrem json= (jak robi to openstreetmap.org) — zwykłe żądanie, bez preflightu CORS
-    return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
-      .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, status: r.status, data })))
+    // zapytania pomocnicze (extra: alternatywy / wykluczenia) — jedna próba; główne trasy — do 3 prób
+    return valhallaRequest(request, ctrl, extra ? 1 : VALHALLA_TRY_TIMEOUTS_MS.length)
       .then(({ ok, status, data }) => {
         if(!ok){
           const err = new Error("VALHALLA_" + status);
@@ -6914,7 +7094,7 @@
         main.alts = (data.alternates || []).map(a => { try{ return parseTrip(a.trip); }catch(e){ return null; } }).filter(Boolean);
         return main;
       })
-      .finally(() => clearTimeout(timer));
+      ;
   }
 
   /* ---------- łatwa trasa NIE może pokrywać się z szybką ----------
@@ -6981,6 +7161,7 @@
     if(easy.overlap <= TRUCK_OVERLAP_MAX) return easy;
 
     showNavStatus("Szukam innej łatwej trasy…");
+    const t0 = Date.now(), inBudget = () => Date.now() - t0 < 25000;   // serwer wolny → nie wydłużamy czekania w nieskończoność
     const maxTimeS = fast.timeS * TRUCK_ALT_MAX_TIME_FACTOR + 600;
     let best = easy;
     const consider = r => {
@@ -7005,13 +7186,18 @@
 
     // krok 2 i 3: więcej wykluczonych punktów (mocniejsze zejście z pierwotnego przebiegu)
     for(const fr of [[0.25, 0.5, 0.75], [0.1, 0.3, 0.5, 0.7, 0.9]]){
+      if(!inBudget()) break;
       const r = await exclusionAttempt(fr);
       if(consider(r)) return r;
     }
     return best; // nic lepszego się nie znalazło — pokazujemy najmniej pokrywającą się
   }
 
+  let lastPlanKind = "truck";   // którym silnikiem liczono ostatnio: „truck” (Zaplanuj trasę) albo „tomtom”
+  function replanCurrent(){ if(lastPlanKind === "tomtom") planRoutes(); else planTruckRoute(); }
   function planTruckRoute(){
+    lastPlanKind = "truck";
+    clearTimeout(pickReplanTimer);
     showNavError("");
     routeBeforeEdit = null;
     if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
@@ -7032,34 +7218,42 @@
     truckRouteAbort = new AbortController();
     const ctrl = truckRouteAbort;
     let firstErr = null;
+    valhallaOnRetry = (n, max) => showNavStatus(`Serwer tras jest zajęty — ponawiam (${n}/${max})…`);
     const fastP = fetchTruckRoute(stops, "fast", ctrl).then(r => {
+      if(ctrl !== truckRouteAbort) return r;
       setRouteLineCoords(r.coords, "route-line");
       return r;
     }).catch(err => { firstErr = firstErr || err; return null; });
     const easyP = fetchTruckRoute(stops, "easy", ctrl).catch(err => { firstErr = firstErr || err; return null; });
 
     Promise.all([fastP, easyP]).then(async ([fast, easy]) => {
+      if(ctrl !== truckRouteAbort) return;   // w międzyczasie ruszyło nowe planowanie — ten wynik jest nieaktualny
       if(fast && easy){
         try{ easy = await findDistinctEasyRoute(stops, fast, easy, ctrl); }
         catch(e){ console.warn("Szukanie innej łatwej trasy:", e); }
       }
       if(!fast && !easy){
         const err = firstErr || new Error("VALHALLA");
-        if(err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas. Spróbuj ponownie.");
+        if(err.userAbort) return;
+        if(err.timedOut || err.name === "AbortError") showNavError("Serwer tras nie odpowiedział na czas (próbowałem 3 razy). Darmowy serwer bywa przeciążony — spróbuj za chwilę.");
         else if(err.code === 171) showNavError("Nie znaleziono drogi przy pinezce. Przesuń ją bliżej drogi dostępnej dla ciężarówek.");
         else showNavError("Nie udało się zaplanować trasy dla ciężarówki (darmowy serwer Valhalla). Spróbuj ponownie albo użyj „Wyznacz trasę”.");
+        if(err.code !== 171) showNavRetry();
         console.warn("Valhalla:", err);
         setRouteLineCoords([], "route-line");
         return;
       }
-      if(!fast || !easy){ // jedna z tras się nie policzyła — bierzemy tę, która jest, od razu w edycji
-        startPlannedRoute(fast || easy, !fast ? "truck-easy" : "truck");
-        return;
-      }
+      // pokazujemy wybór nawet, gdy policzyła się tylko jedna trasa — drugą można ponowić dotknięciem
       pendingRoutes = { main: fast, alt: easy, truck: true };
       renderTruckPicker();
       setNavUiState("picker");
+      if(!fast || !easy){
+        showNavError(`${!easy ? "Trasa alternatywna" : "Szybka trasa"} nie została policzona — serwer nie odpowiedział na czas. Możesz jechać drugą albo spróbować ponownie.`);
+        showNavRetry();
+      }
     }).finally(() => {
+      if(ctrl !== truckRouteAbort) return;
+      valhallaOnRetry = null;
       showNavStatus("");
       planBtn.disabled = false; goBtn.disabled = false;
     });
@@ -7072,22 +7266,30 @@
   }
   function renderTruckPicker(){
     setPickerTitles("Szybka trasa", "Trasa alternatywna");
-    document.getElementById("navChooseAlt").style.display = "";
     const f = pendingRoutes.main, e = pendingRoutes.alt;
+    const mainBtn = document.getElementById("navChooseMain"), altBtn = document.getElementById("navChooseAlt");
+    altBtn.style.display = "";
     const label = r => `${metersToDistanceLabel(r.distanceM)} · ${secondsToTimeLabel(r.timeS)}`;
-    document.getElementById("navChooseMain").classList.remove("unavailable");
-    document.getElementById("navChooseAlt").classList.remove("unavailable");
-    document.getElementById("navChooseMainSub").textContent = label(f);
-    const dT = Math.round((e.timeS - f.timeS) / 60), dD = (e.distanceM - f.distanceM) / 1000;
-    document.getElementById("navChooseAltSub").textContent = label(e) +
-      ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)` +
-      (e.overlap > TRUCK_OVERLAP_MAX ? ` · pokrywa się z szybką w ${Math.round(e.overlap * 100)}%` : "");
-    setRouteLineCoords(f.coords, "route-line");
-    setRouteLineCoords(e.coords, "route-line-alt");
-    showAltLabel(e, f, () => document.getElementById("navChooseAlt").click());
-    const all = f.coords.concat(e.coords);
-    const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
-    map.fitBounds(bounds, { padding: 70, duration: 600 });
+    mainBtn.classList.toggle("unavailable", !f);
+    altBtn.classList.toggle("unavailable", !e);
+    document.getElementById("navChooseMainSub").textContent = f ? label(f) : "Niedostępna — dotknij, aby spróbować ponownie";
+    if(e){
+      let t = label(e);
+      if(f){
+        const dT = Math.round((e.timeS - f.timeS) / 60), dD = (e.distanceM - f.distanceM) / 1000;
+        t += ` (${dT >= 0 ? "+" : ""}${dT} min, ${dD >= 0 ? "+" : ""}${dD.toFixed(1)} km)` +
+          (e.overlap > TRUCK_OVERLAP_MAX ? ` · pokrywa się z szybką w ${Math.round(e.overlap * 100)}%` : "");
+      }
+      document.getElementById("navChooseAltSub").textContent = t;
+    } else document.getElementById("navChooseAltSub").textContent = "Niedostępna — dotknij, aby spróbować ponownie";
+    setRouteLineCoords(f ? f.coords : [], "route-line");
+    setRouteLineCoords(e ? e.coords : [], "route-line-alt");
+    if(f && e) showAltLabel(e, f, () => document.getElementById("navChooseAlt").click()); else removeAltLabel();
+    const all = (f ? f.coords : []).concat(e ? e.coords : []);
+    if(all.length > 1){
+      const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
+      map.fitBounds(bounds, { padding: 70, duration: 600 });
+    }
   }
 
   // wybrana trasa (szybka / alternatywna) → od razu nawigacja w widoku 3D, bez etapu edycji
@@ -8209,11 +8411,13 @@
   document.getElementById("navChooseMain").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.main) applyChosenReroute(pendingRoutes.main, "truck");
     else if(pendingRoutes.truck && pendingRoutes.main) startDrivingRoute(pendingRoutes.main, "truck");
+    else if(pendingRoutes.truck) replanCurrent();
     else if(pendingRoutes.main) selectRoute("main");
   });
   document.getElementById("navChooseAlt").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.alt) applyChosenReroute(pendingRoutes.alt, "truck-easy");
     else if(pendingRoutes.truck && pendingRoutes.alt) startDrivingRoute(pendingRoutes.alt, "truck-easy");
+    else if(pendingRoutes.truck) replanCurrent();
     else if(pendingRoutes.alt) selectRoute("alt");
   });
 
