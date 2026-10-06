@@ -671,6 +671,10 @@
   }
   #navRouteInfo.show{ display:flex; }
 
+  /* ---------- Punkt do przeciągania na trasie ---------- */
+  .viaPin{ width:46px; height:46px; display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; }
+  .viaPin::before{ content:""; width:28px; height:28px; border-radius:50%; box-sizing:border-box; background:var(--accent,#FFB020); border:4px solid #fff; box-shadow:0 2px 9px rgba(0,0,0,.6); }
+
   /* ---------- Okno edycji trasy: tylko czas i dystans + przyciski ---------- */
   #navRouteInfo.planning #navRouteSub,
   #navRouteInfo.planning #navRouteTraffic,
@@ -7289,6 +7293,7 @@
     const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
     const waypoints = getOrderedWaypoints();
     const stops = [origin, ...waypoints, navSelectedDest];
+    lastTruckStops = stops.map(p => ({ lat: p.lat, lon: p.lon }));
 
     // dwie trasy liczone RÓWNOCZEŚNIE; szybka pojawia się na mapie od razu, gdy tylko wróci
     if(truckRouteAbort) truckRouteAbort.abort();
@@ -7387,6 +7392,15 @@
       steps: route.steps || null,
       planning: true
     };
+    activeRoute.stops = ((source || "truck") === "truck" || source === "truck-easy") && lastTruckStops
+      ? lastTruckStops.map(s => ({ lat: s.lat, lon: s.lon })) : null;
+    clearViaMarkers();
+    if(!viaHintShown){
+      viaHintShown = true;
+      const msg = "Dotknij trasę dwa razy, żeby dodać punkt do przesunięcia";
+      showNavStatus(msg);
+      setTimeout(() => { const el = document.getElementById("navStatus"); if(el && el.textContent === msg) showNavStatus(""); }, 5000);
+    }
     routeSpeedSegments = [];
     routeTrafficIncidents = [];
     pendingRoutes = { main:null, alt:null };
@@ -8458,6 +8472,7 @@
     activeRoute.timeS = routeBeforeEdit.timeS;
     activeRoute.manuallyEdited = routeBeforeEdit.manuallyEdited;
     activeRoute.steps = routeBeforeEdit.steps || null;
+    if(routeBeforeEdit.stops){ activeRoute.stops = routeBeforeEdit.stops; syncViaMarkers(); }
     routeBeforeEdit = null;
     setRouteLineCoords(activeRoute.coords);
     renderNavRouteInfo();
@@ -9593,6 +9608,178 @@
     }
   }
 
+  /* ============================================================
+     PUNKTY PRZECIĄGALNE NA TRASIE
+     Dwa dotknięcia trasy → na trasie pojawia się punkt. Przeciągnij go, gdzie chcesz: trasa przejedzie
+     dokładnie przez miejsce, w którym go puścisz (najbliższa droga dozwolona dla ciężarówki), a w trakcie
+     przeciągania jest liczona na żywo. Dotknięcie punktu usuwa go. Cofnij przywraca poprzednią trasę.
+  ============================================================ */
+  var lastTruckStops = null, viaMarkers = [], viaTap = null, viaHandlerBound = false, viaHintShown = false;
+  const VIA_MAX = 8;
+  const viaVariant = r => (r && r.source === "truck-easy") ? "easy" : "fast";
+  const viaStopsCopy = stops => stops.map(s => ({ lat: s.lat, lon: s.lon }));
+
+  function nearestVertexIdx(coords, lon, lat){
+    let best = 0, bd = Infinity;
+    for(let i = 0; i < coords.length; i++){
+      const d = haversine(lat, lon, coords[i][1], coords[i][0]);
+      if(d < bd){ bd = d; best = i; }
+    }
+    return best;
+  }
+  // najbliższy punkt trasy względem miejsca dotknięcia (w pikselach ekranu)
+  function routeNearest(coords, pt){
+    let best = { dist: Infinity, ll: null }, prev = null;
+    for(let i = 0; i < coords.length; i++){
+      const q = map.project(coords[i]);
+      if(prev){
+        const dx = q.x - prev.x, dy = q.y - prev.y, l2 = dx * dx + dy * dy;
+        let t = l2 ? ((pt.x - prev.x) * dx + (pt.y - prev.y) * dy) / l2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const cx = prev.x + t * dx, cy = prev.y + t * dy, d = Math.hypot(pt.x - cx, pt.y - cy);
+        if(d < best.dist){ const u = map.unproject([cx, cy]); best = { dist: d, ll: [u.lng, u.lat] }; }
+      }
+      prev = q;
+    }
+    return best;
+  }
+
+  function ensureViaTapHandler(){
+    if(viaHandlerBound || !map) return;
+    viaHandlerBound = true;
+    map.on("click", onViaMapClick);
+    const panOn = () => { try{ map.dragPan.enable(); }catch(e){} };
+    window.addEventListener("touchend", panOn, { passive: true });
+    window.addEventListener("touchcancel", panOn, { passive: true });
+    window.addEventListener("mouseup", panOn);
+  }
+  function onViaMapClick(e){
+    if(!routeEditMode || !activeRoute || !activeRoute.planning){ viaTap = null; return; }
+    const t = e.originalEvent && e.originalEvent.target;
+    if(t && t.closest && t.closest(".viaPin")) return;
+    const now = Date.now(), prev = viaTap;
+    viaTap = { t: now, x: e.point.x, y: e.point.y };
+    if(!(prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(e.point.x - prev.x, e.point.y - prev.y) < DOUBLE_TAP_PX + 10)) return;
+    viaTap = null;
+    const n = routeNearest(activeRoute.coords, e.point);
+    if(!n.ll || n.dist > 34) return;
+    addViaAt(n.ll);
+  }
+
+  function addViaAt(ll){
+    const r = activeRoute;
+    if(!r) return;
+    if(!r.stops || r.stops.length < 2){
+      const c = r.coords;
+      r.stops = [{ lat: c[0][1], lon: c[0][0] }, { lat: c[c.length - 1][1], lon: c[c.length - 1][0] }];
+    }
+    if(r.stops.filter(x => x.via).length >= VIA_MAX) return;
+    const newIdx = nearestVertexIdx(r.coords, ll[0], ll[1]);
+    let pos = 1;
+    for(let i = 1; i < r.stops.length - 1; i++){
+      if(nearestVertexIdx(r.coords, r.stops[i].lon, r.stops[i].lat) <= newIdx) pos = i + 1;
+    }
+    const stop = { lat: ll[1], lon: ll[0], via: true };
+    r.stops = r.stops.slice(0, pos).concat([stop], r.stops.slice(pos));   // punkt leży na trasie → trasa się nie zmienia
+    addViaMarker(stop);
+  }
+
+  function addViaMarker(stop){
+    const el = document.createElement("div");
+    el.className = "viaPin";
+    const marker = new maplibregl.Marker({ element: el, draggable: true }).setLngLat([stop.lon, stop.lat]).addTo(map);
+    const entry = { marker, stop, drag: null };
+    let moved = false;
+    const lock = () => { try{ map.dragPan.disable(); }catch(e){} };
+    el.addEventListener("touchstart", lock, { passive: true });
+    el.addEventListener("mousedown", lock);
+    marker.on("dragstart", () => { moved = true; entry.drag = { busy: false, lastLL: null, cur: null, res: null }; });
+    marker.on("drag", () => { const l = marker.getLngLat(); liveVia(entry, [l.lng, l.lat]); });
+    marker.on("dragend", () => { finishVia(entry); setTimeout(() => { moved = false; }, 80); });
+    el.addEventListener("click", ev => { ev.stopPropagation(); if(!moved) removeVia(entry); });
+    viaMarkers.push(entry);
+  }
+  function clearViaMarkers(){ viaMarkers.forEach(m => m.marker.remove()); viaMarkers = []; }
+  function syncViaMarkers(){
+    clearViaMarkers();
+    if(activeRoute && activeRoute.stops) activeRoute.stops.forEach(s => { if(s.via) addViaMarker(s); });
+  }
+
+  // trasa na żywo podczas przeciągania punktu (jedno zapytanie naraz, zawsze do najnowszego położenia)
+  function liveVia(entry, ll){
+    const d = entry.drag, r = activeRoute;
+    if(!d || !r) return;
+    d.cur = ll;
+    if(d.busy) return;
+    if(d.lastLL && haversine(ll[1], ll[0], d.lastLL[1], d.lastLL[0]) < 30) return;
+    d.busy = true; d.lastLL = ll;
+    const stops = r.stops.map(s => s === entry.stop ? { lat: ll[1], lon: ll[0] } : { lat: s.lat, lon: s.lon });
+    fetchTruckRoute(stops, viaVariant(r), new AbortController(), {})
+      .then(res => { if(activeRoute === r && entry.drag === d){ d.res = { ll, res }; setRouteLineCoords(res.coords); } })
+      .catch(() => {})
+      .then(() => { d.busy = false; if(entry.drag === d && d.cur) liveVia(entry, d.cur); });
+  }
+
+  function viaApply(r, res, newStops){
+    routeBeforeEdit = { coords: r.coords, distanceM: r.distanceM, timeS: r.timeS, manuallyEdited: r.manuallyEdited, steps: r.steps,
+      stops: r.stops ? r.stops.map(s => Object.assign({}, s)) : null };
+    r.coords = res.coords; r.steps = res.steps; r.distanceM = res.distanceM; r.timeS = res.timeS;
+    r.manuallyEdited = true;
+    r.stops = newStops;
+    setRouteLineCoords(res.coords);
+    showNavError("");
+    renderNavRouteInfo();
+  }
+  function viaFail(err){
+    showNavStatus("");
+    showNavError(err && (err.timedOut || err.name === "AbortError")
+      ? "Serwer tras nie odpowiedział — spróbuj ponownie."
+      : "Tamtędy ciężarówka nie przejedzie — przesuń punkt bliżej drogi.");
+  }
+  function finishVia(entry){
+    const d = entry.drag, r = activeRoute;
+    entry.drag = null;
+    try{ map.dragPan.enable(); }catch(e){}
+    if(!r) return;
+    const l = entry.marker.getLngLat(), ll = [l.lng, l.lat];
+    const prev = [entry.stop.lon, entry.stop.lat];
+    const stops = r.stops.map(s => s === entry.stop ? { lat: ll[1], lon: ll[0] } : { lat: s.lat, lon: s.lon });
+    const useLive = !!(d && d.res && haversine(ll[1], ll[0], d.res.ll[1], d.res.ll[0]) < 20);
+    if(!useLive) showNavStatus("Liczę trasę…");
+    (useLive ? Promise.resolve(d.res.res) : fetchTruckRoute(stops, viaVariant(r), new AbortController()))
+      .then(res => {
+        showNavStatus("");
+        if(activeRoute !== r) return;
+        // punkt „przyklejamy” do trasy — widać dokładnie, którędy pojedzie
+        const i = nearestVertexIdx(res.coords, ll[0], ll[1]), c = res.coords[i];
+        const snapped = haversine(ll[1], ll[0], c[1], c[0]) < 1500 ? c : ll;
+        const newStops = r.stops.map(s => s === entry.stop ? Object.assign({}, s, { lat: snapped[1], lon: snapped[0] }) : s);
+        viaApply(r, res, newStops);
+        entry.stop = newStops.find(s => s.via && s.lat === snapped[1] && s.lon === snapped[0]) || entry.stop;
+        entry.marker.setLngLat(snapped);
+      })
+      .catch(err => {
+        entry.marker.setLngLat(prev);
+        if(activeRoute === r) setRouteLineCoords(r.coords);
+        viaFail(err);
+      });
+  }
+  function removeVia(entry){
+    const r = activeRoute;
+    if(!r || !r.stops) return;
+    const stops = r.stops.filter(s => s !== entry.stop);
+    showNavStatus("Liczę trasę…");
+    fetchTruckRoute(viaStopsCopy(stops), viaVariant(r), new AbortController())
+      .then(res => {
+        showNavStatus("");
+        if(activeRoute !== r) return;
+        viaApply(r, res, stops);
+        entry.marker.remove();
+        viaMarkers = viaMarkers.filter(m => m !== entry);
+      })
+      .catch(viaFail);
+  }
+
   // Krok 1: dotknięcie/kliknięcie trasy NIE zaczyna od razu jej przeciągania — tylko je "zgłasza".
   // Wcześniej każdy dotyk w polu łapania trasy (a jest ono szerokie, żeby łatwo było ją złapać)
   // natychmiast wyłączał przewijanie mapy i zaczynał edycję — więc zwykła próba przesunięcia/
@@ -9601,6 +9788,7 @@
   // przytrzymać palec/kursor w miejscu przez chwilę (ROUTE_DRAG_HOLD_MS) — ruch większy niż
   // ROUTE_DRAG_CANCEL_PX w tym czasie jest traktowany jak zwykłe przewijanie mapy i anuluje próbę.
   function onRouteDragStart(e){
+    return;   // zastąpione punktem przeciągalnym: podwójne dotknięcie trasy (patrz „Punkty przeciągalne na trasie”)
     if(!routeEditMode || !activeRoute || routeDragState || pendingRouteDrag) return;
     const startPoint = e.point;
     const lngLat = e.lngLat;
@@ -9817,6 +10005,10 @@
 
   // w trybie edycji trasa jest grubsza, żeby było widać, że można ją złapać
   function applyRouteEditVisuals(){
+    if(map){
+      if(routeEditMode){ ensureViaTapHandler(); try{ map.doubleClickZoom.disable(); }catch(e){} }
+      else { clearViaMarkers(); try{ map.doubleClickZoom.enable(); }catch(e){} }
+    }
     if(!map || !map.getLayer("route-line-main")) return;
     map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
     map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
