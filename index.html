@@ -1543,6 +1543,8 @@
       </div>
     </div>
     <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+    <button type="button" id="navSupaSyncBtn" class="navPrefBtn" style="margin-top:8px;">📤 Wyślij dane z tego urządzenia do Supabase</button>
+    <div id="navSupaSyncStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px; white-space:pre-line;"></div>
 
     <div id="navSupaProgress">
       <div class="navSupaProgressInner">
@@ -5373,6 +5375,94 @@
   }
 
   // wysyła wiersze do wspólnej bazy w paczkach po 500; istniejące (po on_conflict) są pomijane
+  // wersja z wynikiem: zwraca Promise<liczba wysłanych wierszy> i rzuca błąd z kodem HTTP (do ręcznej synchronizacji)
+  function uploadRowsAwait(table, rows, conflictCols, batchSize){
+    const url = normSupaUrl(supaUrl) + `/rest/v1/${table}?on_conflict=${conflictCols}`;
+    const B = batchSize || 500;
+    let sent = 0, chain = Promise.resolve();
+    for(let i = 0; i < rows.length; i += B){
+      const batch = rows.slice(i, i + B);
+      chain = chain.then(() => fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey,
+                   "Prefer": "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(batch)
+      }).then(async r => {
+        if(!r.ok){
+          let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
+          throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
+        }
+        sent += batch.length;
+      }));
+    }
+    return chain.then(() => sent);
+  }
+
+  // wysyła do Supabase to, co aplikacja ma już zapisane lokalnie (cache), bez pobierania z Overpass
+  async function syncLocalToSupabase(){
+    const btn = document.getElementById("navSupaSyncBtn"), st = document.getElementById("navSupaSyncStatus");
+    const say = t => { st.textContent = t; };
+    if(!supaConfigured()){ say("Najpierw wpisz adres projektu i klucz anon powyżej i zapisz."); return; }
+    btn.disabled = true;
+    const lines = [];
+    const jobs = [];
+    try{
+      const j = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
+      if(j && Array.isArray(j.features)) jobs.push({ label:"Zjazdy autostradowe", table:"motorway_junctions", conflict:"junction_key",
+        rows: j.features.filter(f => f.geometry && f.geometry.coordinates).map(f => ({
+          junction_key: `${(f.properties && f.properties.ref) || ""}_${f.geometry.coordinates[1].toFixed(4)}_${f.geometry.coordinates[0].toFixed(4)}`,
+          ref: f.properties && f.properties.ref || null, name: f.properties && f.properties.name || null,
+          lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
+    }catch(e){}
+    const mw = readMotorwayCameraCache();
+    if(mw) jobs.push({ label:"Fotoradary autostradowe", table:"motorway_cameras", conflict:"osm_id",
+      rows: mw.cams.map(c => ({ osm_id:c.id, lat:c.lat, lon:c.lon })) });
+    try{
+      const a = JSON.parse(localStorage.getItem(AVG_SPEED_CAMERA_CACHE_KEY) || "null");
+      if(a && Array.isArray(a.features)) jobs.push({ label:"Odcinkowy pomiar prędkości", table:"avg_speed_cameras", conflict:"osm_id",
+        rows: a.features.filter(f => f.geometry && f.properties && f.properties.id != null).map(f => ({
+          osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
+    }catch(e){}
+    try{
+      const h = JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null");
+      if(h && Array.isArray(h.features)) jobs.push({ label:"Firmy/operatorzy", table:"hgv_companies", conflict:"osm_id",
+        rows: h.features.filter(f => f.geometry).map((f, i) => ({
+          osm_id: (f.properties && f.properties.osm_id) || i, name: f.properties && f.properties.name || null,
+          lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
+    }catch(e){}
+    try{
+      const r = await idbGet(RESTRICTIONS_CACHE_KEY);
+      if(r && Array.isArray(r.heightFeatures)){
+        const rows = [];
+        const add = (arr, kind, key) => (arr || []).forEach(f => {
+          const v = f.properties && Number(f.properties[key]);
+          if(f.properties && f.properties.osm_id != null && isFinite(v) && f.geometry)
+            rows.push({ osm_id: f.properties.osm_id, kind, value: v, coords: f.geometry.coordinates });
+        });
+        add(r.heightFeatures, "height", "maxheight"); add(r.weightFeatures, "weight", "maxweight"); add(r.widthFeatures, "width", "maxwidth");
+        jobs.push({ label:"Znaki wysokości/tonażu/szerokości", table:"road_restrictions", conflict:"osm_id,kind", rows, batch:200 });
+      }
+    }catch(e){}
+    if(!jobs.length){ say("Brak zapisanych lokalnie danych do wysłania. Najpierw pozwól aplikacji pobrać dane z Overpass."); btn.disabled = false; return; }
+    for(const job of jobs){
+      if(!job.rows.length){ lines.push(`• ${job.label}: brak danych lokalnie`); say(lines.join("\n")); continue; }
+      say(lines.concat(`• ${job.label}: wysyłam ${job.rows.length}…`).join("\n"));
+      try{
+        const n = await uploadRowsAwait(job.table, job.rows, job.conflict, job.batch);
+        lines.push(`✅ ${job.label}: wysłano ${n}`);
+        debugLog("info", `Supabase: wysłano ${n} wierszy do ${job.table}`);
+      }catch(e){
+        lines.push(`❌ ${job.label}: ${e.message}`);
+        debugLog("warn", `Supabase: wysyłka do ${job.table} nieudana: ${e.message}`);
+      }
+      say(lines.join("\n"));
+    }
+    btn.disabled = false;
+  }
+  safeInit("synchronizacja lokalna → Supabase", () => {
+    document.getElementById("navSupaSyncBtn").addEventListener("click", syncLocalToSupabase);
+  });
+
   function uploadRowsToSupabase(table, rows, conflictCols){
     if(!supaConfigured() || !rows.length) return;
     const url = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?on_conflict=${conflictCols}`;
