@@ -952,6 +952,17 @@
     margin-top:4px; padding-top:6px;
     border-top:1px solid rgba(255,255,255,0.08);
   }
+  .catBlock{ padding:7px 0; border-top:1px solid var(--panel-border); }
+  .catBlock:first-child{ border-top:none; }
+  .catHead{ display:flex; justify-content:space-between; gap:8px; font-weight:700; font-size:13px; margin-bottom:3px; }
+  .catHead .catBase{ font-weight:600; font-size:12px; color:var(--text-dim); white-space:nowrap; }
+  .catLine{ display:flex; justify-content:space-between; gap:8px; font-size:12px; line-height:1.45; }
+  .catLine .k{ flex:0 0 auto; color:var(--text-dim); }
+  .catLine .v{ text-align:right; min-width:0; overflow-wrap:anywhere; font-weight:600; }
+  .catLine.ok .v{ color:#5a9e3a; }
+  .catLine.warn .v{ color:#d9961a; }
+  .catLine.err .v{ color:var(--danger); }
+  .catLine.dim .v{ color:var(--text-dim); font-weight:500; }
   .navSupaCategoryRow{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     font-size:10.5px; color: var(--text-dim);
@@ -1553,13 +1564,18 @@
           <span id="navSupaProgressTitle">Synchronizowanie wspólnej bazy…</span>
         </div>
         <div class="navSupaProgressRow">
-          <span class="navSupaProgressLabel">📤 Overpass → Supabase</span>
-          <span class="navSupaProgressPct" id="navSupaPctUp">0%</span>
+          <span class="navSupaProgressLabel">🌐 Pobrane z Overpass</span>
+          <span class="navSupaProgressPct" id="navSupaPctOp">–</span>
+        </div>
+        <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillOp"></div></div>
+        <div class="navSupaProgressRow">
+          <span class="navSupaProgressLabel">📤 Kategorie z danymi w bazie</span>
+          <span class="navSupaProgressPct" id="navSupaPctUp">–</span>
         </div>
         <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillUp"></div></div>
         <div class="navSupaProgressRow">
-          <span class="navSupaProgressLabel">📥 Supabase → aplikacja</span>
-          <span class="navSupaProgressPct" id="navSupaPctDown">0%</span>
+          <span class="navSupaProgressLabel">📥 Odebrane z bazy do aplikacji</span>
+          <span class="navSupaProgressPct" id="navSupaPctDown">–</span>
         </div>
         <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
         <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
@@ -4041,7 +4057,7 @@
         baseRaw = Array.isArray(cached.rawFeatures) ? cached.rawFeatures : cached.features;
         const fresh = Date.now() - cached.savedAt < JUNCTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("junctions"); return; } // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
+        if(fresh && !hasGaps && !force){ sharedDataMarkCache("junctions", cached.features.length); return; } // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
         if(hasGaps) bandsToFetch = cached.failedBands;
       }
     }catch(e){
@@ -4058,10 +4074,10 @@
           setJunctionData(features);
           debugLog("info", `Zjazdy autostradowe: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(JUNCTIONS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features, rawFeatures: features, failedBands: [] })); }catch(e){}
-          sharedDataMarkSupabase("junctions");
+          sharedDataMarkSupabase("junctions", features.length);
           return;
         }
-        debugLogSupabaseFallback("Zjazdy autostradowe", shared);
+        debugLogSupabaseFallback("Zjazdy autostradowe", shared); sharedDataMarkBaseEmpty("junctions", shared);
         runJunctionsOverpass(baseRaw, bandsToFetch);
       });
       return;
@@ -4098,13 +4114,12 @@
         console.warn("Nie udało się zapisać cache zjazdów (localStorage pełny?):", e);
         debugLog("warn", "Zjazdy autostradowe: NIE udało się zapisać cache (localStorage pełny?)");
       }
-      if(!failedBands.length) uploadRowsToSupabase("motorway_junctions",
+      sharedAfterOverpass("junctions", failedBands.length, features.length, "motorway_junctions", () =>
         features.map(f => ({
           junction_key: `${f.properties.ref || ""}_${f.geometry.coordinates[1].toFixed(4)}_${f.geometry.coordinates[0].toFixed(4)}`,
           ref: f.properties.ref, name: f.properties.name,
           lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
         })), "junction_key");
-      sharedDataMarkUploaded("junctions");
       if(failedBands.length && junctionsRetries++ < JUNCTIONS_MAX_RETRIES){
         setTimeout(loadUkMotorwayJunctionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -4260,21 +4275,22 @@
     if(cached){
       showMotorwayCameras(cached.cams);
       debugLog("info", `Fotoradary autostradowe: ${cached.cams.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS && !force){ sharedDataMarkResolved("cameras"); return; } // świeże — nic nie pobieramy
+      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS && !force){ sharedDataMarkCache("cameras", cached.cams.length); return; } // świeże — nic nie pobieramy
     }
 
     // 2) wspólna baza, a gdy jej nie ma albo jest pusta — 3) Overpass
     fetchMotorwayCamerasFromSupabase()
       .then(shared => {
         if(shared && shared.length) return { cams: shared, fromShared: true };
+        sharedDataMarkBaseEmpty("cameras", shared);
         return downloadMotorwayCameras().then(cams => ({ cams, fromShared: false }));
       })
       .then(({ cams, fromShared }) => {
-        if(fromShared) sharedDataMarkSupabase("cameras");
-        if(!cams.length){ sharedDataMarkResolved("cameras"); return; } // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
+        if(fromShared) sharedDataMarkSupabase("cameras", cams.length);
+        if(!cams.length){ sharedDataMarkOverpassFinished("cameras", 1, 0); sharedDataState.cameras.sentState = "empty"; renderSharedDataProgress(); return; } // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
         showMotorwayCameras(cams);
         saveMotorwayCameraCache(cams);
-        if(!fromShared){ uploadMotorwayCamerasToSupabase(cams); sharedDataMarkUploaded("cameras"); }
+        if(!fromShared) sharedAfterOverpass("cameras", 0, cams.length, "motorway_cameras", () => cams.map(c => ({ osm_id: c.id, lat: c.lat, lon: c.lon })), "osm_id");
       })
       .catch(err => {
         console.warn("Nie udało się pobrać fotoradarów autostradowych:", err);
@@ -4377,7 +4393,7 @@
         debugLog("info", `Odcinkowy pomiar prędkości: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("avgSpeed"); return; }
+        if(fresh && !hasGaps && !force){ sharedDataMarkCache("avgSpeed", baseFeatures.length); return; }
         if(hasGaps){
           bandsToFetch = cached.failedBands;
         } else {
@@ -4398,10 +4414,10 @@
           setAvgSpeedCameraData(features);
           debugLog("info", `Odcinkowy pomiar prędkości: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(AVG_SPEED_CAMERA_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
-          sharedDataMarkSupabase("avgSpeed");
+          sharedDataMarkSupabase("avgSpeed", features.length);
           return;
         }
-        debugLogSupabaseFallback("Odcinkowy pomiar prędkości", shared);
+        debugLogSupabaseFallback("Odcinkowy pomiar prędkości", shared); sharedDataMarkBaseEmpty("avgSpeed", shared);
         runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch);
       });
       return;
@@ -4435,10 +4451,9 @@
         console.warn("Nie udało się zapisać cache odcinkowego pomiaru prędkości (localStorage pełny?):", e);
         debugLog("warn", "Odcinkowy pomiar prędkości: NIE udało się zapisać cache (localStorage pełny?)");
       }
-      if(!failedBands.length) uploadRowsToSupabase("avg_speed_cameras",
+      sharedAfterOverpass("avgSpeed", failedBands.length, all.length, "avg_speed_cameras", () =>
         all.map(f => ({ osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
-      sharedDataMarkUploaded("avgSpeed");
       if(failedBands.length && avgSpeedCameraRetries++ < AVG_SPEED_CAMERA_MAX_RETRIES){
         setTimeout(loadAvgSpeedCamerasOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -4540,9 +4555,9 @@
         debugLog("info", `Firmy/operatorzy: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
-        if(fresh && !hasGaps && !force){ sharedDataMarkResolved("hgv"); return; }
+        if(fresh && !hasGaps && !force){ sharedDataMarkCache("hgv", baseFeatures.length); return; }
         if(hasGaps){
-          bandsToFetch = cached.failedBands;
+          bandsToFetch = refineFailedBands(cached.failedBands);
         } else {
           baseFeatures = [];
         }
@@ -4563,10 +4578,10 @@
           setHgvCompaniesData(features);
           debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
           try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
-          sharedDataMarkSupabase("hgv");
+          sharedDataMarkSupabase("hgv", features.length);
           return;
         }
-        debugLogSupabaseFallback("Firmy/operatorzy", shared);
+        debugLogSupabaseFallback("Firmy/operatorzy", shared); sharedDataMarkBaseEmpty("hgv", shared);
         runHgvCompaniesOverpass(baseFeatures, bandsToFetch);
       });
       return;
@@ -4600,10 +4615,9 @@
         console.warn("Nie udało się zapisać cache firm/operatorów:", e);
         debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
       }
-      if(!failedBands.length) uploadRowsToSupabase("hgv_companies",
+      sharedAfterOverpass("hgv", failedBands.length, all.length, "hgv_companies", () =>
         all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
-      sharedDataMarkUploaded("hgv");
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -4673,21 +4687,42 @@
   // pasy, Szkocja (wysoka, z wyspami) na 2 — Walia jest już wystarczająco mała w jednym kawałku.
   // Granice krajów się trochę zachodzą (np. Anglia/Szkocja) — to nic nie szkodzi, bo drogi są
   // i tak odsiewane po unikalnym id z OSM (patrz applyRestrictionsBandData).
-  const RESTRICTIONS_REGIONS = [
-    { name: "Anglia", boxes: [
-        [49.864, -6.418, 51.3,   1.764],
-        [51.3,   -6.418, 52.4,   1.764],
-        [52.4,   -6.418, 53.5,   1.764],
-        [53.5,   -6.418, 55.812, 1.764]
-    ]},
-    { name: "Walia", boxes: [
-        [51.317, -5.317, 53.431, -2.647]
-    ]},
-    { name: "Szkocja", boxes: [
-        [54.6, -8.649, 58.0,  -0.724],
-        [58.0, -8.649, 60.86, -0.724]
-    ]}
-  ];
+  // Pasy są drobniejsze niż wcześniej (29 zamiast 7), więc pojedyncze zapytanie jest lżejsze i rzadziej kończy
+  // się 504/timeoutem. Gęsto zaludnione południe i środek Anglii (51,2°–53°N) dodatkowo dzielimy na zachód/wschód.
+  const RESTRICTIONS_REGIONS = (() => {
+    const strips = (name, west, east, edges, splitFrom, splitTo, midLon) => {
+      const boxes = [];
+      for(let i = 0; i < edges.length - 1; i++){
+        const sth = edges[i], nth = edges[i + 1];
+        if(midLon != null && sth >= splitFrom && nth <= splitTo) boxes.push([sth, west, nth, midLon], [sth, midLon, nth, east]);
+        else boxes.push([sth, west, nth, east]);
+      }
+      return { name, boxes };
+    };
+    return [
+      strips("Anglia", -6.418, 1.764, [49.864, 50.6, 51.2, 51.5, 51.8, 52.1, 52.4, 52.7, 53.0, 53.5, 54.0, 54.6, 55.2, 55.812], 51.2, 53.0, -1.2),
+      strips("Walia", -5.317, -2.647, [51.317, 52.0, 52.7, 53.431]),
+      strips("Szkocja", -8.649, -0.724, [54.6, 55.4, 56.2, 57.0, 57.8, 58.6, 59.6, 60.86])
+    ];
+  })();
+
+  // stary cache zapamiętał nieudane DUŻE pasy — zamieniamy je na odpowiadające im mniejsze (tego samego regionu)
+  function refineFailedBands(failed){
+    const all = flattenRestrictionsRegions();
+    const out = [], seen = new Set();
+    (failed || []).forEach(f => {
+      const b = f && f.box;
+      if(!b || b.length !== 4){ out.push(f); return; }
+      const inside = all.filter(n => {
+        if(f.name && n.name !== f.name) return false;
+        const cy = (n.box[0] + n.box[2]) / 2, cx = (n.box[1] + n.box[3]) / 2;
+        return cy >= b[0] - 1e-6 && cy <= b[2] + 1e-6 && cx >= b[1] - 1e-6 && cx <= b[3] + 1e-6;
+      });
+      if(!inside.length){ out.push(f); return; }
+      inside.forEach(n => { const k = n.name + n.box.join(","); if(!seen.has(k)){ seen.add(k); out.push(n); } });
+    });
+    return out;
+  }
 
   function flattenRestrictionsRegions(){
     const bands = [];
@@ -4902,10 +4937,10 @@
         const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         const hasWidthData = cached.hasWidth === true; // starszy cache (sprzed dodania szerokości) tego nie ma
-        if(fresh && !hasGaps && hasWidthData && !force){ sharedDataMarkResolved("restrictions"); return; } // pełny, świeży cache z komplety danych — nic więcej do zrobienia
+        if(fresh && !hasGaps && hasWidthData && !force){ sharedDataMarkCache("restrictions", cachedHeight.length + cachedWeight.length + cachedWidth.length); return; } // pełny, świeży cache z komplety danych — nic więcej do zrobienia
         if(hasGaps){
           // dociągamy TYLKO brakujące fragmenty, dokładając je do tego, co już mamy
-          bandsToFetch = cached.failedBands;
+          bandsToFetch = refineFailedBands(cached.failedBands);
           baseHeight = cachedHeight;
           baseWeight = cachedWeight;
           baseWidth = cachedWidth;
@@ -4933,10 +4968,10 @@
               signFeatures: roundCoordsForCache(signFeatures),
               failedBands: [], hasWeight: true, hasWidth: true
             });
-            sharedDataMarkSupabase("restrictions");
+            sharedDataMarkSupabase("restrictions", heightFeatures.length + weightFeatures.length + widthFeatures.length);
             return;
           }
-          debugLogSupabaseFallback("Znaki wysokości/tonażu/szerokości", shared);
+          debugLogSupabaseFallback("Znaki wysokości/tonażu/szerokości", shared); sharedDataMarkBaseEmpty("restrictions", shared);
           runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch);
         });
         return;
@@ -4982,14 +5017,13 @@
       }).then(ok => {
         if(!ok) debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache — jutro znowu trzeba będzie pobrać wszystko");
       });
-      if(!failedBands.length){
+      sharedAfterOverpass("restrictions", failedBands.length, allHeight.length + allWeight.length + allWidth.length, "road_restrictions", () => {
         const rows = [];
         allHeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "height", value: f.properties.maxheight, coords: f.geometry.coordinates }));
         allWeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "weight", value: f.properties.maxweight, coords: f.geometry.coordinates }));
         allWidth.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "width", value: f.properties.maxwidth, coords: f.geometry.coordinates }));
-        uploadRowsToSupabase("road_restrictions", rows, "osm_id,kind");
-      }
-      sharedDataMarkUploaded("restrictions");
+        return rows;
+      }, "osm_id,kind", 200);
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -5029,6 +5063,7 @@
     Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon)])
       .then(([data, supaReports]) => {
         applyOverpassResult(data, supaReports);
+        lastOverpassData = data; lastOverpassPos = { lat, lon };
         lastFetchPos = { lat, lon };
         lastFetchTime = Date.now();
         roadDataState = "ok";
@@ -5077,9 +5112,13 @@
     return queueOverpassRequest(() => tryEndpointsNow(query, attemptCount, timeoutMs));
   }
 
-  let overpassDownUntil = 0;   // po porażce wszystkich serwerów kolejne zapytania nie czekają minutami w kolejce
+  // Po porażce wszystkich serwerów dajemy im odpocząć (30 s, potem 1, 2, 4 min… maks. 5 min). Kolejne zapytania
+  // CZEKAJĄ do końca przerwy zamiast być odrzucane — dzięki temu fragmenty nie są pomijane lawinowo, tylko
+  // wracają do kolejki i dostają prawdziwą szansę. Po pierwszym sukcesie przerwa wraca do zera.
+  let overpassDownUntil = 0, overpassDownStreak = 0;
   function tryEndpointsNow(query, attemptCount, timeoutMs){
-    if(Date.now() < overpassDownUntil) return Promise.reject(new Error("Overpass chwilowo niedostępny — ponowię za chwilę"));
+    const wait = overpassDownUntil - Date.now();
+    if(wait > 0) return new Promise(res => setTimeout(res, wait)).then(() => tryEndpointsNow(query, attemptCount, timeoutMs));
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
       order.push(OVERPASS_ENDPOINTS[(preferredEndpointIdx + i) % OVERPASS_ENDPOINTS.length]);
@@ -5087,7 +5126,8 @@
 
     function attempt(i){
       if(i >= order.length){
-        overpassDownUntil = Date.now() + 45000;
+        overpassDownUntil = Date.now() + Math.min(30000 * Math.pow(2, overpassDownStreak), 300000);
+        overpassDownStreak++;
         return Promise.reject(new Error("Wszystkie serwery Overpass niedostępne"));
       }
       const url = order[i];
@@ -5107,6 +5147,7 @@
       .then(data => {
         // zapamiętaj który serwer zadziałał, żeby następnym razem zacząć od niego
         preferredEndpointIdx = OVERPASS_ENDPOINTS.indexOf(url);
+        overpassDownStreak = 0; overpassDownUntil = 0;
         return data;
       })
       .catch(err => {
@@ -5181,101 +5222,192 @@
     { id: "restrictions", label: "Znaki wysokości/tonażu/szerokości" }
   ];
   let sharedDataState = {};
+  const SHARED_TABLES = { junctions:"motorway_junctions", cameras:"motorway_cameras", avgSpeed:"avg_speed_cameras", hgv:"hgv_companies", restrictions:"road_restrictions" };
+  function newCatState(){
+    return { fromSupabase:false, recv:0, baseCount:null, baseError:false,
+             opTotal:0, opDone:0, opFailed:0, opCount:null, resolved:false,
+             skippedCache:false, localCount:null,
+             sentState:"idle", sentTotal:0, sentCount:0, sentErr:"" };
+  }
   function resetSharedDataState(){
     sharedDataState = {};
-    SHARED_DATA_CATEGORIES.forEach(c => {
-      sharedDataState[c.id] = { fromSupabase:false, opTotal:0, opDone:0, resolved:false };
-    });
+    SHARED_DATA_CATEGORIES.forEach(c => { sharedDataState[c.id] = newCatState(); });
   }
   resetSharedDataState();
 
-  function sharedDataMarkSupabase(id){
-    if(!sharedDataState[id]) return;
-    sharedDataState[id].fromSupabase = true;
-    sharedDataState[id].resolved = true;
+  // liczba wierszy w tabeli Supabase — jedno lekkie zapytanie HEAD (null = nie wiadomo)
+  function supaCountRows(table){
+    if(!supaConfigured() || supaMissingTables.has(table)) return Promise.resolve(null);
+    return fetch(normSupaUrl(supaUrl) + `/rest/v1/${table}?select=*`, {
+      method: "HEAD",
+      headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey, "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0" }
+    }).then(r => {
+      const cr = r.headers.get("content-range");
+      const m = cr && cr.match(/\/(\d+)$/);
+      return m ? parseInt(m[1], 10) : null;
+    }).catch(() => null);
+  }
+  function sharedDataRefreshBaseCount(id){
+    const st = sharedDataState[id];
+    if(!st || !SHARED_TABLES[id]) return;
+    supaCountRows(SHARED_TABLES[id]).then(n => {
+      if(n === null) return;
+      st.baseCount = n; st.baseError = false;
+      renderSharedDataProgress();
+    });
+  }
+  function sharedDataMarkSupabase(id, n){
+    const st = sharedDataState[id]; if(!st) return;
+    st.fromSupabase = true; st.recv = n || 0; if(n != null) st.baseCount = n;
+    st.resolved = true;
+    renderSharedDataProgress();
+  }
+  // shared === null → błąd zapytania do bazy; [] → baza odpowiedziała, ale tabela jest pusta
+  function sharedDataMarkBaseEmpty(id, shared){
+    const st = sharedDataState[id]; if(!st) return;
+    if(shared === null){ st.baseError = true; st.baseCount = null; }
+    else { st.baseError = false; st.baseCount = 0; }
     renderSharedDataProgress();
   }
   function sharedDataMarkOverpassStart(id, total){
-    if(!sharedDataState[id]) return;
-    sharedDataState[id].opTotal = Math.max(1, total || 1);
-    sharedDataState[id].opDone = 0;
+    const st = sharedDataState[id]; if(!st) return;
+    st.opTotal = Math.max(1, total || 1); st.opDone = 0; st.opFailed = 0;
     renderSharedDataProgress();
   }
   function sharedDataMarkOverpassBand(id){
-    if(!sharedDataState[id]) return;
-    const s = sharedDataState[id];
-    s.opDone = Math.min(s.opTotal || 1, s.opDone + 1);
+    const st = sharedDataState[id]; if(!st) return;
+    st.opDone = Math.min(st.opTotal || 1, st.opDone + 1);
     renderSharedDataProgress();
   }
-  function sharedDataMarkUploaded(id){
-    if(!sharedDataState[id]) return;
-    const s = sharedDataState[id];
-    if(s.opTotal) s.opDone = s.opTotal;
-    s.resolved = true;
+  function sharedDataMarkOverpassFinished(id, failedCount, count){
+    const st = sharedDataState[id]; if(!st) return;
+    st.opFailed = failedCount || 0; st.opCount = count; st.resolved = true;
     renderSharedDataProgress();
+  }
+  // dane lokalne są świeże, więc nie pytamy ani Overpass, ani bazy o całą zawartość — sprawdzamy tylko, ile wierszy ma baza
+  function sharedDataMarkCache(id, count){
+    const st = sharedDataState[id]; if(!st) return;
+    st.skippedCache = true; st.localCount = count; st.resolved = true;
+    renderSharedDataProgress();
+    sharedDataRefreshBaseCount(id);
   }
   function sharedDataMarkResolved(id){
-    if(!sharedDataState[id]) return;
-    sharedDataState[id].resolved = true;
+    const st = sharedDataState[id]; if(!st) return;
+    st.resolved = true;
     renderSharedDataProgress();
+  }
+  function sharedDataMarkUploaded(id){ sharedDataMarkResolved(id); }
+
+  // wysyłka do bazy z PRAWDZIWYM wynikiem (ile wysłano albo jaki błąd)
+  function sharedUpload(id, table, rows, conflict, batch){
+    const st = sharedDataState[id]; if(!st) return Promise.resolve();
+    if(!supaConfigured()){ st.sentState = "off"; renderSharedDataProgress(); return Promise.resolve(); }
+    if(!rows.length){ st.sentState = "empty"; renderSharedDataProgress(); return Promise.resolve(); }
+    st.sentState = "running"; st.sentTotal = rows.length; st.sentErr = "";
+    renderSharedDataProgress();
+    return uploadRowsAwait(table, rows, conflict, batch).then(n => {
+      st.sentState = "ok"; st.sentCount = n;
+      renderSharedDataProgress();
+      sharedDataRefreshBaseCount(id);
+    }).catch(e => {
+      st.sentState = "fail"; st.sentErr = (e && e.message) || "błąd";
+      debugLog("warn", `Supabase: wysyłka do ${table} nieudana: ${st.sentErr}`);
+      renderSharedDataProgress();
+    });
+  }
+  // koniec pobierania z Overpass: wysyłamy do bazy tylko KOMPLETNE dane (bez nieudanych fragmentów)
+  function sharedAfterOverpass(id, failedCount, count, table, rowsFn, conflict, batch){
+    sharedDataMarkOverpassFinished(id, failedCount, count);
+    const st = sharedDataState[id]; if(!st) return;
+    if(failedCount > 0){ st.sentState = "waiting"; renderSharedDataProgress(); return; }
+    sharedUpload(id, table, rowsFn(), conflict, batch);
   }
 
   function computeSharedDataProgress(){
-    let supaDone = 0, opTotal = 0, opDone = 0, opCategories = 0, resolvedCount = 0;
+    const n = SHARED_DATA_CATEGORIES.length;
+    let opTotal = 0, opDone = 0, inBase = 0, recvNeed = 0, recvDone = 0, resolved = 0, issues = 0;
     SHARED_DATA_CATEGORIES.forEach(c => {
-      const s = sharedDataState[c.id];
-      if(s.fromSupabase) supaDone++;
-      if(s.opTotal > 0){ opCategories++; opTotal += s.opTotal; opDone += s.opDone; }
-      if(s.resolved) resolvedCount++;
+      const st = sharedDataState[c.id];
+      if(st.opTotal > 0){ opTotal += st.opTotal; opDone += st.opDone; }
+      if(st.sentState === "ok" || st.fromSupabase || (st.baseCount || 0) > 0) inBase++;
+      if(st.fromSupabase) recvDone++;
+      if(st.fromSupabase || (!st.skippedCache && st.sentState !== "ok" && (st.baseCount || 0) > 0)) recvNeed++;
+      if(st.resolved) resolved++;
+      if(st.opFailed > 0 || st.sentState === "fail" || st.sentState === "waiting" || st.sentState === "empty" ||
+         (st.skippedCache && st.baseCount === 0 && supaConfigured())) issues++;
     });
-    const allResolved = resolvedCount === SHARED_DATA_CATEGORIES.length;
-    const supaPct = Math.round(supaDone / SHARED_DATA_CATEGORIES.length * 100);
-    const opPct = opCategories > 0 ? Math.round(opDone / opTotal * 100) : (allResolved ? 100 : 0);
-    return { supaPct, opPct, allResolved };
+    return { n, opTotal, opDone, inBase, recvNeed, recvDone, allResolved: resolved === n, issues };
   }
 
-  // Krótki opis stanu JEDNEJ kategorii — to jest ta "bieżąca informacja o postępach
-  // pobierania poszczególnych elementów", o którą prosił użytkownik, a nie tylko sumaryczny %.
-  function sharedDataCategoryStatusText(id){
-    const s = sharedDataState[id];
-    if(!s) return "";
-    if(s.fromSupabase) return "✓ ze wspólnej bazy";
-    if(s.resolved && s.opTotal > 0) return "✓ wysłano do wspólnej bazy";
-    if(s.resolved) return "✓ aktualne (cache urządzenia)";
-    if(s.opTotal > 0) return `Overpass: ${s.opDone}/${s.opTotal} fragm.`;
-    return "sprawdzam…";
+  function shEsc(t){ return String(t).replace(/[&<>"]/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[ch])); }
+
+  // trzy czytelne linie dla każdej kategorii: skąd dane, co z wysyłką do bazy, co z odbiorem z bazy
+  function sharedDataLines(id){
+    const st = sharedDataState[id];
+    const L = [];
+    // 1) Overpass
+    if(st.opTotal > 0){
+      if(!st.resolved) L.push({ k:"🌐 Overpass", v:`⏳ ${st.opDone}/${st.opTotal} fragm.`, cls:"warn" });
+      else if(st.opFailed > 0) L.push({ k:"🌐 Overpass", v:`⚠ ${st.opDone}/${st.opTotal} fragm. (${st.opFailed} czeka)${st.opCount != null ? " · razem " + st.opCount : ""}`, cls:"warn" });
+      else L.push({ k:"🌐 Overpass", v:`✓ pobrano${st.opCount != null ? " " + st.opCount : ""}`, cls:"ok" });
+    } else if(st.skippedCache) L.push({ k:"🌐 Overpass", v:"— niepotrzebne (cache aktualny)", cls:"dim" });
+    else if(st.fromSupabase) L.push({ k:"🌐 Overpass", v:"— niepotrzebne (dane z bazy)", cls:"dim" });
+    else L.push({ k:"🌐 Overpass", v: st.resolved ? "—" : "sprawdzam…", cls:"dim" });
+    // 2) Do bazy
+    switch(st.sentState){
+      case "running": L.push({ k:"📤 Do bazy", v:`⏳ wysyłam ${st.sentTotal}…`, cls:"warn" }); break;
+      case "ok":      L.push({ k:"📤 Do bazy", v:`✓ wysłano ${st.sentCount}`, cls:"ok" }); break;
+      case "fail":    L.push({ k:"📤 Do bazy", v:`❌ ${shEsc(st.sentErr)}`, cls:"err" }); break;
+      case "waiting": L.push({ k:"📤 Do bazy", v:"⏸ czeka na komplet danych z Overpass", cls:"warn" }); break;
+      case "empty":   L.push({ k:"📤 Do bazy", v:"⚠ brak danych do wysłania", cls:"err" }); break;
+      case "off":     L.push({ k:"📤 Do bazy", v:"— Supabase nie skonfigurowany", cls:"dim" }); break;
+      default:
+        if(st.fromSupabase) L.push({ k:"📤 Do bazy", v:"— niepotrzebne (baza już ma dane)", cls:"dim" });
+        else if(st.skippedCache){
+          if(st.baseError) L.push({ k:"📤 Do bazy", v:"⚠ nie udało się sprawdzić bazy", cls:"warn" });
+          else if(st.baseCount === null) L.push({ k:"📤 Do bazy", v:"sprawdzam bazę…", cls:"dim" });
+          else if(st.baseCount > 0) L.push({ k:"📤 Do bazy", v:`✓ baza ma już ${st.baseCount}`, cls:"ok" });
+          else L.push({ k:"📤 Do bazy", v:"⚠ baza pusta — użyj „Wyślij dane z tego urządzenia”", cls:"err" });
+        } else L.push({ k:"📤 Do bazy", v:"—", cls:"dim" });
+    }
+    // 3) Z bazy
+    if(st.fromSupabase) L.push({ k:"📥 Z bazy", v:`✓ odebrano ${st.recv}`, cls:"ok" });
+    else if(st.skippedCache) L.push({ k:"📥 Z bazy", v:"— pominięto (cache aktualny)", cls:"dim" });
+    else if(st.baseError) L.push({ k:"📥 Z bazy", v:"⚠ błąd zapytania do bazy", cls:"warn" });
+    else if(st.baseCount === 0) L.push({ k:"📥 Z bazy", v:"— baza pusta", cls:"dim" });
+    else if(st.sentState === "ok") L.push({ k:"📥 Z bazy", v:"— niepotrzebne (to my wysłaliśmy)", cls:"dim" });
+    else L.push({ k:"📥 Z bazy", v: st.resolved ? "—" : "sprawdzam…", cls:"dim" });
+    return L;
   }
 
   function renderSharedDataCategoryList(){
     const list = document.getElementById("navSupaCategoryList");
     if(!list) return;
     list.innerHTML = SHARED_DATA_CATEGORIES.map(c => {
-      const s = sharedDataState[c.id];
-      const done = s && s.resolved;
-      return `<div class="navSupaCategoryRow${done ? " catDone" : ""}">` +
-        `<span class="catLabel">${c.label}</span>` +
-        `<span class="catStatus">${sharedDataCategoryStatusText(c.id)}</span>` +
-      `</div>`;
+      const st = sharedDataState[c.id];
+      const base = st.baseCount != null ? `w bazie: ${st.baseCount}` : "";
+      return `<div class="catBlock"><div class="catHead"><span class="catLabel">${c.label}</span><span class="catBase">${base}</span></div>` +
+        sharedDataLines(c.id).map(l => `<div class="catLine ${l.cls}"><span class="k">${l.k}</span><span class="v">${l.v}</span></div>`).join("") +
+        `</div>`;
     }).join("");
   }
 
   function renderSharedDataProgress(){
-    const { supaPct, opPct, allResolved } = computeSharedDataProgress();
-    const fillUp = document.getElementById("navSupaFillUp");
-    const fillDown = document.getElementById("navSupaFillDown");
-    const pctUp = document.getElementById("navSupaPctUp");
-    const pctDown = document.getElementById("navSupaPctDown");
-    const title = document.getElementById("navSupaProgressTitle");
-    const box = document.getElementById("navSupaProgress");
-    if(!fillUp || !fillDown || !box) return;
-    fillUp.style.width = opPct + "%";
-    fillDown.style.width = supaPct + "%";
-    pctUp.textContent = opPct + "%";
-    pctDown.textContent = supaPct + "%";
+    const P = computeSharedDataProgress();
+    const $ = id => document.getElementById(id);
+    const box = $("navSupaProgress");
+    if(!box || !$("navSupaFillOp")) return;
+    const setBar = (fillId, pctId, frac, text) => { $(fillId).style.width = Math.round(frac * 100) + "%"; $(pctId).textContent = text; };
+    if(P.opTotal > 0) setBar("navSupaFillOp", "navSupaPctOp", P.opDone / P.opTotal, `${P.opDone}/${P.opTotal} fragm.`);
+    else setBar("navSupaFillOp", "navSupaPctOp", 1, "nie trzeba");
+    setBar("navSupaFillUp", "navSupaPctUp", P.inBase / P.n, `${P.inBase}/${P.n}`);
+    if(P.recvNeed > 0) setBar("navSupaFillDown", "navSupaPctDown", P.recvDone / P.recvNeed, `${P.recvDone}/${P.recvNeed}`);
+    else setBar("navSupaFillDown", "navSupaPctDown", 1, "nic do odebrania");
     renderSharedDataCategoryList();
-    if(allResolved){
+    const title = $("navSupaProgressTitle");
+    if(P.allResolved){
       box.classList.add("done");
-      title.textContent = "Wspólna baza zsynchronizowana ✓";
+      title.textContent = P.issues ? `Synchronizacja zakończona — do poprawy: ${P.issues}` : "Wspólna baza zsynchronizowana ✓";
     } else {
       box.classList.remove("done");
       title.textContent = "Synchronizowanie wspólnej bazy…";
@@ -5408,24 +5540,24 @@
     const jobs = [];
     try{
       const j = JSON.parse(localStorage.getItem(JUNCTIONS_CACHE_KEY) || "null");
-      if(j && Array.isArray(j.features)) jobs.push({ label:"Zjazdy autostradowe", table:"motorway_junctions", conflict:"junction_key",
+      if(j && Array.isArray(j.features)) jobs.push({ id:"junctions", label:"Zjazdy autostradowe", table:"motorway_junctions", conflict:"junction_key",
         rows: j.features.filter(f => f.geometry && f.geometry.coordinates).map(f => ({
           junction_key: `${(f.properties && f.properties.ref) || ""}_${f.geometry.coordinates[1].toFixed(4)}_${f.geometry.coordinates[0].toFixed(4)}`,
           ref: f.properties && f.properties.ref || null, name: f.properties && f.properties.name || null,
           lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
     }catch(e){}
     const mw = readMotorwayCameraCache();
-    if(mw) jobs.push({ label:"Fotoradary autostradowe", table:"motorway_cameras", conflict:"osm_id",
+    if(mw) jobs.push({ id:"cameras", label:"Fotoradary autostradowe", table:"motorway_cameras", conflict:"osm_id",
       rows: mw.cams.map(c => ({ osm_id:c.id, lat:c.lat, lon:c.lon })) });
     try{
       const a = JSON.parse(localStorage.getItem(AVG_SPEED_CAMERA_CACHE_KEY) || "null");
-      if(a && Array.isArray(a.features)) jobs.push({ label:"Odcinkowy pomiar prędkości", table:"avg_speed_cameras", conflict:"osm_id",
+      if(a && Array.isArray(a.features)) jobs.push({ id:"avgSpeed", label:"Odcinkowy pomiar prędkości", table:"avg_speed_cameras", conflict:"osm_id",
         rows: a.features.filter(f => f.geometry && f.properties && f.properties.id != null).map(f => ({
           osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
     }catch(e){}
     try{
       const h = JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null");
-      if(h && Array.isArray(h.features)) jobs.push({ label:"Firmy/operatorzy", table:"hgv_companies", conflict:"osm_id",
+      if(h && Array.isArray(h.features)) jobs.push({ id:"hgv", label:"Firmy/operatorzy", table:"hgv_companies", conflict:"osm_id",
         rows: h.features.filter(f => f.geometry).map((f, i) => ({
           osm_id: (f.properties && f.properties.osm_id) || i, name: f.properties && f.properties.name || null,
           lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
@@ -5440,9 +5572,10 @@
             rows.push({ osm_id: f.properties.osm_id, kind, value: v, coords: f.geometry.coordinates });
         });
         add(r.heightFeatures, "height", "maxheight"); add(r.weightFeatures, "weight", "maxweight"); add(r.widthFeatures, "width", "maxwidth");
-        jobs.push({ label:"Znaki wysokości/tonażu/szerokości", table:"road_restrictions", conflict:"osm_id,kind", rows, batch:200 });
+        jobs.push({ id:"restrictions", label:"Znaki wysokości/tonażu/szerokości", table:"road_restrictions", conflict:"osm_id,kind", rows, batch:200 });
       }
     }catch(e){}
+    { const pb = document.getElementById("navSupaProgress"); if(pb) pb.classList.add("show"); }
     if(!jobs.length){ say("Brak zapisanych lokalnie danych do wysłania. Najpierw pozwól aplikacji pobrać dane z Overpass."); btn.disabled = false; return; }
     for(const job of jobs){
       if(!job.rows.length){ lines.push(`• ${job.label}: brak danych lokalnie`); say(lines.join("\n")); continue; }
@@ -5450,9 +5583,13 @@
       try{
         const n = await uploadRowsAwait(job.table, job.rows, job.conflict, job.batch);
         lines.push(`✅ ${job.label}: wysłano ${n}`);
+        const cs = sharedDataState[job.id];
+        if(cs){ cs.sentState = "ok"; cs.sentCount = n; sharedDataRefreshBaseCount(job.id); renderSharedDataProgress(); }
         debugLog("info", `Supabase: wysłano ${n} wierszy do ${job.table}`);
       }catch(e){
         lines.push(`❌ ${job.label}: ${e.message}`);
+        const cs = sharedDataState[job.id];
+        if(cs){ cs.sentState = "fail"; cs.sentErr = e.message; renderSharedDataProgress(); }
         debugLog("warn", `Supabase: wysyłka do ${job.table} nieudana: ${e.message}`);
       }
       say(lines.join("\n"));
@@ -5486,17 +5623,115 @@
 
   // pobiera zgłoszenia społeczności w promieniu SUPA_FETCH_PAD_DEG wokół pozycji;
   // nigdy nie odrzuca (catch->[]), więc bezpiecznie łączy się z Promise.all obok zapytania do Overpass
-  function fetchSupaReports(lat, lon){
-    if(!supaConfigured()) return Promise.resolve([]);
+  // Zgłoszenia społeczności: JEDNO większe pobranie wokół pozycji (pad ~28 km), potem aktualizacje przychodzą
+  // z Supabase Realtime (WebSocket) tylko wtedy, gdy ktoś doda/zmieni zgłoszenie. Kolejne wywołania
+  // fetchSupaReports() biorą dane z pamięci — bez zapytań HTTP. Ponowne pobranie: po wyjechaniu poza
+  // pobrany obszar albo (bez Realtime) co 5 minut, z Realtime co 30 minut.
+  const SUPA_COVER_PAD_DEG = 0.25;
+  const supaRep = { rows: new Map(), cover: null, fetchedAt: 0, inflight: null };
+  const supaRealtime = { ws: null, connected: false, hb: null, retry: 0, timer: null, ref: 1, rerenderTimer: null };
+  let lastOverpassData = null, lastOverpassPos = null;
+
+  function supaRepInBox(lat, lon){
     const latMin = lat - SUPA_FETCH_PAD_DEG, latMax = lat + SUPA_FETCH_PAD_DEG;
     const lonMin = lon - SUPA_FETCH_PAD_DEG, lonMax = lon + SUPA_FETCH_PAD_DEG;
-    const base = supaUrl.replace(/\/+$/, "") + "/rest/v1/shared_reports?select=";
-    const box = `&lat=gte.${latMin}&lat=lte.${latMax}&lon=gte.${lonMin}&lon=lte.${lonMax}`;
+    const out = [];
+    supaRep.rows.forEach(r => { if(r.lat >= latMin && r.lat <= latMax && r.lon >= lonMin && r.lon <= lonMax) out.push(r); });
+    return out;
+  }
+  function supaRepCovers(lat, lon){
+    const c = supaRep.cover;
+    return !!c && lat - SUPA_FETCH_PAD_DEG >= c.latMin && lat + SUPA_FETCH_PAD_DEG <= c.latMax &&
+                  lon - SUPA_FETCH_PAD_DEG >= c.lonMin && lon + SUPA_FETCH_PAD_DEG <= c.lonMax;
+  }
+  function fetchSupaReportsRaw(cover){
+    const base = normSupaUrl(supaUrl) + "/rest/v1/shared_reports?select=";
+    const box = `&lat=gte.${cover.latMin}&lat=lte.${cover.latMax}&lon=gte.${cover.lonMin}&lon=lte.${cover.lonMax}`;
     const get = q => fetch(base + q, { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey } });
-    // nowa baza (supabase_moderacja.sql): tylko wpisy pending/active; starsza baza bez kolumny status → zapytanie jak dawniej
+    // tylko wpisy pending/active; starsza baza bez kolumny status → zapytanie jak dawniej
     return get("id,kind,lat,lon,confirmations,denials,status&status=in.(pending,active)" + box)
-      .then(r => r.ok ? r.json() : get("id,kind,lat,lon,confirmations" + box).then(r2 => r2.ok ? r2.json() : []))
-      .catch(() => []);
+      .then(r => r.ok ? r.json() : get("id,kind,lat,lon,confirmations" + box).then(r2 => r2.ok ? r2.json() : null))
+      .catch(() => null);
+  }
+  function fetchSupaReports(lat, lon){
+    if(!supaConfigured()) return Promise.resolve([]);
+    ensureSupaRealtime();
+    const maxAge = supaRealtime.connected ? 30 * 60000 : 5 * 60000;
+    if(supaRepCovers(lat, lon) && Date.now() - supaRep.fetchedAt < maxAge) return Promise.resolve(supaRepInBox(lat, lon));
+    if(supaRep.inflight) return supaRep.inflight.then(() => supaRepInBox(lat, lon));
+    const cover = { latMin: lat - SUPA_COVER_PAD_DEG, latMax: lat + SUPA_COVER_PAD_DEG, lonMin: lon - SUPA_COVER_PAD_DEG, lonMax: lon + SUPA_COVER_PAD_DEG };
+    supaRep.inflight = fetchSupaReportsRaw(cover).then(rows => {
+      if(rows){
+        supaRep.rows = new Map(rows.map(r => [r.id, r]));
+        supaRep.cover = cover; supaRep.fetchedAt = Date.now();
+      }
+    }).finally(() => { supaRep.inflight = null; });
+    return supaRep.inflight.then(() => supaRepInBox(lat, lon));
+  }
+
+  function supaRealtimeApply(d){
+    if(!d || !d.type) return;
+    const rec = d.record || {}, old = d.old_record || {};
+    if(d.type === "DELETE"){ supaRep.rows.delete(old.id); }
+    else if(rec.id != null){
+      if(rec.status === "hidden") supaRep.rows.delete(rec.id);
+      else supaRep.rows.set(rec.id, { id: rec.id, kind: rec.kind, lat: rec.lat, lon: rec.lon,
+        confirmations: rec.confirmations, denials: rec.denials, status: rec.status });
+    }
+    // odśwież mapę (z lekkim opóźnieniem, gdy przyjdzie kilka zdarzeń naraz) — bez nowego zapytania do Overpass
+    clearTimeout(supaRealtime.rerenderTimer);
+    supaRealtime.rerenderTimer = setTimeout(() => {
+      try{ if(lastOverpassData && lastOverpassPos) applyOverpassResult(lastOverpassData, supaRepInBox(lastOverpassPos.lat, lastOverpassPos.lon)); }catch(e){}
+    }, 1200);
+  }
+  function supaRealtimeCleanup(){
+    clearInterval(supaRealtime.hb); supaRealtime.hb = null;
+    supaRealtime.connected = false;
+    supaRealtime.ws = null;
+  }
+  function ensureSupaRealtime(){
+    if(!supaConfigured() || supaRealtime.ws || supaRealtime.timer || typeof WebSocket === "undefined") return;
+    let ws;
+    try{
+      ws = new WebSocket(normSupaUrl(supaUrl).replace(/^http/i, "ws") + "/realtime/v1/websocket?apikey=" + encodeURIComponent(supaKey) + "&vsn=1.0.0");
+    }catch(e){ return; }
+    supaRealtime.ws = ws;
+    const topic = "realtime:public:shared_reports";
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ topic, event: "phx_join", ref: "1", payload: {
+        config: { broadcast: { ack: false, self: false }, presence: { key: "" },
+                  postgres_changes: [{ event: "*", schema: "public", table: "shared_reports" }] },
+        access_token: supaKey } }));
+      supaRealtime.hb = setInterval(() => {
+        try{ ws.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: String(++supaRealtime.ref + 1) })); }catch(e){}
+      }, 25000);
+    };
+    ws.onmessage = ev => {
+      let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+      if(m.event === "phx_reply" && m.topic === topic && m.ref === "1"){
+        const ok = m.payload && m.payload.status === "ok";
+        supaRealtime.connected = ok;
+        if(ok){ supaRealtime.retry = 0; debugLog("info", "Supabase Realtime: połączono — zgłoszenia społeczności przychodzą na żywo"); }
+        else debugLog("warn", "Supabase Realtime: odrzucono subskrypcję — włącz Realtime dla tabeli shared_reports (zobacz instrukcję SQL)");
+      } else if(m.event === "postgres_changes" && m.payload && m.payload.data){
+        supaRealtimeApply(m.payload.data);
+      }
+    };
+    const onEnd = () => {
+      if(supaRealtime.ws !== ws) return;
+      supaRealtimeCleanup();
+      const delay = Math.min(5000 * Math.pow(2, supaRealtime.retry++), 120000);
+      supaRealtime.timer = setTimeout(() => { supaRealtime.timer = null; ensureSupaRealtime(); }, delay);
+    };
+    ws.onclose = onEnd;
+    ws.onerror = () => { try{ ws.close(); }catch(e){} };
+  }
+  function supaRealtimeReset(){
+    clearTimeout(supaRealtime.timer); supaRealtime.timer = null;
+    const ws = supaRealtime.ws; supaRealtimeCleanup();
+    try{ if(ws) ws.close(); }catch(e){}
+    supaRep.rows = new Map(); supaRep.cover = null; supaRep.fetchedAt = 0;
+    supaRealtime.retry = 0;
   }
 
   /* ---------- głosowanie społeczności (potwierdzam / nie ma) ---------- */
@@ -5506,7 +5741,11 @@
       method: "POST",
       headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey },
       body: JSON.stringify(body)
-    }).then(r => r.ok ? r.json().catch(() => ({})) : Promise.reject(new Error("HTTP " + r.status)));
+    }).then(r => {
+      if(!r.ok) return Promise.reject(new Error("HTTP " + r.status));
+      if(!supaRealtime.connected) supaRep.fetchedAt = 0;   // bez Realtime: następne zapytanie pobierze świeże dane
+      return r.json().catch(() => ({}));
+    });
   }
   let voteTarget = null, voteHideTimer = null;
   function hideVoteCard(){
@@ -9244,6 +9483,7 @@
     const wasConfigured = supaConfigured();
     supaUrl = normSupaUrl(navSupaUrlInput.value);
     supaKey = navSupaKeyInput.value.trim();
+    try{ supaRealtimeReset(); }catch(e){}
     try{
       if(supaUrl) localStorage.setItem(SUPA_URL_STORAGE, supaUrl); else localStorage.removeItem(SUPA_URL_STORAGE);
       if(supaKey) localStorage.setItem(SUPA_KEY_STORAGE, supaKey); else localStorage.removeItem(SUPA_KEY_STORAGE);
