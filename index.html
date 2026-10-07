@@ -2025,7 +2025,9 @@
   let audioCtx = null;
   let userHgvParking = loadUserHgvParking(); // parkingi HGV zgłoszone lokalnie (fallback, gdy brak Supabase lub request się nie uda)
   let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
-  let supaUrl = localStorage.getItem(SUPA_URL_STORAGE) || "";
+  // adres projektu bywa wklejony razem z "/rest/v1" albo ukośnikiem na końcu — to powodowało 404 (…/rest/v1/rest/v1/…)
+  function normSupaUrl(u){ return String(u || "").trim().replace(/\/+$/, "").replace(/\/rest\/v1$/i, "").replace(/\/+$/, ""); }
+  let supaUrl = normSupaUrl(localStorage.getItem(SUPA_URL_STORAGE));
   let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
@@ -9150,7 +9152,7 @@
 
   function saveSupaConfig(){
     const wasConfigured = supaConfigured();
-    supaUrl = navSupaUrlInput.value.trim();
+    supaUrl = normSupaUrl(navSupaUrlInput.value);
     supaKey = navSupaKeyInput.value.trim();
     try{
       if(supaUrl) localStorage.setItem(SUPA_URL_STORAGE, supaUrl); else localStorage.removeItem(SUPA_URL_STORAGE);
