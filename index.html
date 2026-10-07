@@ -2231,15 +2231,31 @@
   const HGV_HIDE_POI_CLASSES = ["bus", "parking"];
   const HGV_HIDE_POI_SUBCLASSES = ["bus_stop", "bus_station", "parking", "parking_entrance", "parking_space"];
 
+  // Lista dozwolonych POI z bazowej mapy (reszta — baseny, stajnie, furtki, stile, kina, sklepy z ubraniami… —
+  // jest ukryta, więc mapa nie próbuje nawet wczytywać ich ikon). Dopisz tu klasę, jeśli czegoś brakuje.
+  const HGV_KEEP_POI_CLASSES = [
+    "fuel", "charging_station",                       // paliwo / ładowanie
+    "restaurant", "fast_food", "cafe",                // postój na posiłek
+    "toilets", "drinking_water",                      // toalety / woda
+    "lodging", "hotel",                               // nocleg
+    "hospital", "police", "fire_station",             // służby
+    "car_repair", "car_wash", "car",                  // serwis / myjnia
+    "post", "post_office",                            // Royal Mail, punkty pocztowe
+    "grocery", "supermarket",                         // dostawy do sklepów
+    "harbor", "ferry_terminal", "railway",            // porty, promy, kolej
+    "toll_booth"                                      // bramki opłat (np. Dartford)
+  ];
   function hideNonHgvPoi(){
     const layers = map.getStyle().layers || [];
+    const keepExpr = ["in", ["get", "class"], ["literal", HGV_KEEP_POI_CLASSES]];
     const excludeExpr = ["any",
       ["in", ["get", "class"], ["literal", HGV_HIDE_POI_CLASSES]],
       ["in", ["get", "subclass"], ["literal", HGV_HIDE_POI_SUBCLASSES]]
     ];
     layers.forEach(layer => {
       if(layer["source-layer"] !== "poi") return;
-      const newFilter = layer.filter ? ["all", layer.filter, ["!", excludeExpr]] : ["!", excludeExpr];
+      const extra = [keepExpr, ["!", excludeExpr]];
+      const newFilter = layer.filter ? ["all", layer.filter].concat(extra) : ["all"].concat(extra);
       try{ map.setFilter(layer.id, newFilter); }
       catch(e){ console.warn("Nie udało się odfiltrować warstwy POI:", layer.id, e); }
     });
@@ -3002,6 +3018,13 @@
       fadeDuration: 0           // mniej płynne pojawianie się etykiet/kafelków, ale szybsze odczucie reakcji mapy
     });
 
+    // styl OpenFreeMap odwołuje się do ikon, których nie ma w jego sprite'ie — podstawiamy przezroczysty piksel
+    // (bez ostrzeżeń w logu i bez ponownych prób). Tekstury autostrady i tarcze dróg obsługują własne moduły.
+    map.on("styleimagemissing", e => {
+      const id = e && e.id;
+      if(!id || /^mw-asphalt-/.test(id) || /shield|^uk-|^road-/i.test(id)) return;
+      if(!map.hasImage(id)) map.addImage(id, { width:1, height:1, data:new Uint8Array(4) });
+    });
     map.on("load", () => {
       try{ const L = map.getStyle().layers; satBaseTopId = L.length ? L[L.length - 1].id : null; }catch(e){}
       try{ applyBaseMap(); }catch(e){ console.warn("Mapa satelitarna:", e); }
@@ -5050,7 +5073,9 @@
     return queueOverpassRequest(() => tryEndpointsNow(query, attemptCount, timeoutMs));
   }
 
+  let overpassDownUntil = 0;   // po porażce wszystkich serwerów kolejne zapytania nie czekają minutami w kolejce
   function tryEndpointsNow(query, attemptCount, timeoutMs){
+    if(Date.now() < overpassDownUntil) return Promise.reject(new Error("Overpass chwilowo niedostępny — ponowię za chwilę"));
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
       order.push(OVERPASS_ENDPOINTS[(preferredEndpointIdx + i) % OVERPASS_ENDPOINTS.length]);
@@ -5058,6 +5083,7 @@
 
     function attempt(i){
       if(i >= order.length){
+        overpassDownUntil = Date.now() + 45000;
         return Promise.reject(new Error("Wszystkie serwery Overpass niedostępne"));
       }
       const url = order[i];
@@ -5316,8 +5342,10 @@
   }
 
   // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
+  const supaMissingTables = new Set();
   function fetchTableFromSupabase(table, columns){
     if(!supaConfigured()) return Promise.resolve(null);
+    if(supaMissingTables.has(table)) return Promise.resolve(null);
     const base = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?select=${columns}`;
     const PAGE = 1000;
     const out = [];
@@ -5325,14 +5353,21 @@
       return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
         headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
       })
-        .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(r => {
+          if(r.status === 404 && !supaMissingTables.has(table)){
+            supaMissingTables.add(table);
+            debugLog("warn", `Supabase: tabela/widok „${table}” nie istnieje (404) — utwórz ją skryptem SQL albo zignoruj; pomijam dalsze zapytania w tej sesji.`);
+          }
+          if(!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
         .then(rows => {
           out.push(...rows);
           if(rows.length === PAGE && out.length < 200000) return page(offset + PAGE);
           return out;
         });
     }
-    return page(0).catch(err => { console.warn(`Nie udało się pobrać ${table} z Supabase:`, err); return null; });
+    return page(0).catch(err => { if(!supaMissingTables.has(table)) console.warn(`Nie udało się pobrać ${table} z Supabase:`, err); return null; });
   }
 
   // wysyła wiersze do wspólnej bazy w paczkach po 500; istniejące (po on_conflict) są pomijane
@@ -10503,9 +10538,17 @@
         wakeLock.addEventListener("release", () => { wakeLock = null; });
       }
     }catch(e){
-      console.warn("Wake Lock niedostępny:", e);
+      // zwykle NotAllowedError: żądanie poza gestem użytkownika / karta bez fokusu → ponowimy przy pierwszym dotknięciu
+      if(!wakeLockRetryArmed){
+        wakeLockRetryArmed = true;
+        const retry = () => { wakeLockRetryArmed = false; if(started) requestWakeLock(); };
+        document.addEventListener("pointerdown", retry, { once:true });
+      }else{
+        debugLog("info", "Wake Lock niedostępny (" + (e && e.name || e) + ") — ekran może zgasnąć; w ustawieniach telefonu wydłuż czas wygaszania.");
+      }
     }
   }
+  let wakeLockRetryArmed = false;
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
