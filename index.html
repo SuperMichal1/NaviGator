@@ -4541,14 +4541,39 @@
     return chain.then(() => ({ features: Array.from(nodes.values()), failedBands }));
   }
 
+  // Cache firm trzymamy w IndexedDB — przy ~80 tys. firm localStorage (limit ok. 5 MB) się przepełniał (QuotaExceededError)
+  function readHgvCacheAsync(){
+    return idbGet(HGV_COMPANIES_CACHE_KEY).then(c => {
+      if(c && c.savedAt && Array.isArray(c.features)) return c;
+      try{ return JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null"); }catch(e){ return null; }
+    });
+  }
+  function saveHgvCache(all, failedBands){
+    return idbSet(HGV_COMPANIES_CACHE_KEY, { savedAt: Date.now(), features: roundCoordsForCache(all), failedBands: failedBands || [] }).then(ok => {
+      if(ok){ try{ localStorage.removeItem(HGV_COMPANIES_CACHE_KEY); }catch(e){} }
+      else debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache (IndexedDB)");
+      return ok;
+    });
+  }
+  // ten sam obiekt OSM może przyjść z dwóch pasów lub z cache + nowego pobrania — zostawiamy jeden wpis
+  function dedupeHgvCompanies(arr){
+    const m = new Map();
+    arr.forEach(f => {
+      const id = f.properties && f.properties.osm_id;
+      const key = id != null ? "i" + id : "c" + (f.properties && f.properties.name) + "|" + f.geometry.coordinates.join(",");
+      if(!m.has(key)) m.set(key, f);
+    });
+    return Array.from(m.values());
+  }
   function loadHgvCompaniesOnce(force){
     if(!map.getSource("hgv-companies")) return;
-
+    readHgvCacheAsync().then(cached => loadHgvCompaniesWithCache(cached, force));
+  }
+  function loadHgvCompaniesWithCache(cached, force){
     let baseFeatures = [];
     let bandsToFetch = null;
 
     try{
-      const cached = JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null");
       if(cached && cached.savedAt && Array.isArray(cached.features)){
         baseFeatures = cached.features;
         setHgvCompaniesData(baseFeatures);
@@ -4574,10 +4599,10 @@
     if(supaConfigured()){
       fetchTableFromSupabase("hgv_companies", "osm_id,name,lat,lon").then(shared => {
         if(shared && shared.length){
-          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
+          const features = shared.map(r => ({ type:"Feature", properties:{ name: r.name, osm_id: r.osm_id }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
           setHgvCompaniesData(features);
           debugLog("info", `Firmy/operatorzy: ${features.length} ze wspólnej bazy — komplet`);
-          try{ localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), features: roundCoordsForCache(features), failedBands: [] })); }catch(e){}
+          saveHgvCache(features, []);
           sharedDataMarkSupabase("hgv", features.length);
           return;
         }
@@ -4598,26 +4623,18 @@
       : "Firmy/operatorzy: pobieranie z Overpass, etapami…");
 
     downloadHgvCompaniesBands(bands, ({ features }) => {
-      setHgvCompaniesData(baseFeatures.concat(features));
+      setHgvCompaniesData(dedupeHgvCompanies(baseFeatures.concat(features)));
       sharedDataMarkOverpassBand("hgv");
     }).then(({ features, failedBands }) => {
-      const all = baseFeatures.concat(features);
+      const all = dedupeHgvCompanies(baseFeatures.concat(features));
       setHgvCompaniesData(all);
       debugLog("info", `Firmy/operatorzy: łącznie ${all.length}` +
         (failedBands.length ? ` (${failedBands.length} fragment(y) do dociągnięcia później)` : " — komplet"));
-      try{
-        localStorage.setItem(HGV_COMPANIES_CACHE_KEY, JSON.stringify({
-          savedAt: Date.now(),
-          features: roundCoordsForCache(all),
-          failedBands
-        }));
-      }catch(e){
-        console.warn("Nie udało się zapisać cache firm/operatorów:", e);
-        debugLog("warn", "Firmy/operatorzy: NIE udało się zapisać cache");
-      }
+      saveHgvCache(all, failedBands);
       sharedAfterOverpass("hgv", failedBands.length, all.length, "hgv_companies", () =>
-        all.map((f, i) => ({ osm_id: f.properties.osm_id || i, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
-        "osm_id");
+        all.filter(f => f.properties && f.properties.osm_id != null)
+           .map(f => ({ osm_id: f.properties.osm_id, name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
+        "osm_id", 1000);
       if(failedBands.length && hgvCompaniesRetries++ < HGV_COMPANIES_MAX_RETRIES){
         setTimeout(loadHgvCompaniesOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -5556,10 +5573,10 @@
           osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
     }catch(e){}
     try{
-      const h = JSON.parse(localStorage.getItem(HGV_COMPANIES_CACHE_KEY) || "null");
-      if(h && Array.isArray(h.features)) jobs.push({ id:"hgv", label:"Firmy/operatorzy", table:"hgv_companies", conflict:"osm_id",
-        rows: h.features.filter(f => f.geometry).map((f, i) => ({
-          osm_id: (f.properties && f.properties.osm_id) || i, name: f.properties && f.properties.name || null,
+      const h = await readHgvCacheAsync();
+      if(h && Array.isArray(h.features)) jobs.push({ id:"hgv", label:"Firmy/operatorzy", table:"hgv_companies", conflict:"osm_id", batch:1000,
+        rows: dedupeHgvCompanies(h.features).filter(f => f.geometry && f.properties && f.properties.osm_id != null).map(f => ({
+          osm_id: f.properties.osm_id, name: f.properties.name || null,
           lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })) });
     }catch(e){}
     try{
@@ -5629,7 +5646,7 @@
   // pobrany obszar albo (bez Realtime) co 5 minut, z Realtime co 30 minut.
   const SUPA_COVER_PAD_DEG = 0.25;
   const supaRep = { rows: new Map(), cover: null, fetchedAt: 0, inflight: null };
-  const supaRealtime = { ws: null, connected: false, hb: null, retry: 0, timer: null, ref: 1, rerenderTimer: null };
+  const supaRealtime = { ws: null, connected: false, everConnected: false, hb: null, retry: 0, timer: null, ref: 1, rerenderTimer: null };
   let lastOverpassData = null, lastOverpassPos = null;
 
   function supaRepInBox(lat, lon){
@@ -5711,7 +5728,12 @@
       if(m.event === "phx_reply" && m.topic === topic && m.ref === "1"){
         const ok = m.payload && m.payload.status === "ok";
         supaRealtime.connected = ok;
-        if(ok){ supaRealtime.retry = 0; debugLog("info", "Supabase Realtime: połączono — zgłoszenia społeczności przychodzą na żywo"); }
+        if(ok){
+          supaRealtime.retry = 0;
+          if(supaRealtime.everConnected) supaRep.fetchedAt = 0;   // ponowne połączenie: zdarzenia z przerwy mogły nas ominąć → następne zapytanie pobierze świeże dane
+          else debugLog("info", "Supabase Realtime: połączono — zgłoszenia społeczności przychodzą na żywo");
+          supaRealtime.everConnected = true;
+        }
         else debugLog("warn", "Supabase Realtime: odrzucono subskrypcję — włącz Realtime dla tabeli shared_reports (zobacz instrukcję SQL)");
       } else if(m.event === "postgres_changes" && m.payload && m.payload.data){
         supaRealtimeApply(m.payload.data);
@@ -10871,16 +10893,18 @@
       }
     }catch(e){
       // zwykle NotAllowedError: żądanie poza gestem użytkownika / karta bez fokusu → ponowimy przy pierwszym dotknięciu
+      if(!wakeLockWarned){
+        wakeLockWarned = true;
+        debugLog("info", "Wake Lock niedostępny (" + (e && e.name || e) + ") — telefon nie pozwala trzymać ekranu włączonego (często przez tryb oszczędzania baterii); ekran może zgasnąć.");
+      }
       if(!wakeLockRetryArmed){
         wakeLockRetryArmed = true;
         const retry = () => { wakeLockRetryArmed = false; if(started) requestWakeLock(); };
         document.addEventListener("pointerdown", retry, { once:true });
-      }else{
-        debugLog("info", "Wake Lock niedostępny (" + (e && e.name || e) + ") — ekran może zgasnąć; w ustawieniach telefonu wydłuż czas wygaszania.");
       }
     }
   }
-  let wakeLockRetryArmed = false;
+  let wakeLockRetryArmed = false, wakeLockWarned = false;
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
