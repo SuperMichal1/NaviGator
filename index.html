@@ -3186,6 +3186,14 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw znaków wysokości/tonażu:", e);
       }
+      // MapLibre rozstrzyga kolizje symboli od GÓRNEJ warstwy w dół. Nazwy firm i miejsc (z Supabase jest ich
+      // ok. 80 tys.) leżały nad znakami ograniczeń, więc wypierały znaki wysokości/tonażu/szerokości. Wsuwamy je
+      // POD warstwę znaków — znaki mają pierwszeństwo przy rozmieszczaniu.
+      try{
+        ["hgv-companies-icon", "place-names-icon"].forEach(id => {
+          if(map.getLayer(id) && map.getLayer("restriction-signs-icon")) map.moveLayer(id, "restriction-signs-icon");
+        });
+      }catch(e){ console.warn("Kolejność warstw znaków/firm:", e); }
 
       // źródło wyznaczonej trasy (TomTom)
       map.addSource("route-line", { type:"geojson", data: emptyFC() });
