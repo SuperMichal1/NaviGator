@@ -952,6 +952,13 @@
     margin-top:4px; padding-top:6px;
     border-top:1px solid rgba(255,255,255,0.08);
   }
+  body:not(.is-admin) .adminOnly{ display:none !important; }
+  body.is-admin #adminRow{ display:flex; }
+  /* zwykły użytkownik widzi tylko krótki status danych */
+  body:not(.is-admin) #navSupaProgress .navSupaProgressRow,
+  body:not(.is-admin) #navSupaProgress .navSupaProgressBar,
+  body:not(.is-admin) #navSupaCategoryList,
+  body:not(.is-admin) #navSupaNotice{ display:none !important; }
   .catBlock{ padding:7px 0; border-top:1px solid var(--panel-border); }
   .catBlock:first-child{ border-top:none; }
   .catHead{ display:flex; justify-content:space-between; gap:8px; font-weight:700; font-size:13px; margin-bottom:3px; }
@@ -1490,8 +1497,8 @@
       </div>
       <div id="satBox">
         <label class="navPrefLabel"><input type="checkbox" id="satLabels"> Nazwy ulic i miejscowości na satelicie</label>
-        <div class="navTitle" style="margin:8px 0 4px">Mapbox — Default public token</div>
-        <div class="navKeyRow" style="display:flex; gap:6px; align-items:center;">
+        <div class="navTitle adminOnly" style="margin:8px 0 4px">Mapbox — Default public token</div>
+        <div class="navKeyRow adminOnly" style="display:flex; gap:6px; align-items:center;">
           <input type="text" id="mapboxToken" class="navApiKeyInput" placeholder="pk.eyJ1…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;">
           <button type="button" id="mapboxTokenSave" class="navPrefBtn" style="width:auto; margin:0; padding:9px 12px;">Zapisz</button>
         </div>
@@ -1532,30 +1539,43 @@
       <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz przyciskiem „Zmień trasę”.</div>
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
-    <div id="navKeyToggle">
+    <div class="adminOnly" id="adminRow" style="align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px;">
+      <span style="font-weight:700;">👑 Tryb administratora (to urządzenie)</span>
+      <button type="button" id="adminOffBtn" class="navPrefBtn" style="width:auto; margin:0; padding:8px 12px;">Wyłącz</button>
+    </div>
+    <div class="adminOnly" id="adminLogin" style="margin:0 0 10px;">
+      <div id="adminLoginStatus" style="font-size:12px; line-height:1.4; margin-bottom:6px;"></div>
+      <div id="adminLoginForm" style="display:flex; flex-direction:column; gap:6px;">
+        <input type="email" id="adminEmail" class="navApiKeyInput" placeholder="E-mail administratora" autocomplete="username" autocapitalize="off">
+        <input type="password" id="adminPass" class="navApiKeyInput" placeholder="Hasło" autocomplete="current-password">
+        <button type="button" id="adminLoginBtn" class="navPrefBtn" style="margin:0;">Zaloguj</button>
+      </div>
+      <button type="button" id="adminLogoutBtn" class="navPrefBtn" style="margin:0; display:none;">Wyloguj</button>
+    </div>
+    <div id="navKeyToggle" class="adminOnly">
       <span>🔑 Klucz API TomTom</span>
       <span class="chev">▾</span>
     </div>
-    <div id="navKeyRow">
+    <div id="navKeyRow" class="adminOnly">
       <input type="password" id="navApiKey" placeholder="Wklej klucz API TomTom…" autocomplete="off">
       <div id="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
     </div>
-    <div id="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
+    <div id="navKeySaved" class="adminOnly">Zapisano lokalnie w tej przeglądarce</div>
 
-    <div id="navSupaToggle" class="navKeyToggle">
+    <div id="navSupaToggle" class="navKeyToggle adminOnly">
       <span>🔗 Wspólna baza (Supabase)</span>
       <span class="chev">▾</span>
     </div>
-    <div id="navSupaRow" class="navKeyRow navKeyRowStack">
+    <div id="navSupaRow" class="navKeyRow navKeyRowStack adminOnly">
       <input type="text" id="navSupaUrl" class="navApiKeyInput" placeholder="Adres projektu Supabase (https://xxxx.supabase.co)…" autocomplete="off">
       <div style="display:flex; gap:6px; align-items:center;">
         <input type="password" id="navSupaKey" class="navApiKeyInput" placeholder="Klucz anon…" autocomplete="off">
         <div id="navSupaKeyEye" class="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
       </div>
     </div>
-    <div id="navSupaSaved" class="navKeySaved">Zapisano lokalnie w tej przeglądarce</div>
-    <button type="button" id="navSupaSyncBtn" class="navPrefBtn" style="margin-top:8px;">📤 Wyślij dane z tego urządzenia do Supabase</button>
-    <div id="navSupaSyncStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px; white-space:pre-line;"></div>
+    <div id="navSupaSaved" class="navKeySaved adminOnly">Zapisano lokalnie w tej przeglądarce</div>
+    <button type="button" id="navSupaSyncBtn" class="navPrefBtn adminOnly" style="margin-top:8px;">📤 Wyślij dane z tego urządzenia do Supabase</button>
+    <div id="navSupaSyncStatus" class="adminOnly" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px; white-space:pre-line;"></div>
 
     <div id="navSupaProgress">
       <div class="navSupaProgressInner">
@@ -1563,6 +1583,7 @@
           <span id="navSupaProgressSpinner" class="navSupaProgressSpinner"></span>
           <span id="navSupaProgressTitle">Synchronizowanie wspólnej bazy…</span>
         </div>
+        <div id="navSupaNotice" style="display:none; margin:6px 0 8px; padding:8px 10px; border-radius:10px; font-size:12px; line-height:1.4; background:rgba(217,150,26,.16); color:var(--text-main);"></div>
         <div class="navSupaProgressRow">
           <span class="navSupaProgressLabel">🌐 Pobrane z Overpass</span>
           <span class="navSupaProgressPct" id="navSupaPctOp">–</span>
@@ -2045,8 +2066,21 @@
   let userReportedCameras = loadUserReportedCameras(); // fotoradary zgłoszone lokalnie (fallback, jw.)
   // adres projektu bywa wklejony razem z "/rest/v1" albo ukośnikiem na końcu — to powodowało 404 (…/rest/v1/rest/v1/…)
   function normSupaUrl(u){ return String(u || "").trim().replace(/\/+$/, "").replace(/\/rest\/v1$/i, "").replace(/\/+$/, ""); }
-  let supaUrl = normSupaUrl(localStorage.getItem(SUPA_URL_STORAGE));
-  let supaKey = localStorage.getItem(SUPA_KEY_STORAGE) || "";
+  // Tryb administratora jest przypisany do urządzenia (localStorage). Tylko administrator może zmieniać dane
+  // połączenia, pobierać duże zestawy z Overpass i zapisywać do Supabase. Pozostałe urządzenia zawsze używają
+  // domyślnych danych poniżej i tylko CZYTAJĄ wspólną bazę. Klucz „anon/publishable” i token Mapbox „pk.”
+  // są publiczne z założenia (chronią je reguły RLS i ograniczenia w kontach) — nigdy nie wpisuj tu kluczy secret/service_role.
+  const ADMIN_KEY = "nawigator_admin_device", ADMIN_CODE = "555";
+  let adminMode = false;
+  try{ adminMode = localStorage.getItem(ADMIN_KEY) === "1"; }catch(e){}
+  function isAdmin(){ return adminMode; }
+  document.body.classList.toggle("is-admin", adminMode);
+  const SUPA_DEFAULT_URL = "https://kbufzpuybktojgfwrzfb.supabase.co";
+  const SUPA_DEFAULT_KEY = "sb_publishable_u1vzwYMWXiPZYd4gbc8E6Q_NS7AHUUY";
+  const MAPBOX_DEFAULT_TOKEN = "pk.eyJ1Ijoic3VwZXJtaWNoYWwiLCJhIjoiY211eDV5YW9hMDU5czJ5czE5Z3luOTZ6OSJ9.xcsgQ2GiC26Q-7WKb6pIDA";
+  let supaUrl = normSupaUrl((adminMode && localStorage.getItem(SUPA_URL_STORAGE)) || SUPA_DEFAULT_URL);
+  let supaKey = (adminMode && localStorage.getItem(SUPA_KEY_STORAGE)) || SUPA_DEFAULT_KEY;
+  let supaLastError = "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
   const PREF_VOICE = "nawigator_pref_voice";
@@ -3719,9 +3753,9 @@
      ograniczenia, tarcze dróg, parkingi). */
   const MAPBOX_TOKEN_KEY = "nawigator_mapbox_token", BASE_KEY = "nawigator_map_base", SAT_LABELS_KEY = "nawigator_sat_labels";
   let satBaseTopId = null, satErrShown = false;
-  let mapboxToken = "", baseWanted = "std", satLabels = true;
+  let mapboxToken = MAPBOX_DEFAULT_TOKEN, baseWanted = "std", satLabels = true;
   try{
-    mapboxToken = localStorage.getItem(MAPBOX_TOKEN_KEY) || "";
+    mapboxToken = (adminMode && localStorage.getItem(MAPBOX_TOKEN_KEY)) || MAPBOX_DEFAULT_TOKEN;
     baseWanted = localStorage.getItem(BASE_KEY) === "sat" ? "sat" : "std";
     satLabels = localStorage.getItem(SAT_LABELS_KEY) !== "0";
   }catch(e){}
@@ -4095,6 +4129,7 @@
   }
 
   function runJunctionsOverpass(baseRaw, bandsToFetch){
+    if(blockOverpassForUser("junctions")) return;
     const bands = bandsToFetch || flattenRestrictionsRegions();
     sharedDataMarkOverpassStart("junctions", bands.length);
     debugLog("info", bandsToFetch
@@ -4291,9 +4326,11 @@
       .then(shared => {
         if(shared && shared.length) return { cams: shared, fromShared: true };
         sharedDataMarkBaseEmpty("cameras", shared);
+        if(blockOverpassForUser("cameras")) return { cams: [], fromShared: false, blocked: true };
         return downloadMotorwayCameras().then(cams => ({ cams, fromShared: false }));
       })
-      .then(({ cams, fromShared }) => {
+      .then(({ cams, fromShared, blocked }) => {
+        if(blocked) return;
         if(fromShared) sharedDataMarkSupabase("cameras", cams.length);
         if(!cams.length){ sharedDataMarkOverpassFinished("cameras", 1, 0); sharedDataState.cameras.sentState = "empty"; renderSharedDataProgress(); return; } // pusty wynik to raczej błąd niż prawda — nie zapisujemy go na 90 dni
         showMotorwayCameras(cams);
@@ -4435,6 +4472,7 @@
   }
 
   function runAvgSpeedCamerasOverpass(baseFeatures, bandsToFetch){
+    if(blockOverpassForUser("avgSpeed")) return;
     const bands = bandsToFetch || flattenRestrictionsRegions();
     sharedDataMarkOverpassStart("avgSpeed", bands.length);
     debugLog("info", bandsToFetch
@@ -4624,6 +4662,7 @@
   }
 
   function runHgvCompaniesOverpass(baseFeatures, bandsToFetch){
+    if(blockOverpassForUser("hgv")) return;
     const bands = bandsToFetch || flattenRestrictionsRegions();
     sharedDataMarkOverpassStart("hgv", bands.length);
     debugLog("info", bandsToFetch
@@ -5007,6 +5046,7 @@
   }
 
   function runRestrictionsOverpass(baseHeight, baseWeight, baseWidth, baseSigns, bandsToFetch){
+    if(blockOverpassForUser("restrictions")) return;
     const bands = bandsToFetch || flattenRestrictionsRegions();
     sharedDataMarkOverpassStart("restrictions", bands.length);
     debugLog("info", bandsToFetch
@@ -5324,7 +5364,16 @@
   function sharedDataMarkUploaded(id){ sharedDataMarkResolved(id); }
 
   // wysyłka do bazy z PRAWDZIWYM wynikiem (ile wysłano albo jaki błąd)
+  // zwykłe urządzenie nigdy nie pobiera dużych zestawów z Overpass — czeka na dane w bazie
+  function blockOverpassForUser(id){
+    if(isAdmin()) return false;
+    const st = sharedDataState[id];
+    if(st){ st.resolved = true; st.userNoData = true; }
+    renderSharedDataProgress();
+    return true;
+  }
   function sharedUpload(id, table, rows, conflict, batch){
+    if(!isAdmin()) return Promise.resolve();
     const st = sharedDataState[id]; if(!st) return Promise.resolve();
     if(!supaConfigured()){ st.sentState = "off"; renderSharedDataProgress(); return Promise.resolve(); }
     if(!rows.length){ st.sentState = "empty"; renderSharedDataProgress(); return Promise.resolve(); }
@@ -5370,6 +5419,7 @@
   function sharedDataLines(id){
     const st = sharedDataState[id];
     const L = [];
+    const noSupa = !supaConfigured();
     // 1) Overpass
     if(st.opTotal > 0){
       if(!st.resolved) L.push({ k:"🌐 Overpass", v:`⏳ ${st.opDone}/${st.opTotal} fragm.`, cls:"warn" });
@@ -5387,7 +5437,8 @@
       case "empty":   L.push({ k:"📤 Do bazy", v:"⚠ brak danych do wysłania", cls:"err" }); break;
       case "off":     L.push({ k:"📤 Do bazy", v:"— Supabase nie skonfigurowany", cls:"dim" }); break;
       default:
-        if(st.fromSupabase) L.push({ k:"📤 Do bazy", v:"— niepotrzebne (baza już ma dane)", cls:"dim" });
+        if(noSupa) L.push({ k:"📤 Do bazy", v:"— Supabase nie skonfigurowany na tym urządzeniu", cls:"warn" });
+        else if(st.fromSupabase) L.push({ k:"📤 Do bazy", v:"— niepotrzebne (baza już ma dane)", cls:"dim" });
         else if(st.skippedCache){
           if(st.baseError) L.push({ k:"📤 Do bazy", v:"⚠ nie udało się sprawdzić bazy", cls:"warn" });
           else if(st.baseCount === null) L.push({ k:"📤 Do bazy", v:"sprawdzam bazę…", cls:"dim" });
@@ -5396,7 +5447,9 @@
         } else L.push({ k:"📤 Do bazy", v:"—", cls:"dim" });
     }
     // 3) Z bazy
-    if(st.fromSupabase) L.push({ k:"📥 Z bazy", v:`✓ odebrano ${st.recv}`, cls:"ok" });
+    if(st.userNoData && !st.fromSupabase) L.push({ k:"📥 Z bazy", v:"— brak danych w bazie (czeka na administratora)", cls:"warn" });
+    else if(noSupa && !st.fromSupabase) L.push({ k:"📥 Z bazy", v:"— Supabase nie skonfigurowany", cls:"warn" });
+    else if(st.fromSupabase) L.push({ k:"📥 Z bazy", v:`✓ odebrano ${st.recv}`, cls:"ok" });
     else if(st.skippedCache) L.push({ k:"📥 Z bazy", v:"— pominięto (cache aktualny)", cls:"dim" });
     else if(st.baseError) L.push({ k:"📥 Z bazy", v:"⚠ błąd zapytania do bazy", cls:"warn" });
     else if(st.baseCount === 0) L.push({ k:"📥 Z bazy", v:"— baza pusta", cls:"dim" });
@@ -5429,13 +5482,25 @@
     if(P.recvNeed > 0) setBar("navSupaFillDown", "navSupaPctDown", P.recvDone / P.recvNeed, `${P.recvDone}/${P.recvNeed}`);
     else setBar("navSupaFillDown", "navSupaPctDown", 1, "nic do odebrania");
     renderSharedDataCategoryList();
+    const notice = $("navSupaNotice");
+    if(notice){
+      let msg = "";
+      if(isAdmin() && supaConfigured() && !adminSessionLoad()) msg = "⚠ Nie jesteś zalogowany jako administrator — zapis do bazy jest zablokowany. Zaloguj się w Ustawienia → System (u góry).";
+      else if(!supaConfigured()) msg = "⚠ Supabase nie jest skonfigurowany na TYM urządzeniu — adres i klucz zapisują się osobno w każdej przeglądarce, dlatego wszystko pobiera się z Overpass. Wpisz je wyżej (Wspólna baza) i zapisz, a aplikacja pobierze dane z bazy.";
+      else if(supaLastError && !Object.values(sharedDataState).some(x => x.fromSupabase)) msg = "⚠ Nie udało się połączyć z bazą: " + shEsc(supaLastError) + ". Sprawdź adres projektu (tylko https://xxxx.supabase.co) i klucz.";
+      notice.style.display = msg ? "block" : "none";
+      notice.innerHTML = msg;
+    }
     const title = $("navSupaProgressTitle");
+    const anyUserGap = Object.values(sharedDataState).some(x => x.userNoData);
     if(P.allResolved){
       box.classList.add("done");
-      title.textContent = P.issues ? `Synchronizacja zakończona — do poprawy: ${P.issues}` : "Wspólna baza zsynchronizowana ✓";
+      title.textContent = isAdmin()
+        ? (P.issues ? `Synchronizacja zakończona — do poprawy: ${P.issues}` : "Wspólna baza zsynchronizowana ✓")
+        : (anyUserGap ? "Część danych jest jeszcze niedostępna" : "Dane aktualne ✓");
     } else {
       box.classList.remove("done");
-      title.textContent = "Synchronizowanie wspólnej bazy…";
+      title.textContent = isAdmin() ? "Synchronizowanie wspólnej bazy…" : "Pobieranie danych…";
     }
   }
 
@@ -5528,37 +5593,88 @@
           return out;
         });
     }
-    return page(0).catch(err => { if(!supaMissingTables.has(table)) console.warn(`Nie udało się pobrać ${table} z Supabase:`, err); return null; });
+    return page(0).catch(err => { supaLastError = (err && err.message) || String(err); if(!supaMissingTables.has(table)) console.warn(`Nie udało się pobrać ${table} z Supabase:`, err); return null; });
   }
 
   // wysyła wiersze do wspólnej bazy w paczkach po 500; istniejące (po on_conflict) są pomijane
   // wersja z wynikiem: zwraca Promise<liczba wysłanych wierszy> i rzuca błąd z kodem HTTP (do ręcznej synchronizacji)
+  // ---- konto administratora (Supabase Auth): tylko zalogowany administrator może zapisywać do tabel wspólnych ----
+  const ADMIN_SESSION_KEY = "nawigator_admin_session";
+  function adminSessionLoad(){ try{ return JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || "null"); }catch(e){ return null; } }
+  function adminSessionSave(sess){
+    try{ if(sess) localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(sess)); else localStorage.removeItem(ADMIN_SESSION_KEY); }catch(e){}
+  }
+  function jwtClaims(token){
+    try{ return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); }catch(e){ return {}; }
+  }
+  function supaAuthRequest(grant, body){
+    return fetch(normSupaUrl(supaUrl) + "/auth/v1/token?grant_type=" + grant, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey },
+      body: JSON.stringify(body)
+    }).then(r => r.json().catch(() => ({})).then(j => {
+      if(!r.ok) throw new Error(j.error_description || j.msg || j.message || ("HTTP " + r.status));
+      return { access_token: j.access_token, refresh_token: j.refresh_token,
+               expires_at: Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+               email: (j.user && j.user.email) || "" };
+    }));
+  }
+  // zwraca ważny token administratora (odświeża go, gdy zaraz wygaśnie) albo null
+  function supaAdminToken(){
+    if(!isAdmin() || !supaConfigured()) return Promise.resolve(null);
+    const sess = adminSessionLoad();
+    if(!sess || !sess.access_token) return Promise.resolve(null);
+    if(sess.expires_at - 60 > Date.now() / 1000) return Promise.resolve(sess.access_token);
+    return supaAuthRequest("refresh_token", { refresh_token: sess.refresh_token }).then(n => {
+      n.email = n.email || sess.email; adminSessionSave(n); updateAdminLoginUi(); return n.access_token;
+    }).catch(() => { adminSessionSave(null); updateAdminLoginUi(); return null; });
+  }
+  function updateAdminLoginUi(){
+    const st = document.getElementById("adminLoginStatus"); if(!st) return;
+    const sess = adminSessionLoad();
+    const form = document.getElementById("adminLoginForm"), out = document.getElementById("adminLogoutBtn");
+    if(sess){
+      const role = (jwtClaims(sess.access_token).app_metadata || {}).role;
+      st.textContent = role === "admin" ? `✅ Zalogowany jako administrator: ${sess.email}` : `⚠ Zalogowano (${sess.email}), ale konto nie ma roli administratora — uruchom w Supabase krok z rolą admina i zaloguj się ponownie.`;
+      form.style.display = "none"; out.style.display = "block";
+    } else {
+      st.textContent = "⚠ Niezalogowany — zapis do bazy jest zablokowany.";
+      form.style.display = "flex"; out.style.display = "none";
+    }
+    try{ renderSharedDataProgress(); }catch(e){}
+  }
+
   function uploadRowsAwait(table, rows, conflictCols, batchSize){
     const url = normSupaUrl(supaUrl) + `/rest/v1/${table}?on_conflict=${conflictCols}`;
     const B = batchSize || 500;
     let sent = 0, chain = Promise.resolve();
     for(let i = 0; i < rows.length; i += B){
       const batch = rows.slice(i, i + B);
-      chain = chain.then(() => fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey,
-                   "Prefer": "resolution=ignore-duplicates,return=minimal" },
-        body: JSON.stringify(batch)
+      chain = chain.then(() => supaAdminToken()).then(token => {
+        if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+        return fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token,
+                     "Prefer": "resolution=ignore-duplicates,return=minimal" },
+          body: JSON.stringify(batch)
+        });
       }).then(async r => {
         if(!r.ok){
           let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
           throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
         }
         sent += batch.length;
-      }));
+      });
     }
     return chain.then(() => sent);
   }
 
   // wysyła do Supabase to, co aplikacja ma już zapisane lokalnie (cache), bez pobierania z Overpass
   async function syncLocalToSupabase(){
+    if(!isAdmin()) return;
     const btn = document.getElementById("navSupaSyncBtn"), st = document.getElementById("navSupaSyncStatus");
     const say = t => { st.textContent = t; };
+    if(!(await supaAdminToken())){ say("Najpierw zaloguj się jako administrator (pola wyżej)."); return; }
     if(!supaConfigured()){ say("Najpierw wpisz adres projektu i klucz anon powyżej i zapisz."); return; }
     btn.disabled = true;
     const lines = [];
@@ -5621,6 +5737,51 @@
     }
     btn.disabled = false;
   }
+  // 4 × „Dźwięk” w ustawieniach → kod → tryb administratora dla tego urządzenia
+  safeInit("tryb administratora", () => {
+    const tab = document.querySelector('#navSettingsCard [data-tab="sound"], [data-tab="sound"]');
+    let taps = 0, t0 = 0;
+    if(tab) tab.addEventListener("click", () => {
+      const now = Date.now();
+      if(now - t0 > 4000) taps = 0;
+      t0 = now; taps++;
+      if(taps >= 4){
+        taps = 0;
+        if(isAdmin()) return;
+        const code = window.prompt("Kod administratora:");
+        if(code === ADMIN_CODE){
+          try{ localStorage.setItem(ADMIN_KEY, "1"); }catch(e){}
+          window.alert("Tryb administratora włączony na tym urządzeniu.");
+          location.reload();
+        } else if(code !== null){
+          window.alert("Nieprawidłowy kod.");
+        }
+      }
+    });
+    const loginBtn = document.getElementById("adminLoginBtn");
+    if(loginBtn) loginBtn.addEventListener("click", () => {
+      const email = document.getElementById("adminEmail").value.trim(), pass = document.getElementById("adminPass").value;
+      const st = document.getElementById("adminLoginStatus");
+      if(!email || !pass){ st.textContent = "Wpisz e-mail i hasło."; return; }
+      st.textContent = "Logowanie…"; loginBtn.disabled = true;
+      supaAuthRequest("password", { email, password: pass }).then(sess => {
+        sess.email = sess.email || email;
+        adminSessionSave(sess);
+        document.getElementById("adminPass").value = "";
+        updateAdminLoginUi();
+      }).catch(e => {
+        st.textContent = "❌ Logowanie nieudane: " + e.message;
+      }).finally(() => { loginBtn.disabled = false; });
+    });
+    const logoutBtn = document.getElementById("adminLogoutBtn");
+    if(logoutBtn) logoutBtn.addEventListener("click", () => { adminSessionSave(null); updateAdminLoginUi(); });
+    updateAdminLoginUi();
+    const off = document.getElementById("adminOffBtn");
+    if(off) off.addEventListener("click", () => {
+      try{ localStorage.removeItem(ADMIN_KEY); localStorage.removeItem(ADMIN_SESSION_KEY); }catch(e){}
+      location.reload();
+    });
+  });
   safeInit("synchronizacja lokalna → Supabase", () => {
     document.getElementById("navSupaSyncBtn").addEventListener("click", syncLocalToSupabase);
   });
