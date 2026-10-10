@@ -4891,7 +4891,7 @@
     })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
   }
 
-  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v2";   // v2: bez ścieżek/kanałów — dane pobiorą się raz od nowa
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v3";   // v3: + maxheight:physical i znaki-punkty (mosty kolejowe) — dane pobiorą się od nowa
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
   const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
@@ -4956,8 +4956,12 @@
       [out:json][timeout:120];
       (
         way["highway"]["maxheight"](${south},${west},${north},${east});
+        way["highway"]["maxheight:physical"](${south},${west},${north},${east});
         way["highway"]["maxweight"](${south},${west},${north},${east});
         way["highway"]["maxwidth"](${south},${west},${north},${east});
+        node["maxheight"]["barrier"~"^(height_restrictor|border_control|gate|bollard)$"](${south},${west},${north},${east});
+        node["maxheight"]["traffic_sign"](${south},${west},${north},${east});
+        node["maxheight:physical"](${south},${west},${north},${east});
       );
       out geom;
     `;
@@ -4978,9 +4982,18 @@
 
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
   function applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs){
-    (data.elements || []).forEach(el => {
-      if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
-      if(!isHgvRelevantWay(el.tags)) return;
+    (data.elements || []).forEach(raw => {
+      if(!raw.tags) return;
+      let el = raw;
+      if(raw.type === "node"){
+        // znak/ogranicznik wysokości jako punkt (np. most kolejowy nad drogą): krótki odcinek ~2 m, ujemne id = węzeł
+        if(raw.lat === undefined || raw.tags.railway || raw.tags.waterway || raw.tags.access === "no" || raw.tags.hgv === "no") return;
+        el = { type: "way", id: -raw.id, tags: raw.tags, geometry: [{ lat: raw.lat, lon: raw.lon }, { lat: raw.lat, lon: raw.lon + 0.00003 }] };
+      } else {
+        if(raw.type !== "way" || !raw.geometry || raw.geometry.length < 2) return;
+        if(!isHgvRelevantWay(raw.tags)) return;
+      }
+      if(!el.tags.maxheight && el.tags["maxheight:physical"]) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxheight: el.tags["maxheight:physical"] }) });
 
       if(el.tags.maxheight && !heightWays.has(el.id)){
         const hm = parseMaxheightMeters(el.tags.maxheight);
@@ -8764,6 +8777,21 @@
     return { html, sub };
   }
 
+  // czy pozycja GPS leży na autostradzie według mapy — gdy poprzedni krok trasy nie ma numeru drogi (np. start już na M1)
+  let ukMwCache = { t: 0, v: false };
+  function ukOnMotorwayByMap(){
+    if(Date.now() - ukMwCache.t < 1500) return ukMwCache.v;
+    let v = false;
+    try{
+      if(map && lastPos){
+        const p = map.project([lastPos.lon, lastPos.lat]), r = 22;
+        v = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
+          .some(f => f.sourceLayer === "transportation" && f.properties && f.properties.class === "motorway");
+      }
+    }catch(e){}
+    ukMwCache = { t: Date.now(), v };
+    return v;
+  }
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
     const prev = g.steps[g.ptr - 1];
@@ -8808,7 +8836,9 @@
     const card = document.getElementById("guidanceCard");
     const arrive = step.t.indexOf("arrive") === 0;
     const along = step.d - dist;
-    const curRef = ukCurrentRoad(g), curCls = ukRoadClass(curRef);
+    const curRef = ukCurrentRoad(g);
+    let curCls = ukRoadClass(curRef);
+    if(curCls !== "motorway" && !arrive && ukOnMotorwayByMap()) curCls = "motorway";   // jedziemy autostradą → niebieska tablica
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
@@ -11482,6 +11512,19 @@
     return true;
   }
 
+  let trafficIncLocalFeats = [], trafficRouteFeats = [];
+  // mapa pokazuje zdarzenia z okolicy ORAZ z całej trasy (bez duplikatów po id)
+  function trafficPublish(){
+    if(!ensureTrafficIncidentLayers()) return;
+    const seen = new Set(), feats = [];
+    trafficRouteFeats.concat(trafficIncLocalFeats).forEach(f => {
+      const id = f.properties.id, k = id ? id + f.geometry.type : "";
+      if(k){ if(seen.has(k)) return; seen.add(k); }
+      feats.push(f);
+    });
+    map.getSource("traffic-incidents").setData({ type: "FeatureCollection", features: feats });
+  }
+
   function trafficIncidentToFeatures(inc){
     const p = inc.properties || {}, g = inc.geometry || {};
     const cat = p.iconCategory;
@@ -11492,7 +11535,7 @@
     const delayMin = p.delay ? Math.round(p.delay / 60) : 0;
     const lenKm = p.length ? (p.length / 1000).toFixed(1) : "";
     const text = [road, ev, route, delayMin ? `opóźnienie ~${delayMin} min` : "", lenKm ? `${lenKm} km` : ""].filter(Boolean).join(" · ");
-    const props = { cat, mag: p.magnitudeOfDelay || 0, icon: TRAFFIC_INC_ICONS[cat], title: TRAFFIC_INC_NAMES[cat] || "Utrudnienie", text: text || "Utrudnienie na drodze" };
+    const props = { id: p.id || "", cat, mag: p.magnitudeOfDelay || 0, icon: TRAFFIC_INC_ICONS[cat], title: TRAFFIC_INC_NAMES[cat] || "Utrudnienie", text: text || "Utrudnienie na drodze" };
     const line = g.type === "LineString" ? g.coordinates : g.type === "Point" ? [g.coordinates] : null;
     if(!line || !line.length) return [];
     const feats = [];
@@ -11505,7 +11548,7 @@
   // jedno zapytanie TomTom o prostokąt (south, west, north, east) → tablica surowych zdarzeń
   function trafficFetchBbox(south, west, north, east){
     const bbox = [west, south, east, north].map(n => n.toFixed(4)).join(",");
-    const fields = "{incidents{geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,events{description},from,to,length,delay,roadNumbers}}}";
+    const fields = "{incidents{geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description},from,to,length,delay,roadNumbers}}}";
     const url = `${TRAFFIC_INC_URL}?key=${encodeURIComponent(tomtomApiKey)}&bbox=${bbox}&fields=${encodeURIComponent(fields)}&language=en-GB&timeValidityFilter=present`;
     return fetch(url).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(d => d.incidents || []);
   }
@@ -11527,8 +11570,8 @@
       trafficIncCenter = { lat, lon }; trafficIncFetchedAt = Date.now();
       const feats = [];
       incs.forEach(inc => feats.push(...trafficIncidentToFeatures(inc)));
-      trafficIncData = { type: "FeatureCollection", features: feats };
-      if(ensureTrafficIncidentLayers()) map.getSource("traffic-incidents").setData(trafficIncData);
+      trafficIncLocalFeats = feats;
+      trafficPublish();
       debugLog("info", `Ruch drogowy (TomTom): ${incs.length} zdarzeń w okolicy, ${feats.length} elementów na mapie`);
     }).catch(err => {
       console.warn("Zdarzenia drogowe TomTom — błąd:", err);
@@ -11577,7 +11620,7 @@
     return best ? best.along : null;
   }
   function trafficBuildRouteList(route, incs, chunks){
-    const list = [];
+    const list = [], onRoute = [];
     incs.forEach(x => {
       const g = x.geometry || {}, p = x.properties || {}, cat = p.iconCategory;
       if(!TRAFFIC_ROUTE_CATS[cat] || !g.coordinates) return;
@@ -11586,12 +11629,14 @@
       let along = null;
       pts.forEach(pt => { const a = trafficAlongRoute(route, pt[0], pt[1], 0, route.coords.length - 1); if(a !== null && (along === null || a < along)) along = a; });
       if(along === null) return;
+      onRoute.push(x);
       list.push({ along, cat, delay: p.delay || 0, road: (p.roadNumbers || []).join(", "), said: false });
     });
     list.sort((a, b) => a.along - b.along);
     // ten sam rodzaj w odległości < 1 km traktujemy jak jedno zdarzenie
     const out = [];
     list.forEach(it => { const last = out[out.length - 1]; if(last && last.cat === it.cat && it.along - last.along < 1000) return; out.push(it); });
+    out.onRoute = onRoute;
     return out;
   }
   function trafficFetchRoute(route){
@@ -11611,6 +11656,10 @@
       if(route !== activeRoute) return;
       const list = trafficBuildRouteList(route, incs);
       route._trf.list = list;
+      // zdarzenia z całej trasy od razu na mapie (ikony + kolorowe odcinki), nie tylko w okolicy GPS
+      trafficRouteFeats = [];
+      (list.onRoute || []).forEach(x => trafficRouteFeats.push(...trafficIncidentToFeatures(x)));
+      trafficPublish();
       if(!list.length || !fresh) return;                     // po przeliczeniu trasy podsumowania nie powtarzamy
       const names = list.slice(0, 2).map(it => TRAFFIC_ROUTE_CATS[it.cat] + " za " + guideSpeakDist(it.along));
       showBanner("UTRUDNIENIA NA TRASIE (" + list.length + ")", list.slice(0, 3).map(it => TRAFFIC_INC_NAMES[it.cat] + " za " + guideDistLabel(it.along)).join(" · ") + (list.length > 3 ? " …" : ""), false);
