@@ -116,7 +116,6 @@
   #gVoiceBtn.off{ opacity:.5; }
   body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
   body.guidance-on #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
-
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -150,7 +149,6 @@
   }
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
-
   /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
   #navIconRow{
     position:fixed; left:0; right:0; bottom:0;
@@ -298,7 +296,6 @@
     border-color: rgba(255,176,32,0.25);
     color: var(--text-main);
   }
-
   /* ---------- Nawigator: panel wyznaczania trasy ----------
      Szklana karta zadokowana nad paskiem ikon (#navIconRow). Chowa się w dół (za pasek ikon)
      po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
@@ -670,7 +667,6 @@
     padding:10px 12px;
   }
   #navRouteInfo.show{ display:flex; }
-
   /* ---------- Punkt do przeciągania na trasie ---------- */
   .viaPin{ width:46px; height:46px; display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; }
   .viaPin::before{ content:""; width:28px; height:28px; border-radius:50%; box-sizing:border-box; background:var(--accent,#FFB020); border:4px solid #fff; box-shadow:0 2px 9px rgba(0,0,0,.6); }
@@ -712,7 +708,6 @@
   .pickRow .pbtn:active{ transform:scale(.92); }
   .pickRow .grip{ touch-action:none; cursor:grab; font-size:20px; line-height:1; }
   .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
-
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
   @keyframes gLegStep{ from{ transform:translateY(-1.8px); } to{ transform:translateY(1.8px); } }
@@ -790,7 +785,6 @@
   #navRouteInfo .rSub{ font-size:12px; color: var(--text-dim); }
   #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
   #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
-
   /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
   #navSettingsPanel{
     position:fixed; inset:0; z-index:80;
@@ -977,7 +971,6 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
-
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1053,7 +1046,6 @@
   }
   #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
   @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
-
   /* ---------- Konsola debugowania ---------- */
   #debugConsole{
     position:fixed; left:10px; right:10px;
@@ -1117,7 +1109,6 @@
   }
 
   /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
-
   /* Loading splash */
   #splash{
     position:absolute; inset:0; z-index:100;
@@ -1188,7 +1179,6 @@
     background: var(--gator-dark);
     color: var(--gator-on);
   }
-
   /* ---------- Tryb dzienny: przyciski w ciemnej zieleni aligatora (jak wybór GPS na ekranie startowym) ---------- */
   /* Przyciski ikon, "Centruj", "Cała trasa", kompas i zgłoszenia zostają w dzień przezroczyste (szkło);
      ciemna zieleń aligatora pojawia się dopiero, gdy przycisk jest wciśnięty albo włączony (.active). */
@@ -1655,8 +1645,8 @@
 })();
 </script>
 <script>
-(function(){
-  "use strict";
+/* 01-debug-console.js */
+"use strict";
 
   /* ============================================================
      WBUDOWANA KONSOLA DEBUGOWANIA (dla telefonu, bez devtools)
@@ -1758,6 +1748,10 @@
   });
 
   debugLog("info", "Konsola debugowania uruchomiona.");
+</script>
+<script>
+/* 02-config.js */
+"use strict";
 
   /* ============================================================
      KONFIGURACJA
@@ -1991,6 +1985,43 @@
   const LOCAL_ALT_HIGHWAY_CLASSES =
     "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link";
   const LOCAL_ALT_BBOX_PAD_DEG = 0.05; // ~5-6 km zapasu wokół prostej łączącej start i cel
+</script>
+<script>
+/* 03-core-helpers.js */
+"use strict";
+
+  /* Funkcje używane już podczas ładowania pliku (stan, init paneli) — muszą istnieć PRZED modułami,
+     które ich używają, bo osobne <script> nie dzielą hoistingu funkcji jak jedna duża IIFE. */
+  function loadUserHgvParking(){
+    try{
+      const raw = localStorage.getItem(HGV_PARKING_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserHgvParking(){
+    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
+    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
+  }
+
+  function loadUserReportedCameras(){
+    try{
+      const raw = localStorage.getItem(CAMERA_REPORT_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserReportedCameras(){
+    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
+    catch(e){ /* jw. */ }
+  }
+
+  /* bezpieczna inicjalizacja jednego bloku UI — błąd w nim nie zatrzymuje reszty aplikacji */
+  function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
+</script>
+<script>
+/* 04-state.js */
+"use strict";
 
   /* ============================================================
      STAN
@@ -2105,6 +2136,10 @@
   let routeDragState = null;    // stan trwającego przeciągania punktu trasy
   let pendingRouteDrag = null;  // stan "przytrzymania" trasy, zanim faktycznie zacznie się przeciąganie
   let routeBeforeEdit = null;   // migawka trasy sprzed ostatniej ręcznej edycji (do przycisku "Cofnij")
+</script>
+<script>
+/* 05-geo-utils.js */
+"use strict";
 
   /* ============================================================
      POMOCNICZE FUNKCJE GEO
@@ -2238,6 +2273,11 @@
     const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
     return v + "m";
   }
+</script>
+<script>
+/* 06-alert-sound-banner.js */
+"use strict";
+
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -2274,6 +2314,10 @@
     if(bannerTimeout) clearTimeout(bannerTimeout);
     bannerTimeout = setTimeout(()=> card.classList.remove("show"), 5000);
   }
+</script>
+<script>
+/* 07-map-init.js */
+"use strict";
 
   /* ============================================================
      MAPA
@@ -2355,6 +2399,10 @@
       }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
     });
   }
+</script>
+<script>
+/* 08-road-shields.js */
+"use strict";
 
   /* ============================================================
      TABLICE NUMERÓW DRÓG (jak na brytyjskich znakach)
@@ -2483,6 +2531,10 @@
       }
     }catch(e){ /* nakładka jeszcze się nie zainicjowała — dostanie dane przy tworzeniu */ }
   }
+</script>
+<script>
+/* 09-restriction-signs.js */
+"use strict";
 
   /* ============================================================
      ZNAKI WYSOKOŚCI I TONAŻU (na mapie)
@@ -2688,7 +2740,10 @@
     [ 1.85, 60.86]  // NE: Szetlandy
   ];
   const GB_MIN_ZOOM = 5;
-
+</script>
+<script>
+/* 10-night-theme.js */
+"use strict";
 
   /* ============================================================
      TRYB NOCNY — prawdziwy ciemny styl mapy (bez filtra CSS)
@@ -3411,6 +3466,10 @@
       }
     });
   }
+</script>
+<script>
+/* 11-motorway-asphalt.js */
+"use strict";
 
   /* ============================================================
      ASFALT AUTOSTRAD W 3D (tylko class=motorway z kafelków mapy; zero zapytań sieciowych)
@@ -3984,6 +4043,10 @@
     const top = Math.max(0, Math.min(h * 0.9, pad.top + err));   // marker leży w środku obszaru po odjęciu paddingu, więc korekta = 2 × (err / 2)
     map.setPadding({ top, bottom: 0, left: 0, right: 0 });
   }
+</script>
+<script>
+/* 12-motorway-junctions.js */
+"use strict";
 
   /* ============================================================
      ZJAZDY AUTOSTRADOWE — pobierane RAZ dla całej Wielkiej Brytanii
@@ -4168,6 +4231,10 @@
       }
     });
   }
+</script>
+<script>
+/* 13-motorway-cameras.js */
+"use strict";
 
   /* ============================================================
      FOTORADARY NA AUTOSTRADACH (cała Wielka Brytania, pobierane raz)
@@ -4345,6 +4412,10 @@
         }
       });
   }
+</script>
+<script>
+/* 14-avg-speed-cameras.js */
+"use strict";
 
   /* ============================================================
      ODCINKOWY POMIAR PRĘDKOŚCI (SPECS) NA DROGACH A — pobierany RAZ dla całej
@@ -4505,6 +4576,10 @@
       }
     });
   }
+</script>
+<script>
+/* 15-hgv-companies.js */
+"use strict";
 
   /* ============================================================
      NAZWY FIRM/OPERATORÓW przy drogach — dla kierowców HGV. Pobierane RAZ na 30 dni,
@@ -4687,6 +4762,10 @@
       }
     });
   }
+</script>
+<script>
+/* 16-hgv-restrictions.js */
+"use strict";
 
   /* ============================================================
      ZNAKI WYSOKOŚCI (WIADUKTY/PRZEJAZDY) I TONAŻU — pobierane RAZ
@@ -5094,6 +5173,10 @@
       }
     });
   }
+</script>
+<script>
+/* 17-overpass.js */
+"use strict";
 
   /* ============================================================
      OVERPASS API — fotoradary + drogi z maxspeed
@@ -5225,30 +5308,6 @@
     return attempt(0);
   }
 
-  function loadUserHgvParking(){
-    try{
-      const raw = localStorage.getItem(HGV_PARKING_STORAGE);
-      return raw ? JSON.parse(raw) : [];
-    }catch(e){ return []; }
-  }
-
-  function saveUserHgvParking(){
-    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
-    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
-  }
-
-  function loadUserReportedCameras(){
-    try{
-      const raw = localStorage.getItem(CAMERA_REPORT_STORAGE);
-      return raw ? JSON.parse(raw) : [];
-    }catch(e){ return []; }
-  }
-
-  function saveUserReportedCameras(){
-    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
-    catch(e){ /* jw. */ }
-  }
-
   // przelicza wynikową listę `cameras` (OSM + społeczność Supabase + lokalne zgłoszenia tego urządzenia)
   // i odświeża warstwę na mapie — to ta lista zasila alert 200 m
   function rebuildCameraList(){
@@ -5265,6 +5324,10 @@
       });
     }
   }
+</script>
+<script>
+/* 18-sync-progress.js */
+"use strict";
 
   /* ============================================================
      POSTĘP AUTOMATYCZNEJ SYNCHRONIZACJI (Overpass ↔ Supabase)
@@ -5527,6 +5590,10 @@
     try{ loadHgvCompaniesOnce(true); }catch(e){ console.warn("Auto-sync firm/operatorów nieudany:", e); }
     try{ loadUkRestrictionsOnce(true); }catch(e){ console.warn("Auto-sync znaków wysokości/tonażu nieudany:", e); }
   }
+</script>
+<script>
+/* 19-supabase.js */
+"use strict";
 
   /* ---------- Supabase — klient wspólnej bazy (opcjonalny; działa lokalnie, dopóki nie skonfigurowany) ---------- */
   function supaConfigured(){
@@ -5924,6 +5991,10 @@
     supaRep.rows = new Map(); supaRep.cover = null; supaRep.fetchedAt = 0;
     supaRealtime.retry = 0;
   }
+</script>
+<script>
+/* 20-community-votes.js */
+"use strict";
 
   /* ---------- głosowanie społeczności (potwierdzam / nie ma) ---------- */
   function supaRpc(fn, body){
@@ -6173,6 +6244,10 @@
     }
     fetchOverpassData(lat, lon);
   }
+</script>
+<script>
+/* 21-speed-limit.js */
+"use strict";
 
   /* ============================================================
      LOGIKA LIMITU PRĘDKOŚCI
@@ -6231,6 +6306,10 @@
     document.getElementById("speedPanel").style.display = prefShowSpeedometer ? "" : "none";
     if(!prefShowLimitSign) hideLimitSign();
   }
+</script>
+<script>
+/* 22-camera-alerts.js */
+"use strict";
 
   /* ============================================================
      ALERT FOTORADARÓW
@@ -6252,6 +6331,10 @@
       }
     });
   }
+</script>
+<script>
+/* 23-geolocation.js */
+"use strict";
 
   /* ============================================================
      GEOLOKALIZACJA
@@ -6382,6 +6465,10 @@
     const kind = roadDataState === "retrying" || roadDataState === "unavailable" ? "error" : "ok";
     setStatus(kind, "GPS aktywny · dokł. " + Math.round(gpsAccuracyM) + " m" + suffix);
   }
+</script>
+<script>
+/* 24-nav-search-favorites.js */
+"use strict";
 
   /* ============================================================
      NAWIGATOR — wyszukiwanie celu, trasa, ruch i limity (TomTom)
@@ -6881,7 +6968,10 @@
     const rowH = row ? row.offsetHeight : 0;
     return rowH + getNavPanelVisibleHeight();
   }
-
+</script>
+<script>
+/* 25-nav-route-picker.js */
+"use strict";
 
   /* ---------- Wybór trasy na mapie + przystanki ---------- */
   var pickReplanTimer = null, pickDirty = false;
@@ -7051,6 +7141,10 @@
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
   }
+</script>
+<script>
+/* 26-nav-destination-pin.js */
+"use strict";
 
   /* ---------- pinezka celu: podgląd, przeciąganie, przesuwanie dwukrotnym kliknięciem ---------- */
   let destMarker = null;
@@ -7216,6 +7310,10 @@
       }
     });
   }
+</script>
+<script>
+/* 27-nav-place-names.js */
+"use strict";
 
   /* ---------- nazwy budynków/magazynów dodane przez kierowców ----------
      Supabase (wspólne dla wszystkich):
@@ -7465,6 +7563,10 @@
     }catch(e){}
     return fallback;
   }
+</script>
+<script>
+/* 28-nav-poi-click.js */
+"use strict";
 
   /* ---------- kliknięcie w firmę / sklep / hotel na mapie: pełna nazwa + adres + pytanie o trasę ---------- */
   let poiAskTarget = null;
@@ -7583,6 +7685,10 @@
       });
     }
   }
+</script>
+<script>
+/* 29-nav-tomtom-routing.js */
+"use strict";
 
   /* ---------- wyznaczanie trasy + limity + ruch (TomTom Routing) ---------- */
   // czysta funkcja pobierająca dane — nie dotyka UI/activeRoute, żeby dało się ją odpalić
@@ -7783,6 +7889,10 @@
       duration: 800
     });
   }
+</script>
+<script>
+/* 30-truck-route-valhalla.js */
+"use strict";
 
   /* ============================================================
      ZAPLANUJ TRASĘ — darmowa trasa dla ciężarówki (Valhalla), od razu w trybie edycji
@@ -8150,7 +8260,10 @@
     if(lastPos) enterDrivingView();
     renderNavRouteInfo();
   }
-
+</script>
+<script>
+/* 31-voice-guidance.js */
+"use strict";
 
   /* ============================================================
      PROWADZENIE ZAKRĘT PO ZAKRĘCIE — karta u góry + komunikaty głosowe (pl-PL)
@@ -8390,6 +8503,10 @@
     const card = document.getElementById("guidanceCard");
     if(card.classList.contains("show")){ card.classList.remove("show"); document.body.classList.remove("guidance-on"); }
   }
+</script>
+<script>
+/* 32-uk-signs.js */
+"use strict";
 
   /* ============================================================
      TABLICE UK — klasa drogi → kolor tablicy, plakietki numerów, ostrzeżenia HGV
@@ -8621,7 +8738,10 @@
     renderGuidance(step, dist, next, g);
     guideSpeak(g, step, dist, next);
   }
-
+</script>
+<script>
+/* 33-route-alerts.js */
+"use strict";
 
   /* ============================================================
      ALERTY NA TRASIE: niskie mosty, limity tonażu i szerokości
@@ -8971,6 +9091,10 @@
     showBanner("OGRANICZENIA NA TRASIE (" + list.length + ")", top.join(" · ") + (list.length > 2 ? " …" : "") + " — zaznaczone na mapie", danger.length > 0);
     if(danger.length) guideSay("Uwaga. Na tej trasie są ograniczenia, których Twój pojazd nie spełnia. Sprawdź trasę.");
   }
+</script>
+<script>
+/* 34-route-reroute.js */
+"use strict";
 
   /* ---------- PRZELICZANIE TRASY: zjechanie z trasy + przycisk „Zmień trasę” ---------- */
   const OFFROUTE_DIST_M = 60;          // dalej niż tyle od trasy = zjechałeś
@@ -9294,6 +9418,10 @@
     const v = parseFloat(getComputedStyle(document.getElementById("navPanel")).getPropertyValue("--nav-collapsed-shift"));
     return isNaN(v) ? 220 : v;
   }
+</script>
+<script>
+/* 35-nav-panel-ui.js */
+"use strict";
 
   /* ---------- Karta nawigatora: przeciąganie uchwytu w dół chowa ją za pasek ikon ---------- */
   (function setupNavPanelDrag(){
@@ -9512,7 +9640,6 @@
   }
   function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); openNavSettings("sound"); }
   function closeVoicePanel(){ closeNavSettings(); }
-  function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
   safeInit("okno głosu", () => {
   document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
   const vpVol = document.getElementById("vpVol");
@@ -9698,6 +9825,10 @@
   document.getElementById("navSupaKeyEye").addEventListener("click", () => {
     navSupaKeyInput.type = navSupaKeyInput.type === "password" ? "text" : "password";
   });
+</script>
+<script>
+/* 36-route-edit.js */
+"use strict";
 
   /* ============================================================
      RĘCZNA EDYCJA TRASY — przeciąganie fragmentu trasy
@@ -10290,6 +10421,10 @@
       });
     }
   }
+</script>
+<script>
+/* 37-route-drag-points.js */
+"use strict";
 
   /* ============================================================
      PUNKTY PRZECIĄGALNE NA TRASIE
@@ -10717,6 +10852,10 @@
     map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
     map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
   }
+</script>
+<script>
+/* 38-fullscreen.js */
+"use strict";
 
   /* ============================================================
      TRYB PEŁNEGO EKRANU (przydatny podczas nawigacji)
@@ -10753,6 +10892,10 @@
   ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
     document.addEventListener(ev, updateFullscreenBtn)
   );
+</script>
+<script>
+/* 39-ui-controls.js */
+"use strict";
 
   /* ============================================================
      KONTROLKI UI
@@ -10891,6 +11034,10 @@
     box.classList.toggle("visible", show);
     if(!show) closeReportMenu();
   }
+</script>
+<script>
+/* 40-start-gps.js */
+"use strict";
 
   /* ============================================================
      START
@@ -11047,6 +11194,10 @@
       }
     }, 200);
   }
+</script>
+<script>
+/* 41-wake-lock.js */
+"use strict";
 
   /* ============================================================
      BLOKADA WYGASZANIA EKRANU (Wake Lock)
@@ -11077,8 +11228,6 @@
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
-
-})();
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
