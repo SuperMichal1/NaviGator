@@ -116,6 +116,7 @@
   #gVoiceBtn.off{ opacity:.5; }
   body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
   body.guidance-on #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
+
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -149,6 +150,7 @@
   }
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
+
   /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
   #navIconRow{
     position:fixed; left:0; right:0; bottom:0;
@@ -283,7 +285,7 @@
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
   }
   /* "Cała trasa": tylko ikona (trasa z punktu A do B), okrągły przycisk bez podpisu */
-  #btnFitRoute{ touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnFitRoute{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnLocate.visible, #btnFitRoute.visible, #btnCompass.visible{
     opacity:1;
     transform: translateY(0) scale(1);
@@ -296,6 +298,7 @@
     border-color: rgba(255,176,32,0.25);
     color: var(--text-main);
   }
+
   /* ---------- Nawigator: panel wyznaczania trasy ----------
      Szklana karta zadokowana nad paskiem ikon (#navIconRow). Chowa się w dół (za pasek ikon)
      po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
@@ -667,6 +670,7 @@
     padding:10px 12px;
   }
   #navRouteInfo.show{ display:flex; }
+
   /* ---------- Punkt do przeciągania na trasie ---------- */
   .viaPin{ width:46px; height:46px; display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; }
   .viaPin::before{ content:""; width:28px; height:28px; border-radius:50%; box-sizing:border-box; background:var(--accent,#FFB020); border:4px solid #fff; box-shadow:0 2px 9px rgba(0,0,0,.6); }
@@ -708,6 +712,7 @@
   .pickRow .pbtn:active{ transform:scale(.92); }
   .pickRow .grip{ touch-action:none; cursor:grab; font-size:20px; line-height:1; }
   .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
+
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
   @keyframes gLegStep{ from{ transform:translateY(-1.8px); } to{ transform:translateY(1.8px); } }
@@ -785,6 +790,7 @@
   #navRouteInfo .rSub{ font-size:12px; color: var(--text-dim); }
   #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
   #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
+
   /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
   #navSettingsPanel{
     position:fixed; inset:0; z-index:80;
@@ -971,6 +977,7 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
+
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1046,6 +1053,7 @@
   }
   #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
   @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
   /* ---------- Konsola debugowania ---------- */
   #debugConsole{
     position:fixed; left:10px; right:10px;
@@ -1109,6 +1117,7 @@
   }
 
   /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
+
   /* Loading splash */
   #splash{
     position:absolute; inset:0; z-index:100;
@@ -1179,6 +1188,7 @@
     background: var(--gator-dark);
     color: var(--gator-on);
   }
+
   /* ---------- Tryb dzienny: przyciski w ciemnej zieleni aligatora (jak wybór GPS na ekranie startowym) ---------- */
   /* Przyciski ikon, "Centruj", "Cała trasa", kompas i zgłoszenia zostają w dzień przezroczyste (szkło);
      ciemna zieleń aligatora pojawia się dopiero, gdy przycisk jest wciśnięty albo włączony (.active). */
@@ -1265,7 +1275,7 @@
   </svg>
 </div>
 
-<div id="btnFitRoute" title="1× od pozycji do celu · 2× cała trasa · 3× trasa alternatywna stąd · przytrzymaj: zmień trasę" role="button" aria-label="Pokaż całą trasę">
+<div id="btnFitRoute" title="Pokaż całą trasę" role="button" aria-label="Pokaż całą trasę">
   <svg class="locate-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="5" cy="19" r="2.3"/>
     <circle cx="19" cy="5" r="2.3" fill="currentColor"/>
@@ -1387,8 +1397,9 @@
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
     <div id="navTollNote">£ Mimo unikania trasa ma odcinki płatne (zaznaczone na mapie)</div>
-    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: awatar i kolor trasy</div>
+    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
     <div id="navCustomize">
+      <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
     </div>
     <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
@@ -1449,8 +1460,6 @@
   <div id="debugConsoleActions">
     <button id="debugCopyBtn" type="button">Kopiuj</button>
     <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
-    <button id="debugResetBtn" type="button" class="secondary">🔄 Restart danych</button>
-    <button id="debugDiagBtn" type="button" class="secondary">🔍 Diagnoza</button>
   </div>
 </div>
 
@@ -1474,12 +1483,6 @@
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel">Znak ograniczenia:
-        <select id="navPrefLimitMode">
-          <option value="speeding">Tylko przy przekroczeniu prędkości</option>
-          <option value="always">Cały czas</option>
-        </select>
-      </label>
       <label class="navPrefLabel">Tryb mapy:
         <select id="navPrefTheme">
           <option value="auto">Auto (wschód/zachód słońca)</option>
@@ -1652,9 +1655,8 @@
 })();
 </script>
 <script>
-/* ===== js/01-debug-console.js — Wbudowana konsola debugowania (telefon bez devtools) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
+(function(){
+  "use strict";
 
   /* ============================================================
      WBUDOWANA KONSOLA DEBUGOWANIA (dla telefonu, bez devtools)
@@ -1753,38 +1755,9 @@
     if(closeBtn) closeBtn.addEventListener("click", () => toggleDebugConsole(false));
     if(copyBtn) copyBtn.addEventListener("click", copyDebugLogs);
     if(clearBtn) clearBtn.addEventListener("click", () => { debugLogs.length = 0; renderDebugConsole(); });
-    // Restart danych: kasuje lokalne kopie (zjazdy, fotoradary, znaki, firmy…) i przeładowuje aplikację —
-    // wszystko pobiera się od nowa ze wspólnej bazy (w logu: „… ze wspólnej bazy — komplet”). Ustawienia i logowanie zostają.
-    const diagBtn = document.getElementById("debugDiagBtn");
-    if(diagBtn) diagBtn.addEventListener("click", () => { try{ mapDiagnose(); }catch(e){ debugLog("error", "Diagnoza: " + e.message); } });
-    const resetBtn = document.getElementById("debugResetBtn");
-    if(resetBtn) resetBtn.addEventListener("click", () => {
-      if(!confirm("Wyczyścić lokalne kopie danych i pobrać je od nowa ze wspólnej bazy? Ustawienia i logowanie zostaną.")) return;
-      resetBtn.textContent = "Czyszczę…";
-      try{ Object.keys(localStorage).filter(k => /^nav_(uk_|restr)/.test(k)).forEach(k => localStorage.removeItem(k)); }catch(e){}
-      const done = () => location.reload();
-      try{
-        const req = indexedDB.open("nav_cache_v1", 1);
-        req.onsuccess = () => {
-          try{
-            const db = req.result;
-            if(!db.objectStoreNames.contains("kv")){ db.close(); return done(); }
-            const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").clear();
-            tx.oncomplete = () => { db.close(); done(); }; tx.onerror = () => { db.close(); done(); };
-          }catch(e){ done(); }
-        };
-        req.onerror = done;
-      }catch(e){ done(); }
-      setTimeout(done, 4000);
-    });
   });
 
   debugLog("info", "Konsola debugowania uruchomiona.");
-</script>
-<script>
-/* ===== js/02-config.js — Konfiguracja: stałe, klucze localStorage, adresy API =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      KONFIGURACJA
@@ -1814,7 +1787,6 @@
   /* ---------- preferencje widoczności (użytkownik decyduje, co ma być na ekranie) ---------- */
   const PREF_SHOW_SPEEDOMETER = "nawigator_pref_show_speedometer";
   const PREF_SHOW_LIMIT_SIGN = "nawigator_pref_show_limit_sign";
-  const PREF_LIMIT_MODE = "nawigator_pref_limit_mode"; // "speeding" (domyślnie: znak tylko przy przekroczeniu) | "always"
   const REFETCH_DISTANCE_M = 600;    // od jakiego przesunięcia odświeżamy dane
   const REFETCH_INTERVAL_MS = 25000; // minimalny odstęp między zapytaniami
   const CAMERA_ALERT_M = 200;        // próg alertu dźwiękowego/wizualnego
@@ -2019,45 +1991,6 @@
   const LOCAL_ALT_HIGHWAY_CLASSES =
     "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link";
   const LOCAL_ALT_BBOX_PAD_DEG = 0.05; // ~5-6 km zapasu wokół prostej łączącej start i cel
-</script>
-<script>
-/* ===== js/03-core-helpers.js — Małe funkcje pomocnicze potrzebne przy ładowaniu (localStorage zgłoszeń, safeInit) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
-
-  /* Funkcje używane już podczas ładowania pliku (stan, init paneli) — muszą istnieć PRZED modułami,
-     które ich używają, bo osobne <script> nie dzielą hoistingu funkcji jak jedna duża IIFE. */
-  function loadUserHgvParking(){
-    try{
-      const raw = localStorage.getItem(HGV_PARKING_STORAGE);
-      return raw ? JSON.parse(raw) : [];
-    }catch(e){ return []; }
-  }
-
-  function saveUserHgvParking(){
-    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
-    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
-  }
-
-  function loadUserReportedCameras(){
-    try{
-      const raw = localStorage.getItem(CAMERA_REPORT_STORAGE);
-      return raw ? JSON.parse(raw) : [];
-    }catch(e){ return []; }
-  }
-
-  function saveUserReportedCameras(){
-    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
-    catch(e){ /* jw. */ }
-  }
-
-  /* bezpieczna inicjalizacja jednego bloku UI — błąd w nim nie zatrzymuje reszty aplikacji */
-  function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
-</script>
-<script>
-/* ===== js/04-state.js — Stan aplikacji (zmienne współdzielone) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      STAN
@@ -2149,7 +2082,6 @@
   let supaKey = (adminMode && localStorage.getItem(SUPA_KEY_STORAGE)) || SUPA_DEFAULT_KEY;
   let supaLastError = "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
-  let prefLimitMode = localStorage.getItem(PREF_LIMIT_MODE) === "always" ? "always" : "speeding";
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
@@ -2173,11 +2105,6 @@
   let routeDragState = null;    // stan trwającego przeciągania punktu trasy
   let pendingRouteDrag = null;  // stan "przytrzymania" trasy, zanim faktycznie zacznie się przeciąganie
   let routeBeforeEdit = null;   // migawka trasy sprzed ostatniej ręcznej edycji (do przycisku "Cofnij")
-</script>
-<script>
-/* ===== js/05-geo-utils.js — Pomocnicze funkcje geo (haversine, rzutowanie na trasę, parsowanie tagów OSM) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      POMOCNICZE FUNKCJE GEO
@@ -2311,12 +2238,6 @@
     const v = (Math.round(m * 10) / 10).toFixed(1).replace(/\.0$/, "");
     return v + "m";
   }
-</script>
-<script>
-/* ===== js/06-alert-sound-banner.js — Dźwięk alertu i banner ostrzeżeń =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
-
   /* ============================================================
      DŹWIĘK ALERTU
   ============================================================ */
@@ -2353,11 +2274,6 @@
     if(bannerTimeout) clearTimeout(bannerTimeout);
     bannerTimeout = setTimeout(()=> card.classList.remove("show"), 5000);
   }
-</script>
-<script>
-/* ===== js/07-map-init.js — Inicjalizacja mapy MapLibre =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      MAPA
@@ -2439,11 +2355,6 @@
       }catch(e){ console.warn("Nie udało się pogrubić warstwy autostrady:", layer.id, e); }
     });
   }
-</script>
-<script>
-/* ===== js/08-road-shields.js — Tablice numerów dróg (jak na brytyjskich znakach) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      TABLICE NUMERÓW DRÓG (jak na brytyjskich znakach)
@@ -2572,11 +2483,6 @@
       }
     }catch(e){ /* nakładka jeszcze się nie zainicjowała — dostanie dane przy tworzeniu */ }
   }
-</script>
-<script>
-/* ===== js/09-restriction-signs.js — Znaki wysokości i tonażu na mapie =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ZNAKI WYSOKOŚCI I TONAŻU (na mapie)
@@ -2673,13 +2579,13 @@
           "width", "restriction-sign-width",
           "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 19, 1.15],
-        "icon-allow-overlap": false,
-        "icon-ignore-placement": false,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
         "text-field": ["get", "label"],
         "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 14, 8, 16, 10, 19, 13],
-        "text-allow-overlap": false,
-        "text-ignore-placement": false,
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
         "text-anchor": "center"
       },
       paint: { "text-color": "#14181c" }
@@ -2782,11 +2688,7 @@
     [ 1.85, 60.86]  // NE: Szetlandy
   ];
   const GB_MIN_ZOOM = 5;
-</script>
-<script>
-/* ===== js/10-night-theme.js — Tryb nocny — ciemny styl mapy =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
+
 
   /* ============================================================
      TRYB NOCNY — prawdziwy ciemny styl mapy (bez filtra CSS)
@@ -3318,8 +3220,6 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw znaków wysokości/tonażu:", e);
       }
-      // dane z cache mogły dojść przed utworzeniem warstw — nałóż je teraz
-      try{ applyRestrictionsToMap(); reapplyHgvCompanies(); reapplyAvgSpeedCameras(); }catch(e){ console.warn("Re-apply danych:", e); }
       // MapLibre rozstrzyga kolizje symboli od GÓRNEJ warstwy w dół. Nazwy firm i miejsc (z Supabase jest ich
       // ok. 80 tys.) leżały nad znakami ograniczeń, więc wypierały znaki wysokości/tonażu/szerokości. Wsuwamy je
       // POD warstwę znaków — znaki mają pierwszeństwo przy rozmieszczaniu.
@@ -3328,6 +3228,22 @@
           if(map.getLayer(id) && map.getLayer("restriction-signs-icon")) map.moveLayer(id, "restriction-signs-icon");
         });
       }catch(e){ console.warn("Kolejność warstw znaków/firm:", e); }
+      // diagnostyka znaków: ile jest ich w źródle w widoku, a ile faktycznie narysowano (zoom ≥ 14)
+      try{
+        let lastDiag = "", lastDiagAt = 0;
+        map.on("idle", () => {
+          if(!map.getLayer("restriction-signs-icon") || map.getZoom() < 14 || Date.now() - lastDiagAt < 6000) return;
+          const b = map.getBounds();
+          const seen = new Set();
+          map.querySourceFeatures("restriction-signs").forEach(f => {
+            const c = f.geometry && f.geometry.coordinates;
+            if(c && c[0] >= b.getWest() && c[0] <= b.getEast() && c[1] >= b.getSouth() && c[1] <= b.getNorth()) seen.add(c[0].toFixed(5) + "," + c[1].toFixed(5));
+          });
+          const drawn = map.queryRenderedFeatures({ layers: ["restriction-signs-icon"] }).length;
+          const msg = `Znaki ograniczeń (zoom ${map.getZoom().toFixed(1)}): w widoku ${seen.size}, narysowane ${drawn}`;
+          if(msg !== lastDiag){ lastDiag = msg; lastDiagAt = Date.now(); debugLog("info", msg); }
+        });
+      }catch(e){}
 
       // źródło wyznaczonej trasy (TomTom)
       map.addSource("route-line", { type:"geojson", data: emptyFC() });
@@ -3484,7 +3400,6 @@
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
-      loadTrafficIncidents(lat, lon);
       // Pokaż panel postępu od razu przy starcie (nie tylko po pierwszym skonfigurowaniu Supabase),
       // żeby zawsze było widać co się właśnie dzieje z każdą kategorią wspólnych danych —
       // w tym to, że kategoria ze świeżym cache NIE pobiera nic od nowa (patrz "force" niżej).
@@ -3512,11 +3427,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/11-motorway-asphalt.js — Asfalt autostrad w 3D, satelita, awatar pojazdu =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ASFALT AUTOSTRAD W 3D (tylko class=motorway z kafelków mapy; zero zapytań sieciowych)
@@ -3779,15 +3689,11 @@
     truck: { name:"Ciężarówka", svg: c => `<ellipse cx="26" cy="27" rx="18" ry="22" fill="${c}" opacity=".25"/>
       <rect x="17" y="19" width="18" height="26" rx="2.5" fill="#eef2f4" stroke="#0c0f12" stroke-width="1.4"/>
       <rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
-      <rect x="20" y="9.5" width="12" height="3.6" rx="1.2" fill="#0c0f12" opacity=".75"/>`,
-      side: c => `<rect x="17" y="19" width="18" height="26" rx="2.5" fill="#c9d0d4"/><rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}"/>`,
-      wheels: `<g fill="#0c0f12"><rect x="15.2" y="9" width="3" height="6" rx="1"/><rect x="33.8" y="9" width="3" height="6" rx="1"/><rect x="15.2" y="23" width="3" height="7" rx="1"/><rect x="33.8" y="23" width="3" height="7" rx="1"/><rect x="15.2" y="35" width="3" height="7" rx="1"/><rect x="33.8" y="35" width="3" height="7" rx="1"/></g>`, h3d: .30 },
+      <rect x="20" y="9.5" width="12" height="3.6" rx="1.2" fill="#0c0f12" opacity=".75"/>` },
     car: { name:"Auto", svg: c => `<ellipse cx="26" cy="26" rx="16" ry="23" fill="${c}" opacity=".25"/>
       <rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
       <path d="M20.5 16 Q26 12.5 31.5 16 L30.5 22 L21.5 22 Z" fill="#0c0f12" opacity=".75"/>
-      <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>`,
-      side: c => `<rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}"/>`,
-      wheels: `<g fill="#0c0f12"><rect x="15.5" y="11" width="3" height="8" rx="1"/><rect x="33.5" y="11" width="3" height="8" rx="1"/><rect x="15.5" y="33" width="3" height="8" rx="1"/><rect x="33.5" y="33" width="3" height="8" rx="1"/></g>`, h3d: .17 },
+      <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>` },
     gator: { name:"Aligator", svg: c => `<ellipse cx="26" cy="26" rx="20" ry="23" fill="${c}" opacity=".22"/>
       <g class="gTail"><path d="M21.5 34 Q24 43 26 51 Q28 43 30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/></g>
       <g fill="#5a7a2e" stroke="#0c0f12" stroke-width="1.1">
@@ -3798,51 +3704,11 @@
       </g>
       <ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136" stroke="#0c0f12" stroke-width="1.2"/>
       <path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="22.6" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/><circle cx="29.4" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/>`,
-      side: c => `<ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136"/><path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a"/><path d="M21.5 34 Q24 43 26 51 Q28 43 30.5 34 Z" fill="#4a6a24"/>`, h3d: .13 },
+      <circle cx="22.6" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/><circle cx="29.4" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/>` },
     dot: { name:"Punkt", svg: c => `<circle cx="26" cy="27" r="19" fill="${c}" opacity=".25"/>
       <circle cx="26" cy="27" r="10" fill="${c}" stroke="#fff" stroke-width="3"/>
-      <path d="M26 4 L33 17 L19 17 Z" fill="${c}" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>`,
-      side: c => `<circle cx="26" cy="27" r="10" fill="${c}"/><path d="M26 4 L33 17 L19 17 Z" fill="${c}"/>`, h3d: .10 }
+      <path d="M26 4 L33 17 L19 17 Z" fill="${c}" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>` }
   };
-  /* ---------- awatar w 3D: prawdziwa bryła ----------
-     Marker leży na mapie (pitchAlignment "map"), więc w widoku 3D jest spłaszczony. Zamiast tego układamy kilka warstw
-     (cień, koła, boki, góra ze szczegółami), przesuniętych w górę (translateZ) — przy pochyleniu kamery tworzą bryłę
-     z wysokością, bokami i cieniem. W 2D warstw nie ma. */
-  const AV3D_STEPS = 6;
-  function sync3dLayers(){
-    if(!userMarkerEl) return;
-    const a = AVATARS[vehicleAvatar];
-    const key = (is3D && a && a.svg) ? vehicleAvatar + "|" + avatarAccent() : "";
-    if(userMarkerEl._k3d === key) return;
-    userMarkerEl._k3d = key;
-    userMarkerEl.querySelectorAll(".av3dL").forEach(n => n.remove());
-    const base = userMarkerEl.querySelector("svg:not(.av3dL)");
-    if(base) base.style.visibility = key ? "hidden" : "";
-    userMarkerEl.style.transformStyle = key ? "preserve-3d" : "";
-    if(!key) return;
-    const c = avatarAccent(), side = (a.side || a.svg)(c);
-    const mk = (inner, zf, css, sc) => {
-      const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      sv.setAttribute("viewBox", "0 0 52 52"); sv.setAttribute("class", "av3dL");
-      sv.style.cssText = "position:absolute;left:0;top:0;overflow:visible;pointer-events:none;transform-origin:50% 50%;" + (css || "");
-      sv.innerHTML = inner; sv._zf = zf * (a.h3d || .15); sv._sc = sc || 1;
-      userMarkerEl.appendChild(sv);
-    };
-    mk(side, 0, "filter:brightness(0) blur(2px);opacity:.4", 1.12);                       // cień na jezdni
-    if(a.wheels) mk(a.wheels, .12);                                                      // koła tuż nad ziemią
-    for(let i = 1; i < AV3D_STEPS; i++) mk(side, i / AV3D_STEPS, `filter:brightness(${(0.5 + 0.35 * i / AV3D_STEPS).toFixed(2)})`); // boki
-    mk(a.svg(c), 1);                                                                    // góra: pełny wygląd
-    userMarkerEl._px3d = null; applyAvatarSize(); setAvRot(avSm && avSm.lastRot != null ? avSm.lastRot : 0);
-  }
-  function setAvRot(hdg){
-    if(!userMarkerEl) return;
-    userMarkerEl.querySelectorAll("svg").forEach(sv => {
-      sv.style.transform = sv.classList.contains("av3dL")
-        ? `translateZ(${(sv._z || 0).toFixed(1)}px) rotate(${hdg.toFixed(2)}deg)${sv._sc !== 1 ? " scale(" + sv._sc + ")" : ""}`
-        : `rotate(${hdg.toFixed(2)}deg)`;
-    });
-  }
   function avatarAccent(){ return customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
   function avatarSvgInner(key){
     if(key === "arrow" || !AVATARS[key] || !AVATARS[key].svg) return null;
@@ -3863,18 +3729,13 @@
   }
   function applyAvatarSize(){
     if(!userMarkerEl) return;
-    sync3dLayers();
-    const svg = userMarkerEl.querySelector("svg:not(.av3dL)");
+    const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
     const px = avatarPx();
     if(svg._px === px) return;
     svg._px = px;
-    userMarkerEl.querySelectorAll("svg").forEach(sv => {
-      sv.setAttribute("width", px); sv.setAttribute("height", px);
-      if(sv._zf !== undefined) sv._z = sv._zf * px;
-    });
+    svg.setAttribute("width", px); svg.setAttribute("height", px);
     userMarkerEl.style.width = userMarkerEl.style.height = px + "px";
-    if(userMarkerEl._k3d) setAvRot(avSm.lastRot != null ? avSm.lastRot : 0);
   }
   let avatarSizeQueued = false;
   function queueAvatarSize(){
@@ -3885,9 +3746,8 @@
   function applyUserMarkerStyle(){
     if(!userMarkerEl) return;
     const night = document.body.classList.contains("night");
-    const svg = userMarkerEl.querySelector("svg:not(.av3dL)");
+    const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
-    userMarkerEl._k3d = null;   // odbuduj warstwy 3D (zmiana awatara / koloru)
     const av = avatarSvgInner(vehicleAvatar);
     if(av){
       svg.setAttribute("viewBox", "0 0 52 52");
@@ -3900,7 +3760,7 @@
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
-    svg._px = null; applyAvatarSize(); sync3dLayers();
+    svg._px = null; applyAvatarSize();
   }
 
   /* ---------- Mapa satelitarna (Mapbox Raster Tiles API) ----------
@@ -4118,7 +3978,7 @@
     userMarker.setLngLat([avSm.lon, avSm.lat]);
     if(avSm.lastRot === null || Math.abs(angDiff(avSm.lastRot, avSm.hdg)) > 0.15){
       avSm.lastRot = avSm.hdg;
-      setAvRot(avSm.hdg);
+      const sv = userMarkerEl.querySelector("svg"); if(sv) sv.style.transform = `rotate(${avSm.hdg.toFixed(2)}deg)`;
     }
     // UWAGA: jumpTo() przerywa gesty mapy — dlatego kamerę ruszamy tylko wtedy, gdy użytkownik nie dotyka mapy
     // i mapa nie jest w trakcie przesuwania/zoomu/inercji (inaczej nie dałoby się jej przeciągnąć).
@@ -4140,11 +4000,6 @@
     const top = Math.max(0, Math.min(h * 0.9, pad.top + err));   // marker leży w środku obszaru po odjęciu paddingu, więc korekta = 2 × (err / 2)
     map.setPadding({ top, bottom: 0, left: 0, right: 0 });
   }
-</script>
-<script>
-/* ===== js/12-motorway-junctions.js — Zjazdy autostradowe (cała Wielka Brytania) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ZJAZDY AUTOSTRADOWE — pobierane RAZ dla całej Wielkiej Brytanii
@@ -4329,11 +4184,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/13-motorway-cameras.js — Fotoradary na autostradach =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      FOTORADARY NA AUTOSTRADACH (cała Wielka Brytania, pobierane raz)
@@ -4511,11 +4361,6 @@
         }
       });
   }
-</script>
-<script>
-/* ===== js/14-avg-speed-cameras.js — Odcinkowy pomiar prędkości (SPECS) na drogach A =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ODCINKOWY POMIAR PRĘDKOŚCI (SPECS) NA DROGACH A — pobierany RAZ dla całej
@@ -4540,10 +4385,7 @@
   const AVG_SPEED_CAMERA_MAX_RETRIES = 3;
   let avgSpeedCameraRetries = 0;
 
-  let avgSpeedCamLast = null;
-  function reapplyAvgSpeedCameras(){ if(avgSpeedCamLast && map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features: avgSpeedCamLast }); }
   function setAvgSpeedCameraData(features){
-    avgSpeedCamLast = features;
     if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features });
   }
 
@@ -4679,11 +4521,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/15-hgv-companies.js — Nazwy firm/operatorów przy drogach (HGV) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      NAZWY FIRM/OPERATORÓW przy drogach — dla kierowców HGV. Pobierane RAZ na 30 dni,
@@ -4707,7 +4544,6 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
-  function reapplyHgvCompanies(){ if(hgvCompaniesCache.length && map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features: hgvCompaniesCache }); }
   function setHgvCompaniesData(features){
     if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
@@ -4867,11 +4703,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/16-hgv-restrictions.js — Ograniczenia wysokości (wiadukty) i tonażu — dane =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ZNAKI WYSOKOŚCI (WIADUKTY/PRZEJAZDY) I TONAŻU — pobierane RAZ
@@ -4923,7 +4754,7 @@
     })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
   }
 
-  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v4";   // v3: + maxheight:physical i znaki-punkty (mosty kolejowe) — dane pobiorą się od nowa
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v2";   // v2: bez ścieżek/kanałów — dane pobiorą się raz od nowa
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
   const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
@@ -4988,14 +4819,8 @@
       [out:json][timeout:120];
       (
         way["highway"]["maxheight"](${south},${west},${north},${east});
-        way["highway"]["maxheight:physical"](${south},${west},${north},${east});
         way["highway"]["maxweight"](${south},${west},${north},${east});
-        way["highway"]["maxweight:hgv"](${south},${west},${north},${east});
-        way["highway"]["maxweight:signed"](${south},${west},${north},${east});
         way["highway"]["maxwidth"](${south},${west},${north},${east});
-        node["maxheight"]["barrier"~"^(height_restrictor|border_control|gate|bollard)$"](${south},${west},${north},${east});
-        node["maxheight"]["traffic_sign"](${south},${west},${north},${east});
-        node["maxheight:physical"](${south},${west},${north},${east});
       );
       out geom;
     `;
@@ -5016,19 +4841,9 @@
 
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
   function applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs){
-    (data.elements || []).forEach(raw => {
-      if(!raw.tags) return;
-      let el = raw;
-      if(raw.type === "node"){
-        // znak/ogranicznik wysokości jako punkt (np. most kolejowy nad drogą): krótki odcinek ~2 m, ujemne id = węzeł
-        if(raw.lat === undefined || raw.tags.railway || raw.tags.waterway || raw.tags.access === "no" || raw.tags.hgv === "no") return;
-        el = { type: "way", id: -raw.id, tags: raw.tags, geometry: [{ lat: raw.lat, lon: raw.lon }, { lat: raw.lat, lon: raw.lon + 0.00003 }] };
-      } else {
-        if(raw.type !== "way" || !raw.geometry || raw.geometry.length < 2) return;
-        if(!isHgvRelevantWay(raw.tags)) return;
-      }
-      if(!el.tags.maxweight && (el.tags["maxweight:hgv"] || el.tags["maxweight:signed"])) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxweight: el.tags["maxweight:hgv"] || el.tags["maxweight:signed"] }) });
-      if(!el.tags.maxheight && el.tags["maxheight:physical"]) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxheight: el.tags["maxheight:physical"] }) });
+    (data.elements || []).forEach(el => {
+      if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
+      if(!isHgvRelevantWay(el.tags)) return;
 
       if(el.tags.maxheight && !heightWays.has(el.id)){
         const hm = parseMaxheightMeters(el.tags.maxheight);
@@ -5152,21 +4967,10 @@
 
   // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
   let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
-  let restrictionMapData = null;
-  // wpycha ostatnie dane do źródeł mapy (wołane też po utworzeniu warstw — dane z cache potrafią przyjść wcześniej)
-  function applyRestrictionsToMap(){
-    if(!restrictionMapData || !map) return;
-    const d = restrictionMapData, fc = f => ({ type:"FeatureCollection", features: f });
-    [["roads-maxheight", d.h], ["roads-maxweight", d.w], ["roads-maxwidth", d.d], ["restriction-signs", d.s]].forEach(([id, f]) => {
-      const src = map.getSource(id); if(src) src.setData(fc(f));
-    });
-  }
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
     restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
     restrictionVer++; restrictionIdx = null;
-    restrictionMapData = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [], s: signFeatures || [] };
-    applyRestrictionsToMap();
-    if(false && map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
+    if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
     if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
@@ -5306,11 +5110,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/17-overpass.js — Overpass API: fotoradary + drogi z maxspeed =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      OVERPASS API — fotoradary + drogi z maxspeed
@@ -5442,6 +5241,30 @@
     return attempt(0);
   }
 
+  function loadUserHgvParking(){
+    try{
+      const raw = localStorage.getItem(HGV_PARKING_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserHgvParking(){
+    try{ localStorage.setItem(HGV_PARKING_STORAGE, JSON.stringify(userHgvParking)); }
+    catch(e){ /* localStorage niedostępny - zgłoszenie zostaje tylko w pamięci tej sesji */ }
+  }
+
+  function loadUserReportedCameras(){
+    try{
+      const raw = localStorage.getItem(CAMERA_REPORT_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveUserReportedCameras(){
+    try{ localStorage.setItem(CAMERA_REPORT_STORAGE, JSON.stringify(userReportedCameras)); }
+    catch(e){ /* jw. */ }
+  }
+
   // przelicza wynikową listę `cameras` (OSM + społeczność Supabase + lokalne zgłoszenia tego urządzenia)
   // i odświeża warstwę na mapie — to ta lista zasila alert 200 m
   function rebuildCameraList(){
@@ -5458,11 +5281,6 @@
       });
     }
   }
-</script>
-<script>
-/* ===== js/18-sync-progress.js — Postęp synchronizacji Overpass <-> Supabase =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      POSTĘP AUTOMATYCZNEJ SYNCHRONIZACJI (Overpass ↔ Supabase)
@@ -5725,11 +5543,6 @@
     try{ loadHgvCompaniesOnce(true); }catch(e){ console.warn("Auto-sync firm/operatorów nieudany:", e); }
     try{ loadUkRestrictionsOnce(true); }catch(e){ console.warn("Auto-sync znaków wysokości/tonażu nieudany:", e); }
   }
-</script>
-<script>
-/* ===== js/19-supabase.js — Klient Supabase, konto administratora, realtime =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- Supabase — klient wspólnej bazy (opcjonalny; działa lokalnie, dopóki nie skonfigurowany) ---------- */
   function supaConfigured(){
@@ -5772,18 +5585,14 @@
 
   // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
   const supaMissingTables = new Set();
-  // Stronicowanie (limit/offset) BEZ sortowania jest niedeterministyczne — strony mogą się nakładać i gubić wiersze,
-  // przez co część danych (np. znaki ograniczeń) nigdy nie docierała. Sortujemy po kluczu unikalnym tabeli.
-  const SUPA_TABLE_ORDER = { road_restrictions: "osm_id.asc,kind.asc", avg_speed_cameras: "osm_id.asc", hgv_companies: "osm_id.asc", motorway_junctions: "junction_key.asc" };
   function fetchTableFromSupabase(table, columns){
     if(!supaConfigured()) return Promise.resolve(null);
     if(supaMissingTables.has(table)) return Promise.resolve(null);
     const base = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?select=${columns}`;
     const PAGE = 1000;
     const out = [];
-    let order = SUPA_TABLE_ORDER[table] ? "&order=" + SUPA_TABLE_ORDER[table] : "";
     function page(offset){
-      return fetch(`${base}${order}&limit=${PAGE}&offset=${offset}`, {
+      return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
         headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
       })
         .then(r => {
@@ -5791,12 +5600,10 @@
             supaMissingTables.add(table);
             debugLog("warn", `Supabase: tabela/widok „${table}” nie istnieje (404) — utwórz ją skryptem SQL albo zignoruj; pomijam dalsze zapytania w tej sesji.`);
           }
-          if(r.status === 400 && order){ order = ""; out.length = 0; return page(0).then(() => null); }   // kolumna sortowania nie istnieje — bez sortowania
           if(!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
         .then(rows => {
-          if(rows === null) return out;
           out.push(...rows);
           if(rows.length === PAGE && out.length < 200000) return page(offset + PAGE);
           return out;
@@ -6133,11 +5940,6 @@
     supaRep.rows = new Map(); supaRep.cover = null; supaRep.fetchedAt = 0;
     supaRealtime.retry = 0;
   }
-</script>
-<script>
-/* ===== js/20-community-votes.js — Głosowanie społeczności i zgłoszenia punktów =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- głosowanie społeczności (potwierdzam / nie ma) ---------- */
   function supaRpc(fn, body){
@@ -6387,11 +6189,6 @@
     }
     fetchOverpassData(lat, lon);
   }
-</script>
-<script>
-/* ===== js/21-speed-limit.js — Logika limitu prędkości =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      LOGIKA LIMITU PRĘDKOŚCI
@@ -6434,10 +6231,9 @@
   function showLimitSign(limit){
     if(!prefShowLimitSign){ hideLimitSign(); return; }
     const sign = document.getElementById("limitSign");
-    const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
-    if(prefLimitMode === "speeding" && !speeding){ hideLimitSign(); return; }
     sign.classList.remove("hidden");
     document.getElementById("limitValue").textContent = kmhToDisplay(limit);
+    const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
     sign.classList.toggle("blink", speeding);
   }
   function hideLimitSign(){
@@ -6451,11 +6247,6 @@
     document.getElementById("speedPanel").style.display = prefShowSpeedometer ? "" : "none";
     if(!prefShowLimitSign) hideLimitSign();
   }
-</script>
-<script>
-/* ===== js/22-camera-alerts.js — Alert fotoradarów =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ALERT FOTORADARÓW
@@ -6477,11 +6268,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/23-geolocation.js — Geolokalizacja (onPosition, błędy GPS) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      GEOLOKALIZACJA
@@ -6588,7 +6374,11 @@
   function renderSpeedUI(){
     document.getElementById("speedValue").textContent = kmhToDisplay(currentSpeedKmh);
     document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
-    if(currentLimit) showLimitSign(currentLimit);
+    if(currentLimit){
+      document.getElementById("limitValue").textContent = kmhToDisplay(currentLimit);
+      const sign = document.getElementById("limitSign");
+      sign.classList.toggle("blink", currentSpeedKmh > currentLimit + 3);
+    }
   }
 
   let roadDataState = "searching"; // "ok" | "searching" | "retrying" | "unavailable"
@@ -6608,11 +6398,6 @@
     const kind = roadDataState === "retrying" || roadDataState === "unavailable" ? "error" : "ok";
     setStatus(kind, "GPS aktywny · dokł. " + Math.round(gpsAccuracyM) + " m" + suffix);
   }
-</script>
-<script>
-/* ===== js/24-nav-search-favorites.js — Nawigator: ustawienia, wyszukiwanie celu, ulubione i historia =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      NAWIGATOR — wyszukiwanie celu, trasa, ruch i limity (TomTom)
@@ -6678,52 +6463,6 @@
       saved.classList.add("show");
       setTimeout(()=> saved.classList.remove("show"), 1500);
     }catch(e){ /* localStorage niedostępny - klucz zostaje tylko w pamięci sesji */ }
-  }
-
-  /* ---------- awaryjna wyszukiwarka adresów (tylko UK): Mapbox → Photon → Nominatim ---------- */
-  const UK_POSTCODE_RE = /^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/i;
-  // "pl65xx" → "PL6 5XX" (pełny kod pocztowy z wielkimi literami i spacją)
-  function normalizeUkQuery(q){
-    const m = q.trim().match(UK_POSTCODE_RE);
-    return m ? (m[1] + " " + m[2]).toUpperCase() : q.trim();
-  }
-  function geoResult(label, lat, lon, city, poiName){
-    const r = { address: { freeformAddress: label, municipality: city || "", country: "United Kingdom" }, position: { lat, lon } };
-    if(poiName) r.poi = { name: poiName };
-    return r;
-  }
-  const UK_BBOX = [-8.7, 49.8, 1.9, 60.9]; // minLon, minLat, maxLon, maxLat
-  function geoMapbox(q, bias, signal){
-    const token = (typeof mapboxToken === "string" && /^pk\./.test(mapboxToken)) ? mapboxToken : MAPBOX_DEFAULT_TOKEN;
-    if(!token) return Promise.resolve([]);
-    const p = new URLSearchParams({ access_token: token, country: "gb", autocomplete: "true", limit: "8", language: "en" });
-    if(bias) p.set("proximity", bias.lon + "," + bias.lat);
-    return fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?${p}`, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => (d.features || []).filter(f => f.center).map(f => {
-        const isPoi = (f.place_type || []).includes("poi");
-        return geoResult(f.place_name.replace(/, United Kingdom$/, ""), f.center[1], f.center[0], "", isPoi ? f.text : "");
-      }));
-  }
-  function geoPhoton(q, bias, signal){
-    const p = new URLSearchParams({ q, limit: "8", lang: "en", bbox: UK_BBOX.join(",") });
-    if(bias){ p.set("lat", bias.lat); p.set("lon", bias.lon); }
-    return fetch("https://photon.komoot.io/api/?" + p, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => (d.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === "GB").map(f => {
-        const pr = f.properties, c = f.geometry.coordinates;
-        const street = [pr.housenumber, pr.street].filter(Boolean).join(" ");
-        const label = [pr.name && pr.name !== pr.street ? pr.name : "", street, pr.postcode, pr.city || pr.district || pr.county]
-          .filter(Boolean).join(", ");
-        return geoResult(label || pr.name || "UK", c[1], c[0], pr.city || pr.county, pr.osm_key === "amenity" || pr.osm_key === "shop" ? pr.name : "");
-      }));
-  }
-  function geoNominatim(q, bias, signal){
-    const p = new URLSearchParams({ format: "jsonv2", q, countrycodes: "gb", limit: "8", addressdetails: "1" });
-    return fetch("https://nominatim.openstreetmap.org/search?" + p, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(a => (a || []).map(x => geoResult(x.display_name.replace(/, United Kingdom$/, ""), +x.lat, +x.lon,
-        (x.address && (x.address.city || x.address.town || x.address.village)) || "")));
   }
 
   /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead) ---------- */
@@ -6941,68 +6680,60 @@
       box.classList.add("open");
     }
     function fetchSuggestions(query, autoPick){
+      if(!tomtomApiKey){
+        showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
+        setNavKeyRowOpen(true);
+        return;
+      }
       showNavError("");
       if(abort) abort.abort();
       abort = new AbortController();
-      const signal = abort.signal;
+
+      const params = new URLSearchParams({
+        key: tomtomApiKey,
+        typeahead: autoPick ? "false" : "true",
+        limit: "8",
+        countrySet: NAV_DEFAULT_COUNTRY
+      });
       // wyniki faworyzują okolicę, którą widać na mapie (a bez mapy — pozycję GPS)
       const bias = searchBias();
-      const q = normalizeUkQuery(query);
-
-      function tomtomSearch(){
-        const params = new URLSearchParams({
-          key: tomtomApiKey,
-          typeahead: autoPick ? "false" : "true",
-          limit: "8",
-          countrySet: NAV_DEFAULT_COUNTRY
-        });
-        if(bias){ params.set("lat", bias.lat); params.set("lon", bias.lon); }
-        return fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(q)}.json?${params.toString()}`, { signal })
-          .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-          .then(data => {
-            const results = data.results || [];
-            // brak jakiejkolwiek firmy w wynikach (np. nazwa sieci, jak "Halfords") → dodatkowe zapytanie
-            // o firmy w promieniu ~50 km, najbliższe pierwsze
-            if(bias && !results.some(r => r.poi)) return fetchPoiNear(q, bias, signal).then(poi => poi.concat(results));
-            return results;
-          });
+      if(bias){
+        params.set("lat", bias.lat);
+        params.set("lon", bias.lon);
       }
-      // kolejność: TomTom (jeśli jest klucz) → Mapbox → Photon → Nominatim; pierwszy, który zwróci wyniki
-      const chain = [];
-      if(tomtomApiKey) chain.push(["TomTom", tomtomSearch]);
-      chain.push(["Mapbox", () => geoMapbox(q, bias, signal)]);
-      chain.push(["Photon", () => geoPhoton(q, bias, signal)]);
-      chain.push(["Nominatim", () => geoNominatim(q, bias, signal)]);
+      const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
 
-      (async () => {
-        let results = [], source = "";
-        for(const [name, fn] of chain){
-          try{
-            const r = await fn();
-            if(r && r.length){ results = r; source = name; break; }
-          }catch(err){
-            if(err && err.name === "AbortError") return;
-            console.warn(name + " search error:", err);
+      const signal = abort.signal;
+      fetch(url, { signal })
+        .then(r => {
+          if(r.status === 403) throw new Error("UNAUTHORIZED");
+          if(!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(data => {
+          const results = data.results || [];
+          // brak jakiejkolwiek firmy w wynikach (np. wpisano nazwę sieci, jak "Halfords") → dodatkowe
+          // zapytanie o firmy w promieniu ~50 km, najbliższe pierwsze
+          if(bias && !results.some(r => r.poi)) return fetchPoiNear(query, bias, signal).then(poi => poi.concat(results));
+          return results;
+        })
+        .then(results => {
+          // najpierw nazwy z bazy kierowców/firm HGV (darmowe, bez TomTom), potem wyniki TomTom
+          const all = localNameMatches(query, bias).concat(results);
+          if(autoPick){
+            if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
+            else showNavError("Nie znaleziono takiego adresu.");
+            return;
           }
-        }
-        if(signal.aborted) return;
-        // najpierw nazwy z bazy kierowców/firm HGV (darmowe), potem wyniki z geokodera
-        const all = localNameMatches(query, bias).concat(results);
-        if(autoPick){
-          if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
-          else showNavError("Nie znaleziono takiego adresu.");
-          return;
-        }
-        suggestionsFor = query;
-        render(all);
-        if(results.length && source !== "TomTom"){
-          const note = document.createElement("div");
-          note.className = "navSrcNote";
-          note.textContent = "Źródło awaryjne: " + source;
-          note.style.cssText = "font-size:11px;opacity:.55;text-align:right;padding:2px 10px 4px;pointer-events:none";
-          box.appendChild(note);
-        }
-      })();
+          suggestionsFor = query;
+          render(all);
+        })
+        .catch(err => {
+          if(err.name === "AbortError") return;
+          console.warn("TomTom search error:", err);
+          if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+          else showNavError("Nie udało się pobrać podpowiedzi adresów.");
+        });
     }
 
     input.addEventListener("input", (e) => {
@@ -7166,11 +6897,7 @@
     const rowH = row ? row.offsetHeight : 0;
     return rowH + getNavPanelVisibleHeight();
   }
-</script>
-<script>
-/* ===== js/25-nav-route-picker.js — Nawigator: wybór trasy na mapie + przystanki =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
+
 
   /* ---------- Wybór trasy na mapie + przystanki ---------- */
   var pickReplanTimer = null, pickDirty = false;
@@ -7340,11 +7067,6 @@
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
   }
-</script>
-<script>
-/* ===== js/26-nav-destination-pin.js — Nawigator: pinezka celu =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- pinezka celu: podgląd, przeciąganie, przesuwanie dwukrotnym kliknięciem ---------- */
   let destMarker = null;
@@ -7510,11 +7232,6 @@
       }
     });
   }
-</script>
-<script>
-/* ===== js/27-nav-place-names.js — Nawigator: nazwy budynków dodane przez kierowców + weryfikacja =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- nazwy budynków/magazynów dodane przez kierowców ----------
      Supabase (wspólne dla wszystkich):
@@ -7764,11 +7481,6 @@
     }catch(e){}
     return fallback;
   }
-</script>
-<script>
-/* ===== js/28-nav-poi-click.js — Nawigator: kliknięcie w firmę/sklep/hotel na mapie =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- kliknięcie w firmę / sklep / hotel na mapie: pełna nazwa + adres + pytanie o trasę ---------- */
   let poiAskTarget = null;
@@ -7887,11 +7599,6 @@
       });
     }
   }
-</script>
-<script>
-/* ===== js/29-nav-tomtom-routing.js — Nawigator: wyznaczanie trasy (TomTom Routing) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- wyznaczanie trasy + limity + ruch (TomTom Routing) ---------- */
   // czysta funkcja pobierająca dane — nie dotyka UI/activeRoute, żeby dało się ją odpalić
@@ -8092,11 +7799,6 @@
       duration: 800
     });
   }
-</script>
-<script>
-/* ===== js/30-truck-route-valhalla.js — Zaplanuj trasę dla ciężarówki (Valhalla) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      ZAPLANUJ TRASĘ — darmowa trasa dla ciężarówki (Valhalla), od razu w trybie edycji
@@ -8425,33 +8127,11 @@
   // Pokazuje całą wyznaczoną trasę na mapie na płasko (bez pochylenia/obrotu), z odstępem na
   // pasek ikon i kartę nawigatora u dołu — używane zarówno tuż po zaplanowaniu trasy, jak i
   // przez szklany przycisk 🔎 (widoczny nad kartą, gdy trasa jest wyznaczona).
-  // pozostała część trasy od aktualnej pozycji GPS: [pozycja, …punkty trasy dalej]
-  function routeRemainingFromHere(){
-    if(!activeRoute || !activeRoute.coords || !lastPos) return null;
-    const c = activeRoute.coords;
-    let best = null;
-    for(let i = 0; i < c.length - 1; i++){
-      const q = projectPointToSegment(lastPos.lat, lastPos.lon, c[i], c[i + 1]);
-      if(!best || q.distM < best.distM){ best = q; best.i = i; }
-    }
-    if(!best) return null;
-    const pos = [lastPos.lon, lastPos.lat];
-    return best.distM > 300 ? [pos].concat(c) : [pos].concat(c.slice(best.i + 1));   // poza trasą: pozycja + cała trasa
-  }
-  // przytrzymanie przycisku „Cała trasa”: tryb zmiany trasy (przeciąganie) dla pozostałego odcinka
-  function startRouteEditFromHere(){
-    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2 || navUiState !== "nav") return;
-    if(activeRoute.planning && routeEditMode){ fitActiveRouteToView(); return; }
-    const rem = routeRemainingFromHere() || activeRoute.coords;
-    const full = routeLengthMeters(activeRoute.coords) || 1, frac = Math.max(0.02, Math.min(1, routeLengthMeters(rem) / full));
-    startPlannedRoute({ coords: rem, distanceM: activeRoute.distanceM * frac, timeS: activeRoute.timeS * frac, steps: null }, activeRoute.source);
-  }
-  // fromHere=true: tylko odcinek od aktualnej pozycji do celu; inaczej cała trasa
-  function fitActiveRouteToView(fromHere){
+  function fitActiveRouteToView(){
     if(!map || !activeRoute || !activeRoute.coords || activeRoute.coords.length < 2) return;
     followUser = false;
     updateLocateBtnVisibility();
-    const c = (fromHere === true && routeRemainingFromHere()) || activeRoute.coords;
+    const c = activeRoute.coords;
     const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
     // Cała trasa ma się zmieścić w GÓRNEJ części ekranu: nad oknem nawigatora, przyciskiem "Centruj"
     // i znakiem ograniczenia prędkości (po tym widoku prędkościomierz ustępuje "Centruj").
@@ -8486,11 +8166,7 @@
     if(lastPos) enterDrivingView();
     renderNavRouteInfo();
   }
-</script>
-<script>
-/* ===== js/31-voice-guidance.js — Prowadzenie zakręt po zakręcie + komunikaty głosowe =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
+
 
   /* ============================================================
      PROWADZENIE ZAKRĘT PO ZAKRĘCIE — karta u góry + komunikaty głosowe (pl-PL)
@@ -8730,11 +8406,6 @@
     const card = document.getElementById("guidanceCard");
     if(card.classList.contains("show")){ card.classList.remove("show"); document.body.classList.remove("guidance-on"); }
   }
-</script>
-<script>
-/* ===== js/32-uk-signs.js — Tablice UK: klasa drogi -> kolor, plakietki, ostrzeżenia HGV =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      TABLICE UK — klasa drogi → kolor tablicy, plakietki numerów, ostrzeżenia HGV
@@ -8829,26 +8500,6 @@
     return { html, sub };
   }
 
-  // czy pozycja GPS leży na autostradzie według mapy — gdy poprzedni krok trasy nie ma numeru drogi (np. start już na M1)
-  // z histerezą: raz wykryta autostrada „trzyma się” 12 s po ostatnim potwierdzeniu — inaczej tablica migała (niebieska/biała)
-  let ukMwCache = { t: 0, v: false, lastTrue: 0 };
-  function ukOnMotorwayByMap(){
-    const now = Date.now();
-    if(now - ukMwCache.t < 1500) return ukMwCache.v;
-    let hit = false;
-    try{
-      if(map && lastPos){
-        const p = map.project([lastPos.lon, lastPos.lat]);
-        const mpp = 156543.03 * Math.cos(lastPos.lat * Math.PI / 180) / Math.pow(2, map.getZoom());   // metrów na piksel
-        const r = Math.max(12, Math.min(45, 70 / mpp));                                                // ~70 m wokół pozycji
-        hit = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
-          .some(f => f.sourceLayer === "transportation" && f.properties && f.properties.class === "motorway");
-      }
-    }catch(e){}
-    if(hit) ukMwCache.lastTrue = now;
-    ukMwCache.t = now; ukMwCache.v = hit || (now - ukMwCache.lastTrue < 12000);
-    return ukMwCache.v;
-  }
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
     const prev = g.steps[g.ptr - 1];
@@ -8893,9 +8544,7 @@
     const card = document.getElementById("guidanceCard");
     const arrive = step.t.indexOf("arrive") === 0;
     const along = step.d - dist;
-    const curRef = ukCurrentRoad(g);
-    let curCls = ukRoadClass(curRef);
-    if(curCls !== "motorway" && !arrive && ukOnMotorwayByMap()) curCls = "motorway";   // jedziemy autostradą → niebieska tablica
+    const curRef = ukCurrentRoad(g), curCls = ukRoadClass(curRef);
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
@@ -8974,7 +8623,6 @@
       updateNavTripStats();
     }
     try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
-    try{ trafficRouteTick(along); }catch(e){ console.warn("Utrudnienia na trasie:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
     const step = g.steps[g.ptr];
     if(!step){ hideGuidance(); return; }
@@ -8989,11 +8637,7 @@
     renderGuidance(step, dist, next, g);
     guideSpeak(g, step, dist, next);
   }
-</script>
-<script>
-/* ===== js/33-route-alerts.js — Alerty na trasie: niskie mosty, tonaż, szerokość =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
+
 
   /* ============================================================
      ALERTY NA TRASIE: niskie mosty, limity tonażu i szerokości
@@ -9343,11 +8987,6 @@
     showBanner("OGRANICZENIA NA TRASIE (" + list.length + ")", top.join(" · ") + (list.length > 2 ? " …" : "") + " — zaznaczone na mapie", danger.length > 0);
     if(danger.length) guideSay("Uwaga. Na tej trasie są ograniczenia, których Twój pojazd nie spełnia. Sprawdź trasę.");
   }
-</script>
-<script>
-/* ===== js/34-route-reroute.js — Przeliczanie trasy po zjechaniu z niej =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- PRZELICZANIE TRASY: zjechanie z trasy + przycisk „Zmień trasę” ---------- */
   const OFFROUTE_DIST_M = 60;          // dalej niż tyle od trasy = zjechałeś
@@ -9468,7 +9107,8 @@
   async function offerRoutesFromHere(){
     if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
     rerouteBusy = true;
-    showNavStatus("Szukam tras…");
+    const btn = document.getElementById("navRerouteBtn");
+    btn.disabled = true; btn.textContent = "Szukam tras…";
     const oldRoute = activeRoute;
     const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...getRemainingWaypoints(lastPos.lat, lastPos.lon), navSelectedDest];
     if(truckRouteAbort) truckRouteAbort.abort();
@@ -9494,6 +9134,7 @@
     }finally{
       showNavStatus("");
       rerouteBusy = false;
+      btn.disabled = false; btn.textContent = "🔀 Zmień trasę";
     }
   }
 
@@ -9518,6 +9159,7 @@
     clearNavRoute();
   }
 
+  document.getElementById("navRerouteBtn").addEventListener("click", offerRoutesFromHere);
 
   document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
   document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
@@ -9564,7 +9206,6 @@
     const info = document.getElementById("navRouteInfo");
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
     try{ updateTollMarking(); }catch(e){ console.warn("Oznaczanie dróg płatnych:", e); }
-    if(activeRoute && activeRoute.coords && activeRoute.coords.length) maybeShowFitGestureHint();
     if(!activeRoute){ info.classList.remove("show"); document.getElementById("navPanel").classList.remove("planning-mode"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
@@ -9669,11 +9310,6 @@
     const v = parseFloat(getComputedStyle(document.getElementById("navPanel")).getPropertyValue("--nav-collapsed-shift"));
     return isNaN(v) ? 220 : v;
   }
-</script>
-<script>
-/* ===== js/35-nav-panel-ui.js — Panel nawigatora: przeciąganie, zakładka Ciężarówka, ustawienia głosu =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ---------- Karta nawigatora: przeciąganie uchwytu w dół chowa ją za pasek ikon ---------- */
   (function setupNavPanelDrag(){
@@ -9871,13 +9507,6 @@
   const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
   navPrefLimitSignInput.checked = prefShowLimitSign;
-  const navPrefLimitModeInput = document.getElementById("navPrefLimitMode");
-  navPrefLimitModeInput.value = prefLimitMode;
-  navPrefLimitModeInput.addEventListener("change", (e) => {
-    prefLimitMode = e.target.value === "always" ? "always" : "speeding";
-    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
-    if(currentLimit) showLimitSign(currentLimit);
-  });
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -9899,6 +9528,7 @@
   }
   function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); openNavSettings("sound"); }
   function closeVoicePanel(){ closeNavSettings(); }
+  function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
   safeInit("okno głosu", () => {
   document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
   const vpVol = document.getElementById("vpVol");
@@ -10025,7 +9655,7 @@
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
   const navApiKeyInput = document.getElementById("navApiKey");
   navApiKeyInput.value = tomtomApiKey;
-  if(tomtomApiKey){ document.getElementById("navKeyRow").classList.remove("open"); document.getElementById("navKeyToggle").classList.remove("open"); }  // bez klucza: awaryjna wyszukiwarka, bez wymuszania okna ustawień
+  setNavKeyRowOpen(!tomtomApiKey);
   document.getElementById("navSettingsPanel").classList.remove("open"); // nie pokazuj modala automatycznie przy starcie
 
   document.getElementById("navKeyToggle").addEventListener("click", () => {
@@ -10084,11 +9714,6 @@
   document.getElementById("navSupaKeyEye").addEventListener("click", () => {
     navSupaKeyInput.type = navSupaKeyInput.type === "password" ? "text" : "password";
   });
-</script>
-<script>
-/* ===== js/36-route-edit.js — Ręczna edycja trasy (przeciąganie fragmentu) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      RĘCZNA EDYCJA TRASY — przeciąganie fragmentu trasy
@@ -10681,11 +10306,6 @@
       });
     }
   }
-</script>
-<script>
-/* ===== js/37-route-drag-points.js — Punkty przeciągalne na trasie =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      PUNKTY PRZECIĄGALNE NA TRASIE
@@ -11113,11 +10733,6 @@
     map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
     map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
   }
-</script>
-<script>
-/* ===== js/38-fullscreen.js — Tryb pełnego ekranu =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      TRYB PEŁNEGO EKRANU (przydatny podczas nawigacji)
@@ -11154,11 +10769,6 @@
   ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"].forEach(ev =>
     document.addEventListener(ev, updateFullscreenBtn)
   );
-</script>
-<script>
-/* ===== js/39-ui-controls.js — Kontrolki UI =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      KONTROLKI UI
@@ -11246,42 +10856,7 @@
     }
   });
 
-  // podpowiedź o gestach przycisku „Cała trasa” — tylko przy 5. i 12. uruchomieniu aplikacji, raz na uruchomienie
-  const FIT_HINT_LAUNCH_KEY = "nawigator_launch_count", FIT_HINT_LAUNCHES = [5, 12];
-  let fitHintLaunch = 0, fitHintShown = false;
-  try{ fitHintLaunch = (parseInt(localStorage.getItem(FIT_HINT_LAUNCH_KEY), 10) || 0) + 1; localStorage.setItem(FIT_HINT_LAUNCH_KEY, String(fitHintLaunch)); }catch(e){}
-  function maybeShowFitGestureHint(){
-    if(fitHintShown || !FIT_HINT_LAUNCHES.includes(fitHintLaunch)) return;
-    fitHintShown = true;
-    setTimeout(() => showBanner("PRZYCISK TRASY", "1× stuknięcie: od pozycji do celu · 2×: cała trasa · 3×: trasa alternatywna stąd · przytrzymaj: zmiana trasy", false), 1500);
-  }
-  // „Cała trasa”: 1 stuknięcie = od pozycji do celu, 2 = cała trasa od startu, 3 = trasa alternatywna stąd, przytrzymanie = zmiana trasy
-  (function setupFitRouteGestures(){
-    const btn = document.getElementById("btnFitRoute");
-    const LONG_MS = 600, MULTI_MS = 320;
-    let taps = 0, tapTimer = null, pressTimer = null, longFired = false;
-    const flush = () => {
-      const n = taps; taps = 0; tapTimer = null;
-      if(n === 1) fitActiveRouteToView(true);
-      else if(n === 2) fitActiveRouteToView(false);
-      else if(n >= 3) offerRoutesFromHere();
-    };
-    btn.addEventListener("pointerdown", () => {
-      longFired = false; clearTimeout(pressTimer);
-      pressTimer = setTimeout(() => {
-        longFired = true; taps = 0; clearTimeout(tapTimer);
-        if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
-        startRouteEditFromHere();
-      }, LONG_MS);
-    });
-    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => btn.addEventListener(ev, () => clearTimeout(pressTimer)));
-    btn.addEventListener("click", () => {
-      if(longFired){ longFired = false; return; }
-      taps++; clearTimeout(tapTimer);
-      if(taps >= 3) flush(); else tapTimer = setTimeout(flush, MULTI_MS);
-    });
-    btn.addEventListener("contextmenu", e => e.preventDefault());
-  })();
+  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
 
   // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
   // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
@@ -11332,11 +10907,6 @@
     box.classList.toggle("visible", show);
     if(!show) closeReportMenu();
   }
-</script>
-<script>
-/* ===== js/40-start-gps.js — Start: tryb GPS/symulator, uruchomienie geolokalizacji =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      START
@@ -11493,11 +11063,6 @@
       }
     }, 200);
   }
-</script>
-<script>
-/* ===== js/41-wake-lock.js — Blokada wygaszania ekranu (Wake Lock) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
-"use strict";
 
   /* ============================================================
      BLOKADA WYGASZANIA EKRANU (Wake Lock)
@@ -11528,266 +11093,8 @@
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
-</script>
-<script>
-/* ===== js/42-traffic-incidents.js — korki, wypadki, remonty i zamknięcia dróg wokół pozycji (TomTom Traffic Incidents) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Funkcje wołane są tylko w callbackach (po załadowaniu). */
-"use strict";
 
-  const TRAFFIC_INC_URL = "https://api.tomtom.com/traffic/services/5/incidentDetails";
-  const TRAFFIC_INC_HALF_LAT = 0.35, TRAFFIC_INC_HALF_LON = 0.5;  // ~78 × 67 km (limit TomTom: 10 000 km²)
-  const TRAFFIC_INC_REFRESH_MS = 5 * 60 * 1000;                   // minimalny odstęp między pobraniami…
-  const TRAFFIC_INC_MOVE_M = 20000;                               // …ORAZ odjazd o tyle od środka poprzednio pobranego obszaru
-  const TRAFFIC_MOVE_KMH = 15;                                    // zapytania tylko, gdy pojazd naprawdę jedzie (nie w korku / na postoju)
-  const TRAFFIC_ROUTE_ALERT_M = 5000;                             // komunikat głosowy przed utrudnieniem na trasie
-  const TRAFFIC_ROUTE_MAX_CHUNKS = 10;                            // maks. liczba zapytań dla całej trasy (~500+ km)
-  // iconCategory TomTom → emoji (pomijamy mgłę/deszcz/wiatr — mało istotne dla trasy)
-  const TRAFFIC_INC_ICONS = { 1: "💥", 3: "⚠️", 5: "❄️", 6: "🚦", 7: "🚧", 8: "⛔", 9: "🚧", 11: "🌊", 14: "🚘" };
-  const TRAFFIC_INC_NAMES = { 1: "Wypadek", 3: "Niebezpieczne warunki", 5: "Lód / śnieg", 6: "Korek", 7: "Zamknięty pas", 8: "Droga zamknięta", 9: "Roboty drogowe", 11: "Zalana droga", 14: "Zepsuty pojazd" };
-  let trafficIncCenter = null, trafficIncFetchedAt = 0, trafficIncBusy = false, trafficIncTimer = null, trafficIncData = null;
-
-  const TRAFFIC_COLOR = ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"];
-  // dodaje źródło i KAŻDĄ warstwę osobno (błąd jednej nie blokuje reszty i trafia do konsoli debugowania)
-  function ensureTrafficIncidentLayers(){
-    if(!map) return false;
-    if(!map.getSource("traffic-incidents")) map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
-    const before = map.getLayer("route-incidents-icon") ? "route-incidents-icon" : undefined;
-    const pt = ["==", ["geometry-type"], "Point"];
-    const specs = [
-      { id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": TRAFFIC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 5, 4, 14, 8], "line-opacity": 1 } },
-      { id: "traffic-incidents-dot", type: "circle", source: "traffic-incidents", filter: pt,
-        paint: { "circle-color": TRAFFIC_COLOR, "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 7, 14, 12],
-                 "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } },
-      { id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents", filter: pt,
-        layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 5, 12, 14, 18], "text-allow-overlap": true, "text-ignore-placement": true } }
-    ];
-    let fresh = false;
-    specs.forEach(sp => {
-      if(map.getLayer(sp.id)) return;
-      try{ map.addLayer(sp, before); map.moveLayer(sp.id); fresh = true; }   // na samą górę, żeby nic ich nie przykrywało
-      catch(e){ debugLog("error", "Warstwa zdarzeń drogowych „" + sp.id + "” nie została dodana: " + ((e && e.message) || e)); }
-    });
-    if(fresh && !map._trafficHandlers){
-      map._trafficHandlers = true;
-      ["traffic-incidents-icon", "traffic-incidents-dot"].forEach(id => {
-        map.on("click", id, ev => { const f = ev.features && ev.features[0]; if(f) showBanner(f.properties.title, f.properties.text, false); });
-        map.on("mouseenter", id, () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
-        map.on("mouseleave", id, () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
-      });
-    }
-    return true;
-  }
-
-  let trafficIncLocalFeats = [], trafficRouteFeats = [];
-  // mapa pokazuje zdarzenia z okolicy ORAZ z całej trasy (bez duplikatów po id)
-  function trafficPublish(){
-    if(!ensureTrafficIncidentLayers()) return;
-    const seen = new Set(), feats = [];
-    trafficRouteFeats.concat(trafficIncLocalFeats).forEach(f => {
-      const id = f.properties.id, k = id ? id + f.geometry.type : "";
-      if(k){ if(seen.has(k)) return; seen.add(k); }
-      feats.push(f);
-    });
-    map.getSource("traffic-incidents").setData({ type: "FeatureCollection", features: feats });
-    debugLog("info", `Mapa: zdarzenia drogowe — ${feats.length} elementów, warstwy: ` +
-      ["line", "dot", "icon"].map(k => map.getLayer("traffic-incidents-" + k) ? k + " ✓" : k + " ✗").join(", "));
-  }
-
-  function trafficIncidentToFeatures(inc){
-    const p = inc.properties || {}, g = inc.geometry || {};
-    const cat = p.iconCategory;
-    if(!TRAFFIC_INC_ICONS[cat] || !g.coordinates) return [];
-    const ev = (p.events && p.events[0] && p.events[0].description) || "";
-    const road = (p.roadNumbers || []).join(", ");
-    const route = [p.from, p.to].filter(Boolean).join(" → ");
-    const delayMin = p.delay ? Math.round(p.delay / 60) : 0;
-    const lenKm = p.length ? (p.length / 1000).toFixed(1) : "";
-    const text = [road, ev, route, delayMin ? `opóźnienie ~${delayMin} min` : "", lenKm ? `${lenKm} km` : ""].filter(Boolean).join(" · ");
-    const props = { id: p.id || "", cat, mag: p.magnitudeOfDelay || 0, icon: TRAFFIC_INC_ICONS[cat], title: TRAFFIC_INC_NAMES[cat] || "Utrudnienie", text: text || "Utrudnienie na drodze" };
-    const line = g.type === "LineString" ? g.coordinates : g.type === "Point" ? [g.coordinates] : null;
-    if(!line || !line.length) return [];
-    const feats = [];
-    if(line.length > 1) feats.push({ type: "Feature", properties: props, geometry: { type: "LineString", coordinates: line } });
-    const mid = line[Math.floor(line.length / 2)];
-    feats.push({ type: "Feature", properties: props, geometry: { type: "Point", coordinates: mid } });
-    return feats;
-  }
-
-  // jedno zapytanie TomTom o prostokąt (south, west, north, east) → tablica surowych zdarzeń
-  function trafficFetchBbox(south, west, north, east){
-    const bbox = [west, south, east, north].map(n => n.toFixed(4)).join(",");
-    const fields = "{incidents{geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description},from,to,length,delay,roadNumbers}}}";
-    const url = `${TRAFFIC_INC_URL}?key=${encodeURIComponent(tomtomApiKey)}&bbox=${bbox}&fields=${encodeURIComponent(fields)}&language=en-GB&timeValidityFilter=present`;
-    return fetch(url).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(d => d.incidents || []);
-  }
-
-  // Mapa wokół pozycji. Bramki oszczędzające zapytania:
-  //  1) pojazd musi jechać (> 15 km/h) — na postoju i w korku nie pytamy wcale,
-  //  2) kolejne pobranie dopiero po min. 5 minutach ORAZ po odjeździe > 20 km od poprzedniego.
-  let trafficIncLastTry = 0;
-  function loadTrafficIncidents(lat, lon){
-    if(!tomtomApiKey || !map || trafficIncBusy) return;
-    if(!(currentSpeedKmh > TRAFFIC_MOVE_KMH)) return;
-    if(trafficIncCenter){
-      if(Date.now() - trafficIncFetchedAt < TRAFFIC_INC_REFRESH_MS) return;
-      if(haversine(lat, lon, trafficIncCenter.lat, trafficIncCenter.lon) <= TRAFFIC_INC_MOVE_M) return;
-    } else if(Date.now() - trafficIncLastTry < 60000) return;   // po błędzie nie częściej niż co minutę
-    trafficIncLastTry = Date.now();
-    trafficIncBusy = true;
-    trafficFetchBbox(lat - TRAFFIC_INC_HALF_LAT, lon - TRAFFIC_INC_HALF_LON, lat + TRAFFIC_INC_HALF_LAT, lon + TRAFFIC_INC_HALF_LON).then(incs => {
-      trafficIncCenter = { lat, lon }; trafficIncFetchedAt = Date.now();
-      const feats = [];
-      incs.forEach(inc => feats.push(...trafficIncidentToFeatures(inc)));
-      trafficIncLocalFeats = feats;
-      trafficPublish();
-      debugLog("info", `Ruch drogowy (TomTom): ${incs.length} zdarzeń w okolicy, ${feats.length} elementów na mapie`);
-    }).catch(err => {
-      console.warn("Zdarzenia drogowe TomTom — błąd:", err);
-    }).finally(() => { trafficIncBusy = false; });
-  }
-  // sprawdzanie bramek co minutę (samo odpytanie następuje tylko, gdy wszystkie warunki są spełnione)
-  setInterval(() => { if(lastPos) loadTrafficIncidents(lastPos.lat, lastPos.lon); }, 30000);
-
-  /* ---------- utrudnienia NA TRASIE (cała trasa, niezależnie od długości) + komunikaty głosowe ---------- */
-  const TRAFFIC_ROUTE_CATS = { 1: "wypadek", 6: "korek", 7: "zamknięty pas", 8: "zamknięta droga", 9: "roboty drogowe", 11: "zalana droga" };
-  let trafficRouteCache = null;   // { key, at, incs } — ta sama trasa po przeliczeniu nie kosztuje kolejnych zapytań
-
-  function trafficRouteChunks(coords){
-    const chunks = []; let a = 0;
-    while(a < coords.length - 1 && chunks.length < TRAFFIC_ROUTE_MAX_CHUNKS){
-      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180, b = a;
-      for(; b < coords.length; b++){
-        const [lo, la] = coords[b];
-        const nMinLat = Math.min(minLat, la), nMaxLat = Math.max(maxLat, la), nMinLon = Math.min(minLon, lo), nMaxLon = Math.max(maxLon, lo);
-        if(b > a && (nMaxLat - nMinLat > 0.5 || nMaxLon - nMinLon > 0.8)) break;
-        minLat = nMinLat; maxLat = nMaxLat; minLon = nMinLon; maxLon = nMaxLon;
-      }
-      chunks.push({ a: Math.max(0, a - 1), b: Math.min(coords.length - 1, b), box: [minLat - 0.02, minLon - 0.03, maxLat + 0.02, maxLon + 0.03] });
-      a = b;
-    }
-    return chunks;
-  }
-  function trafficRouteCum(route){
-    if(route._trfCum && route._trfCumRef === route.coords) return route._trfCum;
-    const c = route.coords, cum = new Float64Array(c.length);
-    for(let i = 1; i < c.length; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
-    route._trfCum = cum; route._trfCumRef = route.coords;
-    return cum;
-  }
-  // odległość od początku trasy do punktu leżącego na trasie (≤ 100 m od niej) albo null
-  function trafficAlongRoute(route, lon, lat, from, to){
-    const c = route.coords, cum = trafficRouteCum(route);
-    let best = null;
-    for(let i = Math.max(0, from); i < Math.min(c.length - 1, to); i++){
-      const p0 = c[i], p1 = c[i + 1];   // szybkie odrzucenie odcinków oddalonych o > ~0,003° (trasa może mieć dziesiątki tysięcy punktów)
-      if((lat < p0[1] - 0.003 && lat < p1[1] - 0.003) || (lat > p0[1] + 0.003 && lat > p1[1] + 0.003) ||
-         (lon < p0[0] - 0.005 && lon < p1[0] - 0.005) || (lon > p0[0] + 0.005 && lon > p1[0] + 0.005)) continue;
-      const q = projectPointToSegment(lat, lon, p0, p1);
-      if(q.distM <= 100 && (!best || q.distM < best.d)) best = { d: q.distM, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
-    }
-    return best ? best.along : null;
-  }
-  function trafficBuildRouteList(route, incs, chunks){
-    const list = [], onRoute = [];
-    incs.forEach(x => {
-      const g = x.geometry || {}, p = x.properties || {}, cat = p.iconCategory;
-      if(!TRAFFIC_ROUTE_CATS[cat] || !g.coordinates) return;
-      if(cat === 6 && (p.magnitudeOfDelay || 0) < 2) return;           // drobne spowolnienia pomijamy
-      const pts = g.type === "Point" ? [g.coordinates] : g.type === "LineString" ? [g.coordinates[0], g.coordinates[g.coordinates.length - 1]] : [];
-      let along = null;
-      pts.forEach(pt => { const a = trafficAlongRoute(route, pt[0], pt[1], 0, route.coords.length - 1); if(a !== null && (along === null || a < along)) along = a; });
-      if(along === null) return;
-      onRoute.push(x);
-      list.push({ along, cat, delay: p.delay || 0, road: (p.roadNumbers || []).join(", "), said: false });
-    });
-    list.sort((a, b) => a.along - b.along);
-    // ten sam rodzaj w odległości < 1 km traktujemy jak jedno zdarzenie
-    const out = [];
-    list.forEach(it => { const last = out[out.length - 1]; if(last && last.cat === it.cat && it.along - last.along < 1000) return; out.push(it); });
-    out.onRoute = onRoute;
-    return out;
-  }
-  function trafficFetchRoute(route){
-    const end = route.coords[route.coords.length - 1], key = end[0].toFixed(2) + "," + end[1].toFixed(2);
-    if(trafficRouteCache && trafficRouteCache.key === key && Date.now() - trafficRouteCache.at < 30 * 60 * 1000)
-      return Promise.resolve({ incs: trafficRouteCache.incs, key, fresh: false });
-    const chunks = trafficRouteChunks(route.coords);
-    return Promise.all(chunks.map(ch => trafficFetchBbox(...ch.box).catch(() => []))).then(arrs => {
-      const incs = [].concat(...arrs);
-      trafficRouteCache = { key, at: Date.now(), incs };
-      return { incs, key, fresh: true };
-    });
-  }
-  function trafficStartRoute(route){
-    route._trf = { list: null };
-    trafficFetchRoute(route).then(({ incs, fresh }) => {
-      if(route !== activeRoute) return;
-      const list = trafficBuildRouteList(route, incs);
-      route._trf.list = list;
-      // zdarzenia z całej trasy od razu na mapie (ikony + kolorowe odcinki), nie tylko w okolicy GPS
-      trafficRouteFeats = [];
-      (list.onRoute || []).forEach(x => trafficRouteFeats.push(...trafficIncidentToFeatures(x)));
-      trafficPublish();
-      if(!list.length || !fresh) return;                     // po przeliczeniu trasy podsumowania nie powtarzamy
-      const names = list.slice(0, 2).map(it => TRAFFIC_ROUTE_CATS[it.cat] + " za " + guideSpeakDist(it.along));
-      showBanner("UTRUDNIENIA NA TRASIE (" + list.length + ")", list.slice(0, 3).map(it => TRAFFIC_INC_NAMES[it.cat] + " za " + guideDistLabel(it.along)).join(" · ") + (list.length > 3 ? " …" : ""), false);
-      guideSay("Uwaga. Na trasie są utrudnienia: " + list.length + ". Najbliższe: " + names.join(", ") + ".");
-    }).catch(err => { console.warn("Utrudnienia na trasie — błąd:", err); route._trf = { list: [] }; });
-  }
-  // wołane z updateGuidance() przy każdym odczycie GPS na trasie
-  function trafficRouteTick(along){
-    const r = activeRoute; if(!r || !tomtomApiKey) return;
-    if(!r._trf){ if(currentSpeedKmh > TRAFFIC_MOVE_KMH) trafficStartRoute(r); return; }   // start dopiero, gdy kierowca ruszy
-    if(!r._trf.list) return;
-    for(const it of r._trf.list){
-      const d = it.along - along;
-      if(it.said || d < -50 || d > TRAFFIC_ROUTE_ALERT_M) continue;
-      it.said = true;
-      showBanner(TRAFFIC_INC_NAMES[it.cat].toUpperCase(), "Za " + guideDistLabel(Math.max(0, d)) + (it.road ? " · " + it.road : "") + (it.delay ? " · opóźnienie ~" + Math.round(it.delay / 60) + " min" : ""), false);
-      guideSay("Za " + guideSpeakDist(Math.max(50, d)) + " " + TRAFFIC_ROUTE_CATS[it.cat] + ".");
-      return;                                              // jeden komunikat na odczyt GPS
-    }
-  }
-
-  /* ---------- diagnoza (konsola 🐞 → „🔍 Diagnoza”): co jest w danych i na mapie w środku ekranu ---------- */
-  function mapDiagnose(){
-    if(!map) return;
-    const c = map.getCenter(), z = map.getZoom().toFixed(1);
-    debugLog("info", `DIAGNOZA — środek mapy ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}, zoom ${z}`);
-    ["traffic-incidents", "restriction-signs", "roads-maxheight", "roads-maxweight", "roads-maxwidth"].forEach(id => {
-      let n = "brak źródła";
-      try{ if(map.getSource(id)) n = map.querySourceFeatures(id).length + " elementów w załadowanych kafelkach"; }catch(e){ n = "błąd: " + e.message; }
-      debugLog("info", `  źródło ${id}: ${n}`);
-    });
-    ["traffic-incidents-line", "traffic-incidents-dot", "traffic-incidents-icon", "restriction-signs-icon", "roads-maxweight-line", "roads-maxheight-line"].forEach(id => {
-      let n = "brak warstwy";
-      try{ if(map.getLayer(id)) n = map.queryRenderedFeatures({ layers: [id] }).length + " narysowanych na ekranie"; }catch(e){ n = "błąd: " + e.message; }
-      debugLog("info", `  warstwa ${id}: ${n}`);
-    });
-    debugLog("info", "  obrazki znaków: " + ["height", "weight", "width"].map(k => k + (map.hasImage("restriction-sign-" + k) ? " ✓" : " ✗")).join(", "));
-    // ograniczenia z wczytanych danych w promieniu 300 m od środka
-    const near = [];
-    const src = (typeof restrictionSrc !== "undefined" && restrictionSrc) || { h: [], w: [], d: [] };
-    [["wysokość", src.h, "maxheight"], ["tonaż", src.w, "maxweight"], ["szerokość", src.d, "maxwidth"]].forEach(([nm, arr, prop]) => arr.forEach(f => {
-      const co = f.geometry.coordinates; let best = Infinity;
-      co.forEach(pt => { const d = haversine(c.lat, c.lng, pt[1], pt[0]); if(d < best) best = d; });
-      if(best < 300) near.push(`${nm} ${f.properties[prop]} (osm ${f.properties.osm_id}, ${Math.round(best)} m)`);
-    }));
-    debugLog("info", "  w wczytanych danych w promieniu 300 m: " + (near.length ? near.join("; ") : "NIC"));
-    // a co jest w OSM (Overpass) w tym samym miejscu
-    const q = `[out:json][timeout:20];( way(around:300,${c.lat},${c.lng})[~"^max(height|weight|width)"~"."]; node(around:300,${c.lat},${c.lng})[~"^max(height|weight|width)"~"."]; );out tags center;`;
-    debugLog("info", "  pytam Overpass o ograniczenia w promieniu 300 m…");
-    tryEndpoints(q, 0, 20000).then(d => {
-      const els = d.elements || [];
-      debugLog("info", `  OSM: ${els.length} obiektów z ograniczeniami`);
-      els.slice(0, 12).forEach(e => {
-        const t = e.tags || {}, keep = Object.keys(t).filter(k => /^(max|hgv|access|motor_vehicle|goods|vehicle|highway|bridge|name|traffic_sign|barrier)/.test(k)).map(k => k + "=" + t[k]).join(" ");
-        debugLog("info", `   ${e.type} ${e.id}: ${keep}`);
-      });
-    }).catch(err => debugLog("warn", "  Overpass niedostępny: " + ((err && err.message) || err)));
-  }
+})();
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
