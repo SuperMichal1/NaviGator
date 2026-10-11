@@ -5755,14 +5755,18 @@
 
   // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
   const supaMissingTables = new Set();
+  // Stronicowanie (limit/offset) BEZ sortowania jest niedeterministyczne — strony mogą się nakładać i gubić wiersze,
+  // przez co część danych (np. znaki ograniczeń) nigdy nie docierała. Sortujemy po kluczu unikalnym tabeli.
+  const SUPA_TABLE_ORDER = { road_restrictions: "osm_id.asc,kind.asc", avg_speed_cameras: "osm_id.asc", hgv_companies: "osm_id.asc", motorway_junctions: "junction_key.asc" };
   function fetchTableFromSupabase(table, columns){
     if(!supaConfigured()) return Promise.resolve(null);
     if(supaMissingTables.has(table)) return Promise.resolve(null);
     const base = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?select=${columns}`;
     const PAGE = 1000;
     const out = [];
+    let order = SUPA_TABLE_ORDER[table] ? "&order=" + SUPA_TABLE_ORDER[table] : "";
     function page(offset){
-      return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
+      return fetch(`${base}${order}&limit=${PAGE}&offset=${offset}`, {
         headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
       })
         .then(r => {
@@ -5770,10 +5774,12 @@
             supaMissingTables.add(table);
             debugLog("warn", `Supabase: tabela/widok „${table}” nie istnieje (404) — utwórz ją skryptem SQL albo zignoruj; pomijam dalsze zapytania w tej sesji.`);
           }
+          if(r.status === 400 && order){ order = ""; out.length = 0; return page(0).then(() => null); }   // kolumna sortowania nie istnieje — bez sortowania
           if(!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
         .then(rows => {
+          if(rows === null) return out;
           out.push(...rows);
           if(rows.length === PAGE && out.length < 200000) return page(offset + PAGE);
           return out;
