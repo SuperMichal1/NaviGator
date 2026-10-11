@@ -335,6 +335,7 @@
   .truckImpWrap{ display:flex; gap:6px; }
   .truckImpWrap .truckInputWrap{ flex:1; min-width:0; }
   .truckImpWrap input{ padding-right:22px !important; }
+  .truckConv{ font-size:11px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-height:13px; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -343,22 +344,19 @@
   .truckInputWrap{ position:relative; }
   .truckInputWrap input{
     width:100%; box-sizing:border-box; padding:9px 26px 9px 10px; border-radius:9px;
-    background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); color:#14181c;
-    font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+    border:1px solid var(--panel-border); background: rgba(255,255,255,0.07);
+    color: var(--text-main); font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
   }
-  /* w nocy: to samo ciemne tło, ramka i jasny tekst co w polu "Wpisz cel podróży" */
-  body.night .truckInputWrap input{
-    background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); color: var(--text-main);
-  }
+  body:not(.night) .truckInputWrap input{ background: rgba(255,255,255,0.8); }
   .truckInputWrap input:focus{ outline:none; border-color: var(--accent); }
   .truckInputWrap input.bad{ border-color:#ff4d4d; }
-  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color:#5b6570; pointer-events:none; }
-  body.night .truckInputWrap em{ color: var(--text-dim); }
+  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color: var(--text-dim); pointer-events:none; }
   .truckResetWrap{ justify-content:flex-end; }
   .truckResetWrap button{
     padding:9px 8px; border-radius:9px; cursor:pointer; font:600 12px 'Inter', system-ui, sans-serif;
     background:transparent; color: var(--text-dim); border:1px solid var(--panel-border);
   }
+  .truckNote{ font-size:11px; line-height:1.35; color: var(--text-dim); }
   #navSettingsBtn{
     width:30px; height:30px; border-radius:9px;
     display:flex; align-items:center; justify-content:center;
@@ -638,60 +636,6 @@
     padding:10px 12px;
   }
   #navRouteInfo.show{ display:flex; }
-
-  /* ---------- Okno jazdy: tylko pozostały czas, pozostałe mile i godzina przyjazdu ---------- */
-  #setTabs{ display:flex; gap:6px; }
-  #setTabs button{ flex:1; padding:10px 4px; border-radius:10px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
-  #setTabs button.active{ background:var(--gator-dark); border-color:var(--gator); color:var(--gator-on); }
-  .setPane{ display:none; flex-direction:column; gap:10px; }
-  .setPane.active{ display:flex; }
-  .tollTag{ width:22px; height:22px; border-radius:50%; background:#FF8A00; color:#fff; font:800 13px/22px system-ui,sans-serif; text-align:center; border:2px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.5); pointer-events:none; }
-  #navTollNote{ display:none; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:700; color:#FF8A00; }
-  #navTollNote.show{ display:flex; }
-  #navRouteInfo.planning #navTollNote{ display:none; }
-  .tollSeg{ display:flex; border:1px solid var(--panel-border,rgba(255,255,255,.2)); border-radius:10px; overflow:hidden; margin-top:6px; }
-  .tollSeg button{ flex:1; border:none; background:transparent; color:inherit; font:700 13px 'Inter',system-ui,sans-serif; padding:10px 6px; cursor:pointer; }
-  .tollSeg button.active{ background:var(--gator-dark); color:var(--gator-on); }
-  .tollHint{ font-size:11px; opacity:.7; margin:6px 0 4px; line-height:1.35; }
-  #navTripStats{ display:none; justify-content:space-between; gap:8px; }
-  #navTripStats .ts{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  #navTripStats .ts b{ font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  #navTripStats .ts span{ display:none; }
-  #navTripStats .ts span.old{ font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
-  #navRouteInfo:not(.planning) #navRouteMain,
-  #navRouteInfo:not(.planning) #navRouteSub,
-  #navRouteInfo:not(.planning) #navRouteTraffic{ display:none; }
-  #navRouteInfo:not(.planning) #navTripStats{ display:flex; }
-  #navExpandHint{ display:none; text-align:center; font-size:11px; color:var(--text-dim); cursor:pointer; padding:2px 0 0; }
-  #navRouteInfo:not(.planning) #navExpandHint{ display:block; }
-  #navPanel.nav-expanded #navExpandHint{ display:none; }
-  #navCustomize{ display:none; flex-direction:column; gap:8px; margin-top:6px; padding-top:10px; border-top:1px solid var(--panel-border); }
-  #navPanel.nav-expanded #navRouteInfo:not(.planning) #navCustomize{ display:flex; }
-  .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
-  #avatarGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-  .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
-  .avatarOpt svg{ width:100%; height:100%; }
-  .avatarOpt.active{ border-color:var(--gator); background:rgba(124,154,58,.22); }
-  #routeHue{
-    -webkit-appearance:none; appearance:none; width:100%; height:18px; border-radius:9px; outline:none; border:1px solid rgba(0,0,0,.25);
-    background:linear-gradient(90deg,hsl(0,95%,55%),hsl(60,95%,55%),hsl(120,95%,55%),hsl(180,95%,55%),hsl(240,95%,55%),hsl(300,95%,55%),hsl(359,95%,55%));
-  }
-  #routeHue::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #14181c; box-shadow:0 1px 5px rgba(0,0,0,.5); }
-  #routeHue::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #14181c; }
-  #routeSwatches{ display:flex; flex-wrap:wrap; gap:10px; }
-  .routeSw{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,.85); box-shadow:0 0 0 1px rgba(0,0,0,.4); }
-  .routeSw.active{ box-shadow:0 0 0 3px var(--gator); }
-  .routeSw.auto{ background:conic-gradient(#1FD6C1 0 50%,#1DF5FF 50% 100%); }
-  #navCustomize #navRerouteRow{ display:block; margin-bottom:2px; }
-  /* zminimalizowane okno jazdy: tylko uchwyt + pozostały czas, mile i godzina przyjazdu */
-  #navPanel.compact{ transform:none; }
-  #navPanel.compact .navHeader,
-  #navPanel.compact #navExpandHint,
-  #navPanel.compact #navCustomize{ display:none !important; }
-  #navPanel.compact{ padding-bottom:2px; gap:0; border-radius:14px 14px 0 0; }
-  #navPanel.compact #navDragHandle{ padding:4px 0 2px; }
-  #navPanel.compact #navRouteInfo{ padding:0 12px 4px; background:transparent; }
-  #navPanel.compact #navTripStats .ts b{ font-size:18px; line-height:1.15; }
   #navRouteInfo .rMain{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px; font-weight:700;
@@ -752,7 +696,7 @@
   }
   .voiceSeg button.active{ background: var(--accent); border-color: var(--accent); color:#0b1a1c; }
   #vpFreqDesc{ font-size:12px; color: var(--text-dim); line-height:1.35; min-height:32px; }
-  #soundPane.off .voiceDim{ opacity:.4; pointer-events:none; }
+  #voicePanel.off .voiceDim{ opacity:.4; pointer-events:none; }
   .navSettingsHeader{
     display:flex; align-items:center; justify-content:space-between;
     font-size:14px; font-weight:700; color: var(--text-main);
@@ -1218,7 +1162,7 @@
   </div>
 </div>
 
-<div id="navPanel" data-navstate="search">
+<div id="navPanel" data-navstate="search" class="collapsed">
   <div id="navDragHandle" title="Przeciągnij lub dotknij, żeby zwinąć/rozwinąć"><span class="navGrip"></span></div>
   <div class="navHeader">
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
@@ -1259,7 +1203,7 @@
       </div>
     </div>
     <div id="navGoRow">
-      <button id="navGoBtn">Jedź</button>
+      <button id="navGoBtn">Wyznacz trasę</button>
       <button id="navPlanBtn">Zaplanuj trasę</button>
     </div>
   </div>
@@ -1268,16 +1212,7 @@
     <div class="rMain" id="navRouteMain">–</div>
     <div class="rSub" id="navRouteSub"></div>
     <div class="rTraffic" id="navRouteTraffic"></div>
-    <div id="navTripStats">
-      <div class="ts"><b id="tsTime">–</b><span>pozostały czas</span></div>
-      <div class="ts"><b id="tsDist">–</b><span>pozostało</span></div>
-      <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
-    </div>
-    <div id="navTollNote">£ Na trasie są odcinki płatne (zaznaczone na mapie)</div>
-    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
-    <div id="navCustomize">
-      <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
-    </div>
+    <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
     <div id="navPlanHint">✋ Złap trasę i przeciągnij ją tam, gdzie chcesz jechać. Nowy fragment trzyma się głównych dróg.</div>
     <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij zmianę</button>
@@ -1295,27 +1230,33 @@
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        </div>
+        <div class="truckConv" id="tpHeightConv"></div></div>
       <div class="truckField"><span>Szerokość</span>
         <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        </div>
+        <div class="truckConv" id="tpWidthConv"></div></div>
       <div class="truckField"><span>Długość</span>
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckImpWrap impOnly">
           <div class="truckInputWrap"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
           <div class="truckInputWrap"><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        </div>
+        <div class="truckConv" id="tpLengthConv"></div></div>
       <div class="truckField"><span>Masa całkowita</span>
         <div class="truckInputWrap metOnly"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
+        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
+        <div class="truckConv" id="tpWeightConv"></div></div>
       <div class="truckField"><span>Maks. obciążenie osi</span>
         <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
+        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div>
+        <div class="truckConv" id="tpAxleConv"></div></div>
       <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
     </div>
+    <div class="truckNote" id="tpNote">Miary angielskie (stopy, cale, funty) są domyślne; pod polami widać automatyczny przelicznik na metry, centymetry i tony. Zapisuje się samo. Nowe wartości obowiązują od następnego wyznaczenia trasy; ostrzeżenia o wysokości, szerokości i tonażu odświeżają się od razu.</div>
   </div>
 </div>
 
@@ -1341,6 +1282,31 @@
   </div>
 </div>
 
+<div id="voicePanel">
+  <div id="voiceBackdrop"></div>
+  <div id="voiceCard">
+    <span class="sheetGrip"></span>
+    <div class="navSettingsHeader">
+      <span>🔊 Komunikaty głosowe</span>
+      <div id="voiceClose">✕</div>
+    </div>
+    <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
+    <div class="voiceDim">
+      <div class="voiceRow">
+        <span>Głośność</span>
+        <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
+        <span id="vpVolVal">100%</span>
+      </div>
+      <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
+      <div class="voiceSeg" id="vpFreq">
+        <button type="button" data-f="1">Rzadko</button>
+        <button type="button" data-f="2">Normalnie</button>
+        <button type="button" data-f="3">Często</button>
+      </div>
+      <div id="vpFreqDesc"></div>
+    </div>
+  </div>
+</div>
 
 <div id="navSettingsPanel">
   <div id="navSettingsBackdrop"></div>
@@ -1351,57 +1317,18 @@
       <div id="navSettingsClose">✕</div>
     </div>
 
-    <div id="setTabs" role="tablist">
-      <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
-      <button type="button" data-tab="sound">🔊 Dźwięk</button>
-      <button type="button" data-tab="system">⚙️ System</button>
-    </div>
-
-    <div class="setPane active" data-pane="screen">
-      <div class="navTitle">Widoczność na ekranie</div>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel">Tryb mapy:
-        <select id="navPrefTheme">
-          <option value="auto">Auto (wschód/zachód słońca)</option>
-          <option value="day">Dzień</option>
-          <option value="night">Noc</option>
-        </select>
-      </label>
-      <div class="navTitle" style="margin-top:12px">Avatar pojazdu</div>
-      <div id="avatarGrid"></div>
-      <div class="navTitle" style="margin-top:12px">Kolor trasy</div>
-      <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
-      <div id="routeSwatches"></div>
-    </div>
-
-    <div class="setPane" data-pane="sound" id="soundPane">
-      <div class="navTitle">Komunikaty głosowe</div>
-      <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
-      <div class="voiceDim">
-        <div class="voiceRow">
-          <span>Głośność</span>
-          <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
-          <span id="vpVolVal">100%</span>
-        </div>
-        <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
-        <div class="voiceSeg" id="vpFreq">
-          <button type="button" data-f="1">Rzadko</button>
-          <button type="button" data-f="2">Normalnie</button>
-          <button type="button" data-f="3">Często</button>
-        </div>
-        <div id="vpFreqDesc"></div>
-      </div>
-    </div>
-
-    <div class="setPane" data-pane="system">
-      <div class="navTitle">Drogi płatne</div>
-      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
-        <button type="button" data-toll="free">Unikaj płatnych</button>
-        <button type="button" data-toll="paid">Płatne dozwolone</button>
-      </div>
-      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz przyciskiem „Zmień trasę”.</div>
-      <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
+    <div class="navTitle">Widoczność na ekranie</div>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+    <label class="navPrefLabel">Tryb mapy:
+      <select id="navPrefTheme">
+        <option value="auto">Auto (wschód/zachód słońca)</option>
+        <option value="day">Dzień</option>
+        <option value="night">Noc</option>
+      </select>
+    </label>
+    <label class="navPrefLabel"><input type="checkbox" id="navPrefVoice"> Komunikaty głosowe (prowadzenie)</label>
+    <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
     <div id="navKeyToggle">
       <span>🔑 Klucz API TomTom</span>
@@ -1444,7 +1371,6 @@
         <div class="navSupaProgressBar"><div class="navSupaProgressFill" id="navSupaFillDown"></div></div>
         <div id="navSupaCategoryList" class="navSupaCategoryList"></div>
       </div>
-    </div>
     </div>
   </div>
 </div>
@@ -1665,30 +1591,6 @@
     }catch(e){}
   })();
   const TRUCK_ROUTE_TIMEOUT_MS = 30000;
-  // Rodzaj dróg: domyślnie niepłatne; „płatne” pozwala na odcinki z opłatami (ustawienie w menu ⋮)
-  const TOLL_KEY = "nawigator_allow_tolls";
-  let allowTolls = false;
-  try{ allowTolls = localStorage.getItem(TOLL_KEY) === "1"; }catch(e){}
-  const TOLL_BY_COORDS = new WeakMap();   // tablica współrzędnych trasy → odcinki płatne [[od, do], …]
-  let tollMarkers = [];
-  function updateTollMarking(){
-    tollMarkers.forEach(m => m.remove()); tollMarkers = [];
-    let segs = [];
-    if(activeRoute && activeRoute.coords && !activeRoute.manuallyEdited){
-      const raw = (TOLL_BY_COORDS.get(activeRoute.coords) || []).filter(x => x[1] > x[0]).sort((a, b) => a[0] - b[0]);
-      raw.forEach(x => { const last = segs[segs.length - 1]; if(last && x[0] <= last[1] + 1) last[1] = Math.max(last[1], x[1]); else segs.push([x[0], x[1]]); });
-    }
-    const c = activeRoute && activeRoute.coords;
-    const src = map && map.getSource && map.getSource("route-toll");
-    if(src) src.setData({ type:"FeatureCollection", features: segs.map(x => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c.slice(x[0], x[1] + 1) } })) });
-    if(map) segs.slice(0, 6).forEach(x => {
-      const el = document.createElement("div"); el.className = "tollTag"; el.textContent = "£";
-      tollMarkers.push(new maplibregl.Marker({ element: el }).setLngLat(c[x[0]]).addTo(map));
-    });
-    const note = document.getElementById("navTollNote");
-    if(note) note.classList.toggle("show", segs.length > 0);
-  }
-  function tollOpts(){ return { use_tolls: allowTolls ? 1.0 : 0 }; }
   // Profile tras dla ciężarówki: SZYBKA (zrównoważona) i ŁATWA (maksymalnie autostrady/drogi główne,
   // płatne odcinki dozwolone, duża kara za każdy manewr = mniej skrętów i zjazdów). Edycja ręczna używa profilu ŁATWEGO.
   const TRUCK_FAST_OPTS = { use_highways: 0.6, use_living_streets: 0, use_tracks: 0 };
@@ -2101,9 +2003,7 @@
   // SHIELD_SPACING_PX pikseli (niżej: jedna na odcinek). Mniejsza liczba = częściej.
   // Zderzające się tablice i tablice zasłaniające numer zjazdu są i tak pomijane.
   const SHIELD_LINE_FROM_ZOOM = 10;
-  // Odstęp liczony w pikselach rośnie z zoomem tak, by na ekranie odpowiadał stałemu dystansowi:
-  // od zoomu 14 to ok. 1 mili (2^zoom / 30 px przy ~52° szer.), poniżej jak dawniej (350 px).
-  const SHIELD_SPACING_PX = ["interpolate", ["exponential", 2], ["zoom"], 10, 350, 14, 547, 19, 17504];
+  const SHIELD_SPACING_PX = 350;
 
   function shieldRoundRect(ctx, x, y, w, h, r){
     r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -2302,13 +2202,13 @@
           "width", "restriction-sign-width",
           "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 19, 1.15],
-        "icon-allow-overlap": false,
-        "icon-ignore-placement": false,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
         "text-field": ["get", "label"],
         "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 14, 8, 16, 10, 19, 13],
-        "text-allow-overlap": false,
-        "text-ignore-placement": false,
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
         "text-anchor": "center"
       },
       paint: { "text-color": "#14181c" }
@@ -2950,14 +2850,6 @@
         paint:{ "line-color": "#1FD6C1", "line-width":5 }
       }, "cameras-glow");
 
-      // odcinki płatne na wybranej trasie (pomarańczowa nakładka)
-      map.addSource("route-toll", { type:"geojson", data: emptyFC() });
-      map.addLayer({
-        id:"route-toll-line", type:"line", source:"route-toll",
-        layout:{ "line-cap":"round", "line-join":"round" },
-        paint:{ "line-color":"#FF8A00", "line-width":6 }
-      }, "cameras-glow");
-
       // źródło trasy alternatywnej (lokalna, głównymi drogami) — widoczne tylko przy wyborze trasy
       map.addSource("route-line-alt", { type:"geojson", data: emptyFC() });
       map.addLayer({
@@ -3257,14 +3149,11 @@
   }
 
   // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
-  const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar";
-  let customRouteColor = null, vehicleAvatar = "arrow";
-  try{ customRouteColor = localStorage.getItem(ROUTE_COLOR_KEY) || null; vehicleAvatar = localStorage.getItem(AVATAR_KEY) || "arrow"; }catch(e){}
   function applyRouteNightStyle(){
     if(!map || !map.getLayer("route-line-main")) return;
     const night = document.body.classList.contains("night");
-    map.setPaintProperty("route-line-main", "line-color", customRouteColor || (night ? "#1DF5FF" : "#1FD6C1"));
-    map.setPaintProperty("route-line-casing", "line-color", customRouteColor ? (night ? customRouteColor : "#0c0f12") : (night ? "#00B4FF" : "#0c0f12"));
+    map.setPaintProperty("route-line-main", "line-color", night ? "#1DF5FF" : "#1FD6C1");
+    map.setPaintProperty("route-line-casing", "line-color", night ? "#00B4FF" : "#0c0f12");
     map.setPaintProperty("route-line-casing", "line-opacity", night ? 0.55 : 0.55);
     map.setPaintProperty("route-line-casing", "line-blur", night ? 5 : 0);
     if(map.getLayer("route-line-alt-main"))
@@ -3294,109 +3183,17 @@
         <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
   }
 
-  // avatary pojazdu: widok z góry, „nos” skierowany do góry (marker obraca się wg kierunku jazdy)
-  const AVATARS = {
-    arrow: { name:"Strzałka" },
-    truck: { name:"Ciężarówka", svg: c => `<ellipse cx="26" cy="27" rx="18" ry="22" fill="${c}" opacity=".25"/>
-      <rect x="17" y="19" width="18" height="26" rx="2.5" fill="#eef2f4" stroke="#0c0f12" stroke-width="1.4"/>
-      <rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
-      <rect x="20" y="9.5" width="12" height="3.6" rx="1.2" fill="#0c0f12" opacity=".75"/>` },
-    car: { name:"Auto", svg: c => `<ellipse cx="26" cy="26" rx="16" ry="23" fill="${c}" opacity=".25"/>
-      <rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
-      <path d="M20.5 16 Q26 12.5 31.5 16 L30.5 22 L21.5 22 Z" fill="#0c0f12" opacity=".75"/>
-      <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>` },
-    gator: { name:"Aligator", svg: c => `<ellipse cx="26" cy="26" rx="20" ry="23" fill="${c}" opacity=".22"/>
-      <path d="M21.5 34 L26 50 L30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/>
-      <g fill="#5a7a2e" stroke="#0c0f12" stroke-width="1.1">
-        <ellipse cx="15.5" cy="21" rx="4.2" ry="2.3" transform="rotate(-30 15.5 21)"/><ellipse cx="36.5" cy="21" rx="4.2" ry="2.3" transform="rotate(30 36.5 21)"/>
-        <ellipse cx="16" cy="35" rx="4.2" ry="2.3" transform="rotate(30 16 35)"/><ellipse cx="36" cy="35" rx="4.2" ry="2.3" transform="rotate(-30 36 35)"/>
-      </g>
-      <ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136" stroke="#0c0f12" stroke-width="1.2"/>
-      <path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="22.6" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/><circle cx="29.4" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/>` },
-    dot: { name:"Punkt", svg: c => `<circle cx="26" cy="27" r="19" fill="${c}" opacity=".25"/>
-      <circle cx="26" cy="27" r="10" fill="${c}" stroke="#fff" stroke-width="3"/>
-      <path d="M26 4 L33 17 L19 17 Z" fill="${c}" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>` }
-  };
-  function avatarAccent(){ return customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
-  function avatarSvgInner(key){
-    if(key === "arrow" || !AVATARS[key] || !AVATARS[key].svg) return null;
-    return AVATARS[key].svg(avatarAccent());
-  }
   function applyUserMarkerStyle(){
     if(!userMarkerEl) return;
     const night = document.body.classList.contains("night");
     const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
-    const av = avatarSvgInner(vehicleAvatar);
-    if(av){
-      svg.setAttribute("viewBox", "0 0 52 52");
-      svg.setAttribute("width", 46); svg.setAttribute("height", 46);
-      svg.innerHTML = av;
-      userMarkerEl.style.width = userMarkerEl.style.height = "46px";
-      return;
-    }
     svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
     userMarkerEl.style.width = userMarkerEl.style.height = (night ? 52 : 26) + "px";
   }
-
-  function hslToHex(h, sat, l){
-    sat /= 100; l /= 100;
-    const k = n => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
-    const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
-    return "#" + f(0) + f(8) + f(4);
-  }
-  function setRouteColor(hex){
-    customRouteColor = hex || null;
-    try{ if(hex) localStorage.setItem(ROUTE_COLOR_KEY, hex); else localStorage.removeItem(ROUTE_COLOR_KEY); }catch(e){}
-    applyRouteNightStyle();
-    applyUserMarkerStyle();
-    refreshCustomizeUi();
-  }
-  function setVehicleAvatar(key){
-    vehicleAvatar = AVATARS[key] ? key : "arrow";
-    try{ localStorage.setItem(AVATAR_KEY, vehicleAvatar); }catch(e){}
-    applyUserMarkerStyle();
-    refreshCustomizeUi();
-  }
-  const ROUTE_SWATCHES = ["#FF3B30","#FF9500","#FFD60A","#34C759","#1FD6C1","#0A84FF","#BF5AF2","#FF2D95","#FFFFFF"];
-  function refreshCustomizeUi(){
-    const grid = document.getElementById("avatarGrid"), sw = document.getElementById("routeSwatches");
-    if(!grid || !sw) return;
-    grid.innerHTML = Object.keys(AVATARS).map(k => {
-      const inner = avatarSvgInner(k);
-      const svg = inner ? `<svg viewBox="0 0 52 52">${inner}</svg>`
-        : `<svg viewBox="0 0 52 52"><path d="M26 6 L38 42 L26 34 L14 42 Z" fill="${avatarAccent()}" stroke="#0c0f12" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-      return `<div class="avatarOpt${k === vehicleAvatar ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
-    }).join("");
-    sw.innerHTML = `<div class="routeSw auto${customRouteColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
-      ROUTE_SWATCHES.map(c => `<div class="routeSw${customRouteColor && customRouteColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
-  }
-  safeInit("przełącznik dróg płatnych", () => {
-    const seg = document.getElementById("tollSeg");
-    const paint = () => seg.querySelectorAll("button").forEach(b => b.classList.toggle("active", (b.dataset.toll === "paid") === allowTolls));
-    paint();
-    seg.addEventListener("click", ev => {
-      const b = ev.target.closest("button"); if(!b) return;
-      allowTolls = b.dataset.toll === "paid";
-      try{ localStorage.setItem(TOLL_KEY, allowTolls ? "1" : "0"); }catch(e){}
-      paint();
-    });
-  });
-  safeInit("avatar i kolor trasy", () => {
-    refreshCustomizeUi();
-    document.getElementById("avatarGrid").addEventListener("click", ev => {
-      const el = ev.target.closest(".avatarOpt"); if(el) setVehicleAvatar(el.dataset.av);
-    });
-    document.getElementById("routeSwatches").addEventListener("click", ev => {
-      const el = ev.target.closest(".routeSw"); if(el) setRouteColor(el.dataset.col || null);
-    });
-    const hue = document.getElementById("routeHue");
-    hue.addEventListener("input", () => setRouteColor(hslToHex(+hue.value, 95, 55)));
-  });
 
   function addUserMarker(lat, lon){
     userMarkerEl = document.createElement("div");
@@ -3414,68 +3211,19 @@
     applyUserMarkerStyle();
   }
 
-  /* ---------- płynny ruch avatara ----------
-     GPS daje nowy odczyt ok. raz na sekundę, więc samo ustawianie markera przy odczycie = skoki.
-     Pętla animacji (każda klatka) przewiduje pozycję z prędkości i kierunku, a wyświetlaną pozycję
-     i obrót wygładza wykładniczo; kamera (gdy podąża za pojazdem) jedzie razem z avatarem. */
-  const avSm = { init:false, fixLat:0, fixLon:0, fixHdg:0, fixT:0, v:0, lat:0, lon:0, hdg:0, lastT:0, calT:0, lastRot:null };
-  (function trackMapTouch(){
-    const down = () => { avSm.touching = true; };
-    const up = () => { avSm.touching = false; };
-    const el = document.getElementById("map");
-    el.addEventListener("touchstart", down, { passive:true });
-    el.addEventListener("mousedown", down, { passive:true });
-    el.addEventListener("pointerdown", down, { passive:true });
-    ["touchend", "touchcancel", "mouseup", "pointerup", "pointercancel"].forEach(ev => window.addEventListener(ev, up, { passive:true }));
-    window.addEventListener("blur", up);
-  })();
-  function angDiff(a, b){ return ((b - a + 540) % 360) - 180; }
   function updateUserMarker(lat, lon, heading){
     if(!userMarker) return;
-    const now = performance.now();
-    if(heading === null || heading === undefined || isNaN(heading)) heading = avSm.init ? avSm.fixHdg : 0;
-    avSm.fixLat = lat; avSm.fixLon = lon; avSm.fixHdg = heading; avSm.fixT = now;
-    avSm.v = (currentSpeedKmh || 0) / 3.6;
-    if(!avSm.init){ avSm.init = true; avSm.lat = lat; avSm.lon = lon; avSm.hdg = heading; avSm.lastT = now; }
-    if(!avSm.running){ avSm.running = true; requestAnimationFrame(avatarFrame); }
-  }
-  function avatarFrame(t){
-    requestAnimationFrame(avatarFrame);
-    if(!userMarker || !avSm.init) return;
-    const dt = Math.min(0.1, Math.max(0.001, (t - avSm.lastT) / 1000)); avSm.lastT = t;
-    // przewidywana pozycja: ostatni odczyt + prędkość × czas od odczytu (max 1,5 s)
-    const age = Math.min(1.5, Math.max(0, (t - avSm.fixT) / 1000));
-    const d = avSm.v > 0.8 ? avSm.v * age : 0, hr = avSm.fixHdg * Math.PI / 180;
-    const pLat = avSm.fixLat + d * Math.cos(hr) / 111320;
-    const pLon = avSm.fixLon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.fixLat * Math.PI / 180)));
-    const k = 1 - Math.exp(-dt / 0.15);
-    avSm.lat += (pLat - avSm.lat) * k;
-    avSm.lon += (pLon - avSm.lon) * k;
-    avSm.hdg = (avSm.hdg + angDiff(avSm.hdg, avSm.fixHdg) * k + 360) % 360;
-    userMarker.setLngLat([avSm.lon, avSm.lat]);
-    if(avSm.lastRot === null || Math.abs(angDiff(avSm.lastRot, avSm.hdg)) > 0.15){
-      avSm.lastRot = avSm.hdg;
-      const sv = userMarkerEl.querySelector("svg"); if(sv) sv.style.transform = `rotate(${avSm.hdg.toFixed(2)}deg)`;
+    userMarker.setLngLat([lon, lat]);
+    if(heading !== null && !isNaN(heading)){
+      userMarkerEl.querySelector("svg").style.transform = `rotate(${heading}deg)`;
     }
-    // UWAGA: jumpTo() przerywa gesty mapy — dlatego kamerę ruszamy tylko wtedy, gdy użytkownik nie dotyka mapy
-    // i mapa nie jest w trakcie przesuwania/zoomu/inercji (inaczej nie dałoby się jej przeciągnąć).
-    if(followUser && map && !avSm.touching && !map.isEasing() && !map.isMoving()){
-      map.jumpTo({ center: [avSm.lon, avSm.lat], bearing: (is3D && !northUp) ? avSm.hdg : map.getBearing() });
+    if(followUser){
+      map.easeTo({
+        center: [lon, lat],
+        bearing: (heading !== null && !isNaN(heading) && is3D && !northUp) ? heading : map.getBearing(),
+        duration: 600
+      });
     }
-    if(t - avSm.calT > 700){ avSm.calT = t; try{ calibrateAvatarPosition(); }catch(e){} }
-  }
-  // utrzymuje avatar nad dolnym paskiem: pozycję avatara na ekranie mierzymy i delikatnie korygujemy górny padding kamery
-  function calibrateAvatarPosition(){
-    if(!map || !followUser || !is3D || !navIsDriving() || !userMarkerEl || avSm.touching || map.isEasing() || map.isMoving()) return;
-    const h = map.getContainer().clientHeight || window.innerHeight;
-    const r = userMarkerEl.getBoundingClientRect();
-    const yNow = r.top + r.height / 2;
-    const target = Math.max(h * 0.3, h - getNavBottomChromeHeight() - 80);
-    const err = target - yNow;
-    if(Math.abs(err) < 10) return;
-    const pad = map.getPadding();
-    const top = Math.max(0, Math.min(h * 0.9, pad.top + err));   // marker leży w środku obszaru po odjęciu paddingu, więc korekta = 2 × (err / 2)
-    map.setPadding({ top, bottom: 0, left: 0, right: 0 });
   }
 
   /* ============================================================
@@ -5495,18 +5243,9 @@
     el.classList.toggle("show", !!msg);
   }
 
-  function setSettingsTab(name){
-    document.querySelectorAll("#setTabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-    document.querySelectorAll(".setPane").forEach(p => p.classList.toggle("active", p.dataset.pane === name));
-  }
-  function openNavSettings(tab){
-    if(typeof tab === "string") setSettingsTab(tab);
-    try{ if(typeof syncVoicePanel === "function") syncVoicePanel(); }catch(e){}
+  function openNavSettings(){
     document.getElementById("navSettingsPanel").classList.add("open");
   }
-  document.getElementById("setTabs").addEventListener("click", ev => {
-    const b = ev.target.closest("button"); if(b) setSettingsTab(b.dataset.tab);
-  });
   function closeNavSettings(){
     document.getElementById("navSettingsPanel").classList.remove("open");
   }
@@ -5514,7 +5253,7 @@
   function setNavKeyRowOpen(open){
     document.getElementById("navKeyRow").classList.toggle("open", open);
     document.getElementById("navKeyToggle").classList.toggle("open", open);
-    if(open) openNavSettings("system");
+    if(open) openNavSettings();
   }
 
   function saveApiKey(key){
@@ -5924,21 +5663,9 @@
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
   updateAddWaypointVisibility();
 
-  // rozwinięcie okna jazdy: avatar pojazdu i kolor trasy
-  function setNavExpanded(on){
-    const panel = document.getElementById("navPanel");
-    if(on && panel.classList.contains("collapsed")) setNavPanelCollapsed(false);
-    panel.classList.toggle("nav-expanded", !!on);
-    requestAnimationFrame(() => { if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); });
-  }
-  document.addEventListener("click", ev => { if(ev.target.closest && ev.target.closest("#navExpandHint")) setNavExpanded(true); });
-
-  function navIsDriving(){ return !!(navUiState === "nav" && activeRoute && !activeRoute.planning); }
   function setNavPanelCollapsed(collapsed){
     const panel = document.getElementById("navPanel");
     panel.classList.toggle("collapsed", collapsed);
-    panel.classList.toggle("compact", !!collapsed && navIsDriving());   // w jeździe zostają widoczne statystyki
-    if(collapsed) panel.classList.remove("nav-expanded");
     document.getElementById("btnNav").classList.toggle("active", !collapsed);
     if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar();
   }
@@ -5964,7 +5691,6 @@
   function setNavUiState(state){
     navUiState = state;
     document.getElementById("navPanel").dataset.navstate = state;
-    if(state !== "nav") document.getElementById("navPanel").classList.remove("nav-expanded");
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
@@ -6517,8 +6243,7 @@
       key: tomtomApiKey, traffic: "true", travelMode: "car", routeType: "fastest",
       language: "pl-PL", report: "effectiveSettings"
     });
-    if(!allowTolls) params.append("avoid", "tollRoads");
-    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&sectionType=tollRoad&instructionsType=text`;
+    const url = `${TOMTOM_ROUTE_URL}${pointsStr}/json?${params.toString()}&sectionType=traffic&sectionType=speedLimit&instructionsType=text`;
 
     return fetch(url, { signal: navRouteAbort.signal }).then(r => {
       if(r.status === 403) throw new Error("UNAUTHORIZED");
@@ -6531,10 +6256,8 @@
       (route.legs || []).forEach(leg => (leg.points || []).forEach(p => coords.push([p.longitude, p.latitude])));
       const speedSegments = [];
       const incidents = [];
-      const tollSegs = [];
       (route.sections || []).forEach(sec => {
-        if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
-        else if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
+        if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
           for(let i = sec.startPointIndex; i < sec.endPointIndex && i < coords.length - 1; i++){
             speedSegments.push({ a: coords[i], b: coords[i+1], maxspeed: sec.maxSpeedLimitInKmh });
           }
@@ -6546,7 +6269,6 @@
       });
       const steps = [];
       ((route.guidance && route.guidance.instructions) || []).forEach(x => { const st = tomtomStep(x, coords.length); if(st) steps.push(st); });
-      TOLL_BY_COORDS.set(coords, tollSegs);
       return {
         coords, steps,
         distanceM: route.summary.lengthInMeters,
@@ -6575,7 +6297,7 @@
 
     const goBtn = document.getElementById("navGoBtn");
     goBtn.disabled = true;
-    showNavStatus("Wyznaczam trasę…");
+    showNavStatus("Wyznaczam trasy…");
 
     const origin = navSelectedOrigin || { lat: lastPos.lat, lon: lastPos.lon };
     const waypoints = getOrderedWaypoints();
@@ -6592,9 +6314,9 @@
         else showNavError("Nie udało się wyznaczyć żadnej trasy.");
         return;
       }
-      // „Jedź”: bez wyboru i bez edycji trasy — od razu nawigacja w trybie jazdy
       pendingRoutes = { main: mainRoute, alt: altRoute };
-      selectRoute(mainRoute ? "main" : "alt");
+      renderRoutePicker();
+      setNavUiState("picker");
     });
   }
 
@@ -6679,8 +6401,6 @@
   }
 
   // widok jazdy: pełny ekran, 3D, kamera podąża za pojazdem
-  const DRIVE_PITCH = 60;   // pochylenie widoku jazdy 3D (jak w oryginale)
-  const DRIVE_ZOOM = 17;    // przybliżenie widoku jazdy (jak w oryginale)
   function enterDrivingView(){
     enterFullscreen();
     followUser = true;
@@ -6692,8 +6412,8 @@
     applyDrivingCamera(true);
     map.easeTo({
       center: [lastPos.lon, lastPos.lat],
-      zoom: DRIVE_ZOOM,
-      pitch: DRIVE_PITCH,
+      zoom: 17,
+      pitch: 60,
       bearing: currentHeading,
       duration: 800
     });
@@ -6739,7 +6459,7 @@
     const request = {
       locations,
       costing: "truck",
-      costing_options: { truck: Object.assign({}, HGV_PROFILE, variant === "easy" ? TRUCK_EASY_OPTS : TRUCK_FAST_OPTS, tollOpts()) },
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, variant === "easy" ? TRUCK_EASY_OPTS : TRUCK_FAST_OPTS) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
     if(extra) Object.assign(request, extra); // np. alternates, exclude_locations
@@ -6754,17 +6474,13 @@
         }
         const parseTrip = trip => {
           if(!trip || !trip.legs || !trip.legs.length) throw new Error("VALHALLA_EMPTY");
-          const coords = [], steps = [], tollSegs = [];
+          const coords = [], steps = [];
           trip.legs.forEach(leg => {
             const pts = decodePolyline(leg.shape, 6), off = coords.length;
-            (leg.maneuvers || []).forEach(m => {
-              const st = valhallaStep(m, off); if(st) steps.push(st);
-              if(m.toll) tollSegs.push([off + (m.begin_shape_index || 0), off + (m.end_shape_index || 0)]);
-            });
+            (leg.maneuvers || []).forEach(m => { const st = valhallaStep(m, off); if(st) steps.push(st); });
             pts.forEach(c => coords.push(c));
           });
           if(coords.length < 2) throw new Error("VALHALLA_EMPTY");
-          TOLL_BY_COORDS.set(coords, tollSegs);
           return { coords, steps, distanceM: (trip.summary.length || 0) * 1000, timeS: trip.summary.time || 0 };
         };
         const main = parseTrip(data.trip);
@@ -6945,34 +6661,6 @@
     const all = f.coords.concat(e.coords);
     const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
     map.fitBounds(bounds, { padding: 70, duration: 600 });
-  }
-
-  // wybrana trasa (szybka / alternatywna) → od razu nawigacja w widoku 3D, bez etapu edycji
-  function startDrivingRoute(route, source){
-    recordHistory(navSelectedDest);
-    activeRoute = {
-      coords: route.coords,
-      distanceM: route.distanceM,
-      timeS: route.timeS,
-      trafficDelayS: 0,
-      manuallyEdited: false,
-      source: source || "truck",
-      steps: route.steps || null,
-      planning: false
-    };
-    setTimeout(announceRouteRestrictions, 600);
-    routeSpeedSegments = [];
-    routeTrafficIncidents = [];
-    pendingRoutes = { main:null, alt:null };
-    setRouteLineCoords(activeRoute.coords, "route-line");
-    setRouteLineCoords([], "route-line-alt");
-    if(map.getSource("route-incidents")) map.getSource("route-incidents").setData(emptyFC());
-    routeEditMode = false;
-    applyRouteEditVisuals();
-    map.getCanvas().style.cursor = "";
-    renderNavRouteInfo();
-    setNavUiState("nav");
-    if(lastPos) enterDrivingView(); else fitActiveRouteToView();
   }
 
   // pokazuje zaplanowaną trasę w całości i od razu włącza jej edycję (łapanie i przeciąganie)
@@ -7331,12 +7019,6 @@
     if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
     const along = guideProgress(g, lat, lon);
     if(along === null) return;
-    const totalM = g.cum[g.cum.length - 1];
-    if(totalM > 0){
-      const f = Math.max(0, Math.min(1, (totalM - along) / totalM));
-      activeRoute._remain = { ref: activeRoute.coords, m: activeRoute.distanceM * f, s: activeRoute.timeS * f };
-      updateNavTripStats();
-    }
     try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
     const step = g.steps[g.ptr];
@@ -7390,7 +7072,7 @@
     return null;
   }
   // lista ograniczeń na trasie (tylko takie, które dotyczą Twojego pojazdu), posortowana wg odległości od startu trasy
-  function routeRestrictionsRaw(route){
+  function routeRestrictions(route){
     if(!route || !route.coords || route.coords.length < 2) return [];
     const idx = restrictionIndexGet();
     if(route._restr && route._restr.coordsRef === route.coords && route._restr.ver === idx.ver) return route._restr.list;
@@ -7464,98 +7146,7 @@
         if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
       } else list.push(r);
     });
-    list.forEach(r => restrictionVerifyInit(route, r));
     return list;
-  }
-  // do alertów i na mapę trafiają tylko ograniczenia potwierdzone jako dotyczące drogi, którą faktycznie jedziemy
-  function routeRestrictions(route){
-    return routeRestrictionsRaw(route).filter(r => r.ok === true);
-  }
-
-  /* ---------- weryfikacja: czy ograniczenie leży na DRODZE TRASY, a nie na drodze obok / pod nią ----------
-     Przykład fałszywego alarmu: autostrada na estakadzie nad kanałem i lokalną ulicą z limitem 3,5 t — obie biegną
-     tuż przy trasie w tym samym kierunku. Dla każdego ograniczenia pytamy Overpass o wszystkie drogi w promieniu 25 m,
-     a potem sprawdzamy, która z nich pokrywa się z trasą najlepiej (a przy równej odległości — która jest wyższej klasy
-     / na innym poziomie). Jeśli to nie droga z ograniczeniem, ostrzeżenie jest pomijane. Wynik jest zapamiętany.
-     Dopóki weryfikacja trwa, ostrzeżenie nie jest pokazywane; przy braku sieci pokazujemy je (bezpieczniej). */
-  const RESTR_VERIFY_KEY = "nav_restr_verify_v1";
-  const RESTR_CLASS_RANK = { motorway:9, motorway_link:8, trunk:8, trunk_link:7, primary:7, primary_link:6, secondary:6, secondary_link:5, tertiary:5, tertiary_link:4, unclassified:3, residential:2, living_street:1, service:1 };
-  const RESTR_SKIP_CLASSES = { footway:1, path:1, cycleway:1, steps:1, pedestrian:1, bridleway:1, corridor:1, platform:1, proposed:1, construction:1 };
-  let restrVerdicts = {};
-  try{ restrVerdicts = JSON.parse(localStorage.getItem(RESTR_VERIFY_KEY) || "{}") || {}; }catch(e){ restrVerdicts = {}; }
-  function restrVerdictSave(){
-    try{
-      const keys = Object.keys(restrVerdicts);
-      if(keys.length > 600) keys.slice(0, keys.length - 600).forEach(k => delete restrVerdicts[k]);
-      localStorage.setItem(RESTR_VERIFY_KEY, JSON.stringify(restrVerdicts));
-    }catch(e){}
-  }
-  function restrVerdictKey(r){ return r.id + "|" + r.lat.toFixed(4) + "," + r.lon.toFixed(4); }
-  function restrictionVerifyInit(route, r){
-    if(r.lat == null || r.lon == null){ r.ok = true; return; }
-    const k = restrVerdictKey(r);
-    if(k in restrVerdicts){ r.ok = restrVerdicts[k]; return; }
-    r.ok = null;                                                   // oczekuje na weryfikację
-    restrictionVerifyRun(route, r, k).then(() => {
-      if(route !== activeRoute) return;
-      try{ updateRouteConflicts(); }catch(e){}
-      // gdy wszystkie ograniczenia są już sprawdzone, a jeszcze nic nie ogłoszono — podsumowanie na starcie trasy
-      const raw = (route._restr && route._restr.list) || [];
-      if(!route._restrAnnounced && !raw.some(x => x.ok === null)) try{ announceRouteRestrictions(); }catch(e){}
-    });
-  }
-  function restrictionVerifyRun(route, r, key){
-    const q = `[out:json][timeout:15];way(around:25,${r.lat},${r.lon})["highway"];out geom tags;`;
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000));
-    return Promise.race([tryEndpoints(q, 0, 12000), timeout]).then(data => {
-      const ok = restrictionVerifyDecide(route, r, data);
-      restrVerdicts[key] = ok; restrVerdictSave();
-      r.ok = ok;
-    }).catch(err => {
-      console.warn("Weryfikacja ograniczenia nieudana — zostaje jako ostrzeżenie:", err && err.message || err);
-      r.ok = true;                                                 // bez zapisu do cache: spróbujemy przy następnej trasie
-    });
-  }
-  function restrictionVerifyDecide(route, r, data){
-    const wayId = Number(String(r.id).split(":")[1]);
-    const ways = ((data && data.elements) || []).filter(e => e.type === "way" && e.geometry && e.geometry.length > 1 && e.tags && !RESTR_SKIP_CLASSES[e.tags.highway]);
-    const mine = ways.find(w => w.id === wayId);
-    if(!mine) return true;
-    // punkty próbkowania na trasie wokół początku ograniczenia
-    const cum = route._restr && route._restr.cum, c = route.coords;
-    if(!cum) return true;
-    const smp = sliceRouteAlong(c, cum, Math.max(0, r.along - 10), Math.min(cum[cum.length - 1], Math.max(r.to || r.along, r.along) + 25));
-    const pts = [];
-    for(let i = 0; i < smp.length - 1; i++){
-      const L = haversine(smp[i][1], smp[i][0], smp[i + 1][1], smp[i + 1][0]), n = Math.max(1, Math.ceil(L / 5));
-      for(let t = 0; t < n; t++) pts.push([smp[i][0] + (smp[i + 1][0] - smp[i][0]) * t / n, smp[i][1] + (smp[i + 1][1] - smp[i][1]) * t / n]);
-    }
-    if(smp.length) pts.push(smp[smp.length - 1]);
-    if(!pts.length) return true;
-    const score = w => {
-      let sum = 0;
-      pts.forEach(pt => {
-        let best = Infinity;
-        for(let i = 0; i < w.geometry.length - 1; i++){
-          const a = w.geometry[i], b = w.geometry[i + 1];
-          const d = projectPointToSegment(pt[1], pt[0], [a.lon, a.lat], [b.lon, b.lat]).distM;
-          if(d < best) best = d;
-        }
-        sum += Math.min(best, 40);                                  // droga krótsza niż odcinek nie może mieć nieskończonej kary
-      });
-      return sum / pts.length;
-    };
-    const sc = new Map(ways.map(w => [w.id, score(w)]));
-    const bestScore = Math.min(...sc.values());
-    const myScore = sc.get(wayId);
-    if(myScore > bestScore + 4) return false;                       // trasa biegnie wyraźnie bliżej innej drogi
-    // pokrywają się (np. estakada nad drogą): wybieramy drogę wyższej klasy, a przy równej — położoną wyżej
-    const group = ways.filter(w => sc.get(w.id) <= bestScore + 4);
-    const lvl = w => (Number(w.tags.layer) || 0) + (w.tags.bridge && w.tags.bridge !== "no" ? 0.5 : 0) - (w.tags.tunnel && w.tags.tunnel !== "no" ? 0.5 : 0);
-    const rank = w => RESTR_CLASS_RANK[w.tags.highway] || 0;
-    const top = group.slice().sort((a, b) => (rank(b) - rank(a)) || (lvl(b) - lvl(a)))[0];
-    if(top && top.id !== wayId && (rank(top) > rank(mine) || lvl(top) !== lvl(mine))) return false;
-    return true;
   }
 
   /* ---------- zaznaczenie na mapie miejsc, w których pojazd NIE spełnia ograniczeń ----------
@@ -7589,11 +7180,10 @@
       layout: {
         "icon-image": ["match", ["get", "kind"], "weight", "restriction-sign-weight", "width", "restriction-sign-width", "restriction-sign-height"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.7, 14, 1.05, 18, 1.4],
-        "symbol-sort-key": ["get", "sk"],
-        "icon-allow-overlap": false, "icon-ignore-placement": false,
+        "icon-allow-overlap": true, "icon-ignore-placement": true,
         "text-field": ["get", "short"], "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 14, 11, 18, 14],
-        "text-allow-overlap": false, "text-ignore-placement": false, "text-anchor": "center"
+        "text-allow-overlap": true, "text-ignore-placement": true, "text-anchor": "center"
       },
       paint: { "text-color": "#14181c" }
     });
@@ -7604,8 +7194,7 @@
         "text-field": ["get", "label"], "text-font": ["Noto Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 18, 14],
         "text-anchor": "top", "text-offset": [0, 1.9], "text-max-width": 14,
-        "symbol-sort-key": ["get", "sk"],
-        "text-allow-overlap": false, "text-ignore-placement": false
+        "text-allow-overlap": true, "text-ignore-placement": true
       },
       paint: { "text-color": sevColor, "text-halo-color": "#ffffff", "text-halo-width": 2.2 }
     });
@@ -7634,7 +7223,7 @@
           const unit = r.kind === "weight" ? " t" : " m";
           const mine = plNum(HGV_PROFILE[r.kind]) + unit;
           const limit = plNum(r.value) + unit;
-          pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev, sk: (r.sev === "danger" ? 0 : 10) + Math.min(9, r.value / 10),
+          pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev,
             short: plNum(r.value) + (r.kind === "weight" ? "t" : ""),
             label: "limit " + limit + " · masz " + mine },
             geometry: { type:"Point", coordinates: [r.lon, r.lat] } });
@@ -7691,7 +7280,6 @@
     try{ updateRouteConflicts(); }catch(e){ console.warn("Znaczniki ograniczeń:", e); }
     const list = routeRestrictions(activeRoute);
     if(!list.length) return;
-    activeRoute._restrAnnounced = true;
     const danger = list.filter(r => r.sev === "danger");
     const top = (danger.length ? danger : list).slice(0, 2).map(r =>
       RESTR_LABEL[r.kind].replace("Ograniczenie ", "").replace("Limit ", "") + " " + restrictionValueLabel(r.kind, r.value) + " (za " + guideDistLabel(r.along) + ")");
@@ -7888,40 +7476,23 @@
 
   document.getElementById("navChooseMain").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.main) applyChosenReroute(pendingRoutes.main, "truck");
-    else if(pendingRoutes.truck && pendingRoutes.main) startDrivingRoute(pendingRoutes.main, "truck");
+    else if(pendingRoutes.truck && pendingRoutes.main) startPlannedRoute(pendingRoutes.main, "truck");
     else if(pendingRoutes.main) selectRoute("main");
   });
   document.getElementById("navChooseAlt").addEventListener("click", () => {
     if(pendingRoutes.reroute && pendingRoutes.alt) applyChosenReroute(pendingRoutes.alt, "truck-easy");
-    else if(pendingRoutes.truck && pendingRoutes.alt) startDrivingRoute(pendingRoutes.alt, "truck-easy");
+    else if(pendingRoutes.truck && pendingRoutes.alt) startPlannedRoute(pendingRoutes.alt, "truck-easy");
     else if(pendingRoutes.alt) selectRoute("alt");
   });
-
-  // pozostały czas, pozostałe mile i godzina przyjazdu (liczone na żywo z postępu na trasie)
-  function updateNavTripStats(){
-    const r = activeRoute;
-    if(!r) return;
-    const rem = (r._remain && r._remain.ref === r.coords) ? r._remain : { m: r.distanceM, s: r.timeS };
-    const set = (id, v) => { const el = document.getElementById(id); if(el && el.textContent !== v) el.textContent = v; };
-    const tm = Math.max(0, Math.round(rem.s / 60)), th = Math.floor(tm / 60);
-    set("tsTime", th > 0 ? `${th}h ${String(tm % 60).padStart(2, "0")}min` : `${tm}min`);
-    set("tsDist", metersToDistanceLabel(rem.m));
-    set("tsEta", new Date(Date.now() + rem.s * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" }));
-  }
-  setInterval(() => { if(activeRoute) updateNavTripStats(); }, 20000);
 
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
-    try{ updateTollMarking(); }catch(e){ console.warn("Oznaczanie dróg płatnych:", e); }
     if(!activeRoute){ info.classList.remove("show"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
       : activeRoute.source === "truck-easy" ? " · trasa alternatywna" : "";
     info.classList.toggle("planning", !!activeRoute.planning);
-    updateNavTripStats();
-    { const pn = document.getElementById("navPanel");
-      if(pn.classList.contains("collapsed")){ pn.classList.toggle("compact", navIsDriving()); if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); } }
     document.getElementById("navRouteMain").textContent = activeRoute.manuallyEdited
       ? `${metersToDistanceLabel(activeRoute.distanceM)} · trasa dostosowana ręcznie`
       : `${metersToDistanceLabel(activeRoute.distanceM)} · ${secondsToTimeLabel(activeRoute.timeS)}${sourceLabel}`;
@@ -7975,7 +7546,6 @@
     showNavStatus("");
     exitFullscreen();
     applyDrivingCamera(false);
-    try{ updateTollMarking(); }catch(e){}
     if(map){
       map.getCanvas().style.cursor = "";
       map.dragPan.enable();
@@ -8005,7 +7575,6 @@
     const panel = document.getElementById("navPanel");
     const handle = document.getElementById("navDragHandle");
     const header = panel.querySelector(".navHeader");
-    if(panel.classList.contains("compact")){ panel.style.setProperty("--nav-collapsed-shift", "0px"); return; }
     const panelH = panel.offsetHeight; // transform nie zmienia offsetHeight, więc to zawsze "pełna" wysokość
     const peekH = (handle ? handle.offsetHeight : 0) + (header ? header.offsetHeight : 0);
     panel.style.setProperty("--nav-collapsed-shift", Math.max(panelH - peekH, 40) + "px");
@@ -8043,7 +7612,6 @@
     function onDragMove(e){
       if(!dragState) return;
       const dy = clientY(e) - dragState.startY;
-      dragState.dy = dy;
       if(Math.abs(dy) > TAP_MAX_MOVE_PX) dragState.moved = true;
       if(!dragState.moved) return;
       e.preventDefault();
@@ -8062,14 +7630,8 @@
       panel.classList.remove("dragging");
       panel.style.transform = "";
       if(!dragState) return;
-      const { wasCollapsed, moved, shiftPx, lastPx, dy } = dragState;
+      const { wasCollapsed, moved, shiftPx, lastPx } = dragState;
       dragState = null;
-      // w trakcie jazdy: w górę = rozwiń (avatar, kolor trasy), w dół = zwiń z powrotem do podsumowania
-      if(moved && navIsDriving()){
-        const expanded = panel.classList.contains("nav-expanded");
-        if(dy < -40 && !expanded){ setNavExpanded(true); return; }
-        if(dy > 40 && !wasCollapsed){ setNavPanelCollapsed(true); return; }
-      }
       if(!moved){
         // zwykłe dotknięcie uchwytu (bez przeciągania) = przełącz zwinięcie/rozwinięcie
         setNavPanelCollapsed(!wasCollapsed);
@@ -8094,7 +7656,6 @@
     updateNavPanelPeek();
     document.documentElement.style.setProperty("--side-widgets-bottom", (getNavBottomChromeHeight() + 14) + "px");
   }
-  setNavPanelCollapsed(false);   // po starcie pole „Wpisz cel podróży” ma być od razu widoczne
   updateNavIconRowHeightVar();
   window.addEventListener("resize", updateNavIconRowHeightVar);
   setTimeout(updateNavIconRowHeightVar, 400); // po doładowaniu fontów wysokości bywają inne
@@ -8111,13 +7672,13 @@
     let units = "imperial";
     try{ if(localStorage.getItem(UNITS_KEY) === "metric") units = "metric"; }catch(e){}
     const DIMS = {
-      height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn" },
-      width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn"  },
-      length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn" }
+      height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn", conv:"tpHeightConv" },
+      width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn",  conv:"tpWidthConv"  },
+      length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn", conv:"tpLengthConv" }
     };
     const WTS = {
-      weight:   { t:"tpWeight", lb:"tpWeightLb" },
-      axle_load:{ t:"tpAxle",   lb:"tpAxleLb"   }
+      weight:   { t:"tpWeight", lb:"tpWeightLb", conv:"tpWeightConv" },
+      axle_load:{ t:"tpAxle",   lb:"tpAxleLb",   conv:"tpAxleConv"   }
     };
     const $ = id => document.getElementById(id);
     const comma = n => String(n).replace(".", ",");
@@ -8129,16 +7690,22 @@
       if(inch >= 12){ ft += 1; inch = 0; }
       return { ft, inch };
     }
+    const ftInLabel = m => { const x = mToFtIn(m); return x.ft + "′ " + comma(x.inch) + "″"; };
+    const mLabel = m => comma(Math.round(m * 100) / 100) + " m (" + Math.round(m * 100) + " cm)";
+    const tLabel = t => comma(Math.round(t * 100) / 100) + " t (" + thousands(t * 1000) + " kg)";
+    const lbLabel = t => thousands(t / LB_T) + " lb";
 
     function fillDim(k){
       const d = DIMS[k], m = HGV_PROFILE[k], x = mToFtIn(m);
       $(d.m).value = comma(Math.round(m * 100) / 100);
       $(d.ft).value = x.ft; $(d.inch).value = comma(x.inch);
+      $(d.conv).textContent = "= " + (units === "imperial" ? mLabel(m) : ftInLabel(m));
     }
     function fillWt(k){
       const w = WTS[k], t = HGV_PROFILE[k];
       $(w.t).value = comma(Math.round(t * 100) / 100);
       $(w.lb).value = thousands(t / LB_T);
+      $(w.conv).textContent = "= " + (units === "imperial" ? tLabel(t) : lbLabel(t));
     }
     function fill(){
       block.classList.toggle("units-imperial", units === "imperial");
@@ -8150,10 +7717,14 @@
       if(activeRoute){ activeRoute._restr = null; try{ updateRouteConflicts(); }catch(e){} }   // przelicz ostrzeżenia od razu
     }
     const inRange = (k, v) => isFinite(v) && v >= HGV_LIMITS[k][0] && v <= HGV_LIMITS[k][1];
+    function updateConv(k){   // przelicznik na żywo, także gdy wartość jest chwilowo niepełna
+      if(DIMS[k]) $(DIMS[k].conv).textContent = "= " + (units === "imperial" ? mLabel(HGV_PROFILE[k]) : ftInLabel(HGV_PROFILE[k]));
+      else $(WTS[k].conv).textContent = "= " + (units === "imperial" ? tLabel(HGV_PROFILE[k]) : lbLabel(HGV_PROFILE[k]));
+    }
     function accept(k, v, els){
       const ok = inRange(k, v);
       els.forEach(el => el.classList.toggle("bad", !ok && el.value.trim() !== ""));
-      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); }
+      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); updateConv(k); }
     }
     function refillWhenLeft(wrapIds, refill){
       wrapIds.forEach(id => {
@@ -8212,8 +7783,11 @@
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
   navPrefLimitSignInput.checked = prefShowLimitSign;
   applyDisplayPrefs();
+  const navPrefVoiceInput = document.getElementById("navPrefVoice");
+  navPrefVoiceInput.checked = prefVoice;
+  navPrefVoiceInput.addEventListener("change", e => setPrefVoice(e.target.checked));
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
-  const voicePanel = document.getElementById("soundPane");
+  const voicePanel = document.getElementById("voicePanel");
   const VOICE_FREQ_DESC = {
     1: "Jedna zapowiedź przed manewrem. Bez „Teraz” i bez zapowiedzi kolejnego skrętu.",
     2: "Zapowiedź przed manewrem oraz krótkie „Teraz”. Bez wcześniejszych i dodatkowych zapowiedzi.",
@@ -8230,8 +7804,8 @@
     document.querySelectorAll("#vpFreq button").forEach(b => b.classList.toggle("active", +b.dataset.f === prefVoiceFreq));
     document.getElementById("vpFreqDesc").textContent = VOICE_FREQ_DESC[prefVoiceFreq];
   }
-  function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); openNavSettings("sound"); }
-  function closeVoicePanel(){ closeNavSettings(); }
+  function openVoicePanel(){ voiceOpenedAt = Date.now(); syncVoicePanel(); voicePanel.classList.add("open"); }
+  function closeVoicePanel(){ voicePanel.classList.remove("open"); }
   function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
   safeInit("okno głosu", () => {
   document.getElementById("vpOn").addEventListener("change", e => setPrefVoice(e.target.checked));
@@ -8247,6 +7821,10 @@
     try{ localStorage.setItem(PREF_VOICE_FREQ, String(prefVoiceFreq)); }catch(e){}
     syncVoicePanel();
   }));
+  document.getElementById("voiceClose").addEventListener("click", closeVoicePanel);
+  document.getElementById("voiceBackdrop").addEventListener("click", () => {
+    if(Date.now() - voiceOpenedAt > 500) closeVoicePanel();   // puszczenie palca po długim przytrzymaniu nie zamyka okna
+  });
   });
 
   safeInit("długie przytrzymanie głośnika", function setupVoiceLongPress(){
@@ -8344,6 +7922,7 @@
     });
   }
   safeInit("przeciąganie ustawień", () => makeSheetSwipeClose("navSettingsCard", closeNavSettings));
+  safeInit("przeciąganie okna głosu", () => makeSheetSwipeClose("voiceCard", closeVoicePanel));
 
   navPrefSpeedometerInput.addEventListener("change", (e) => {
     prefShowSpeedometer = e.target.checked;
@@ -8825,7 +8404,7 @@
     const request = {
       locations: [ from, through, { lat: destLL[1], lon: destLL[0], type: "break" } ],
       costing: "truck",
-      costing_options: { truck: Object.assign({}, HGV_PROFILE, TRUCK_EASY_OPTS, tollOpts()) },
+      costing_options: { truck: Object.assign({}, HGV_PROFILE, TRUCK_EASY_OPTS) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
     return fetch(`${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`, { signal: ctrl.signal })
@@ -9250,7 +8829,7 @@
     applyDrivingCamera(is3D);
     if(map){
       map.easeTo({
-        pitch: is3D ? DRIVE_PITCH : 0,
+        pitch: is3D ? 60 : 0,
         bearing: is3D ? currentHeading : 0,
         duration: 700
       });
