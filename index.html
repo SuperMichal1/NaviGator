@@ -3318,6 +3318,8 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw znaków wysokości/tonażu:", e);
       }
+      // dane z cache mogły dojść przed utworzeniem warstw — nałóż je teraz
+      try{ applyRestrictionsToMap(); reapplyHgvCompanies(); reapplyAvgSpeedCameras(); }catch(e){ console.warn("Re-apply danych:", e); }
       // MapLibre rozstrzyga kolizje symboli od GÓRNEJ warstwy w dół. Nazwy firm i miejsc (z Supabase jest ich
       // ok. 80 tys.) leżały nad znakami ograniczeń, więc wypierały znaki wysokości/tonażu/szerokości. Wsuwamy je
       // POD warstwę znaków — znaki mają pierwszeństwo przy rozmieszczaniu.
@@ -4538,7 +4540,10 @@
   const AVG_SPEED_CAMERA_MAX_RETRIES = 3;
   let avgSpeedCameraRetries = 0;
 
+  let avgSpeedCamLast = null;
+  function reapplyAvgSpeedCameras(){ if(avgSpeedCamLast && map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features: avgSpeedCamLast }); }
   function setAvgSpeedCameraData(features){
+    avgSpeedCamLast = features;
     if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features });
   }
 
@@ -4702,6 +4707,7 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
+  function reapplyHgvCompanies(){ if(hgvCompaniesCache.length && map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features: hgvCompaniesCache }); }
   function setHgvCompaniesData(features){
     if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
@@ -5146,10 +5152,21 @@
 
   // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
   let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
+  let restrictionMapData = null;
+  // wpycha ostatnie dane do źródeł mapy (wołane też po utworzeniu warstw — dane z cache potrafią przyjść wcześniej)
+  function applyRestrictionsToMap(){
+    if(!restrictionMapData || !map) return;
+    const d = restrictionMapData, fc = f => ({ type:"FeatureCollection", features: f });
+    [["roads-maxheight", d.h], ["roads-maxweight", d.w], ["roads-maxwidth", d.d], ["restriction-signs", d.s]].forEach(([id, f]) => {
+      const src = map.getSource(id); if(src) src.setData(fc(f));
+    });
+  }
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
     restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
     restrictionVer++; restrictionIdx = null;
-    if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
+    restrictionMapData = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [], s: signFeatures || [] };
+    applyRestrictionsToMap();
+    if(false && map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
     if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
