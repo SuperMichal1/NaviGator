@@ -971,6 +971,13 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
+
+  .navSwitchRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .navSwitchRow small{ display:block; opacity:.65; font-size:12px; margin-top:2px; }
+  input.navSwitch{ appearance:none; -webkit-appearance:none; flex:0 0 auto; width:48px !important; height:28px !important; border-radius:14px; background:rgba(128,128,128,.45); position:relative; cursor:pointer; transition:background .2s; }
+  input.navSwitch::after{ content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  input.navSwitch:checked{ background:var(--accent); }
+  input.navSwitch:checked::after{ transform:translateX(20px); }
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1471,13 +1478,7 @@
     <div class="setPane active" data-pane="screen">
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel">Znak ograniczenia:
-        <select id="navPrefLimitMode">
-          <option value="speeding">Tylko przy przekroczeniu prędkości</option>
-          <option value="always">Cały czas</option>
-        </select>
-      </label>
+      <label class="navPrefLabel navSwitchRow"><span>Znak ograniczenia prędkości<small id="navPrefLimitSignHint"></small></span><input type="checkbox" id="navPrefLimitSign" class="navSwitch" role="switch"></label>
       <label class="navPrefLabel">Tryb mapy:
         <select id="navPrefTheme">
           <option value="auto">Auto (wschód/zachód słońca)</option>
@@ -2537,9 +2538,65 @@
     ];
   }
 
+  /* Numer zjazdu leży w OSM na samej jezdni, więc rysowany był na środku autostrady. Przesuwamy go o JUNCTION_SHIFT_M
+     w LEWO względem kierunku jazdy (w UK zjazd jest po lewej) — kierunek bierzemy z najbliższego odcinka autostrady
+     z kafelków mapy (liczymy raz dla zjazdu, po wczytaniu kafelków; wynik trzymamy w pamięci). */
+  const JUNCTION_SHIFT_M = 26;
+  let junctionRaw = [];
+  const junctionShiftCache = new Map();   // "lon,lat" → [lon,lat] po przesunięciu (null = brak drogi w pobliżu)
+  const junctionKey = f => f.geometry.coordinates[0] + "," + f.geometry.coordinates[1];
+  function junctionShifted(){
+    return { type: "FeatureCollection", features: junctionRaw.map(f => {
+      const sh = junctionShiftCache.get(junctionKey(f));
+      return sh ? { type:"Feature", properties: f.properties, geometry:{ type:"Point", coordinates: sh } } : f;
+    }) };
+  }
+  let junctionShiftBusy = false, junctionShiftAt = 0;
+  function junctionComputeShifts(){
+    if(Date.now() - junctionShiftAt < 1000) return;
+    junctionShiftAt = Date.now();
+    if(junctionShiftBusy || !map || !junctionRaw.length || map.getZoom() < 13 || typeof mwVectorSource === "undefined") return;
+    const bb = map.getBounds();
+    const todo = junctionRaw.filter(f => {
+      if(junctionShiftCache.has(junctionKey(f))) return false;
+      const [x, y] = f.geometry.coordinates;
+      return bb.contains([x, y]);
+    });
+    if(!todo.length) return;
+    junctionShiftBusy = true;
+    try{
+      const feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1]] });
+      const lines = [];
+      feats.forEach(f => { const g = f.geometry; if(!g) return;
+        if(g.type === "LineString") lines.push(g.coordinates); else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c)); });
+      let changed = false;
+      todo.forEach(f => {
+        const [lon, lat] = f.geometry.coordinates;
+        const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180);
+        let best = null, bd = 45;
+        lines.forEach(ln => { for(let i = 0; i < ln.length - 1; i++){
+          const ax = (ln[i][0] - lon) * mLon, ay = (ln[i][1] - lat) * mLat, bx = (ln[i+1][0] - lon) * mLon, by = (ln[i+1][1] - lat) * mLat;
+          const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; if(!l2) continue;
+          const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2));
+          const d = Math.hypot(ax + t * dx, ay + t * dy);
+          if(d < bd){ bd = d; best = { dx, dy, l: Math.sqrt(l2) }; }
+        } });
+        if(!best){ return; }   // brak kafelka z drogą — spróbujemy ponownie przy następnym ruchu mapy
+        // lewa strona względem kierunku odcinka (x = wschód, y = północ): (-dy, dx)
+        const nx = -best.dy / best.l, ny = best.dx / best.l;
+        junctionShiftCache.set(junctionKey(f), [lon + nx * JUNCTION_SHIFT_M / mLon, lat + ny * JUNCTION_SHIFT_M / mLat]);
+        changed = true;
+      });
+      if(changed && map.getSource("motorway-junctions")) map.getSource("motorway-junctions").setData(junctionShifted());
+    }catch(e){ /* kafelki jeszcze niegotowe */ }
+    junctionShiftBusy = false;
+  }
+
   function setJunctionData(features){
-    junctionData = { type: "FeatureCollection", features };
+    junctionRaw = features || [];
+    junctionData = junctionShifted();
     if(map && map.getSource("motorway-junctions")) map.getSource("motorway-junctions").setData(junctionData);
+    setTimeout(junctionComputeShifts, 600);
     try{
       if(shieldOverlay && shieldOverlay.getSource("motorway-junctions")){
         shieldOverlay.getSource("motorway-junctions").setData(junctionData);
@@ -3372,6 +3429,8 @@
       // źródło numerów zjazdów autostradowych (dane z OSM/Overpass, highway=motorway_junction)
       map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
       junctionLayerSpecs().forEach(spec => map.addLayer(spec));
+      map.on("moveend", () => { try{ junctionComputeShifts(); }catch(e){} });
+      map.on("sourcedata", ev => { if(ev.isSourceLoaded && ev.sourceId === mwVectorSource) try{ junctionComputeShifts(); }catch(e){} });
 
       // tablice z numerami dróg mają leżeć NAD wyznaczoną trasą (ale nadal pod numerami zjazdów)
       SHIELD_LAYER_IDS.forEach(id => {
@@ -3500,7 +3559,7 @@
                lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
-  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
+  const MW_FILTER = ["all", ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
   let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
   const mwSprites = {};
   const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
@@ -3548,22 +3607,30 @@
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
     const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
     const before = anchors[0];
-    const th = mwTheme(), W = MW.laneW, N = MW.lanes;
-    const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom };
-    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+    const th = mwTheme();
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    map.addLayer(Object.assign({ id: MW_TEX, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), before);
-    mwLayerIds = [MW_TEX]; mwMarkIds = [];
-    [-1, 1].forEach(side => {                       // krawędzie jezdni
-      const id = "mw-edge-" + (side < 0 ? "l" : "r");
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-    });
-    for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
-      const id = "mw-div-" + k;
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-    }
+    mwLayerIds = []; mwMarkIds = [];
+    // zestaw warstw dla danej klasy drogi: autostrada (3 pasy) i droga A (2 pasy, węższa, przerywana linia środkowa)
+    const addSet = (key, isMw, N, W, shoulder) => {
+      const filter = ["==", ["get", "m"], isMw ? 1 : 0];
+      const b0 = Object.assign({ type:"line", source: MW_SRC, minzoom: MW.minZoom, filter });
+      const lay = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+      const tex = MW_TEX + (isMw ? "" : "-a");
+      map.addLayer(Object.assign({ id: tex, layout: lay, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * shoulder) } }, b0), before);
+      mwLayerIds.push(tex);
+      [-1, 1].forEach(side => {                       // krawędzie jezdni
+        const id = "mw-" + key + "-edge-" + (side < 0 ? "l" : "r");
+        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, b0), before);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      });
+      for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+        const id = "mw-" + key + "-div-" + k;
+        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, b0), before);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      }
+    };
+    addSet("m", true, MW.lanes, MW.laneW, MW.shoulder);
+    addSet("a", false, 2, 3.3, 0.4);
     map.on("styleimagemissing", e => {
       const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
       if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSprites[m[1]] || (mwSprites[m[1]] = mwMakeSprite(m[1])), { pixelRatio: 2 });
@@ -3609,13 +3676,17 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad:", e); return; }
-    const lines = [];
-    feats.forEach(f => {
-      const g = f.geometry; if(!g) return;
-      if(g.type === "LineString") lines.push(g.coordinates);
-      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+    const out = [];
+    [1, 0].forEach(m => {
+      const lines = [];
+      feats.forEach(f => {
+        if(((f.properties && f.properties.class) === "motorway" ? 1 : 0) !== m) return;
+        const g = f.geometry; if(!g) return;
+        if(g.type === "LineString") lines.push(g.coordinates);
+        else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+      });
+      mwClipToWindow(lines, lat, lon, hdg).forEach(c => out.push({ type:"Feature", properties:{ m }, geometry:{ type:"LineString", coordinates: c } }));
     });
-    const out = mwClipToWindow(lines, lat, lon, hdg).map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } }));
     src.setData({ type:"FeatureCollection", features: out });
   }
 
@@ -3628,7 +3699,7 @@
     }
     if(!mwActive){
       mwActive = true; force = true;
-      map.setPaintProperty(MW_TEX, "line-pattern", mwEnsureSprite(mwTheme()));
+      [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwEnsureSprite(mwTheme())); });
       mwSetVisible(true);
     }
     // pozycja i kierunek pojazdu; bez GPS — środek i kierunek kamery
@@ -3645,7 +3716,7 @@
     if(!map || !map.getLayer(MW_TEX)) return;
     const th = mwTheme();
     mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", MW.marking[th]));
-    map.setPaintProperty(MW_TEX, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th);
+    [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th); });
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -3785,12 +3856,12 @@
   function sync3dLayers(){
     if(!userMarkerEl) return;
     const a = AVATARS[vehicleAvatar];
-    const key = (is3D && a && a.svg) ? vehicleAvatar + "|" + avatarAccent() : "";
+    const key = ((is3D || (map && map.getPitch() > 8)) && a && a.svg) ? vehicleAvatar + "|" + avatarAccent() : "";
     if(userMarkerEl._k3d === key) return;
     userMarkerEl._k3d = key;
     userMarkerEl.querySelectorAll(".av3dL").forEach(n => n.remove());
     const base = userMarkerEl.querySelector("svg:not(.av3dL)");
-    if(base) base.style.visibility = key ? "hidden" : "";
+    if(base) base.style.setProperty("display", key ? "none" : "", key ? "important" : "");
     userMarkerEl.style.transformStyle = key ? "preserve-3d" : "";
     if(!key) return;
     const c = avatarAccent(), side = (a.side || a.svg)(c);
@@ -6081,6 +6152,35 @@
     supaRep.rows = new Map(); supaRep.cover = null; supaRep.fetchedAt = 0;
     supaRealtime.retry = 0;
   }
+
+  // ---- tabela data_status (dataset, complete, missing jsonb): informuje, czy dane we wspólnej bazie są kompletne ----
+  const DATASET_LABELS = { road_restrictions:"znaki wysokości/tonażu/szerokości", restrictions:"znaki wysokości/tonażu/szerokości",
+    motorway_junctions:"zjazdy z autostrad", junctions:"zjazdy z autostrad", motorway_cameras:"kamery na autostradach", cameras:"kamery na autostradach",
+    avg_speed_cameras:"kamery odcinkowe", avgSpeed:"kamery odcinkowe", hgv_companies:"firmy HGV", hgv:"firmy HGV" };
+  let supaDataStatusRows = null;
+  function checkSupaDataStatus(){
+    if(!supaConfigured() || supaMissingTables.has("data_status")) return Promise.resolve(null);
+    return fetchTableFromSupabase("data_status", "dataset,complete,missing").then(rows => {
+      if(!rows) return null;
+      supaDataStatusRows = rows;
+      const bad = rows.filter(r => r && r.complete === false);
+      bad.forEach(r => {
+        const miss = Array.isArray(r.missing) ? r.missing.length : (r.missing && typeof r.missing === "object" ? Object.keys(r.missing).length : 0);
+        debugLog("warn", `Baza współdzielona: „${r.dataset}” niekompletna${miss ? " — brakuje " + miss + " fragm./poz." : ""}`);
+      });
+      if(bad.length && !isAdmin()){
+        const names = [...new Set(bad.map(r => DATASET_LABELS[r.dataset] || r.dataset))].join(", ");
+        try{ showBanner("Dane map niekompletne", "Część danych (" + names + ") jest w trakcie uzupełniania — niektórych znaków może brakować.", false); }catch(e){}
+      }
+      return rows;
+    });
+  }
+  // true/false gdy status znany, null gdy brak informacji
+  function supaDatasetComplete(name){
+    const r = (supaDataStatusRows || []).find(x => x && x.dataset === name);
+    return r ? r.complete !== false : null;
+  }
+  setTimeout(() => { try{ checkSupaDataStatus(); }catch(e){} }, 4000);
 </script>
 <script>
 /* ===== js/20-community-votes.js — Głosowanie społeczności i zgłoszenia punktów =====
@@ -9813,14 +9913,14 @@
   const navPrefSpeedometerInput = document.getElementById("navPrefSpeedometer");
   const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
-  navPrefLimitSignInput.checked = prefShowLimitSign;
-  const navPrefLimitModeInput = document.getElementById("navPrefLimitMode");
-  navPrefLimitModeInput.value = prefLimitMode;
-  navPrefLimitModeInput.addEventListener("change", (e) => {
-    prefLimitMode = e.target.value === "always" ? "always" : "speeding";
-    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
-    if(currentLimit) showLimitSign(currentLimit);
-  });
+  // przełącznik: lewo = tylko przy przekroczeniu prędkości, prawo = cały czas
+  prefShowLimitSign = true;
+  const navPrefLimitHint = document.getElementById("navPrefLimitSignHint");
+  function syncLimitSwitch(){
+    navPrefLimitSignInput.checked = prefLimitMode === "always";
+    navPrefLimitHint.textContent = prefLimitMode === "always" ? "Cały czas" : "Tylko przy przekroczeniu";
+  }
+  syncLimitSwitch();
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -9960,9 +10060,10 @@
     applyDisplayPrefs();
   });
   navPrefLimitSignInput.addEventListener("change", (e) => {
-    prefShowLimitSign = e.target.checked;
-    try{ localStorage.setItem(PREF_SHOW_LIMIT_SIGN, prefShowLimitSign ? "1" : "0"); }catch(err){}
-    applyDisplayPrefs();
+    prefLimitMode = e.target.checked ? "always" : "speeding";
+    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
+    syncLimitSwitch();
+    if(currentLimit) showLimitSign(currentLimit); else hideLimitSign();
   });
 
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
