@@ -1449,8 +1449,6 @@
   <div id="debugConsoleActions">
     <button id="debugCopyBtn" type="button">Kopiuj</button>
     <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
-    <button id="debugResetBtn" type="button" class="secondary">🔄 Restart danych</button>
-    <button id="debugDiagBtn" type="button" class="secondary">🔍 Diagnoza</button>
   </div>
 </div>
 
@@ -1753,30 +1751,6 @@
     if(closeBtn) closeBtn.addEventListener("click", () => toggleDebugConsole(false));
     if(copyBtn) copyBtn.addEventListener("click", copyDebugLogs);
     if(clearBtn) clearBtn.addEventListener("click", () => { debugLogs.length = 0; renderDebugConsole(); });
-    // Restart danych: kasuje lokalne kopie (zjazdy, fotoradary, znaki, firmy…) i przeładowuje aplikację —
-    // wszystko pobiera się od nowa ze wspólnej bazy (w logu: „… ze wspólnej bazy — komplet”). Ustawienia i logowanie zostają.
-    const diagBtn = document.getElementById("debugDiagBtn");
-    if(diagBtn) diagBtn.addEventListener("click", () => { try{ mapDiagnose(); }catch(e){ debugLog("error", "Diagnoza: " + e.message); } });
-    const resetBtn = document.getElementById("debugResetBtn");
-    if(resetBtn) resetBtn.addEventListener("click", () => {
-      if(!confirm("Wyczyścić lokalne kopie danych i pobrać je od nowa ze wspólnej bazy? Ustawienia i logowanie zostaną.")) return;
-      resetBtn.textContent = "Czyszczę…";
-      try{ Object.keys(localStorage).filter(k => /^nav_(uk_|restr)/.test(k)).forEach(k => localStorage.removeItem(k)); }catch(e){}
-      const done = () => location.reload();
-      try{
-        const req = indexedDB.open("nav_cache_v1", 1);
-        req.onsuccess = () => {
-          try{
-            const db = req.result;
-            if(!db.objectStoreNames.contains("kv")){ db.close(); return done(); }
-            const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").clear();
-            tx.oncomplete = () => { db.close(); done(); }; tx.onerror = () => { db.close(); done(); };
-          }catch(e){ done(); }
-        };
-        req.onerror = done;
-      }catch(e){ done(); }
-      setTimeout(done, 4000);
-    });
   });
 
   debugLog("info", "Konsola debugowania uruchomiona.");
@@ -3318,8 +3292,6 @@
       }catch(e){
         console.warn("Nie udało się dodać warstw znaków wysokości/tonażu:", e);
       }
-      // dane z cache mogły dojść przed utworzeniem warstw — nałóż je teraz
-      try{ applyRestrictionsToMap(); reapplyHgvCompanies(); reapplyAvgSpeedCameras(); }catch(e){ console.warn("Re-apply danych:", e); }
       // MapLibre rozstrzyga kolizje symboli od GÓRNEJ warstwy w dół. Nazwy firm i miejsc (z Supabase jest ich
       // ok. 80 tys.) leżały nad znakami ograniczeń, więc wypierały znaki wysokości/tonażu/szerokości. Wsuwamy je
       // POD warstwę znaków — znaki mają pierwszeństwo przy rozmieszczaniu.
@@ -4540,10 +4512,7 @@
   const AVG_SPEED_CAMERA_MAX_RETRIES = 3;
   let avgSpeedCameraRetries = 0;
 
-  let avgSpeedCamLast = null;
-  function reapplyAvgSpeedCameras(){ if(avgSpeedCamLast && map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features: avgSpeedCamLast }); }
   function setAvgSpeedCameraData(features){
-    avgSpeedCamLast = features;
     if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features });
   }
 
@@ -4707,7 +4676,6 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
-  function reapplyHgvCompanies(){ if(hgvCompaniesCache.length && map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features: hgvCompaniesCache }); }
   function setHgvCompaniesData(features){
     if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
@@ -4923,7 +4891,7 @@
     })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
   }
 
-  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v4";   // v3: + maxheight:physical i znaki-punkty (mosty kolejowe) — dane pobiorą się od nowa
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v3";   // v3: + maxheight:physical i znaki-punkty (mosty kolejowe) — dane pobiorą się od nowa
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
   const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
@@ -4990,8 +4958,6 @@
         way["highway"]["maxheight"](${south},${west},${north},${east});
         way["highway"]["maxheight:physical"](${south},${west},${north},${east});
         way["highway"]["maxweight"](${south},${west},${north},${east});
-        way["highway"]["maxweight:hgv"](${south},${west},${north},${east});
-        way["highway"]["maxweight:signed"](${south},${west},${north},${east});
         way["highway"]["maxwidth"](${south},${west},${north},${east});
         node["maxheight"]["barrier"~"^(height_restrictor|border_control|gate|bollard)$"](${south},${west},${north},${east});
         node["maxheight"]["traffic_sign"](${south},${west},${north},${east});
@@ -5027,7 +4993,6 @@
         if(raw.type !== "way" || !raw.geometry || raw.geometry.length < 2) return;
         if(!isHgvRelevantWay(raw.tags)) return;
       }
-      if(!el.tags.maxweight && (el.tags["maxweight:hgv"] || el.tags["maxweight:signed"])) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxweight: el.tags["maxweight:hgv"] || el.tags["maxweight:signed"] }) });
       if(!el.tags.maxheight && el.tags["maxheight:physical"]) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxheight: el.tags["maxheight:physical"] }) });
 
       if(el.tags.maxheight && !heightWays.has(el.id)){
@@ -5152,21 +5117,10 @@
 
   // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
   let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
-  let restrictionMapData = null;
-  // wpycha ostatnie dane do źródeł mapy (wołane też po utworzeniu warstw — dane z cache potrafią przyjść wcześniej)
-  function applyRestrictionsToMap(){
-    if(!restrictionMapData || !map) return;
-    const d = restrictionMapData, fc = f => ({ type:"FeatureCollection", features: f });
-    [["roads-maxheight", d.h], ["roads-maxweight", d.w], ["roads-maxwidth", d.d], ["restriction-signs", d.s]].forEach(([id, f]) => {
-      const src = map.getSource(id); if(src) src.setData(fc(f));
-    });
-  }
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
     restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
     restrictionVer++; restrictionIdx = null;
-    restrictionMapData = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [], s: signFeatures || [] };
-    applyRestrictionsToMap();
-    if(false && map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
+    if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
     if(map.getSource("roads-maxweight")) map.getSource("roads-maxweight").setData({ type:"FeatureCollection", features: weightFeatures });
     if(map.getSource("roads-maxwidth")) map.getSource("roads-maxwidth").setData({ type:"FeatureCollection", features: widthFeatures });
     if(map.getSource("restriction-signs")) map.getSource("restriction-signs").setData({ type:"FeatureCollection", features: signFeatures });
@@ -5772,18 +5726,14 @@
 
   // pobiera całą tabelę ze wspólnej bazy (stronami po 1000); null = brak konfiguracji/błąd
   const supaMissingTables = new Set();
-  // Stronicowanie (limit/offset) BEZ sortowania jest niedeterministyczne — strony mogą się nakładać i gubić wiersze,
-  // przez co część danych (np. znaki ograniczeń) nigdy nie docierała. Sortujemy po kluczu unikalnym tabeli.
-  const SUPA_TABLE_ORDER = { road_restrictions: "osm_id.asc,kind.asc", avg_speed_cameras: "osm_id.asc", hgv_companies: "osm_id.asc", motorway_junctions: "junction_key.asc" };
   function fetchTableFromSupabase(table, columns){
     if(!supaConfigured()) return Promise.resolve(null);
     if(supaMissingTables.has(table)) return Promise.resolve(null);
     const base = supaUrl.replace(/\/+$/, "") + `/rest/v1/${table}?select=${columns}`;
     const PAGE = 1000;
     const out = [];
-    let order = SUPA_TABLE_ORDER[table] ? "&order=" + SUPA_TABLE_ORDER[table] : "";
     function page(offset){
-      return fetch(`${base}${order}&limit=${PAGE}&offset=${offset}`, {
+      return fetch(`${base}&limit=${PAGE}&offset=${offset}`, {
         headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
       })
         .then(r => {
@@ -5791,12 +5741,10 @@
             supaMissingTables.add(table);
             debugLog("warn", `Supabase: tabela/widok „${table}” nie istnieje (404) — utwórz ją skryptem SQL albo zignoruj; pomijam dalsze zapytania w tej sesji.`);
           }
-          if(r.status === 400 && order){ order = ""; out.length = 0; return page(0).then(() => null); }   // kolumna sortowania nie istnieje — bez sortowania
           if(!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
         .then(rows => {
-          if(rows === null) return out;
           out.push(...rows);
           if(rows.length === PAGE && out.length < 200000) return page(offset + PAGE);
           return out;
@@ -8830,24 +8778,19 @@
   }
 
   // czy pozycja GPS leży na autostradzie według mapy — gdy poprzedni krok trasy nie ma numeru drogi (np. start już na M1)
-  // z histerezą: raz wykryta autostrada „trzyma się” 12 s po ostatnim potwierdzeniu — inaczej tablica migała (niebieska/biała)
-  let ukMwCache = { t: 0, v: false, lastTrue: 0 };
+  let ukMwCache = { t: 0, v: false };
   function ukOnMotorwayByMap(){
-    const now = Date.now();
-    if(now - ukMwCache.t < 1500) return ukMwCache.v;
-    let hit = false;
+    if(Date.now() - ukMwCache.t < 1500) return ukMwCache.v;
+    let v = false;
     try{
       if(map && lastPos){
-        const p = map.project([lastPos.lon, lastPos.lat]);
-        const mpp = 156543.03 * Math.cos(lastPos.lat * Math.PI / 180) / Math.pow(2, map.getZoom());   // metrów na piksel
-        const r = Math.max(12, Math.min(45, 70 / mpp));                                                // ~70 m wokół pozycji
-        hit = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
+        const p = map.project([lastPos.lon, lastPos.lat]), r = 22;
+        v = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
           .some(f => f.sourceLayer === "transportation" && f.properties && f.properties.class === "motorway");
       }
     }catch(e){}
-    if(hit) ukMwCache.lastTrue = now;
-    ukMwCache.t = now; ukMwCache.v = hit || (now - ukMwCache.lastTrue < 12000);
-    return ukMwCache.v;
+    ukMwCache = { t: Date.now(), v };
+    return v;
   }
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
@@ -11546,37 +11489,26 @@
   const TRAFFIC_INC_NAMES = { 1: "Wypadek", 3: "Niebezpieczne warunki", 5: "Lód / śnieg", 6: "Korek", 7: "Zamknięty pas", 8: "Droga zamknięta", 9: "Roboty drogowe", 11: "Zalana droga", 14: "Zepsuty pojazd" };
   let trafficIncCenter = null, trafficIncFetchedAt = 0, trafficIncBusy = false, trafficIncTimer = null, trafficIncData = null;
 
-  const TRAFFIC_COLOR = ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"];
-  // dodaje źródło i KAŻDĄ warstwę osobno (błąd jednej nie blokuje reszty i trafia do konsoli debugowania)
   function ensureTrafficIncidentLayers(){
-    if(!map) return false;
-    if(!map.getSource("traffic-incidents")) map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
+    if(!map || map.getSource("traffic-incidents")) return !!map;
+    map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
     const before = map.getLayer("route-incidents-icon") ? "route-incidents-icon" : undefined;
-    const pt = ["==", ["geometry-type"], "Point"];
-    const specs = [
-      { id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": TRAFFIC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 5, 4, 14, 8], "line-opacity": 1 } },
-      { id: "traffic-incidents-dot", type: "circle", source: "traffic-incidents", filter: pt,
-        paint: { "circle-color": TRAFFIC_COLOR, "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 7, 14, 12],
-                 "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } },
-      { id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents", filter: pt,
-        layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 5, 12, 14, 18], "text-allow-overlap": true, "text-ignore-placement": true } }
-    ];
-    let fresh = false;
-    specs.forEach(sp => {
-      if(map.getLayer(sp.id)) return;
-      try{ map.addLayer(sp, before); map.moveLayer(sp.id); fresh = true; }   // na samą górę, żeby nic ich nie przykrywało
-      catch(e){ debugLog("error", "Warstwa zdarzeń drogowych „" + sp.id + "” nie została dodana: " + ((e && e.message) || e)); }
+    map.addLayer({
+      id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"],
+               "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 6], "line-opacity": 0.9 }
+    }, before);
+    map.addLayer({
+      id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents",
+      layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 13, 14, 19], "text-allow-overlap": true }
+    }, before);
+    map.on("click", "traffic-incidents-icon", ev => {
+      const f = ev.features && ev.features[0]; if(!f) return;
+      showBanner(f.properties.title, f.properties.text, false);
     });
-    if(fresh && !map._trafficHandlers){
-      map._trafficHandlers = true;
-      ["traffic-incidents-icon", "traffic-incidents-dot"].forEach(id => {
-        map.on("click", id, ev => { const f = ev.features && ev.features[0]; if(f) showBanner(f.properties.title, f.properties.text, false); });
-        map.on("mouseenter", id, () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
-        map.on("mouseleave", id, () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
-      });
-    }
+    map.on("mouseenter", "traffic-incidents-icon", () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "traffic-incidents-icon", () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
     return true;
   }
 
@@ -11591,8 +11523,6 @@
       feats.push(f);
     });
     map.getSource("traffic-incidents").setData({ type: "FeatureCollection", features: feats });
-    debugLog("info", `Mapa: zdarzenia drogowe — ${feats.length} elementów, warstwy: ` +
-      ["line", "dot", "icon"].map(k => map.getLayer("traffic-incidents-" + k) ? k + " ✓" : k + " ✗").join(", "));
   }
 
   function trafficIncidentToFeatures(inc){
@@ -11749,44 +11679,6 @@
       guideSay("Za " + guideSpeakDist(Math.max(50, d)) + " " + TRAFFIC_ROUTE_CATS[it.cat] + ".");
       return;                                              // jeden komunikat na odczyt GPS
     }
-  }
-
-  /* ---------- diagnoza (konsola 🐞 → „🔍 Diagnoza”): co jest w danych i na mapie w środku ekranu ---------- */
-  function mapDiagnose(){
-    if(!map) return;
-    const c = map.getCenter(), z = map.getZoom().toFixed(1);
-    debugLog("info", `DIAGNOZA — środek mapy ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}, zoom ${z}`);
-    ["traffic-incidents", "restriction-signs", "roads-maxheight", "roads-maxweight", "roads-maxwidth"].forEach(id => {
-      let n = "brak źródła";
-      try{ if(map.getSource(id)) n = map.querySourceFeatures(id).length + " elementów w załadowanych kafelkach"; }catch(e){ n = "błąd: " + e.message; }
-      debugLog("info", `  źródło ${id}: ${n}`);
-    });
-    ["traffic-incidents-line", "traffic-incidents-dot", "traffic-incidents-icon", "restriction-signs-icon", "roads-maxweight-line", "roads-maxheight-line"].forEach(id => {
-      let n = "brak warstwy";
-      try{ if(map.getLayer(id)) n = map.queryRenderedFeatures({ layers: [id] }).length + " narysowanych na ekranie"; }catch(e){ n = "błąd: " + e.message; }
-      debugLog("info", `  warstwa ${id}: ${n}`);
-    });
-    debugLog("info", "  obrazki znaków: " + ["height", "weight", "width"].map(k => k + (map.hasImage("restriction-sign-" + k) ? " ✓" : " ✗")).join(", "));
-    // ograniczenia z wczytanych danych w promieniu 300 m od środka
-    const near = [];
-    const src = (typeof restrictionSrc !== "undefined" && restrictionSrc) || { h: [], w: [], d: [] };
-    [["wysokość", src.h, "maxheight"], ["tonaż", src.w, "maxweight"], ["szerokość", src.d, "maxwidth"]].forEach(([nm, arr, prop]) => arr.forEach(f => {
-      const co = f.geometry.coordinates; let best = Infinity;
-      co.forEach(pt => { const d = haversine(c.lat, c.lng, pt[1], pt[0]); if(d < best) best = d; });
-      if(best < 300) near.push(`${nm} ${f.properties[prop]} (osm ${f.properties.osm_id}, ${Math.round(best)} m)`);
-    }));
-    debugLog("info", "  w wczytanych danych w promieniu 300 m: " + (near.length ? near.join("; ") : "NIC"));
-    // a co jest w OSM (Overpass) w tym samym miejscu
-    const q = `[out:json][timeout:20];( way(around:300,${c.lat},${c.lng})[~"^max(height|weight|width)"~"."]; node(around:300,${c.lat},${c.lng})[~"^max(height|weight|width)"~"."]; );out tags center;`;
-    debugLog("info", "  pytam Overpass o ograniczenia w promieniu 300 m…");
-    tryEndpoints(q, 0, 20000).then(d => {
-      const els = d.elements || [];
-      debugLog("info", `  OSM: ${els.length} obiektów z ograniczeniami`);
-      els.slice(0, 12).forEach(e => {
-        const t = e.tags || {}, keep = Object.keys(t).filter(k => /^(max|hgv|access|motor_vehicle|goods|vehicle|highway|bridge|name|traffic_sign|barrier)/.test(k)).map(k => k + "=" + t[k]).join(" ");
-        debugLog("info", `   ${e.type} ${e.id}: ${keep}`);
-      });
-    }).catch(err => debugLog("warn", "  Overpass niedostępny: " + ((err && err.message) || err)));
   }
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
