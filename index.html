@@ -1449,6 +1449,7 @@
   <div id="debugConsoleActions">
     <button id="debugCopyBtn" type="button">Kopiuj</button>
     <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
+    <button id="debugResetBtn" type="button" class="secondary">🔄 Restart danych</button>
   </div>
 </div>
 
@@ -1751,6 +1752,28 @@
     if(closeBtn) closeBtn.addEventListener("click", () => toggleDebugConsole(false));
     if(copyBtn) copyBtn.addEventListener("click", copyDebugLogs);
     if(clearBtn) clearBtn.addEventListener("click", () => { debugLogs.length = 0; renderDebugConsole(); });
+    // Restart danych: kasuje lokalne kopie (zjazdy, fotoradary, znaki, firmy…) i przeładowuje aplikację —
+    // wszystko pobiera się od nowa ze wspólnej bazy (w logu: „… ze wspólnej bazy — komplet”). Ustawienia i logowanie zostają.
+    const resetBtn = document.getElementById("debugResetBtn");
+    if(resetBtn) resetBtn.addEventListener("click", () => {
+      if(!confirm("Wyczyścić lokalne kopie danych i pobrać je od nowa ze wspólnej bazy? Ustawienia i logowanie zostaną.")) return;
+      resetBtn.textContent = "Czyszczę…";
+      try{ Object.keys(localStorage).filter(k => /^nav_(uk_|restr)/.test(k)).forEach(k => localStorage.removeItem(k)); }catch(e){}
+      const done = () => location.reload();
+      try{
+        const req = indexedDB.open("nav_cache_v1", 1);
+        req.onsuccess = () => {
+          try{
+            const db = req.result;
+            if(!db.objectStoreNames.contains("kv")){ db.close(); return done(); }
+            const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").clear();
+            tx.oncomplete = () => { db.close(); done(); }; tx.onerror = () => { db.close(); done(); };
+          }catch(e){ done(); }
+        };
+        req.onerror = done;
+      }catch(e){ done(); }
+      setTimeout(done, 4000);
+    });
   });
 
   debugLog("info", "Konsola debugowania uruchomiona.");
@@ -8778,19 +8801,24 @@
   }
 
   // czy pozycja GPS leży na autostradzie według mapy — gdy poprzedni krok trasy nie ma numeru drogi (np. start już na M1)
-  let ukMwCache = { t: 0, v: false };
+  // z histerezą: raz wykryta autostrada „trzyma się” 12 s po ostatnim potwierdzeniu — inaczej tablica migała (niebieska/biała)
+  let ukMwCache = { t: 0, v: false, lastTrue: 0 };
   function ukOnMotorwayByMap(){
-    if(Date.now() - ukMwCache.t < 1500) return ukMwCache.v;
-    let v = false;
+    const now = Date.now();
+    if(now - ukMwCache.t < 1500) return ukMwCache.v;
+    let hit = false;
     try{
       if(map && lastPos){
-        const p = map.project([lastPos.lon, lastPos.lat]), r = 22;
-        v = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
+        const p = map.project([lastPos.lon, lastPos.lat]);
+        const mpp = 156543.03 * Math.cos(lastPos.lat * Math.PI / 180) / Math.pow(2, map.getZoom());   // metrów na piksel
+        const r = Math.max(12, Math.min(45, 70 / mpp));                                                // ~70 m wokół pozycji
+        hit = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
           .some(f => f.sourceLayer === "transportation" && f.properties && f.properties.class === "motorway");
       }
     }catch(e){}
-    ukMwCache = { t: Date.now(), v };
-    return v;
+    if(hit) ukMwCache.lastTrue = now;
+    ukMwCache.t = now; ukMwCache.v = hit || (now - ukMwCache.lastTrue < 12000);
+    return ukMwCache.v;
   }
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
@@ -11489,26 +11517,37 @@
   const TRAFFIC_INC_NAMES = { 1: "Wypadek", 3: "Niebezpieczne warunki", 5: "Lód / śnieg", 6: "Korek", 7: "Zamknięty pas", 8: "Droga zamknięta", 9: "Roboty drogowe", 11: "Zalana droga", 14: "Zepsuty pojazd" };
   let trafficIncCenter = null, trafficIncFetchedAt = 0, trafficIncBusy = false, trafficIncTimer = null, trafficIncData = null;
 
+  const TRAFFIC_COLOR = ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"];
+  // dodaje źródło i KAŻDĄ warstwę osobno (błąd jednej nie blokuje reszty i trafia do konsoli debugowania)
   function ensureTrafficIncidentLayers(){
-    if(!map || map.getSource("traffic-incidents")) return !!map;
-    map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
+    if(!map) return false;
+    if(!map.getSource("traffic-incidents")) map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
     const before = map.getLayer("route-incidents-icon") ? "route-incidents-icon" : undefined;
-    map.addLayer({
-      id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"],
-               "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 6], "line-opacity": 0.9 }
-    }, before);
-    map.addLayer({
-      id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents",
-      layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 13, 14, 19], "text-allow-overlap": true }
-    }, before);
-    map.on("click", "traffic-incidents-icon", ev => {
-      const f = ev.features && ev.features[0]; if(!f) return;
-      showBanner(f.properties.title, f.properties.text, false);
+    const pt = ["==", ["geometry-type"], "Point"];
+    const specs = [
+      { id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": TRAFFIC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3, 14, 7], "line-opacity": 0.95 } },
+      { id: "traffic-incidents-dot", type: "circle", source: "traffic-incidents", filter: pt,
+        paint: { "circle-color": TRAFFIC_COLOR, "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 6, 14, 11],
+                 "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } },
+      { id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents", filter: pt,
+        layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 6, 11, 14, 16], "text-allow-overlap": true, "text-ignore-placement": true } }
+    ];
+    let fresh = false;
+    specs.forEach(sp => {
+      if(map.getLayer(sp.id)) return;
+      try{ map.addLayer(sp, before); fresh = true; }
+      catch(e){ debugLog("error", "Warstwa zdarzeń drogowych „" + sp.id + "” nie została dodana: " + ((e && e.message) || e)); }
     });
-    map.on("mouseenter", "traffic-incidents-icon", () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", "traffic-incidents-icon", () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
+    if(fresh && !map._trafficHandlers){
+      map._trafficHandlers = true;
+      ["traffic-incidents-icon", "traffic-incidents-dot"].forEach(id => {
+        map.on("click", id, ev => { const f = ev.features && ev.features[0]; if(f) showBanner(f.properties.title, f.properties.text, false); });
+        map.on("mouseenter", id, () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", id, () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
+      });
+    }
     return true;
   }
 
@@ -11523,6 +11562,8 @@
       feats.push(f);
     });
     map.getSource("traffic-incidents").setData({ type: "FeatureCollection", features: feats });
+    debugLog("info", `Mapa: zdarzenia drogowe — ${feats.length} elementów, warstwy: ` +
+      ["line", "dot", "icon"].map(k => map.getLayer("traffic-incidents-" + k) ? k + " ✓" : k + " ✗").join(", "));
   }
 
   function trafficIncidentToFeatures(inc){
