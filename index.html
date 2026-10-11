@@ -2074,6 +2074,8 @@
   let adminMode = false;
   try{ adminMode = localStorage.getItem(ADMIN_KEY) === "1"; }catch(e){}
   function isAdmin(){ return adminMode; }
+  // administrator trzyma cache długo; zwykły użytkownik sprawdza bazę częściej (dostaje uzupełnienia admina)
+  function cacheMaxAge(ms, userCapMs){ return isAdmin() ? ms : Math.min(ms, userCapMs); }
   document.body.classList.toggle("is-admin", adminMode);
   const SUPA_DEFAULT_URL = "https://kbufzpuybktojgfwrzfb.supabase.co";
   const SUPA_DEFAULT_KEY = "sb_publishable_u1vzwYMWXiPZYd4gbc8E6Q_NS7AHUUY";
@@ -4113,7 +4115,7 @@
         setJunctionData(cached.features);
         debugLog("info", `Zjazdy autostradowe: ${cached.features.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
         baseRaw = Array.isArray(cached.rawFeatures) ? cached.rawFeatures : cached.features;
-        const fresh = Date.now() - cached.savedAt < JUNCTIONS_CACHE_MAX_AGE_MS;
+        const fresh = Date.now() - cached.savedAt < cacheMaxAge(JUNCTIONS_CACHE_MAX_AGE_MS, 7 * 24 * 3600 * 1000);
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps && !force){ sharedDataMarkCache("junctions", cached.features.length); return; } // mamy świeże i pełne dane z cache — nie odpytujemy Overpass
         if(hasGaps) bandsToFetch = cached.failedBands;
@@ -4334,7 +4336,7 @@
     if(cached){
       showMotorwayCameras(cached.cams);
       debugLog("info", `Fotoradary autostradowe: ${cached.cams.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-      if(Date.now() - cached.savedAt < MW_CAMERA_CACHE_MAX_AGE_MS && !force){ sharedDataMarkCache("cameras", cached.cams.length); return; } // świeże — nic nie pobieramy
+      if(Date.now() - cached.savedAt < cacheMaxAge(MW_CAMERA_CACHE_MAX_AGE_MS, 7 * 24 * 3600 * 1000) && !force){ sharedDataMarkCache("cameras", cached.cams.length); return; } // świeże — nic nie pobieramy
     }
 
     // 2) wspólna baza, a gdy jej nie ma albo jest pusta — 3) Overpass
@@ -4452,7 +4454,7 @@
         baseFeatures = cached.features;
         setAvgSpeedCameraData(baseFeatures);
         debugLog("info", `Odcinkowy pomiar prędkości: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-        const fresh = Date.now() - cached.savedAt < AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS;
+        const fresh = Date.now() - cached.savedAt < cacheMaxAge(AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS, 7 * 24 * 3600 * 1000);
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps && !force){ sharedDataMarkCache("avgSpeed", baseFeatures.length); return; }
         if(hasGaps){
@@ -4640,7 +4642,7 @@
         baseFeatures = cached.features;
         setHgvCompaniesData(baseFeatures);
         debugLog("info", `Firmy/operatorzy: ${baseFeatures.length} z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-        const fresh = Date.now() - cached.savedAt < HGV_COMPANIES_CACHE_MAX_AGE_MS;
+        const fresh = Date.now() - cached.savedAt < cacheMaxAge(HGV_COMPANIES_CACHE_MAX_AGE_MS, 7 * 24 * 3600 * 1000);
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         if(fresh && !hasGaps && !force){ sharedDataMarkCache("hgv", baseFeatures.length); return; }
         if(hasGaps){
@@ -5014,10 +5016,10 @@
         const cachedSigns = cached.signFeatures || [];
         setRestrictionsData(cachedHeight, cachedWeight, cachedWidth, cachedSigns); // pokaż od razu, choćby stare
         debugLog("info", `Znaki wysokości/tonażu/szerokości: ${cachedHeight.length} wys. / ${cachedWeight.length} tonaż / ${cachedWidth.length} szer. z cache (zapisane ${new Date(cached.savedAt).toLocaleString()})`);
-        const fresh = Date.now() - cached.savedAt < RESTRICTIONS_CACHE_MAX_AGE_MS;
+        const fresh = Date.now() - cached.savedAt < cacheMaxAge(RESTRICTIONS_CACHE_MAX_AGE_MS, 24 * 3600 * 1000);
         const hasGaps = Array.isArray(cached.failedBands) && cached.failedBands.length > 0;
         const hasWidthData = cached.hasWidth === true; // starszy cache (sprzed dodania szerokości) tego nie ma
-        if(fresh && !hasGaps && hasWidthData && !force){ sharedDataMarkCache("restrictions", cachedHeight.length + cachedWeight.length + cachedWidth.length); return; } // pełny, świeży cache z komplety danych — nic więcej do zrobienia
+        if(fresh && !hasGaps && hasWidthData && !force){ sharedDataMarkCache("restrictions", cachedHeight.length + cachedWeight.length + cachedWidth.length); adminRestrictionsStatusCheck(cachedHeight, cachedWeight, cachedWidth, cachedSigns); return; } // pełny, świeży cache z komplety danych — nic więcej do zrobienia
         if(hasGaps){
           // dociągamy TYLKO brakujące fragmenty, dokładając je do tego, co już mamy
           bandsToFetch = refineFailedBands(cached.failedBands);
@@ -5039,7 +5041,7 @@
           if(shared && shared.length){
             const { heightFeatures, weightFeatures, widthFeatures, signFeatures } = restrictionRowsToFeatures(shared);
             setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures);
-            debugLog("info", `Znaki wysokości/tonażu/szerokości: ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${widthFeatures.length} szer. ze wspólnej bazy — komplet`);
+            debugLog("info", `Znaki wysokości/tonażu/szerokości: ${heightFeatures.length} wys. / ${weightFeatures.length} tonaż / ${widthFeatures.length} szer. ze wspólnej bazy`);
             idbSet(RESTRICTIONS_CACHE_KEY, {
               savedAt: Date.now(),
               heightFeatures: roundCoordsForCache(heightFeatures),
@@ -5049,6 +5051,7 @@
               failedBands: [], hasWeight: true, hasWidth: true
             });
             sharedDataMarkSupabase("restrictions", heightFeatures.length + weightFeatures.length + widthFeatures.length);
+            adminRestrictionsStatusCheck(heightFeatures, weightFeatures, widthFeatures, signFeatures);
             return;
           }
           debugLogSupabaseFallback("Znaki wysokości/tonażu/szerokości", shared); sharedDataMarkBaseEmpty("restrictions", shared);
@@ -5098,13 +5101,16 @@
       }).then(ok => {
         if(!ok) debugLog("warn", "Znaki wysokości/tonażu/szerokości: NIE udało się zapisać cache — jutro znowu trzeba będzie pobrać wszystko");
       });
-      sharedAfterOverpass("restrictions", failedBands.length, allHeight.length + allWeight.length + allWidth.length, "road_restrictions", () => {
+      Promise.resolve(sharedAfterOverpass("restrictions", failedBands.length, allHeight.length + allWeight.length + allWidth.length, "road_restrictions", () => {
         const rows = [];
         allHeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "height", value: f.properties.maxheight, coords: f.geometry.coordinates }));
         allWeight.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "weight", value: f.properties.maxweight, coords: f.geometry.coordinates }));
         allWidth.forEach(f => rows.push({ osm_id: f.properties.osm_id, kind: "width", value: f.properties.maxwidth, coords: f.geometry.coordinates }));
         return rows;
-      }, "osm_id,kind", 200);
+      }, "osm_id,kind", 200, true)).then(() => {
+        const st = sharedDataState.restrictions;
+        if(st && st.sentState === "ok") writeDataStatus("restrictions", failedBands.length === 0, failedBands);
+      });
       if(failedBands.length && restrictionsRetries++ < RESTRICTIONS_MAX_RETRIES){
         setTimeout(loadUkRestrictionsOnce, OVERPASS_RETRY_AFTER_FAIL_MS * 4);
       }
@@ -5406,11 +5412,11 @@
     });
   }
   // koniec pobierania z Overpass: wysyłamy do bazy tylko KOMPLETNE dane (bez nieudanych fragmentów)
-  function sharedAfterOverpass(id, failedCount, count, table, rowsFn, conflict, batch){
+  function sharedAfterOverpass(id, failedCount, count, table, rowsFn, conflict, batch, allowPartial){
     sharedDataMarkOverpassFinished(id, failedCount, count);
-    const st = sharedDataState[id]; if(!st) return;
-    if(failedCount > 0){ st.sentState = "waiting"; renderSharedDataProgress(); return; }
-    sharedUpload(id, table, rowsFn(), conflict, batch);
+    const st = sharedDataState[id]; if(!st) return Promise.resolve();
+    if(failedCount > 0 && !allowPartial){ st.sentState = "waiting"; renderSharedDataProgress(); return Promise.resolve(); }
+    return sharedUpload(id, table, rowsFn(), conflict, batch);
   }
 
   function computeSharedDataProgress(){
@@ -5660,6 +5666,50 @@
     try{ renderSharedDataProgress(); }catch(e){}
   }
 
+  // Baza nie wiedziała, czy dane są kompletne: każda niepusta tabela była traktowana jak „komplet”. Teraz
+  // administrator zapisuje w tabeli data_status, czy zestaw jest pełny i których fragmentów (pasów) brakuje.
+  function fetchDataStatus(dataset){
+    if(!supaConfigured()) return Promise.resolve(null);
+    return fetch(normSupaUrl(supaUrl) + `/rest/v1/data_status?dataset=eq.${encodeURIComponent(dataset)}&select=complete,missing`, {
+      headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }
+    }).then(r => {
+      if(r.status === 404){ debugLog("warn", "Supabase: brak tabeli data_status — uruchom skrypt SQL ze statusem danych."); return null; }
+      return r.ok ? r.json() : null;
+    }).then(rows => (rows && rows[0]) || null).catch(() => null);
+  }
+  function writeDataStatus(dataset, complete, missing){
+    return supaAdminToken().then(token => {
+      if(!token) return;
+      return fetch(normSupaUrl(supaUrl) + "/rest/v1/data_status?on_conflict=dataset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token,
+                   "Prefer": "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([{ dataset, complete: !!complete, missing: missing || [], updated_at: new Date().toISOString() }])
+      });
+    }).catch(() => {});
+  }
+  // pasy, w których baza nie ma ŻADNEGO znaku (np. nigdy nie pobrane z Overpass)
+  function restrictionBandsWithoutData(bands, feats){
+    const pts = [];
+    feats.forEach(f => { const c = f.geometry && f.geometry.coordinates && f.geometry.coordinates[0]; if(c) pts.push(c); });
+    return bands.filter(b => { const [sth, w, nth, e] = b.box; return !pts.some(c => c[1] >= sth && c[1] <= nth && c[0] >= w && c[0] <= e); });
+  }
+  let restrictionsGapAt = 0;
+  // tylko administrator: jeśli baza jest niekompletna, dociąga brakujące pasy z Overpass i uzupełnia bazę
+  function adminRestrictionsStatusCheck(h, w, d, sg){
+    if(!isAdmin() || !supaConfigured()) return;
+    if(Date.now() - restrictionsGapAt < 10 * 60 * 1000) return;
+    fetchDataStatus("restrictions").then(st => {
+      if(!st || st.complete === true) return;
+      let missing = Array.isArray(st.missing) && st.missing.length ? refineFailedBands(st.missing) : [];
+      if(!missing.length) missing = restrictionBandsWithoutData(flattenRestrictionsRegions(), h.concat(w, d));
+      if(!missing.length){ writeDataStatus("restrictions", true, []); return; }
+      restrictionsGapAt = Date.now();
+      debugLog("info", `Znaki wysokości/tonażu/szerokości: baza niekompletna — dociągam ${missing.length} brakujących fragmentów z Overpass`);
+      runRestrictionsOverpass(h, w, d, sg, missing);
+    });
+  }
+
   function uploadRowsAwait(table, rows, conflictCols, batchSize){
     const url = normSupaUrl(supaUrl) + `/rest/v1/${table}?on_conflict=${conflictCols}`;
     const B = batchSize || 500;
@@ -5729,7 +5779,8 @@
             rows.push({ osm_id: f.properties.osm_id, kind, value: v, coords: f.geometry.coordinates });
         });
         add(r.heightFeatures, "height", "maxheight"); add(r.weightFeatures, "weight", "maxweight"); add(r.widthFeatures, "width", "maxwidth");
-        jobs.push({ id:"restrictions", label:"Znaki wysokości/tonażu/szerokości", table:"road_restrictions", conflict:"osm_id,kind", rows, batch:200 });
+        jobs.push({ id:"restrictions", label:"Znaki wysokości/tonażu/szerokości", table:"road_restrictions", conflict:"osm_id,kind", rows, batch:200,
+          afterOk: () => writeDataStatus("restrictions", !(r.failedBands && r.failedBands.length), r.failedBands || []) });
       }
     }catch(e){}
     { const pb = document.getElementById("navSupaProgress"); if(pb) pb.classList.add("show"); }
@@ -5740,6 +5791,7 @@
       try{
         const n = await uploadRowsAwait(job.table, job.rows, job.conflict, job.batch);
         lines.push(`✅ ${job.label}: wysłano ${n}`);
+        if(job.afterOk) job.afterOk();
         const cs = sharedDataState[job.id];
         if(cs){ cs.sentState = "ok"; cs.sentCount = n; sharedDataRefreshBaseCount(job.id); renderSharedDataProgress(); }
         debugLog("info", `Supabase: wysłano ${n} wierszy do ${job.table}`);
