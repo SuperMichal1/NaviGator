@@ -971,6 +971,17 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
+
+  .navSwitchRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .navSwitchRow small{ display:block; opacity:.65; font-size:12px; margin-top:2px; }
+  input.navSwitch{ appearance:none; -webkit-appearance:none; flex:0 0 auto; width:48px !important; height:28px !important; border-radius:14px; background:rgba(128,128,128,.45); position:relative; cursor:pointer; transition:background .2s; }
+  input.navSwitch::after{ content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  input.navSwitch:checked{ background:var(--accent); }
+  input.navSwitch:checked::after{ transform:translateX(20px); }
+
+  input.navSwitch{ width:40px !important; height:24px !important; border-radius:12px; }
+  input.navSwitch::after{ top:3px; left:3px; width:18px; height:18px; }
+  input.navSwitch:checked::after{ transform:translateX(16px); }
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1471,13 +1482,7 @@
     <div class="setPane active" data-pane="screen">
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel">Znak ograniczenia:
-        <select id="navPrefLimitMode">
-          <option value="speeding">Tylko przy przekroczeniu prędkości</option>
-          <option value="always">Cały czas</option>
-        </select>
-      </label>
+      <label class="navPrefLabel navSwitchRow"><span>Znak ograniczenia prędkości<small id="navPrefLimitSignHint"></small></span><input type="checkbox" id="navPrefLimitSign" class="navSwitch" role="switch"></label>
       <label class="navPrefLabel">Tryb mapy:
         <select id="navPrefTheme">
           <option value="auto">Auto (wschód/zachód słońca)</option>
@@ -2537,9 +2542,64 @@
     ];
   }
 
+  /* Punkty z OSM (numery zjazdów, fotoradary) leżą na samej jezdni. Przesuwamy je w LEWO względem kierunku jazdy
+     (w UK zjazd/pobocze jest po lewej); kierunek bierzemy z najbliższego odcinka autostrady z kafelków mapy
+     (liczymy raz dla punktu, po wczytaniu kafelków; wynik trzymamy w pamięci). */
+  function makeRoadShifter(metres, getRaw, sourceId, getKey){
+    const cache = new Map(); let busy = false, at = 0;
+    const keyOf = f => f.geometry.coordinates[0] + "," + f.geometry.coordinates[1];
+    function shifted(){
+      return { type: "FeatureCollection", features: getRaw().map(f => {
+        const sh = cache.get(keyOf(f));
+        return sh ? { type:"Feature", properties: f.properties, geometry:{ type:"Point", coordinates: sh } } : f;
+      }) };
+    }
+    function compute(){
+      if(Date.now() - at < 1000) return;
+      at = Date.now();
+      const raw = getRaw();
+      if(busy || !map || !raw.length || map.getZoom() < 13 || typeof mwVectorSource === "undefined") return;
+      const bb = map.getBounds();
+      const todo = raw.filter(f => !cache.has(keyOf(f)) && bb.contains(f.geometry.coordinates));
+      if(!todo.length) return;
+      busy = true;
+      try{
+        const feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1]] });
+        const lines = [];
+        feats.forEach(f => { const g = f.geometry; if(!g) return;
+          if(g.type === "LineString") lines.push(g.coordinates); else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c)); });
+        let changed = false;
+        todo.forEach(f => {
+          const [lon, lat] = f.geometry.coordinates;
+          const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180);
+          let best = null, bd = 45;
+          lines.forEach(ln => { for(let i = 0; i < ln.length - 1; i++){
+            const ax = (ln[i][0] - lon) * mLon, ay = (ln[i][1] - lat) * mLat, bx = (ln[i+1][0] - lon) * mLon, by = (ln[i+1][1] - lat) * mLat;
+            const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; if(!l2) continue;
+            const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2));
+            const d = Math.hypot(ax + t * dx, ay + t * dy);
+            if(d < bd){ bd = d; best = { dx, dy, l: Math.sqrt(l2) }; }
+          } });
+          if(!best) return;   // brak kafelka z drogą — spróbujemy ponownie przy następnym ruchu mapy
+          const nx = -best.dy / best.l, ny = best.dx / best.l;   // lewa strona odcinka (x = wschód, y = północ)
+          cache.set(keyOf(f), [lon + nx * metres / mLon, lat + ny * metres / mLat]);
+          changed = true;
+        });
+        if(changed && map.getSource(sourceId)) map.getSource(sourceId).setData(shifted());
+      }catch(e){ /* kafelki jeszcze niegotowe */ }
+      busy = false;
+    }
+    return { shifted, compute };
+  }
+  let junctionRaw = [];
+  const junctionShifter = makeRoadShifter(26, () => junctionRaw, "motorway-junctions");
+  const junctionShifted = junctionShifter.shifted, junctionComputeShifts = junctionShifter.compute;
+
   function setJunctionData(features){
-    junctionData = { type: "FeatureCollection", features };
+    junctionRaw = features || [];
+    junctionData = junctionShifted();
     if(map && map.getSource("motorway-junctions")) map.getSource("motorway-junctions").setData(junctionData);
+    setTimeout(junctionComputeShifts, 600);
     try{
       if(shieldOverlay && shieldOverlay.getSource("motorway-junctions")){
         shieldOverlay.getSource("motorway-junctions").setData(junctionData);
@@ -2982,6 +3042,20 @@
   let nightLayerInfo = {};     // { idWarstwy: { type, sl, id, filter } }
   let nightOpacityLayers = []; // warstwy, którym w nocy zmieniamy krycie zależnie od zoomu: { id, prop, kind, orig }
   // Zapamiętuje dzienne kolory WSZYSTKICH warstw bazowej mapy (wołane raz, zanim dodamy własne warstwy).
+  // żółta tabliczka z aparatem — ikona fotoradaru na autostradzie
+  function makeCameraIcon(){
+    const S = 48, cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const c = cv.getContext("2d");
+    c.fillStyle = "#FFC400"; c.strokeStyle = "#1a1a1a"; c.lineWidth = 2.5;
+    c.beginPath(); c.roundRect ? c.roundRect(3, 3, 42, 42, 8) : c.rect(3, 3, 42, 42); c.fill(); c.stroke();
+    c.fillStyle = "#1a1a1a";
+    c.beginPath(); c.roundRect ? c.roundRect(9, 16, 30, 20, 4) : c.rect(9, 16, 30, 20); c.fill();       // korpus aparatu
+    c.fillRect(17, 11, 10, 6);                                                                           // wizjer
+    c.fillStyle = "#FFC400"; c.beginPath(); c.arc(24, 26, 7, 0, Math.PI * 2); c.fill();                 // obiektyw
+    c.fillStyle = "#1a1a1a"; c.beginPath(); c.arc(24, 26, 4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#fff"; c.beginPath(); c.arc(22.5, 24.5, 1.4, 0, Math.PI * 2); c.fill();
+    return c.getImageData(0, 0, S, S);
+  }
   function initNightTheme(){
     if(!map || nightOriginals) return;
     try{
@@ -3372,6 +3446,8 @@
       // źródło numerów zjazdów autostradowych (dane z OSM/Overpass, highway=motorway_junction)
       map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
       junctionLayerSpecs().forEach(spec => map.addLayer(spec));
+      map.on("moveend", () => { try{ junctionComputeShifts(); }catch(e){} });
+      map.on("sourcedata", ev => { if(ev.isSourceLoaded && ev.sourceId === mwVectorSource) try{ junctionComputeShifts(); }catch(e){} });
 
       // tablice z numerami dróg mają leżeć NAD wyznaczoną trasą (ale nadal pod numerami zjazdów)
       SHIELD_LAYER_IDS.forEach(id => {
@@ -3383,20 +3459,22 @@
       // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
       // z okolicy pozycji, więc te większe je przykrywają, zamiast się dublować.
       map.addSource("motorway-cameras", { type:"geojson", data: emptyFC() });
+      // żółta ikona fotoradaru (rysowana raz na canvasie)
+      if(!map.hasImage("mw-cam-icon")) map.addImage("mw-cam-icon", makeCameraIcon(), { pixelRatio: 2 });
       map.addLayer({
         id:"motorway-cameras-dot",
-        type:"circle",
+        type:"symbol",
         source:"motorway-cameras",
         minzoom: 14,
-        paint:{
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2, 16, 3.5, 18, 5],
-          "circle-color": "#E5484D",
-          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75],
-          "circle-stroke-width": 1,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75]
-        }
+        layout:{
+          "icon-image": "mw-cam-icon",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.45, 16, 0.7, 18, 1],
+          "icon-allow-overlap": true, "icon-ignore-placement": true
+        },
+        paint:{ "icon-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 1] }
       }, "cameras-glow");
+      map.on("moveend", () => { try{ mwCamerasCompute(); }catch(e){} });
+      map.on("sourcedata", ev => { if(ev.isSourceLoaded && ev.sourceId === mwVectorSource) try{ mwCamerasCompute(); }catch(e){} });
 
       // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
       map.addSource("hgv-parking", { type:"geojson", data: emptyFC() });
@@ -3500,7 +3578,7 @@
                lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
-  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
+  const MW_FILTER = ["all", ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
   let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
   const mwSprites = {};
   const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
@@ -3547,23 +3625,35 @@
       "motorway-junction-circle", "motorway-junction-label", "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
     const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
-    const before = anchors[0];
-    const th = mwTheme(), W = MW.laneW, N = MW.lanes;
-    const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom };
-    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+    let before = anchors[0];
+    // asfalt MUSI leżeć nad wszystkimi liniami dróg stylu (także mostami/wiaduktami) — inaczej niebieskie linie mostów przebijają przez asfalt
+    let lastRoad = -1;
+    styleLayers.forEach((l, i) => { if(l.type === "line" && l["source-layer"] === "transportation") lastRoad = i; });
+    if(lastRoad >= 0 && lastRoad + 1 < styleLayers.length && idx(before) <= lastRoad) before = styleLayers[lastRoad + 1].id;
+    const th = mwTheme();
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    map.addLayer(Object.assign({ id: MW_TEX, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), before);
-    mwLayerIds = [MW_TEX]; mwMarkIds = [];
-    [-1, 1].forEach(side => {                       // krawędzie jezdni
-      const id = "mw-edge-" + (side < 0 ? "l" : "r");
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-    });
-    for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
-      const id = "mw-div-" + k;
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-    }
+    mwLayerIds = []; mwMarkIds = [];
+    // zestaw warstw dla danej klasy drogi: autostrada (3 pasy) i droga A (2 pasy, węższa, przerywana linia środkowa)
+    const addSet = (key, isMw, N, W, shoulder) => {
+      const filter = ["==", ["get", "m"], isMw ? 1 : 0];
+      const b0 = Object.assign({ type:"line", source: MW_SRC, minzoom: MW.minZoom, filter });
+      const lay = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+      const tex = MW_TEX + (isMw ? "" : "-a");
+      map.addLayer(Object.assign({ id: tex, layout: lay, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * shoulder) } }, b0), before);
+      mwLayerIds.push(tex);
+      [-1, 1].forEach(side => {                       // krawędzie jezdni
+        const id = "mw-" + key + "-edge-" + (side < 0 ? "l" : "r");
+        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, b0), before);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      });
+      for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+        const id = "mw-" + key + "-div-" + k;
+        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, b0), before);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      }
+    };
+    addSet("m", true, MW.lanes, MW.laneW, MW.shoulder);
+    addSet("a", false, 2, 3.3, 0.4);
     map.on("styleimagemissing", e => {
       const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
       if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSprites[m[1]] || (mwSprites[m[1]] = mwMakeSprite(m[1])), { pixelRatio: 2 });
@@ -3609,13 +3699,17 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad:", e); return; }
-    const lines = [];
-    feats.forEach(f => {
-      const g = f.geometry; if(!g) return;
-      if(g.type === "LineString") lines.push(g.coordinates);
-      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+    const out = [];
+    [1, 0].forEach(m => {
+      const lines = [];
+      feats.forEach(f => {
+        if(((f.properties && f.properties.class) === "motorway" ? 1 : 0) !== m) return;
+        const g = f.geometry; if(!g) return;
+        if(g.type === "LineString") lines.push(g.coordinates);
+        else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+      });
+      mwClipToWindow(lines, lat, lon, hdg).forEach(c => out.push({ type:"Feature", properties:{ m }, geometry:{ type:"LineString", coordinates: c } }));
     });
-    const out = mwClipToWindow(lines, lat, lon, hdg).map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } }));
     src.setData({ type:"FeatureCollection", features: out });
   }
 
@@ -3628,7 +3722,7 @@
     }
     if(!mwActive){
       mwActive = true; force = true;
-      map.setPaintProperty(MW_TEX, "line-pattern", mwEnsureSprite(mwTheme()));
+      [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwEnsureSprite(mwTheme())); });
       mwSetVisible(true);
     }
     // pozycja i kierunek pojazdu; bez GPS — środek i kierunek kamery
@@ -3645,7 +3739,7 @@
     if(!map || !map.getLayer(MW_TEX)) return;
     const th = mwTheme();
     mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", MW.marking[th]));
-    map.setPaintProperty(MW_TEX, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th);
+    [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th); });
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -3745,37 +3839,93 @@
         <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
   }
 
+  function avShade(hex, f){
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return hex;
+    const n = parseInt(m[1], 16), ch = k => Math.max(0, Math.min(255, Math.round(((n >> k) & 255) * f)));
+    return "#" + [16, 8, 0].map(k => ch(k).toString(16).padStart(2, "0")).join("");
+  }
   // avatary pojazdu: widok z góry, „nos” skierowany do góry (marker obraca się wg kierunku jazdy)
   const AVATARS = {
     arrow: { name:"Strzałka" },
-    truck: { name:"Ciężarówka", svg: c => `<ellipse cx="26" cy="27" rx="18" ry="22" fill="${c}" opacity=".25"/>
-      <rect x="17" y="19" width="18" height="26" rx="2.5" fill="#eef2f4" stroke="#0c0f12" stroke-width="1.4"/>
-      <rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
-      <rect x="20" y="9.5" width="12" height="3.6" rx="1.2" fill="#0c0f12" opacity=".75"/>`,
-      side: c => `<rect x="17" y="19" width="18" height="26" rx="2.5" fill="#c9d0d4"/><rect x="18" y="7" width="16" height="12" rx="3.5" fill="${c}"/>`,
-      wheels: `<g fill="#0c0f12"><rect x="15.2" y="9" width="3" height="6" rx="1"/><rect x="33.8" y="9" width="3" height="6" rx="1"/><rect x="15.2" y="23" width="3" height="7" rx="1"/><rect x="33.8" y="23" width="3" height="7" rx="1"/><rect x="15.2" y="35" width="3" height="7" rx="1"/><rect x="33.8" y="35" width="3" height="7" rx="1"/></g>`, h3d: .30 },
-    car: { name:"Auto", svg: c => `<ellipse cx="26" cy="26" rx="16" ry="23" fill="${c}" opacity=".25"/>
-      <rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}" stroke="#0c0f12" stroke-width="1.4"/>
-      <path d="M20.5 16 Q26 12.5 31.5 16 L30.5 22 L21.5 22 Z" fill="#0c0f12" opacity=".75"/>
-      <rect x="21" y="34" width="10" height="5" rx="2" fill="#0c0f12" opacity=".6"/>`,
-      side: c => `<rect x="17.5" y="7" width="17" height="38" rx="8.5" fill="${c}"/>`,
-      wheels: `<g fill="#0c0f12"><rect x="15.5" y="11" width="3" height="8" rx="1"/><rect x="33.5" y="11" width="3" height="8" rx="1"/><rect x="15.5" y="33" width="3" height="8" rx="1"/><rect x="33.5" y="33" width="3" height="8" rx="1"/></g>`, h3d: .17 },
-    gator: { name:"Aligator", svg: c => `<ellipse cx="26" cy="26" rx="20" ry="23" fill="${c}" opacity=".22"/>
-      <g class="gTail"><path d="M21.5 34 Q24 43 26 51 Q28 43 30.5 34 Z" fill="#4a6a24" stroke="#0c0f12" stroke-width="1.1" stroke-linejoin="round"/></g>
-      <g fill="#5a7a2e" stroke="#0c0f12" stroke-width="1.1">
-        <g class="gLegA"><ellipse cx="15.5" cy="21" rx="4.2" ry="2.3" transform="rotate(-30 15.5 21)"/></g>
-        <g class="gLegB"><ellipse cx="36.5" cy="21" rx="4.2" ry="2.3" transform="rotate(30 36.5 21)"/></g>
-        <g class="gLegB"><ellipse cx="16" cy="35" rx="4.2" ry="2.3" transform="rotate(30 16 35)"/></g>
-        <g class="gLegA"><ellipse cx="36" cy="35" rx="4.2" ry="2.3" transform="rotate(-30 36 35)"/></g>
+    truck: { name:"Ciężarówka", svg: c => `
+      <ellipse cx="26" cy="28" rx="15" ry="24" fill="#000" opacity=".22"/>
+      <g fill="#14181b"><rect x="15.6" y="8" width="2.6" height="5.4" rx="1"/><rect x="33.8" y="8" width="2.6" height="5.4" rx="1"/>
+        <rect x="15.6" y="22.5" width="2.6" height="5.4" rx="1"/><rect x="33.8" y="22.5" width="2.6" height="5.4" rx="1"/>
+        <rect x="15.6" y="29" width="2.6" height="5.4" rx="1"/><rect x="33.8" y="29" width="2.6" height="5.4" rx="1"/>
+        <rect x="15.6" y="42" width="2.6" height="5.4" rx="1"/><rect x="33.8" y="42" width="2.6" height="5.4" rx="1"/></g>
+      <rect x="19.6" y="17" width="12.8" height="6" fill="#2a3035"/>
+      <rect x="18" y="19.5" width="16" height="29.5" rx="1.6" fill="#eef2f4" stroke="#8d979c" stroke-width=".9"/>
+      <g stroke="#cfd7db" stroke-width=".8"><path d="M19 24H33M19 28.5H33M19 33H33M19 37.5H33M19 42H33M19 46.5H33"/></g>
+      <path d="M26 20V49" stroke="#c4ccd0" stroke-width=".6"/>
+      <rect x="18.2" y="4.5" width="15.6" height="14" rx="3.2" fill="${c}" stroke="#0c0f12" stroke-width="1"/>
+      <path d="M19.8 6.2Q26 4.6 32.2 6.2L31.4 10.2H20.6Z" fill="#10181d"/><path d="M21 7.2Q26 6.2 31 7.2" stroke="#6b8794" stroke-width=".6" fill="none"/>
+      <rect x="20" y="11.6" width="12" height="2.6" rx="1" fill="#fff" opacity=".35"/>
+      <rect x="20.4" y="15" width="11.2" height="2" rx=".8" fill="#000" opacity=".18"/>
+      <rect x="15.2" y="8.6" width="2.2" height="3.6" rx=".8" fill="#0c0f12"/><rect x="34.6" y="8.6" width="2.2" height="3.6" rx=".8" fill="#0c0f12"/>
+      <rect x="19.4" y="4.2" width="2.4" height="1.1" rx=".5" fill="#fff6c9"/><rect x="30.2" y="4.2" width="2.4" height="1.1" rx=".5" fill="#fff6c9"/>`,
+      boxes: c => {
+        const dk = avShade(c, .62), md = avShade(c, .8), W = (...a) => a.join(",");
+        const wheels = [];
+        [[8,5.4],[22.5,5.4],[29,5.4],[42,5.4]].forEach(([y, l]) => { wheels.push({ x:15.6, y, w:2.6, l, z:0, h:4.6, all:"#14181b" }, { x:33.8, y, w:2.6, l, z:0, h:4.6, all:"#14181b" }); });
+        return [
+          { x:19.6, y:5, w:12.8, l:44, z:.5, h:2.6, all:"#1b2024" },
+          { x:18, y:19.5, w:16, l:29.5, z:3, h:17, top:"repeating-linear-gradient(0deg,#d9e0e3 0 1.2px,#f4f7f8 1.2px 5px)", front:"#dfe5e8", back:"linear-gradient(90deg,#b4bdc2 0 49%,#9aa5ab 49% 51%,#b4bdc2 51%)", left:"linear-gradient(#f2f5f6,#cdd5d9)", right:"linear-gradient(#e7ecee,#c0c9ce)" },
+          { x:18.2, y:4.5, w:15.6, l:14, z:3, h:13, top:`linear-gradient(0deg,${md},${c})`, front:`linear-gradient(#10181d 0 46%,${dk} 46% 78%,#1a1f23 78%)`, back:dk, left:`linear-gradient(${c},${md})`, right:`linear-gradient(${md},${dk})` }
+        ].concat(wheels);
+      }, h3d: .3 },
+    car: { name:"Auto", svg: c => `
+      <ellipse cx="26" cy="27" rx="13" ry="24" fill="#000" opacity=".22"/>
+      <g fill="#14181b"><rect x="14.4" y="11" width="3" height="8" rx="1.2"/><rect x="34.6" y="11" width="3" height="8" rx="1.2"/><rect x="14.4" y="33" width="3" height="8" rx="1.2"/><rect x="34.6" y="33" width="3" height="8" rx="1.2"/></g>
+      <path d="M26 5C33 5 35.5 9 35.5 14V38C35.5 43 33 47 26 47C19 47 16.5 43 16.5 38V14C16.5 9 19 5 26 5Z" fill="${c}" stroke="#0c0f12" stroke-width="1"/>
+      <path d="M19.4 17.5Q26 14 32.6 17.5L31.6 23H20.4Z" fill="#10181d"/>
+      <rect x="20" y="23" width="12" height="11" rx="2" fill="${c}" stroke="#000" stroke-opacity=".25" stroke-width=".6"/>
+      <path d="M20.4 34H31.6L32.6 39.5Q26 42 19.4 39.5Z" fill="#10181d"/>
+      <path d="M17 24.5L14.6 25.3L14.6 28L17 28.4Z" fill="${c}" stroke="#0c0f12" stroke-width=".7"/><path d="M35 24.5L37.4 25.3L37.4 28L35 28.4Z" fill="${c}" stroke="#0c0f12" stroke-width=".7"/>
+      <rect x="19" y="5.6" width="3.4" height="1.2" rx=".6" fill="#fff6c9"/><rect x="29.6" y="5.6" width="3.4" height="1.2" rx=".6" fill="#fff6c9"/>
+      <rect x="19" y="45.2" width="3.4" height="1.1" rx=".5" fill="#ff4a4a"/><rect x="29.6" y="45.2" width="3.4" height="1.1" rx=".5" fill="#ff4a4a"/>`,
+      boxes: c => {
+        const dk = avShade(c, .62), md = avShade(c, .8), wheels = [];
+        [[11, 8], [33, 8]].forEach(([y, l]) => { wheels.push({ x:14.4, y, w:3, l, z:0, h:5, all:"#14181b" }, { x:34.6, y, w:3, l, z:0, h:5, all:"#14181b" }); });
+        return [
+          { x:16.5, y:5, w:19, l:42, z:1.5, h:5, top:`linear-gradient(0deg,${md},${c})`, front:`linear-gradient(${c},${dk})`, back:dk, left:`linear-gradient(${c},${md})`, right:`linear-gradient(${md},${dk})` },
+          { x:19, y:17, w:14, l:22, z:6.5, h:4.5, top:`linear-gradient(0deg,${md},${c})`, front:"linear-gradient(#10181d,#1c252b)", back:"#10181d", left:"linear-gradient(#1c252b,#10181d)", right:"linear-gradient(#10181d,#0b1013)" }
+        ].concat(wheels);
+      }, h3d: .17 },
+    gator: { name:"Aligator", svg: c => `
+      <ellipse cx="26" cy="28" rx="15" ry="24" fill="#000" opacity=".22"/>
+      <g class="gTail"><path d="M21 33Q22 41 24.4 46Q25.4 49.6 26 51Q26.6 49.6 27.6 46Q30 41 31 33Z" fill="#3f5a1e" stroke="#16210a" stroke-width=".9" stroke-linejoin="round"/>
+        <path d="M26 35V50" stroke="#2a3d12" stroke-width=".7" stroke-dasharray="1.2 1.6"/></g>
+      <g fill="#4d6b24" stroke="#16210a" stroke-width=".9">
+        <g class="gLegA"><path d="M19.5 19Q13 17 10.5 21.5L13 23.4Q14.8 21 19.5 22.4Z"/><path d="M10.5 21.5L9.2 24.2M12 22.6L11.2 25.2" stroke-width=".8" fill="none"/></g>
+        <g class="gLegB"><path d="M32.5 19Q39 17 41.5 21.5L39 23.4Q37.2 21 32.5 22.4Z"/><path d="M41.5 21.5L42.8 24.2M40 22.6L40.8 25.2" stroke-width=".8" fill="none"/></g>
+        <g class="gLegB"><path d="M19.8 34Q13.5 34 11.4 38.6L14 40.2Q15.6 37.8 20 37.8Z"/><path d="M11.4 38.6L10.4 41.2M12.9 39.6L12.3 42.2" stroke-width=".8" fill="none"/></g>
+        <g class="gLegA"><path d="M32.2 34Q38.5 34 40.6 38.6L38 40.2Q36.4 37.8 32 37.8Z"/><path d="M40.6 38.6L41.6 41.2M39.1 39.6L39.7 42.2" stroke-width=".8" fill="none"/></g>
       </g>
-      <ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136" stroke="#0c0f12" stroke-width="1.2"/>
-      <path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="22.6" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/><circle cx="29.4" cy="15" r="1.6" fill="#f6e27a" stroke="#0c0f12" stroke-width=".7"/>`,
-      side: c => `<ellipse cx="26" cy="28" rx="7.5" ry="13" fill="#6f9136"/><path d="M20.5 17 Q20 8 26 3 Q32 8 31.5 17 Z" fill="#7c9a3a"/><path d="M21.5 34 Q24 43 26 51 Q28 43 30.5 34 Z" fill="#4a6a24"/>`, h3d: .13 },
-    dot: { name:"Punkt", svg: c => `<circle cx="26" cy="27" r="19" fill="${c}" opacity=".25"/>
-      <circle cx="26" cy="27" r="10" fill="${c}" stroke="#fff" stroke-width="3"/>
-      <path d="M26 4 L33 17 L19 17 Z" fill="${c}" stroke="#0c0f12" stroke-width="1.2" stroke-linejoin="round"/>`,
-      side: c => `<circle cx="26" cy="27" r="10" fill="${c}"/><path d="M26 4 L33 17 L19 17 Z" fill="${c}"/>`, h3d: .10 }
+      <path d="M26 16C32 16 33.6 22 33.2 29C32.9 34 30.6 38 26 38C21.4 38 19.1 34 18.8 29C18.4 22 20 16 26 16Z" fill="#587a2a" stroke="#16210a" stroke-width="1"/>
+      <g fill="#6c9132" stroke="#16210a" stroke-width=".5"><rect x="22.6" y="19" width="2.4" height="2.8" rx=".8"/><rect x="27" y="19" width="2.4" height="2.8" rx=".8"/><rect x="22.3" y="23.4" width="2.6" height="2.8" rx=".8"/><rect x="27.1" y="23.4" width="2.6" height="2.8" rx=".8"/><rect x="22.2" y="27.8" width="2.7" height="2.8" rx=".8"/><rect x="27.1" y="27.8" width="2.7" height="2.8" rx=".8"/><rect x="22.6" y="32.2" width="2.5" height="2.6" rx=".8"/><rect x="27" y="32.2" width="2.5" height="2.6" rx=".8"/></g>
+      <path d="M21 16.5Q20.6 9 23 5.6Q24 3.4 26 3Q28 3.4 29 5.6Q31.4 9 31 16.5Q26 18 21 16.5Z" fill="#628631" stroke="#16210a" stroke-width="1" stroke-linejoin="round"/>
+      <path d="M23.6 4.8Q26 4 28.4 4.8" stroke="#16210a" stroke-width=".6" fill="none"/><circle cx="24.6" cy="5.3" r=".35" fill="#16210a"/><circle cx="27.4" cy="5.3" r=".35" fill="#16210a"/>
+      <ellipse cx="21.8" cy="13.4" rx="1.9" ry="2.2" fill="#d9b92f" stroke="#16210a" stroke-width=".7"/><ellipse cx="30.2" cy="13.4" rx="1.9" ry="2.2" fill="#d9b92f" stroke="#16210a" stroke-width=".7"/>
+      <ellipse cx="21.8" cy="13.4" rx=".55" ry="1.4" fill="#16210a"/><ellipse cx="30.2" cy="13.4" rx=".55" ry="1.4" fill="#16210a"/>`,
+      boxes: c => {
+        const body = "linear-gradient(0deg,#4d6b24,#6c9132)";
+        const bx = (x, y, w, l, z, h, top, side) => ({ x, y, w, l, z, h, top: top || body, all: side || "#3f5a1e" });
+        return [
+          bx(19, 16, 14, 22, 2.2, 5.5, "repeating-linear-gradient(0deg,#587a2a 0 3px,#6c9132 3px 5px)"),               // tułów
+          bx(21, 3, 10, 14, 2.2, 3.6, "linear-gradient(0deg,#587a2a,#6c9132)", "#4a6a24"),                              // głowa
+          bx(22, 8, 3, 3, 5.4, 2.4, "#d9b92f", "#a38a1c"), bx(27, 8, 3, 3, 5.4, 2.4, "#d9b92f", "#a38a1c"),            // oczy na wierzchu
+          bx(22, 38, 8, 6, 2.2, 4, null, "#3f5a1e"), bx(23.5, 44, 5, 5, 2.2, 2.6, null, "#3a5219"), bx(24.6, 49, 2.8, 3, 2.2, 1.6, null, "#34491a"), // ogon
+          bx(11, 18, 8, 4, .6, 2.6), bx(33, 18, 8, 4, .6, 2.6), bx(12, 34, 8, 4, .6, 2.6), bx(32, 34, 8, 4, .6, 2.6)      // łapy
+        ];
+      }, h3d: .13 },
+    dot: { name:"Punkt", svg: c => `
+      <defs><radialGradient id="dotG" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="${c}"/><stop offset="1" stop-color="${avShade(c, .45)}"/></radialGradient></defs>
+      <circle cx="26" cy="28" r="20" fill="${c}" opacity=".16"/><circle cx="26" cy="28" r="15" fill="${c}" opacity=".22"/>
+      <ellipse cx="27" cy="31" rx="10.5" ry="9.5" fill="#000" opacity=".3"/>
+      <circle cx="26" cy="28" r="10.5" fill="url(#dotG)" stroke="#fff" stroke-width="2.6"/>
+      <path d="M26 3.6L33 17.4Q26 14.6 19 17.4Z" fill="${c}" stroke="#0c0f12" stroke-width="1" stroke-linejoin="round"/>`,
+      boxes: c => ({ disc:true, x:15.5, y:17.5, w:21, l:21, z:1.2, h:8, color:c }),
+      h3d: .10 }
   };
   /* ---------- awatar w 3D: prawdziwa bryła ----------
      Marker leży na mapie (pitchAlignment "map"), więc w widoku 3D jest spłaszczony. Zamiast tego układamy kilka warstw
@@ -3785,15 +3935,17 @@
   function sync3dLayers(){
     if(!userMarkerEl) return;
     const a = AVATARS[vehicleAvatar];
-    const key = (is3D && a && a.svg) ? vehicleAvatar + "|" + avatarAccent() : "";
+    const key = ((is3D || (map && map.getPitch() > 8)) && a && a.svg) ? vehicleAvatar + "|" + avatarAccent() : "";
     if(userMarkerEl._k3d === key) return;
     userMarkerEl._k3d = key;
     userMarkerEl.querySelectorAll(".av3dL").forEach(n => n.remove());
     const base = userMarkerEl.querySelector("svg:not(.av3dL)");
-    if(base) base.style.visibility = key ? "hidden" : "";
+    if(base) base.style.setProperty("display", key ? "none" : "", key ? "important" : "");
     userMarkerEl.style.transformStyle = key ? "preserve-3d" : "";
     if(!key) return;
-    const c = avatarAccent(), side = (a.side || a.svg)(c);
+    const c = avatarAccent();
+    if(a.boxes){ build3dBoxes(a.boxes(c)); return; }
+    const side = (a.side || a.svg)(c);
     const mk = (inner, zf, css, sc) => {
       const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       sv.setAttribute("viewBox", "0 0 52 52"); sv.setAttribute("class", "av3dL");
@@ -3807,8 +3959,44 @@
     mk(a.svg(c), 1);                                                                    // góra: pełny wygląd
     userMarkerEl._px3d = null; applyAvatarSize(); setAvRot(avSm && avSm.lastRot != null ? avSm.lastRot : 0);
   }
+  // prawdziwa bryła z kilku prostopadłościanów (ścianki CSS) — jedna konstrukcja zamiast stosu warstw
+  function build3dBoxes(boxes){
+    const wrap = document.createElement("div");
+    wrap.className = "av3dL av3dBox";
+    wrap.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;transform-style:preserve-3d;pointer-events:none;transform-origin:50% 50%;";
+    const U = "var(--u)";
+    const sh = document.createElement("div");   // cień na jezdni
+    sh.style.cssText = `position:absolute;left:calc(${U}*14);top:calc(${U}*4);width:calc(${U}*24);height:calc(${U}*46);border-radius:40%;background:#000;opacity:.35;filter:blur(3px);transform:translateZ(0.5px);`;
+    wrap.appendChild(sh);
+    boxes = [].concat(boxes);
+    boxes.forEach(b => {
+      if(b.disc){   // kopuła z kilku okrągłych plastrów (jak guzik/„pluck” pozycji)
+        const N = 6;
+        for(let i = 0; i < N; i++){
+          const t = i / (N - 1), r = Math.sqrt(1 - Math.pow(t * .92, 2)), d = document.createElement("div");
+          const wpx = `calc(${U}*${(b.w * r).toFixed(2)})`, off = (b.w * (1 - r) / 2).toFixed(2);
+          d.style.cssText = `position:absolute;left:calc(${U}*${(b.x + +off).toFixed(2)});top:calc(${U}*${(b.y + +off).toFixed(2)});width:${wpx};height:${wpx};border-radius:50%;background:${avShade(b.color, .55 + .45 * t)};border:calc(${U}*.5) solid ${i === N - 1 ? "#fff" : "rgba(255,255,255,.35)"};box-sizing:border-box;transform:translateZ(calc(${U}*${(b.z + b.h * t).toFixed(2)}));`;
+          wrap.appendChild(d);
+        }
+        return;
+      }
+      const bx = document.createElement("div");
+      bx.style.cssText = `position:absolute;left:calc(${U}*${b.x});top:calc(${U}*${b.y});width:calc(${U}*${b.w});height:calc(${U}*${b.l});transform-style:preserve-3d;transform:translateZ(calc(${U}*${b.z}));`;
+      const face = (bg, css) => { const f = document.createElement("div"); f.style.cssText = "position:absolute;transform-origin:0 0;backface-visibility:visible;background:" + bg + ";" + css; bx.appendChild(f); };
+      const H = `calc(${U}*${b.h})`, Wd = `calc(${U}*${b.w})`, L = `calc(${U}*${b.l})`;
+      face(b.top || b.all, `left:0;top:0;width:${Wd};height:${L};transform:translateZ(${H});`);
+      face(b.front || b.all, `left:0;top:0;width:${Wd};height:${H};transform:rotateX(90deg);`);
+      face(b.back || b.all, `left:0;top:${L};width:${Wd};height:${H};transform:rotateX(90deg);`);
+      face(b.left || b.all, `left:0;top:0;width:${H};height:${L};transform:rotateY(-90deg);`);
+      face(b.right || b.all, `left:${Wd};top:0;width:${H};height:${L};transform:rotateY(-90deg);`);
+      wrap.appendChild(bx);
+    });
+    userMarkerEl.appendChild(wrap);
+    userMarkerEl._px3d = null; applyAvatarSize(); setAvRot(avSm && avSm.lastRot != null ? avSm.lastRot : 0);
+  }
   function setAvRot(hdg){
     if(!userMarkerEl) return;
+    userMarkerEl.querySelectorAll(".av3dBox").forEach(w => { w.style.transform = `rotate(${hdg.toFixed(2)}deg)`; });
     userMarkerEl.querySelectorAll("svg").forEach(sv => {
       sv.style.transform = sv.classList.contains("av3dL")
         ? `translateZ(${(sv._z || 0).toFixed(1)}px) rotate(${hdg.toFixed(2)}deg)${sv._sc !== 1 ? " scale(" + sv._sc + ")" : ""}`
@@ -3846,6 +4034,7 @@
       if(sv._zf !== undefined) sv._z = sv._zf * px;
     });
     userMarkerEl.style.width = userMarkerEl.style.height = px + "px";
+    userMarkerEl.style.setProperty("--u", (px / 52) + "px");
     if(userMarkerEl._k3d) setAvRot(avSm.lastRot != null ? avSm.lastRot : 0);
   }
   let avatarSizeQueued = false;
@@ -4336,17 +4525,19 @@
   const MW_CAMERA_MAX_RETRIES = 3;
   let mwCameraRetries = 0;
 
+  let mwCamRaw = [];
+  const mwCamShifter = makeRoadShifter(2, () => mwCamRaw, "motorway-cameras");   // ok. 2 m w lewo od osi jezdni
+  function mwCamerasCompute(){ mwCamShifter.compute(); }
   function showMotorwayCameras(cams){
     const src = map && map.getSource("motorway-cameras");
     if(!src) return;
-    src.setData({
-      type: "FeatureCollection",
-      features: cams.map(c => ({
-        type: "Feature",
-        properties: { id: c.id },
-        geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-      }))
-    });
+    mwCamRaw = cams.map(c => ({
+      type: "Feature",
+      properties: { id: c.id },
+      geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+    }));
+    src.setData(mwCamShifter.shifted());
+    setTimeout(mwCamerasCompute, 600);
   }
 
   function readMotorwayCameraCache(){
@@ -7764,13 +7955,33 @@
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
-    nominatimReverse(lat, lon)
+    // adres liczymy zawsze dla środka budynku pod punktem i zapamiętujemy — ten sam budynek daje ten sam adres,
+    // niezależnie od tego, który duplikat nazwy (znacznik stylu mapy / firma / nazwa kierowców) kliknięto
+    const g = poiGeocodePoint(lat, lon);
+    const hit = poiAddrCache.find(c => c.name === name && haversine(c.lat, c.lon, g.lat, g.lon) <= 80);
+    if(hit){ poiAskTarget.address = hit.addr; document.getElementById("poiAskAddr").textContent = hit.addr; return; }
+    nominatimReverse(g.lat, g.lon)
       .then(addr => {
-        if(seq !== poiAskSeq || !poiAskTarget || !addr) return;
+        if(!addr) return;
+        poiAddrCache.push({ name, lat: g.lat, lon: g.lon, addr });
+        if(poiAddrCache.length > 60) poiAddrCache.shift();
+        if(seq !== poiAskSeq || !poiAskTarget) return;
         poiAskTarget.address = addr;
         document.getElementById("poiAskAddr").textContent = addr;
       })
       .catch(err => console.warn("Nominatim reverse geocode (POI):", err));
+  }
+  const poiAddrCache = [];
+  // punkt do geokodowania: środek budynku zawierającego punkt (dla firm leżących przy granicy dzielnic/miast
+  // sąsiednie duplikaty dają inaczej „przyciągnięty” adres); bez budynku — sam punkt
+  function poiGeocodePoint(lat, lon){
+    try{
+      const bl = map.getStyle().layers.filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion")).map(l => l.id).filter(id => map.getLayer(id));
+      const pt = map.project([lon, lat]);
+      const bf = bl.length ? map.queryRenderedFeatures(pt, { layers: bl }) : [];
+      if(bf.length){ const c = buildingCenter(bf[0], { lat, lon }); return { lat: c.lat, lon: c.lon }; }
+    }catch(e){}
+    return { lat, lon };
   }
   function acceptPoiAsk(){
     if(!poiAskTarget) return;
@@ -9842,14 +10053,14 @@
   const navPrefSpeedometerInput = document.getElementById("navPrefSpeedometer");
   const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
-  navPrefLimitSignInput.checked = prefShowLimitSign;
-  const navPrefLimitModeInput = document.getElementById("navPrefLimitMode");
-  navPrefLimitModeInput.value = prefLimitMode;
-  navPrefLimitModeInput.addEventListener("change", (e) => {
-    prefLimitMode = e.target.value === "always" ? "always" : "speeding";
-    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
-    if(currentLimit) showLimitSign(currentLimit);
-  });
+  // przełącznik: lewo = tylko przy przekroczeniu prędkości, prawo = cały czas
+  prefShowLimitSign = true;
+  const navPrefLimitHint = document.getElementById("navPrefLimitSignHint");
+  function syncLimitSwitch(){
+    navPrefLimitSignInput.checked = prefLimitMode === "always";
+    navPrefLimitHint.textContent = prefLimitMode === "always" ? "Cały czas" : "Tylko przy przekroczeniu";
+  }
+  syncLimitSwitch();
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -9989,9 +10200,10 @@
     applyDisplayPrefs();
   });
   navPrefLimitSignInput.addEventListener("change", (e) => {
-    prefShowLimitSign = e.target.checked;
-    try{ localStorage.setItem(PREF_SHOW_LIMIT_SIGN, prefShowLimitSign ? "1" : "0"); }catch(err){}
-    applyDisplayPrefs();
+    prefLimitMode = e.target.checked ? "always" : "speeding";
+    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
+    syncLimitSwitch();
+    if(currentLimit) showLimitSign(currentLimit); else hideLimitSign();
   });
 
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
