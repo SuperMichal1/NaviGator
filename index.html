@@ -3919,11 +3919,13 @@
     if(userMarkerEl._k3d === key) return;
     userMarkerEl._k3d = key;
     userMarkerEl.querySelectorAll(".av3dL").forEach(n => n.remove());
+    if(typeof avm3dModelLeave === "function") avm3dModelLeave();   // wracamy do wyrównania markera do mapy
     const base = userMarkerEl.querySelector("svg:not(.av3dL)");
     if(base) base.style.setProperty("display", key ? "none" : "", key ? "important" : "");
     userMarkerEl.style.transformStyle = key ? "preserve-3d" : "";
     if(!key) return;
     const c = avatarAccent();
+    if(a.model && typeof avm3dModelEnter === "function"){ avm3dModelEnter(a); return; }   // pełny model 3D na canvasie
     const side = a.body(c);
     const mk = (inner, zf, css, sc) => {
       const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -3940,6 +3942,7 @@
   }
   function setAvRot(hdg){
     if(!userMarkerEl) return;
+    if(userMarkerEl._model && typeof avm3dModelDraw === "function") avm3dModelDraw(hdg);
     userMarkerEl.querySelectorAll("svg").forEach(sv => {
       sv.style.transform = sv.classList.contains("av3dL")
         ? `translateZ(${(sv._z || 0).toFixed(1)}px) rotate(${hdg.toFixed(2)}deg)${sv._sc !== 1 ? " scale(" + sv._sc + ")" : ""}`
@@ -3978,6 +3981,7 @@
     });
     userMarkerEl.style.width = userMarkerEl.style.height = px + "px";
     userMarkerEl.style.setProperty("--u", (px / 52) + "px");
+    if(userMarkerEl._model && typeof avm3dModelDraw === "function") avm3dModelDraw();
     if(userMarkerEl._k3d) setAvRot(avSm.lastRot != null ? avSm.lastRot : 0);
   }
   let avatarSizeQueued = false;
@@ -7959,8 +7963,19 @@
     if(!bf.length) return;
     try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
     const c = buildingCenter(bf[0], { lat: lngLat.lat, lon: lngLat.lng });
-    const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(lngLat.lat, lngLat.lng, PLACE_KNOWN_NEAR_M);
-    if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, addrFromProps(known)); return; }
+    // nazwa „znana" tylko wtedy, gdy jej punkt leży WEWNĄTRZ tego budynku (albo tuż przy jego środku) — nie w sąsiednich
+    const ring = (bf[0].geometry.type === "Polygon" ? bf[0].geometry.coordinates[0] : (bf[0].geometry.type === "MultiPolygon" ? bf[0].geometry.coordinates[0][0] : null));
+    const inRing = (lon, lat) => { if(!ring) return false; let ins = false;
+      for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
+      } return ins; };
+    let known = null;
+    const consider = (n, la, lo, extra) => { if(!n) return; if(inRing(lo, la) || haversine(c.lat, c.lon, la, lo) <= 8){
+      const d = haversine(c.lat, c.lon, la, lo); if(!known || d < known.d) known = Object.assign({ name: n, lat: la, lon: lo, d }, extra || {}); } };
+    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { props: f.properties }); });
+    placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
+    if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, addrFromProps(known.props)); return; }
     if(!hgvCompaniesLoaded){
       hidePoiAsk();
       showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
@@ -11887,6 +11902,217 @@
       guideSay("Za " + guideSpeakDist(Math.max(50, d)) + " " + TRAFFIC_ROUTE_CATS[it.cat] + ".");
       return;                                              // jeden komunikat na odczyt GPS
     }
+  }
+</script>
+<script>
+/* ===== js/43-avatar-3d-model.js — Prawdziwe modele 3D awatarów (własny rasteryzator na <canvas>, bez bibliotek) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   W widoku 3D awatar jest renderowany jako gładka bryła (loft przekrojów + walce kół), oświetlona i cieniowana,
+   obracana wg kierunku jazdy i nachylenia kamery mapy. Marker przełączany jest wtedy na wyrównanie do ekranu. */
+"use strict";
+
+  /* ---------- geometria ---------- */
+  // układ: x — w prawo, y — do przodu, z — w górę (metry)
+  const AVM_RING_PTS = 3;    // punkty na zaokrąglony róg przekroju
+  function avmShadeHex(hex, f){
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return [128, 128, 128];
+    const n = parseInt(m[1], 16);
+    return [((n >> 16) & 255) * f, ((n >> 8) & 255) * f, (n & 255) * f];
+  }
+  function avmHex(hex){ return avmShadeHex(hex, 1); }
+  function avmRing(st){
+    // zaokrąglony prostokąt (x,z) wokół środka przekroju; kolejność: od prawego dolnego rogu przeciwnie do ruchu wskazówek (patrząc z przodu)
+    const hw = st.w / 2, zb = st.zb, zt = st.zt, r = Math.max(0.001, Math.min(st.r == null ? 0.2 : st.r, hw, (zt - zb) / 2));
+    const out = [], corners = [[hw - r, zb + r, -90], [hw - r, zt - r, 0], [-hw + r, zt - r, 90], [-hw + r, zb + r, 180]];
+    corners.forEach(([cx, cz, a0]) => {
+      for(let i = 0; i <= AVM_RING_PTS; i++){
+        const a = (a0 + 90 * i / AVM_RING_PTS) * Math.PI / 180;
+        out.push([cx + r * Math.cos(a), st.y, cz + r * Math.sin(a)]);
+      }
+    });
+    return out;
+  }
+  function avmSub(a, b){ return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function avmCross(a, b){ return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function avmNorm(v){ const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function avmCenter(pts){ const c = [0, 0, 0]; pts.forEach(p => { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }); return c.map(v => v / pts.length); }
+  // dodaje ścianę; normalna zawsze „na zewnątrz" względem punktu centrum
+  function avmFace(faces, pts, centre, colorFn, extra){
+    const n0 = avmNorm(avmCross(avmSub(pts[1], pts[0]), avmSub(pts[2], pts[0])));
+    const fc = avmCenter(pts), out = avmSub(fc, centre);
+    const n = (n0[0] * out[0] + n0[1] * out[1] + n0[2] * out[2]) < 0 ? [-n0[0], -n0[1], -n0[2]] : n0;
+    faces.push(Object.assign({ pts, n, col: colorFn(n, fc) }, extra || {}));
+  }
+  // loft: kolejne przekroje wzdłuż osi y → gładka bryła (karoseria, naczepa, tułów)
+  function avmLoft(faces, stations, colorFn){
+    const rings = stations.map(avmRing);
+    const cen = avmCenter([].concat.apply([], rings));
+    for(let i = 0; i < rings.length - 1; i++){
+      const A = rings[i], B = rings[i + 1];
+      for(let j = 0; j < A.length; j++){
+        const k = (j + 1) % A.length;
+        avmFace(faces, [A[j], A[k], B[k], B[j]], cen, colorFn);
+      }
+    }
+    [rings[0], rings[rings.length - 1]].forEach(r => avmFace(faces, r.slice(), cen, colorFn));
+  }
+  // walec o osi x (koło): środek (cx,cy,cz), promień r, szerokość w
+  function avmWheel(faces, cx, cy, cz, r, w, tire, hub){
+    const N = 14, ring = a => [cy + r * Math.cos(a), cz + r * Math.sin(a)];
+    const cen = [cx, cy, cz];
+    for(let i = 0; i < N; i++){
+      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, p0 = ring(a0), p1 = ring(a1);
+      avmFace(faces, [[cx - w / 2, p0[0], p0[1]], [cx + w / 2, p0[0], p0[1]], [cx + w / 2, p1[0], p1[1]], [cx - w / 2, p1[0], p1[1]]], cen, () => tire);
+    }
+    [-1, 1].forEach(sd => {
+      const pts = []; for(let i = 0; i < N; i++){ const p = ring(i / N * Math.PI * 2); pts.push([cx + sd * w / 2, p[0], p[1]]); }
+      avmFace(faces, pts, cen, () => tire);
+      const hp = []; for(let i = 0; i < N; i++){ const a = i / N * Math.PI * 2; hp.push([cx + sd * (w / 2 + .01), cy + r * .55 * Math.cos(a), cz + r * .55 * Math.sin(a)]); }
+      avmFace(faces, hp, cen, () => hub);
+    });
+  }
+  // prosty prostopadłościan (światła, szczegóły)
+  function avmBox(faces, x0, x1, y0, y1, z0, z1, col){
+    const P = (x, y, z) => [x, y, z], cen = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], cf = () => col;
+    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y1,z0), P(x0,y1,z0)], cen, cf);
+    avmFace(faces, [P(x0,y0,z1), P(x1,y0,z1), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
+    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y0,z1), P(x0,y0,z1)], cen, cf);
+    avmFace(faces, [P(x0,y1,z0), P(x1,y1,z0), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
+    avmFace(faces, [P(x0,y0,z0), P(x0,y1,z0), P(x0,y1,z1), P(x0,y0,z1)], cen, cf);
+    avmFace(faces, [P(x1,y0,z0), P(x1,y1,z0), P(x1,y1,z1), P(x1,y0,z1)], cen, cf);
+  }
+
+  /* ---------- modele ---------- */
+  const AVM_GLASS = [34, 52, 66], AVM_TIRE = [24, 26, 29], AVM_HUB = [150, 158, 164], AVM_DARK = [30, 34, 38];
+  const AVM_MODELS = {
+    // kompaktowy pick-up / terenówka (jak w nawigacjach samochodowych)
+    car: { len: 4.5, view: 4.5, build: (faces, c) => {
+      const body = avmHex(c);
+      const bodyCol = n => body;
+      avmLoft(faces, [
+        { y:-2.25, w:1.55, zb:.42, zt:.95, r:.3 }, { y:-2.1, w:1.84, zb:.32, zt:1.08, r:.32 }, { y:-0.75, w:1.92, zb:.3, zt:1.1, r:.3 },
+        { y:0.5, w:1.92, zb:.3, zt:1.08, r:.3 }, { y:1.6, w:1.88, zb:.3, zt:1.0, r:.32 }, { y:2.15, w:1.7, zb:.36, zt:.82, r:.3 }, { y:2.27, w:1.46, zb:.42, zt:.66, r:.25 }
+      ], bodyCol);
+      // kabina: szyby po bokach i z przodu, dach w kolorze karoserii
+      avmLoft(faces, [
+        { y:-0.55, w:1.78, zb:1.06, zt:1.12, r:.05 }, { y:-0.45, w:1.7, zb:1.06, zt:1.78, r:.28 }, { y:0.55, w:1.66, zb:1.06, zt:1.8, r:.28 },
+        { y:1.18, w:1.5, zb:1.04, zt:1.26, r:.15 }, { y:1.24, w:1.4, zb:1.02, zt:1.06, r:.04 }
+      ], (n) => (n[2] > .75 ? body.map(v => v * .95) : AVM_GLASS));
+      avmBox(faces, -.78, .78, -2.05, -.7, 1.07, 1.12, AVM_DARK);                         // skrzynia ładunkowa
+      avmBox(faces, -.86, -.5, -2.31, -2.25, .55, .8, [230, 40, 40]); avmBox(faces, .5, .86, -2.31, -2.25, .55, .8, [230, 40, 40]);   // tylne światła
+      avmBox(faces, -.82, -.48, 2.26, 2.3, .52, .68, [255, 246, 205]); avmBox(faces, .48, .82, 2.26, 2.3, .52, .68, [255, 246, 205]); // przednie światła
+      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .42, .42, .3, AVM_TIRE, AVM_HUB));
+    } },
+    // ciągnik siodłowy z naczepą 44 t (6 osi): długi zestaw
+    truck: { len: 16.5, view: 10, build: (faces, c) => {
+      const cab = avmHex(c), white = [243, 246, 247];
+      avmBox(faces, -.55, .55, -8.1, 8.0, .55, .95, AVM_DARK);                           // rama podwozia
+      // kabina
+      avmLoft(faces, [{ y:8.25, w:2.3, zb:.9, zt:1.9, r:.3 }, { y:8.15, w:2.5, zb:.85, zt:2.0, r:.3 }, { y:5.4, w:2.5, zb:.85, zt:2.0, r:.2 }], () => cab);
+      avmLoft(faces, [{ y:8.05, w:2.42, zb:1.9, zt:3.05, r:.3 }, { y:7.7, w:2.5, zb:1.9, zt:3.5, r:.3 }, { y:5.35, w:2.5, zb:1.9, zt:3.65, r:.25 }],
+        n => (n[1] > .5 ? AVM_GLASS : (n[2] > .75 ? cab.map(v => v * 1.05) : (Math.abs(n[0]) > .7 ? cab.map(v => v * .9) : cab))));
+      avmBox(faces, -.9, .9, 7.7, 8.0, 3.45, 3.62, cab.map(v => v * .8));                  // daszek
+      avmBox(faces, -1.0, 1.0, 8.2, 8.4, .5, .85, AVM_DARK);                               // zderzak
+      avmBox(faces, -1.0, -.6, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]); avmBox(faces, .6, 1.0, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]);
+      // naczepa
+      avmLoft(faces, [{ y:3.0, w:2.4, zb:.95, zt:4.0, r:.12 }, { y:2.9, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.15, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.25, w:2.4, zb:1.0, zt:3.95, r:.12 }],
+        n => (n[2] > .7 ? [226, 231, 234] : (Math.abs(n[0]) > .7 ? white.map(v => v * (n[0] > 0 ? .86 : 1)) : white.map(v => v * .8))));
+      avmBox(faces, -1.05, 1.05, -8.35, -8.2, .55, .85, [190, 40, 40]);                    // tylny zderzak/światła
+      // koła: oś skrętna, 2 osie napędowe, 3 osie naczepy (podwójne na osiach napędowych i naczepy)
+      [[6.9, false], [3.6, true], [2.3, true], [-5.2, true], [-6.5, true], [-7.8, true]].forEach(([y, dual]) => {
+        [-1, 1].forEach(sd => {
+          avmWheel(faces, sd * 1.06, y, .52, .52, dual ? .3 : .34, AVM_TIRE, AVM_HUB);
+          if(dual) avmWheel(faces, sd * .7, y, .52, .52, .3, AVM_TIRE, AVM_HUB);
+        });
+      });
+    } },
+    gator: { len: 5.8, build: (faces) => {
+      const g = [92, 128, 48], gd = [70, 100, 36], gl = [110, 150, 56];
+      const col = n => (n[2] > .6 ? gl : (n[2] > 0 ? g : gd));
+      avmLoft(faces, [
+        { y:-3.2, w:.12, zb:.18, zt:.3, r:.05 }, { y:-2.4, w:.45, zb:.14, zt:.5, r:.2 }, { y:-1.3, w:.85, zb:.12, zt:.68, r:.3 },
+        { y:-.3, w:1.35, zb:.1, zt:.9, r:.45 }, { y:.9, w:1.3, zb:.1, zt:.88, r:.45 }, { y:1.4, w:.8, zb:.12, zt:.6, r:.3 },
+        { y:1.9, w:.62, zb:.14, zt:.52, r:.22 }, { y:2.55, w:.46, zb:.16, zt:.4, r:.15 }, { y:2.75, w:.3, zb:.18, zt:.32, r:.1 }
+      ], col);
+      [[-.95, .8], [.95, .8], [-.95, -.9], [.95, -.9]].forEach(([x, y]) => {
+        avmLoft(faces, [{ y: y - .35, w: .4, zb: .1, zt: .3, r: .1 }, { y: y + .35, w: .4, zb: .1, zt: .3, r: .1 }], () => gd);
+        faces.forEach(() => 0);
+      });
+      avmBox(faces, -.4, -.2, 1.55, 1.8, .85, 1.0, [225, 190, 50]); avmBox(faces, .2, .4, 1.55, 1.8, .85, 1.0, [225, 190, 50]);   // oczy
+    } },
+    dot: { len: 2.6, build: (faces, c) => {
+      const base = avmHex(c), R = 1.0, st = [];
+      for(let i = -6; i <= 6; i++){ const t = i / 6 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .55 - rad * .55, zt: R * .55 + rad * .55, r: 10 }); }
+      avmLoft(faces, st, n => base.map(v => v * (.55 + .45 * Math.max(0, n[2]))));
+      avmBox(faces, -.28, .28, 1.2, 1.9, .02, .06, [255, 255, 255]);                      // znacznik kierunku
+    } }
+  };
+  ["car", "truck", "gator", "dot"].forEach(k => { if(AVATARS[k]) AVATARS[k].model = AVM_MODELS[k]; });
+
+  /* ---------- render ---------- */
+  const AVM_LIGHT = avmNorm([-0.45, -0.35, 0.82]);
+  let avmCanvas = null, avmCtx = null, avmFaces = null, avmFacesKey = "", avmLastHdg = 0;
+  function avmMakeFaces(a, c){
+    const key = vehicleAvatar + "|" + c;
+    if(avmFaces && avmFacesKey === key) return avmFaces;
+    const faces = []; a.model.build(faces, c);
+    avmFaces = faces; avmFacesKey = key; return faces;
+  }
+  function avm3dModelEnter(a){
+    if(!userMarkerEl) return;
+    avm3dModelLeave(true);
+    avmCanvas = document.createElement("canvas");
+    avmCanvas.className = "av3dModelCv";
+    avmCanvas.style.cssText = "position:absolute;left:50%;top:50%;pointer-events:none;transform:translate(-50%,-50%);";
+    userMarkerEl.appendChild(avmCanvas);
+    avmCtx = avmCanvas.getContext("2d");
+    userMarkerEl._model = a;
+    try{ if(userMarker.setPitchAlignment) userMarker.setPitchAlignment("viewport"); if(userMarker.setRotationAlignment) userMarker.setRotationAlignment("viewport"); }catch(e){}
+    if(!map._avmBound){ map._avmBound = true; ["rotate", "pitch", "zoom"].forEach(ev => map.on(ev, () => { if(userMarkerEl && userMarkerEl._model) avm3dModelDraw(); })); }
+    avm3dModelDraw();
+  }
+  function avm3dModelLeave(keepAlign){
+    if(avmCanvas){ avmCanvas.remove(); avmCanvas = null; avmCtx = null; }
+    if(userMarkerEl) userMarkerEl._model = null;
+    if(!keepAlign){ try{ if(userMarker && userMarker.setPitchAlignment) userMarker.setPitchAlignment("map"); if(userMarker && userMarker.setRotationAlignment) userMarker.setRotationAlignment("map"); }catch(e){} }
+  }
+  function avm3dModelDraw(hdg){
+    if(!avmCanvas || !userMarkerEl || !userMarkerEl._model) return;
+    if(hdg !== undefined) avmLastHdg = hdg;
+    const a = userMarkerEl._model, model = a.model;
+    const px = Math.max(40, parseFloat(userMarkerEl.style.width) || 80), size = Math.round(px * 1.9);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(size * dpr);
+    if(avmCanvas.width !== W){ avmCanvas.width = avmCanvas.height = W; avmCanvas.style.width = avmCanvas.style.height = size + "px"; }
+    const ctx = avmCtx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size);
+    const faces = avmMakeFaces(a, avatarAccent());
+    const yaw = (avmLastHdg - map.getBearing()) * Math.PI / 180, cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const p = Math.min(78, Math.max(0, map.getPitch())) * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
+    const s = px * 0.86 / (model.view || model.len), cx0 = size / 2, cy0 = size / 2;
+    const rot = v => [v[0] * cy + v[1] * sy, -v[0] * sy + v[1] * cy, v[2]];
+    // cień na jezdni: obrócona elipsa pod pojazdem
+    ctx.save(); ctx.translate(cx0, cy0); ctx.scale(1, cp * .9 + .1);
+    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, model.len * s * .62);
+    gr.addColorStop(0, "rgba(0,0,0,.42)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.rotate(yaw); ctx.scale(.55, 1); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, model.len * s * .62, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const v = [0, -sp, cp], out = [];
+    faces.forEach(f => {
+      const n = rot(f.n);
+      const facing = n[0] * v[0] + n[1] * v[1] + n[2] * v[2];
+      if(facing <= 0.001) return;
+      const q = f.pts.map(pt => { const r = rot(pt); return [cx0 + r[0] * s, cy0 - (r[1] * cp + r[2] * sp) * s, r[2] * cp - r[1] * sp]; });
+      let depth = 0; q.forEach(t => { depth += t[2]; }); depth /= q.length;
+      // oświetlenie liczone w układzie świata mapy (światło z lewej-góry ekranu), nie modelu
+      const nl = Math.max(0, n[0] * AVM_LIGHT[0] + n[1] * AVM_LIGHT[1] + n[2] * AVM_LIGHT[2]);
+      const k = 0.5 + 0.62 * nl;
+      out.push({ q, depth, k, col: f.col });
+    });
+    out.sort((A, B) => A.depth - B.depth);
+    out.forEach(o => {
+      const c = "rgb(" + o.col.map(x => Math.max(0, Math.min(255, Math.round(x * o.k)))).join(",") + ")";
+      ctx.beginPath(); ctx.moveTo(o.q[0][0], o.q[0][1]);
+      for(let i = 1; i < o.q.length; i++) ctx.lineTo(o.q[i][0], o.q[i][1]);
+      ctx.closePath(); ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = .7; ctx.strokeStyle = c; ctx.lineJoin = "round"; ctx.stroke();
+    });
   }
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
