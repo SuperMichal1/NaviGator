@@ -7983,24 +7983,24 @@
     }
     showPlaceAdd(c.lat, c.lon);
   }
-  let pressTimer = null, pressStart = null, pressFired = 0;
+  let pressTimer = null, pressStart = null, pressFired = 0, pressHeld = false;
   function cancelPress(){ clearTimeout(pressTimer); pressTimer = null; }
   function setupBuildingLongPress(){
     const start = (e) => {
       if(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1){ cancelPress(); return; }
       cancelPress(); pressStart = { x: e.point.x, y: e.point.y };
-      pressTimer = setTimeout(() => { pressTimer = null; pressFired = Date.now(); handleBuildingPress(pressStart, e.lngLat); }, 650);
+      pressTimer = setTimeout(() => { pressTimer = null; pressFired = Date.now(); pressHeld = true; handleBuildingPress(pressStart, e.lngLat); }, 650);
     };
     map.on("mousedown", start); map.on("touchstart", start);
     map.on("mousemove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
     map.on("touchmove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
-    ["mouseup", "touchend", "touchcancel", "dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach(ev => map.on(ev, cancelPress));
+    ["mouseup", "touchend", "touchcancel", "dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach(ev => map.on(ev, () => { if(pressHeld){ pressHeld = false; pressFired = Date.now(); } cancelPress(); }));
   }
 
   function setupPoiClick(){
     setupBuildingLongPress();
     map.on("click", (e) => {
-      if(Date.now() - pressFired < 700) return;   // klik zakończający długie przytrzymanie
+      if(Date.now() - pressFired < 900) return;   // klik zakończający długie przytrzymanie
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
@@ -8029,6 +8029,7 @@
         if(!name || !f.geometry || f.geometry.type !== "Point") return;
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
+        if(d > 34) return;   // etykieta długiej nazwy sięga nad sąsiednie budynki — liczy się tylko punkt blisko palca
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
           placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined, addr: addrFromProps(p) }; }
       });
@@ -11913,7 +11914,7 @@
 
   /* ---------- geometria ---------- */
   // układ: x — w prawo, y — do przodu, z — w górę (metry)
-  const AVM_RING_PTS = 3;    // punkty na zaokrąglony róg przekroju
+  const AVM_RING_PTS = 4;    // punkty na zaokrąglony róg przekroju
   function avmShadeHex(hex, f){
     const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return [128, 128, 128];
     const n = parseInt(m[1], 16);
@@ -11927,7 +11928,7 @@
     corners.forEach(([cx, cz, a0]) => {
       for(let i = 0; i <= AVM_RING_PTS; i++){
         const a = (a0 + 90 * i / AVM_RING_PTS) * Math.PI / 180;
-        out.push([cx + r * Math.cos(a), st.y, cz + r * Math.sin(a)]);
+        out.push([(st.x || 0) + cx + r * Math.cos(a), st.y, cz + r * Math.sin(a)]);
       }
     });
     return out;
@@ -11941,7 +11942,7 @@
     const n0 = avmNorm(avmCross(avmSub(pts[1], pts[0]), avmSub(pts[2], pts[0])));
     const fc = avmCenter(pts), out = avmSub(fc, centre);
     const n = (n0[0] * out[0] + n0[1] * out[1] + n0[2] * out[2]) < 0 ? [-n0[0], -n0[1], -n0[2]] : n0;
-    faces.push(Object.assign({ pts, n, col: colorFn(n, fc) }, extra || {}));
+    faces.push(Object.assign({ pts, n, cz: fc[2], col: colorFn(n, fc) }, extra || {}));
   }
   // loft: kolejne przekroje wzdłuż osi y → gładka bryła (karoseria, naczepa, tułów)
   function avmLoft(faces, stations, colorFn){
@@ -12052,20 +12053,23 @@
         });
       });
     } },
-    gator: { len: 5.8, view: 4.6, build: (faces) => {
+    gator: { len: 5.8, view: 4.6, anim: true, build: (faces, c, ph) => {
+      ph = ph || 0;
+      const wag = d => Math.sin(ph * .9 - d * .9) * Math.min(.55, Math.abs(d) * .2);   // fala wzdłuż ogona
       const g = [92, 128, 48], gd = [66, 96, 34], gl = [112, 152, 58], belly = [150, 160, 80];
       const col = n => (n[2] > .65 ? gl : (n[2] > .1 ? g : gd));
       avmLoft(faces, [
-        { y:-3.3, w:.1, zb:.2, zt:.3, r:.04 }, { y:-2.6, w:.38, zb:.16, zt:.46, r:.16 }, { y:-1.6, w:.8, zb:.12, zt:.7, r:.3 },
-        { y:-.4, w:1.4, zb:.1, zt:.95, r:.5 }, { y:.9, w:1.38, zb:.1, zt:.95, r:.5 }, { y:1.45, w:.85, zb:.12, zt:.66, r:.3 },
+        { y:-3.3, x:wag(3.3), w:.1, zb:.2, zt:.3, r:.04 }, { y:-2.6, x:wag(2.6), w:.38, zb:.16, zt:.46, r:.16 }, { y:-1.6, x:wag(1.6), w:.8, zb:.12, zt:.7, r:.3 },
+        { y:-.4, x:wag(.4) * .3, w:1.4, zb:.1, zt:.95, r:.5 }, { y:.9, w:1.38, zb:.1, zt:.95, r:.5 }, { y:1.45, w:.85, zb:.12, zt:.66, r:.3 },
         { y:1.95, w:.66, zb:.14, zt:.55, r:.24 }, { y:2.6, w:.5, zb:.16, zt:.42, r:.16 }, { y:2.82, w:.34, zb:.18, zt:.34, r:.1 }
       ], col);
       // nogi (płaskie, z palcami) — dwie pary, odchylone na boki
-      [[1, 1.0, 38], [-1, 1.0, 38], [1, -1.05, -38], [-1, -1.05, -38]].forEach(([sd, y, ang]) => {
+      [[1, 1.0, 38, 0], [-1, 1.0, 38, Math.PI], [1, -1.05, -38, Math.PI], [-1, -1.05, -38, 0]].forEach(([sd, y0, ang, off]) => {
+        const sw = Math.sin(ph * 1.6 + off), y = y0 + sw * .28, lift = Math.max(0, Math.cos(ph * 1.6 + off)) * .1;
         const leg = [[0, 0], [.55, .22], [.95, .12], [1.28, .32], [1.28, -.02], [1.0, -.22], [.55, -.2], [0, -.32]];
         const r = ang * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
         const poly = leg.map(([lx, ly]) => [sd * (.55 + lx * ca - ly * sa * sd), y + lx * sa * sd * (y > 0 ? 1 : -1) * .0 + ly * ca * .9 - (y > 0 ? -.15 : .15) * lx]);
-        avmPrism(faces, sd > 0 ? poly : poly.slice().reverse(), .08, .3, gd, g);
+        avmPrism(faces, sd > 0 ? poly : poly.slice().reverse(), .08 + lift, .3 + lift, gd, g);
       });
       // grzbiet: rząd łusek
       for(let y = -2.2; y <= 1.1; y += .42){ const w = .18 + Math.max(0, .5 - Math.abs(y + .5) * .18);
@@ -12077,7 +12081,7 @@
     dot: { len: 2.6, view: 2.8, build: (faces, c) => {
       const base = avmHex(c), R = 1.0, st = [];
       avmPrism(faces, Array.from({ length: 20 }, (_, i) => [Math.cos(i / 20 * 6.2832) * 1.55, Math.sin(i / 20 * 6.2832) * 1.55]), 0, .03, base.map(v => v * .55 + 40));   // pierścień pod spodem
-      for(let i = -7; i <= 7; i++){ const t = i / 7 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
+      for(let i = -10; i <= 10; i++){ const t = i / 10 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
       avmLoft(faces, st, n => { const h = Math.max(0, n[2]); return [base[0] * (.5 + .5 * h) + 70 * h * h, base[1] * (.5 + .5 * h) + 70 * h * h, base[2] * (.5 + .5 * h) + 70 * h * h]; });
       avmPrism(faces, [[0, 2.35], [.62, 1.45], [-.62, 1.45]], .03, .09, [255, 255, 255]);                                                    // strzałka kierunku
     } }
@@ -12087,10 +12091,11 @@
   /* ---------- render ---------- */
   const AVM_LIGHT = avmNorm([-0.45, -0.35, 0.82]);
   let avmCanvas = null, avmCtx = null, avmFaces = null, avmFacesKey = "", avmLastHdg = 0;
+  let avmPhase = 0;
   function avmMakeFaces(a, c){
     const key = vehicleAvatar + "|" + c;
-    if(avmFaces && avmFacesKey === key) return avmFaces;
-    const faces = []; a.model.build(faces, c);
+    if(!a.model.anim && avmFaces && avmFacesKey === key) return avmFaces;
+    const faces = []; a.model.build(faces, c, avmPhase);
     avmFaces = faces; avmFacesKey = key; return faces;
   }
   function avm3dModelEnter(a){
@@ -12105,6 +12110,14 @@
     try{ if(userMarker.setPitchAlignment) userMarker.setPitchAlignment("viewport"); if(userMarker.setRotationAlignment) userMarker.setRotationAlignment("viewport"); }catch(e){}
     if(!map._avmBound){ map._avmBound = true; ["rotate", "pitch", "zoom"].forEach(ev => map.on(ev, () => { if(userMarkerEl && userMarkerEl._model) avm3dModelDraw(); })); }
     avm3dModelDraw();
+    if(a.model.anim && !avmLoop){ avmLoop = true; avmLast = performance.now(); requestAnimationFrame(avmTick); }
+  }
+  let avmLoop = false, avmLast = 0;
+  function avmTick(t){
+    if(!userMarkerEl || !userMarkerEl._model || !userMarkerEl._model.model.anim){ avmLoop = false; return; }
+    const dt = Math.min(.1, (t - avmLast) / 1000); avmLast = t;
+    if(typeof currentSpeedKmh !== "undefined" && currentSpeedKmh >= 3){ avmPhase += dt * (4 + Math.min(8, currentSpeedKmh / 12)); avm3dModelDraw(); }
+    requestAnimationFrame(avmTick);
   }
   function avm3dModelLeave(keepAlign){
     if(avmCanvas){ avmCanvas.remove(); avmCanvas = null; avmCtx = null; }
@@ -12138,12 +12151,15 @@
       let depth = 0; q.forEach(t => { depth += t[2]; }); depth /= q.length;
       // oświetlenie liczone w układzie świata mapy (światło z lewej-góry ekranu), nie modelu
       const nl = Math.max(0, n[0] * AVM_LIGHT[0] + n[1] * AVM_LIGHT[1] + n[2] * AVM_LIGHT[2]);
-      const k = 0.5 + 0.62 * nl;
-      out.push({ q, depth, k, col: f.col });
+      // światło: rozproszone + połysk (Blinn-Phong) + przyciemnienie przy ziemi + chłodne niebo z góry
+      const hv = avmNorm([AVM_LIGHT[0], AVM_LIGHT[1] + 0.0, AVM_LIGHT[2] + 1]), sp2 = Math.pow(Math.max(0, n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]), 28) * 55;
+      const ao = 0.8 + 0.2 * Math.min(1, Math.max(0, f.cz / (model.view ? model.view * .22 : 1)));
+      const k = (0.46 + 0.62 * nl) * ao;
+      out.push({ q, depth, k, sp: sp2, sky: Math.max(0, n[2]) * 14, col: f.col });
     });
     out.sort((A, B) => A.depth - B.depth);
     out.forEach(o => {
-      const c = "rgb(" + o.col.map(x => Math.max(0, Math.min(255, Math.round(x * o.k)))).join(",") + ")";
+      const c = "rgb(" + o.col.map((x, i) => Math.max(0, Math.min(255, Math.round(x * o.k + o.sp + o.sky * (i === 2 ? 1.2 : .6))))).join(",") + ")";
       ctx.beginPath(); ctx.moveTo(o.q[0][0], o.q[0][1]);
       for(let i = 1; i < o.q.length; i++) ctx.lineTo(o.q[i][0], o.q[i][1]);
       ctx.closePath(); ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = .7; ctx.strokeStyle = c; ctx.lineJoin = "round"; ctx.stroke();
