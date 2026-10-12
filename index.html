@@ -7643,7 +7643,8 @@
   const PLACE_NAMES_LOCAL_KEY = "nawigator_place_names";
   const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
   const PLACE_VERIFY_RADIUS_M = 250;
-  const PLACE_DUPLICATE_M = 200;  // ta sama nazwa bliżej niż tyle = ta sama firma, nie dodajemy drugi raz
+  const PLACE_DUPLICATE_M = 50;   // ta sama nazwa bliżej niż tyle = ten sam budynek/firma, nie dodajemy drugi raz (sąsiednie hale w parku logistycznym mogą mieć podobne nazwy)
+  const PLACE_FUZZY_DUPLICATE_M = 25;   // podobna nazwa (np. samo Sainsbury's vs DHL Sainsbury's) to duplikat tylko tuż obok
   const PLACE_KNOWN_NEAR_M = 60;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
   let placeNames = [];            // [{lat, lon, name, verified}]
   let placeAddTarget = null;
@@ -7758,7 +7759,7 @@
     const check = (n, la, lo) => {
       if(!n) return;
       const d = _dM(lat, lon, la, lo);
-      if(d < bestD && (nameTokens(n).join(" ") === nk || namesMatch(name, n))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
+      if(d < bestD && (nameTokens(n).join(" ") === nk || (d < PLACE_FUZZY_DUPLICATE_M && namesMatch(name, n)))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
     };
     hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) check(f.properties && f.properties.name, c[1], c[0]); });
     placeNames.forEach(p => check(p.name, p.lat, p.lon));
@@ -8002,7 +8003,8 @@
   }
   // budynek pod palcem: najpierw ten, w którego obrysie leży punkt na ziemi pod palcem, potem najwyższy narysowany (3D) pod palcem
   function bldPickUnderPoint(point, lngLat, layers){
-    const bf = map.queryRenderedFeatures(point, { layers });
+    // UWAGA: MapLibre traktuje zwykły obiekt {x,y} jako opcje (nie punkt) i zwraca wtedy WSZYSTKIE obiekty z widoku — punkt musi być tablicą [x, y]
+    const bf = map.queryRenderedFeatures([point.x, point.y], { layers }).filter(f => f.sourceLayer === "building" || (f.layer && f.layer["source-layer"] === "building"));
     if(!bf.length) return null;
     return bf.find(f => bldContains(f, lngLat.lng, lngLat.lat)) || bf[0];
   }
