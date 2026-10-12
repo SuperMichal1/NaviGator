@@ -11982,6 +11982,16 @@
     avmFace(faces, [P(x1,y0,z0), P(x1,y1,z0), P(x1,y1,z1), P(x1,y0,z1)], cen, cf);
   }
 
+  // pryzma: wielokąt 2D w planie (x,y) wyciągnięty w pionie od z0 do z1
+  function avmPrism(faces, poly, z0, z1, col, colTop){
+    const cen = avmCenter(poly.map(p => [p[0], p[1], (z0 + z1) / 2]));
+    const n = poly.length;
+    for(let i = 0; i < n; i++){ const a = poly[i], b = poly[(i + 1) % n];
+      avmFace(faces, [[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]], cen, () => col); }
+    avmFace(faces, poly.map(p => [p[0], p[1], z1]), cen, () => colTop || col);
+    avmFace(faces, poly.map(p => [p[0], p[1], z0]), cen, () => col);
+  }
+
   /* ---------- modele ---------- */
   const AVM_GLASS = [34, 52, 66], AVM_TIRE = [24, 26, 29], AVM_HUB = [150, 158, 164], AVM_DARK = [30, 34, 38];
   const AVM_MODELS = {
@@ -12001,7 +12011,12 @@
       avmBox(faces, -.78, .78, -2.05, -.7, 1.07, 1.12, AVM_DARK);                         // skrzynia ładunkowa
       avmBox(faces, -.86, -.5, -2.31, -2.25, .55, .8, [230, 40, 40]); avmBox(faces, .5, .86, -2.31, -2.25, .55, .8, [230, 40, 40]);   // tylne światła
       avmBox(faces, -.82, -.48, 2.26, 2.3, .52, .68, [255, 246, 205]); avmBox(faces, .48, .82, 2.26, 2.3, .52, .68, [255, 246, 205]); // przednie światła
-      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .42, .42, .3, AVM_TIRE, AVM_HUB));
+      avmBox(faces, -.62, .62, 2.27, 2.31, .44, .6, AVM_DARK);                              // grill
+      avmBox(faces, -.9, .9, 2.2, 2.34, .3, .4, [60, 66, 72]);                              // zderzak
+      avmBox(faces, -.95, .95, -2.34, -2.2, .3, .4, [60, 66, 72]);
+      avmBox(faces, -1.16, -.93, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); avmBox(faces, .93, 1.16, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); // lusterka
+      avmBox(faces, -.82, -.74, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, .74, .82, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, -.82, .82, -.7, -.5, 1.82, 1.9, [50, 56, 62]); // pałąk
+      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .44, .44, .32, AVM_TIRE, AVM_HUB));
     } },
     // ciągnik siodłowy z naczepą 44 t (6 osi): długi zestaw
     truck: { len: 16.5, view: 10, build: (faces, c) => {
@@ -12018,6 +12033,17 @@
       avmLoft(faces, [{ y:3.0, w:2.4, zb:.95, zt:4.0, r:.12 }, { y:2.9, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.15, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.25, w:2.4, zb:1.0, zt:3.95, r:.12 }],
         n => (n[2] > .7 ? [226, 231, 234] : (Math.abs(n[0]) > .7 ? white.map(v => v * (n[0] > 0 ? .86 : 1)) : white.map(v => v * .8))));
       avmBox(faces, -1.05, 1.05, -8.35, -8.2, .55, .85, [190, 40, 40]);                    // tylny zderzak/światła
+      // szczegóły: kominy, zbiorniki, lusterka, osłony, drzwi naczepy, pas ostrzegawczy
+      [-1.05, 1.05].forEach(x => avmBox(faces, x - .07, x + .07, 5.3, 5.45, 1.9, 3.75, [175, 182, 188]));                // kominy wydechowe
+      [-1, 1].forEach(sd => {
+        avmBox(faces, sd > 0 ? 1.0 : -1.5, sd > 0 ? 1.5 : -1.0, 4.4, 5.6, .5, 1.1, [165, 172, 178]);                  // zbiorniki paliwa
+        avmBox(faces, sd > 0 ? 1.18 : -1.5, sd > 0 ? 1.5 : -1.18, 7.4, 7.65, 2.0, 3.0, AVM_DARK);                      // lusterka kabiny
+        avmBox(faces, sd > 0 ? 1.17 : -1.28, sd > 0 ? 1.28 : -1.17, -7.9, -2.0, .55, 1.0, [150, 156, 160]);             // osłony boczne naczepy
+        avmBox(faces, sd > 0 ? 1.0 : -1.3, sd > 0 ? 1.3 : -1.0, -8.0, -7.6, .3, .8, AVM_DARK);                          // błotniki naczepy
+      });
+      avmBox(faces, -1.2, 1.2, -8.38, -8.25, 1.2, 3.8, [215, 220, 222]); avmBox(faces, -.03, .03, -8.4, -8.3, 1.0, 3.9, [120, 126, 130]); // drzwi tylne
+      avmBox(faces, -1.28, 1.28, -8.28, -8.2, 3.9, 4.0, [255, 196, 0]);                                                  // pas ostrzegawczy
+      avmBox(faces, -.8, .8, 8.2, 8.26, 1.1, 1.6, AVM_DARK);                                                              // grill
       // koła: oś skrętna, 2 osie napędowe, 3 osie naczepy (podwójne na osiach napędowych i naczepy)
       [[6.9, false], [3.6, true], [2.3, true], [-5.2, true], [-6.5, true], [-7.8, true]].forEach(([y, dual]) => {
         [-1, 1].forEach(sd => {
@@ -12026,25 +12052,34 @@
         });
       });
     } },
-    gator: { len: 5.8, build: (faces) => {
-      const g = [92, 128, 48], gd = [70, 100, 36], gl = [110, 150, 56];
-      const col = n => (n[2] > .6 ? gl : (n[2] > 0 ? g : gd));
+    gator: { len: 5.8, view: 4.6, build: (faces) => {
+      const g = [92, 128, 48], gd = [66, 96, 34], gl = [112, 152, 58], belly = [150, 160, 80];
+      const col = n => (n[2] > .65 ? gl : (n[2] > .1 ? g : gd));
       avmLoft(faces, [
-        { y:-3.2, w:.12, zb:.18, zt:.3, r:.05 }, { y:-2.4, w:.45, zb:.14, zt:.5, r:.2 }, { y:-1.3, w:.85, zb:.12, zt:.68, r:.3 },
-        { y:-.3, w:1.35, zb:.1, zt:.9, r:.45 }, { y:.9, w:1.3, zb:.1, zt:.88, r:.45 }, { y:1.4, w:.8, zb:.12, zt:.6, r:.3 },
-        { y:1.9, w:.62, zb:.14, zt:.52, r:.22 }, { y:2.55, w:.46, zb:.16, zt:.4, r:.15 }, { y:2.75, w:.3, zb:.18, zt:.32, r:.1 }
+        { y:-3.3, w:.1, zb:.2, zt:.3, r:.04 }, { y:-2.6, w:.38, zb:.16, zt:.46, r:.16 }, { y:-1.6, w:.8, zb:.12, zt:.7, r:.3 },
+        { y:-.4, w:1.4, zb:.1, zt:.95, r:.5 }, { y:.9, w:1.38, zb:.1, zt:.95, r:.5 }, { y:1.45, w:.85, zb:.12, zt:.66, r:.3 },
+        { y:1.95, w:.66, zb:.14, zt:.55, r:.24 }, { y:2.6, w:.5, zb:.16, zt:.42, r:.16 }, { y:2.82, w:.34, zb:.18, zt:.34, r:.1 }
       ], col);
-      [[-.95, .8], [.95, .8], [-.95, -.9], [.95, -.9]].forEach(([x, y]) => {
-        avmLoft(faces, [{ y: y - .35, w: .4, zb: .1, zt: .3, r: .1 }, { y: y + .35, w: .4, zb: .1, zt: .3, r: .1 }], () => gd);
-        faces.forEach(() => 0);
+      // nogi (płaskie, z palcami) — dwie pary, odchylone na boki
+      [[1, 1.0, 38], [-1, 1.0, 38], [1, -1.05, -38], [-1, -1.05, -38]].forEach(([sd, y, ang]) => {
+        const leg = [[0, 0], [.55, .22], [.95, .12], [1.28, .32], [1.28, -.02], [1.0, -.22], [.55, -.2], [0, -.32]];
+        const r = ang * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
+        const poly = leg.map(([lx, ly]) => [sd * (.55 + lx * ca - ly * sa * sd), y + lx * sa * sd * (y > 0 ? 1 : -1) * .0 + ly * ca * .9 - (y > 0 ? -.15 : .15) * lx]);
+        avmPrism(faces, sd > 0 ? poly : poly.slice().reverse(), .08, .3, gd, g);
       });
-      avmBox(faces, -.4, -.2, 1.55, 1.8, .85, 1.0, [225, 190, 50]); avmBox(faces, .2, .4, 1.55, 1.8, .85, 1.0, [225, 190, 50]);   // oczy
+      // grzbiet: rząd łusek
+      for(let y = -2.2; y <= 1.1; y += .42){ const w = .18 + Math.max(0, .5 - Math.abs(y + .5) * .18);
+        avmBox(faces, -w / 2, w / 2, y, y + .26, .86 - Math.max(0, -y - 1.2) * .22, 1.06 - Math.max(0, -y - 1.2) * .22, [78, 108, 38]); }
+      avmBox(faces, -.34, -.14, 1.6, 1.9, .5, .62, [226, 190, 50]); avmBox(faces, .14, .34, 1.6, 1.9, .5, .62, [226, 190, 50]);   // oczy
+      avmBox(faces, -.28, -.2, 1.68, 1.8, .6, .64, [20, 24, 12]); avmBox(faces, .2, .28, 1.68, 1.8, .6, .64, [20, 24, 12]);       // źrenice
+      avmBox(faces, -.18, -.1, 2.7, 2.78, .38, .42, [30, 40, 18]); avmBox(faces, .1, .18, 2.7, 2.78, .38, .42, [30, 40, 18]);     // nozdrza
     } },
-    dot: { len: 2.6, build: (faces, c) => {
+    dot: { len: 2.6, view: 2.8, build: (faces, c) => {
       const base = avmHex(c), R = 1.0, st = [];
-      for(let i = -6; i <= 6; i++){ const t = i / 6 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .55 - rad * .55, zt: R * .55 + rad * .55, r: 10 }); }
-      avmLoft(faces, st, n => base.map(v => v * (.55 + .45 * Math.max(0, n[2]))));
-      avmBox(faces, -.28, .28, 1.2, 1.9, .02, .06, [255, 255, 255]);                      // znacznik kierunku
+      avmPrism(faces, Array.from({ length: 20 }, (_, i) => [Math.cos(i / 20 * 6.2832) * 1.55, Math.sin(i / 20 * 6.2832) * 1.55]), 0, .03, base.map(v => v * .55 + 40));   // pierścień pod spodem
+      for(let i = -7; i <= 7; i++){ const t = i / 7 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
+      avmLoft(faces, st, n => { const h = Math.max(0, n[2]); return [base[0] * (.5 + .5 * h) + 70 * h * h, base[1] * (.5 + .5 * h) + 70 * h * h, base[2] * (.5 + .5 * h) + 70 * h * h]; });
+      avmPrism(faces, [[0, 2.35], [.62, 1.45], [-.62, 1.45]], .03, .09, [255, 255, 255]);                                                    // strzałka kierunku
     } }
   };
   ["car", "truck", "gator", "dot"].forEach(k => { if(AVATARS[k]) AVATARS[k].model = AVM_MODELS[k]; });
