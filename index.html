@@ -7554,6 +7554,28 @@
       });
   }
 
+  // adres dla punktu: Mapbox → TomTom → Photon (pierwszy, który zwróci adres)
+  function mapboxReverse(lat, lon){
+    const token = (typeof mapboxToken === "string" && /^pk\./.test(mapboxToken)) ? mapboxToken : MAPBOX_DEFAULT_TOKEN;
+    if(!token) return Promise.resolve("");
+    const p = new URLSearchParams({ access_token: token, country: "gb", types: "address", limit: "1", language: "en" });
+    return fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?${p}`)
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => { const f = d && d.features && d.features[0]; return f && f.place_name ? f.place_name.replace(/, United Kingdom$/, "") : ""; });
+  }
+  function tomtomReverse(lat, lon){
+    if(!tomtomApiKey) return Promise.resolve("");
+    return fetch(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lon}.json?key=${encodeURIComponent(tomtomApiKey)}&radius=60&language=en-GB`)
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => { const a = d && d.addresses && d.addresses[0] && d.addresses[0].address; return a && a.freeformAddress ? a.freeformAddress : ""; });
+  }
+  async function reverseAddressChain(lat, lon){
+    for(const fn of [mapboxReverse, tomtomReverse, photonReverse]){
+      try{ const a = await fn(lat, lon); if(a) return a; }catch(e){ console.warn("reverse geocode:", e); }
+    }
+    return "";
+  }
+
   function reverseGeocodeDest(lat, lon, seq){
     if(destRevAbort) destRevAbort.abort();
     destRevAbort = new AbortController();
@@ -7791,7 +7813,7 @@
     document.getElementById("poiAddStatus").textContent = "";
     const save = document.getElementById("poiAddSave"); save.disabled = false; save.textContent = "Zapisz nazwę";
     document.getElementById("poiAdd").classList.add("show");
-    photonReverse(lat, lon).then(addr => {
+    reverseAddressChain(lat, lon).then(addr => {
       if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
         document.getElementById("poiAddAddr").textContent = addr;
     }).catch(() => {});
