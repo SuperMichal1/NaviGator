@@ -1311,6 +1311,7 @@
   <div id="poiAddAsk">
     <div class="poiName">Ten budynek nie ma nazwy</div>
     <div class="poiAddr" id="poiAddAddr"></div>
+    <input id="poiAddrInput" type="text" maxlength="80" placeholder="Postcode lub adres (np. LU2 9NL)" autocomplete="off">
     <div class="poiQ">Chcesz dodać nazwę firmy?</div>
     <div class="poiBtns">
       <button id="poiAddNo" type="button">Nie</button>
@@ -7807,6 +7808,7 @@
     hidePoiAsk();
     placeAddTarget = { lat, lon }; placeAddForce = false;
     document.getElementById("poiAddAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    placeAddManualAddr = ""; document.getElementById("poiAddrInput").value = "";
     document.getElementById("poiAddAsk").style.display = "";
     document.getElementById("poiAddForm").style.display = "none";
     document.getElementById("poiNameInput").value = "";
@@ -7818,6 +7820,38 @@
         document.getElementById("poiAddAddr").textContent = addr;
     }).catch(() => {});
   }
+  // adres wpisany ręcznie (postcode albo adres): TomTom → Mapbox → Photon → Nominatim; opis nie przesuwa pozycji budynku
+  let placeAddManualAddr = "", placeAddrTimer = null, placeAddrSeq = 0;
+  async function lookupTypedAddress(raw){
+    const q = normalizeUkQuery(raw), t = placeAddTarget, bias = t ? { lat: t.lat, lon: t.lon } : null;
+    const chain = [];
+    if(tomtomApiKey) chain.push(() => {
+      const p = new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY });
+      if(bias){ p.set("lat", bias.lat); p.set("lon", bias.lon); }
+      return fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(q)}.json?${p}`).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(d => (d.results || []).filter(r => r.address && r.address.freeformAddress));
+    });
+    chain.push(() => geoMapbox(q, bias), () => geoPhoton(q, bias), () => geoNominatim(q, bias));
+    for(const fn of chain){
+      try{ const r = await fn(); if(r && r.length){ let a = r[0].address.freeformAddress.replace(/, United Kingdom$/, ""); if(UK_POSTCODE_RE.test(q) && !a.includes(q)) a = q + ", " + a; return a; } }catch(e){ console.warn("address lookup:", e); }
+    }
+    return "";
+  }
+  function runTypedAddress(){
+    const raw = document.getElementById("poiAddrInput").value.trim();
+    clearTimeout(placeAddrTimer);
+    if(raw.length < 3 || !placeAddTarget) return;
+    const seq = ++placeAddrSeq, target = placeAddTarget;
+    lookupTypedAddress(raw).then(a => {
+      if(seq !== placeAddrSeq || placeAddTarget !== target) return;
+      if(a){ placeAddManualAddr = a; document.getElementById("poiAddAddr").textContent = a; }
+      else document.getElementById("poiAddAddr").textContent = "Nie znaleziono adresu „" + raw + "”";
+    });
+  }
+  document.getElementById("poiAddrInput").addEventListener("input", () => {
+    clearTimeout(placeAddrTimer); placeAddrTimer = setTimeout(runTypedAddress, 800);
+  });
+  document.getElementById("poiAddrInput").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); runTypedAddress(); e.target.blur(); } });
   function openPlaceForm(){
     document.getElementById("poiAddAsk").style.display = "none";
     const f = document.getElementById("poiAddForm"); f.style.display = "flex";
@@ -7834,6 +7868,7 @@
     }catch(e){}
     hidePlaceAdd();
     showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
+    if(placeAddManualAddr && poiAskTarget){ poiAskTarget.address = placeAddManualAddr; document.getElementById("poiAskAddr").textContent = placeAddManualAddr; }
     const tag = verified === true ? ` (potwierdzona w ${source})` : verified === false ? " (niezweryfikowana ❔)" : "";
     if(supaConfigured()){
       savePlaceNameRemote(p, source).then(ok => {
