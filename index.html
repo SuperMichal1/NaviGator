@@ -7643,8 +7643,7 @@
   const PLACE_NAMES_LOCAL_KEY = "nawigator_place_names";
   const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
   const PLACE_VERIFY_RADIUS_M = 250;
-  const PLACE_DUPLICATE_M = 50;   // ta sama nazwa bliżej niż tyle = ten sam budynek/firma, nie dodajemy drugi raz (sąsiednie hale w parku logistycznym mogą mieć podobne nazwy)
-  const PLACE_FUZZY_DUPLICATE_M = 25;   // podobna nazwa (np. samo Sainsbury's vs DHL Sainsbury's) to duplikat tylko tuż obok
+  const PLACE_DUPLICATE_M = 200;  // ta sama nazwa bliżej niż tyle = ta sama firma, nie dodajemy drugi raz
   const PLACE_KNOWN_NEAR_M = 60;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
   let placeNames = [];            // [{lat, lon, name, verified}]
   let placeAddTarget = null;
@@ -7759,7 +7758,7 @@
     const check = (n, la, lo) => {
       if(!n) return;
       const d = _dM(lat, lon, la, lo);
-      if(d < bestD && (nameTokens(n).join(" ") === nk || (d < PLACE_FUZZY_DUPLICATE_M && namesMatch(name, n)))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
+      if(d < bestD && (nameTokens(n).join(" ") === nk || namesMatch(name, n))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
     };
     hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) check(f.properties && f.properties.name, c[1], c[0]); });
     placeNames.forEach(p => check(p.name, p.lat, p.lon));
@@ -7895,7 +7894,7 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId, ownAddr){
+  function showPoiAsk(name, lat, lon, placeId){
     const seq = ++poiAskSeq;
     hideVoteCard();
     poiAskTarget = { lat, lon, name, address: "", placeId };
@@ -7903,41 +7902,7 @@
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
-    // adres z danych punktu (tagi addr:* z OSM / pole adresu w bazie) bierzemy bezpośrednio — bez geokodowania
-    if(ownAddr){ poiAskTarget.address = ownAddr; document.getElementById("poiAskAddr").textContent = ownAddr; return; }
-    // brak własnego adresu → Photon; liczymy zawsze dla środka budynku pod punktem i zapamiętujemy — ten sam budynek daje ten sam adres,
-    // niezależnie od tego, który duplikat nazwy (znacznik stylu mapy / firma / nazwa kierowców) kliknięto
-    const g = poiGeocodePoint(lat, lon);
-    const hit = poiAddrCache.find(c => c.name === name && haversine(c.lat, c.lon, g.lat, g.lon) <= 80);
-    if(hit){ poiAskTarget.address = hit.addr; document.getElementById("poiAskAddr").textContent = hit.addr; return; }
-    photonReverse(g.lat, g.lon)
-      .then(addr => {
-        if(!addr) return;
-        poiAddrCache.push({ name, lat: g.lat, lon: g.lon, addr });
-        if(poiAddrCache.length > 60) poiAddrCache.shift();
-        if(seq !== poiAskSeq || !poiAskTarget) return;
-        poiAskTarget.address = addr;
-        document.getElementById("poiAskAddr").textContent = addr;
-      })
-      .catch(err => console.warn("Photon reverse geocode (POI):", err));
-  }
-  const poiAddrCache = [];
-  // adres zapisany w tagach punktu (addr:* z OSM albo gotowe pole adresu)
-  function addrFromProps(p){
-    if(!p) return "";
-    const a = addrFromParts(p["addr:housenumber"] || p.housenumber, p["addr:street"] || p.street, p["addr:city"] || p["addr:suburb"] || p.city, p["addr:postcode"] || p.postcode);
-    return a || (typeof p.address === "string" ? p.address : "");
-  }
-  // punkt do geokodowania: środek budynku zawierającego punkt (dla firm leżących przy granicy dzielnic/miast
-  // sąsiednie duplikaty dają inaczej „przyciągnięty” adres); bez budynku — sam punkt
-  function poiGeocodePoint(lat, lon){
-    try{
-      const bl = map.getStyle().layers.filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion")).map(l => l.id).filter(id => map.getLayer(id));
-      const pt = map.project([lon, lat]);
-      const bf = bl.length ? map.queryRenderedFeatures(pt, { layers: bl }) : [];
-      if(bf.length){ const c = buildingCenter(bf[0], { lat, lon }); return { lat: c.lat, lon: c.lon }; }
-    }catch(e){}
-    return { lat, lon };
+    photonReverse(lat, lon).then(addr => { if(seq !== poiAskSeq || !poiAskTarget || !addr) return; poiAskTarget.address = addr; document.getElementById("poiAskAddr").textContent = addr; }).catch(err => console.warn("Photon reverse geocode (POI):", err));
   }
   function acceptPoiAsk(){
     if(!poiAskTarget) return;
@@ -7953,123 +7918,9 @@
   document.getElementById("poiAskNo").addEventListener("click", hidePoiAsk);
 
 
-  /* ---------- długie przytrzymanie budynku (zoom ≥ 16) ----------
-     Znana nazwa TEGO budynku → pytanie o trasę; brak nazwy → pytanie o dodanie nazwy.
-     Wcześniej pytało o trasę do sąsiedniego budynku z trzech powodów (wszystkie naprawione niżej):
-       1) puszczenie palca po dłuższym przytrzymaniu wywoływało zwykłe „click" — łapał on sąsiedni znacznik POI albo zamykał kartę;
-       2) środek budynku liczony jako średnia wierzchołków (przy wklęsłych kształtach leży poza budynkiem);
-       3) „znana nazwa" = dowolny punkt w promieniu 8 m od środka, czyli często firma z sąsiedniego budynku. */
-  function bldRings(f){
-    const g = f && f.geometry; if(!g) return [];
-    if(g.type === "Polygon") return [g.coordinates[0]];
-    if(g.type === "MultiPolygon") return g.coordinates.map(pg => pg[0]);
-    return [];
-  }
-  function bldInRing(ring, lon, lat){
-    let ins = false;
-    for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
-      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-      if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
-    }
-    return ins;
-  }
-  function bldContains(f, lon, lat){ return bldRings(f).some(r => bldInRing(r, lon, lat)); }
-  // odległość punktu od obrysu w metrach (rzut na płaszczyznę lokalną)
-  function bldEdgeDistM(f, lon, lat){
-    const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540; let best = Infinity;
-    bldRings(f).forEach(r => { for(let i = 0; i < r.length - 1; i++){
-      const ax = (r[i][0] - lon) * kx, ay = (r[i][1] - lat) * ky, bx = (r[i + 1][0] - lon) * kx, by = (r[i + 1][1] - lat) * ky;
-      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
-      best = Math.min(best, Math.hypot(ax + dx * t, ay + dy * t)); } });
-    return best;
-  }
-  // punkt WEWNĄTRZ budynku: środek ciężkości, a gdy leży poza obrysem — środek najdłuższego poziomego odcinka wewnątrz
-  function bldInnerPoint(f, fallback){
-    const rings = bldRings(f); if(!rings.length) return fallback;
-    let ring = rings[0], bestA = -1;
-    rings.forEach(r => { let a = 0; for(let i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; if(Math.abs(a) > bestA){ bestA = Math.abs(a); ring = r; } });
-    let A = 0, cx = 0, cy = 0;
-    for(let i = 0; i < ring.length - 1; i++){ const cr = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]; A += cr; cx += (ring[i][0] + ring[i + 1][0]) * cr; cy += (ring[i][1] + ring[i + 1][1]) * cr; }
-    if(Math.abs(A) > 1e-18){ const c = { lon: cx / (3 * A), lat: cy / (3 * A) }; if(bldInRing(ring, c.lon, c.lat)) return c; }
-    const lats = ring.map(q => q[1]), mid = (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2, xs = [];
-    for(let i = 0; i < ring.length - 1; i++){ const a = ring[i], b = ring[i + 1]; if((a[1] > mid) !== (b[1] > mid)) xs.push(a[0] + (mid - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
-    xs.sort((p, q) => p - q);
-    let bx = null, bw = -1; for(let i = 0; i + 1 < xs.length; i += 2){ if(xs[i + 1] - xs[i] > bw){ bw = xs[i + 1] - xs[i]; bx = (xs[i] + xs[i + 1]) / 2; } }
-    return bx === null ? fallback : { lon: bx, lat: mid };
-  }
-  function bldLayerIds(){
-    return map.getStyle().layers.filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
-      .map(l => l.id).filter(id => map.getLayer(id));
-  }
-  // budynek pod palcem: najpierw ten, w którego obrysie leży punkt na ziemi pod palcem, potem najwyższy narysowany (3D) pod palcem
-  function bldPickUnderPoint(point, lngLat, layers){
-    // UWAGA: MapLibre traktuje zwykły obiekt {x,y} jako opcje (nie punkt) i zwraca wtedy WSZYSTKIE obiekty z widoku — punkt musi być tablicą [x, y]
-    const bf = map.queryRenderedFeatures([point.x, point.y], { layers }).filter(f => f.sourceLayer === "building" || (f.layer && f.layer["source-layer"] === "building"));
-    if(!bf.length) return null;
-    return bf.find(f => bldContains(f, lngLat.lng, lngLat.lat)) || bf[0];
-  }
-  function handleBuildingPress(point, lngLat){
-    if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
-    if(map.getZoom() < PLACE_NAME_MIN_ZOOM) return;
-    let layers; try{ layers = bldLayerIds(); }catch(e){ return; }
-    const bld = layers.length ? bldPickUnderPoint(point, lngLat, layers) : null;
-    if(!bld) return;
-    try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
-    const c = bldInnerPoint(bld, { lat: lngLat.lat, lon: lngLat.lng });
-    // nazwa „znana" tylko wtedy, gdy jej punkt leży w obrysie TEGO budynku albo tuż przy jego krawędzi (≤ 4 m) i nie leży w innym budynku
-    let others = [];   // inne narysowane budynki (kopie tego samego budynku też się trafią, ale sprawdzamy tylko punkty spoza jego obrysu)
-    try{ others = map.queryRenderedFeatures({ layers }); }catch(e){}
-    const inOther = (lon, lat) => others.some(f => bldContains(f, lon, lat));
-    let known = null;
-    const consider = (n, la, lo, extra) => {
-      if(!n || typeof la !== "number" || typeof lo !== "number") return;
-      const inside = bldContains(bld, lo, la);
-      if(!inside && !(bldEdgeDistM(bld, lo, la) <= 4 && !inOther(lo, la))) return;
-      const d = haversine(c.lat, c.lon, la, lo);
-      if(!known || d < known.d) known = Object.assign({ name: n, lat: la, lon: lo, d }, extra || {});
-    };
-    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { props: f.properties }); });
-    placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
-    if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, addrFromProps(known.props)); return; }
-    if(!hgvCompaniesLoaded){
-      hidePoiAsk();
-      showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
-      return;
-    }
-    showPlaceAdd(c.lat, c.lon);
-  }
-  // Długie przytrzymanie: licznik startuje na dotyku; po 650 ms bez ruchu otwiera kartę. Zwolnienie palca po „wystrzale" jest
-  // pochłaniane (pressSwallowUntil), żeby kończące je „click" nie otwierało karty sąsiedniego punktu ani nie zamykało nowej karty.
-  let pressTimer = null, pressStart = null, pressFiredActive = false, pressSwallowUntil = 0;
-  function cancelPress(){ clearTimeout(pressTimer); pressTimer = null; }
-  function pressWasLong(){ return pressFiredActive || Date.now() < pressSwallowUntil; }
-  function setupBuildingLongPress(){
-    const start = (e) => {
-      if(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1){ cancelPress(); return; }
-      cancelPress(); pressFiredActive = false; pressStart = { x: e.point.x, y: e.point.y };
-      const lngLat = e.lngLat;
-      pressTimer = setTimeout(() => {
-        pressTimer = null; pressFiredActive = true;
-        handleBuildingPress(pressStart, lngLat);
-      }, 650);
-    };
-    const moved = e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); };
-    map.on("mousedown", start); map.on("touchstart", start);
-    map.on("mousemove", moved); map.on("touchmove", moved);
-    const release = () => {
-      cancelPress();
-      if(pressFiredActive){ pressFiredActive = false; pressSwallowUntil = Date.now() + 900; }   // zbliża się „click" po puszczeniu palca
-    };
-    ["mouseup", "touchend", "touchcancel"].forEach(ev => map.on(ev, release));
-    ["dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach(ev => map.on(ev, cancelPress));
-    // menu kontekstowe przeglądarki przy długim dotyku nie może przykryć naszej karty
-    try{ map.getCanvas().addEventListener("contextmenu", e => { if(pressWasLong()) e.preventDefault(); }); }catch(e){}
-  }
 
   function setupPoiClick(){
-    setupBuildingLongPress();
     map.on("click", (e) => {
-      if(pressWasLong()) return;   // klik zakończający długie przytrzymanie
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
@@ -8099,9 +7950,30 @@
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined, addr: addrFromProps(p) }; }
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.addr); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId); return; }
+      // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
+      if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
+        const bLayers = map.getStyle().layers
+          .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
+          .map(l => l.id).filter(id => map.getLayer(id));
+        const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
+        if(bf.length){
+          const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
+          // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
+          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
+          // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
+          if(!hgvCompaniesLoaded){
+            hidePoiAsk();
+            showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
+            return;
+          }
+          showPlaceAdd(c.lat, c.lon);
+          return;
+        }
+      }
       hidePoiAsk();
     });
   }
