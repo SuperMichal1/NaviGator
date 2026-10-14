@@ -8014,12 +8014,27 @@
     let bx = null, bw = -1; for(let i = 0; i + 1 < xs.length; i += 2){ if(xs[i + 1] - xs[i] > bw){ bw = xs[i + 1] - xs[i]; bx = (xs[i] + xs[i + 1]) / 2; } }
     return bx === null ? fallback : { lon: bx, lat: mid };
   }
+  // kafelek może oddać wiele budynków jako jeden MultiPolygon — bierzemy tylko ten wielokąt, który leży pod kliknięciem (albo najbliższy)
+  function bldSingle(f, lon, lat){
+    const rings = bldRings(f); if(rings.length <= 1) return f;
+    const mk = r => ({ geometry: { type: "Polygon", coordinates: [r] } });
+    let best = rings[0], bd = Infinity;
+    for(const r of rings){
+      if(bldInRing(r, lon, lat)) return mk(r);
+      const d = bldEdgeDistM(mk(r), lon, lat); if(d < bd){ bd = d; best = r; }
+    }
+    return mk(best);
+  }
   // najbliższa znana nazwa (firmy HGV / dodane przez kierowców), której punkt leży w obrysie budynku lub ≤ 4 m od niego
   function findNameInBuilding(bld){
     let best = null, bestD = Infinity;
     const ctr = bldInnerPoint(bld, null);
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    bldRings(bld).forEach(r => r.forEach(q => { if(q[0] < x0) x0 = q[0]; if(q[0] > x1) x1 = q[0]; if(q[1] < y0) y0 = q[1]; if(q[1] > y1) y1 = q[1]; }));
+    const pad = 0.00006;   // ~4 m — szybkie odrzucenie punktów spoza ramki budynku
     const consider = (n, la, lo, extra) => {
       if(!n || typeof la !== "number" || typeof lo !== "number") return;
+      if(lo < x0 - pad || lo > x1 + pad || la < y0 - pad || la > y1 + pad) return;
       if(!bldContains(bld, lo, la) && bldEdgeDistM(bld, lo, la) > 4) return;
       const d = ctr ? haversine(ctr.lat, ctr.lon, la, lo) : 0;
       if(d < bestD){ bestD = d; best = Object.assign({ name: n, lat: la, lon: lo }, extra || {}); }
@@ -8061,7 +8076,7 @@
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
           placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
-          dbg: `v3 · warstwa ${f.layer ? f.layer.id : "?"} · ${Math.round(d)} px` }; }
+          dbg: `v4 · warstwa ${f.layer ? f.layer.id : "?"} · ${Math.round(d)} px` }; }
       });
       if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.dbg); return; }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
@@ -8072,11 +8087,11 @@
         const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
         if(bf.length){
           // budynek pod palcem: ten, w którego obrysie leży kliknięty punkt (inaczej pierwszy narysowany)
-          const bld = bf.find(f => bldContains(f, e.lngLat.lng, e.lngLat.lat)) || bf[0];
+          const bld = bldSingle(bf.find(f => bldContains(f, e.lngLat.lng, e.lngLat.lat)) || bf[0], e.lngLat.lng, e.lngLat.lat);
           const c = bldInnerPoint(bld, buildingCenter(bld, { lat: e.lngLat.lat, lon: e.lngLat.lng }));
           // nazwa „znana” tylko gdy jej punkt leży w obrysie TEGO budynku albo tuż przy krawędzi (≤ 4 m) — nie w sąsiednim
           const known = findNameInBuilding(bld);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v3 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`); return; }
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v4 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
