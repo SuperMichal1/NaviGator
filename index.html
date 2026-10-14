@@ -7976,6 +7976,59 @@
 
 
 
+  /* ---------- który budynek ma nazwę: tylko punkt wewnątrz obrysu klikniętego budynku ---------- */
+  function bldRings(f){
+    const g = f && f.geometry; if(!g) return [];
+    if(g.type === "Polygon") return [g.coordinates[0]];
+    if(g.type === "MultiPolygon") return g.coordinates.map(pg => pg[0]);
+    return [];
+  }
+  function bldInRing(ring, lon, lat){
+    let ins = false;
+    for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
+    }
+    return ins;
+  }
+  function bldContains(f, lon, lat){ return bldRings(f).some(r => bldInRing(r, lon, lat)); }
+  function bldEdgeDistM(f, lon, lat){
+    const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540; let best = Infinity;
+    bldRings(f).forEach(r => { for(let i = 0; i < r.length - 1; i++){
+      const ax = (r[i][0] - lon) * kx, ay = (r[i][1] - lat) * ky, bx = (r[i + 1][0] - lon) * kx, by = (r[i + 1][1] - lat) * ky;
+      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      best = Math.min(best, Math.hypot(ax + dx * t, ay + dy * t)); } });
+    return best;
+  }
+  // punkt WEWNĄTRZ budynku: środek ciężkości; gdy leży poza obrysem — środek najdłuższego poziomego odcinka wewnątrz
+  function bldInnerPoint(f, fallback){
+    const rings = bldRings(f); if(!rings.length) return fallback;
+    let ring = rings[0], bestA = -1;
+    rings.forEach(r => { let a = 0; for(let i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; if(Math.abs(a) > bestA){ bestA = Math.abs(a); ring = r; } });
+    let A = 0, cx = 0, cy = 0;
+    for(let i = 0; i < ring.length - 1; i++){ const cr = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]; A += cr; cx += (ring[i][0] + ring[i + 1][0]) * cr; cy += (ring[i][1] + ring[i + 1][1]) * cr; }
+    if(Math.abs(A) > 1e-18){ const c = { lon: cx / (3 * A), lat: cy / (3 * A) }; if(bldInRing(ring, c.lon, c.lat)) return c; }
+    const lats = ring.map(q => q[1]), mid = (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2, xs = [];
+    for(let i = 0; i < ring.length - 1; i++){ const a = ring[i], b = ring[i + 1]; if((a[1] > mid) !== (b[1] > mid)) xs.push(a[0] + (mid - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
+    xs.sort((p, q) => p - q);
+    let bx = null, bw = -1; for(let i = 0; i + 1 < xs.length; i += 2){ if(xs[i + 1] - xs[i] > bw){ bw = xs[i + 1] - xs[i]; bx = (xs[i] + xs[i + 1]) / 2; } }
+    return bx === null ? fallback : { lon: bx, lat: mid };
+  }
+  // najbliższa znana nazwa (firmy HGV / dodane przez kierowców), której punkt leży w obrysie budynku lub ≤ 4 m od niego
+  function findNameInBuilding(bld){
+    let best = null, bestD = Infinity;
+    const ctr = bldInnerPoint(bld, null);
+    const consider = (n, la, lo, extra) => {
+      if(!n || typeof la !== "number" || typeof lo !== "number") return;
+      if(!bldContains(bld, lo, la) && bldEdgeDistM(bld, lo, la) > 4) return;
+      const d = ctr ? haversine(ctr.lat, ctr.lon, la, lo) : 0;
+      if(d < bestD){ bestD = d; best = Object.assign({ name: n, lat: la, lon: lo }, extra || {}); }
+    };
+    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0]); });
+    placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
+    return best;
+  }
+
   function setupPoiClick(){
     map.on("click", (e) => {
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
@@ -8017,9 +8070,11 @@
           .map(l => l.id).filter(id => map.getLayer(id));
         const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
         if(bf.length){
-          const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
-          // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
-          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
+          // budynek pod palcem: ten, w którego obrysie leży kliknięty punkt (inaczej pierwszy narysowany)
+          const bld = bf.find(f => bldContains(f, e.lngLat.lng, e.lngLat.lat)) || bf[0];
+          const c = bldInnerPoint(bld, buildingCenter(bld, { lat: e.lngLat.lat, lon: e.lngLat.lng }));
+          // nazwa „znana” tylko gdy jej punkt leży w obrysie TEGO budynku albo tuż przy krawędzi (≤ 4 m) — nie w sąsiednim
+          const known = findNameInBuilding(bld);
           if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
