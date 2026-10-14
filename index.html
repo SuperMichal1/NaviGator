@@ -7951,12 +7951,12 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId){
+  function showPoiAsk(name, lat, lon, placeId, dbg){
     const seq = ++poiAskSeq;
     hideVoteCard();
     poiAskTarget = { lat, lon, name, address: "", placeId };
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
-    document.getElementById("poiAskName").textContent = name;
+    document.getElementById("poiAskName").textContent = dbg ? `${name}  [${dbg}]` : name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
     photonReverse(lat, lon).then(addr => { if(seq !== poiAskSeq || !poiAskTarget || !addr) return; poiAskTarget.address = addr; document.getElementById("poiAskAddr").textContent = addr; }).catch(err => console.warn("Photon reverse geocode (POI):", err));
@@ -8060,9 +8060,10 @@
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined }; }
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
+          dbg: `v3 · warstwa ${f.layer ? f.layer.id : "?"} · ${Math.round(d)} px` }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.dbg); return; }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
       if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
         const bLayers = map.getStyle().layers
@@ -8075,7 +8076,7 @@
           const c = bldInnerPoint(bld, buildingCenter(bld, { lat: e.lngLat.lat, lon: e.lngLat.lng }));
           // nazwa „znana” tylko gdy jej punkt leży w obrysie TEGO budynku albo tuż przy krawędzi (≤ 4 m) — nie w sąsiednim
           const known = findNameInBuilding(bld);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v3 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
