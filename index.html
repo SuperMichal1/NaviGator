@@ -452,6 +452,7 @@
     border:1px solid var(--panel-border); box-shadow:0 6px 24px rgba(0,0,0,.4);
   }
   .poiCard.show{ display:flex; }
+  .poiCard select{ flex:1; padding:9px 8px; border-radius:10px; border:1px solid var(--panel-border); background:rgba(255,255,255,.08); color:inherit; font-size:14px; }
   .poiCard .poiName{ font-size:15px; font-weight:700; line-height:1.25; word-break:break-word; }
   .poiCard .poiAddr{ font-size:13px; opacity:.8; line-height:1.3; word-break:break-word; }
   .poiCard .poiQ{ font-size:13px; font-weight:600; margin-top:2px; }
@@ -1295,6 +1296,26 @@
   <div class="poiBtns" id="poiVoteRow" style="display:none">
     <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
     <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
+  </div>  <div class="poiBtns adminOnly" id="poiAskAdminRow" style="display:none">
+    <button id="poiAskHide" type="button">🙈 Ukryj (admin)</button>
+  </div>
+</div>
+
+<div id="adminRestrCard" class="poiCard" role="dialog">
+  <div class="poiName">🚧 Nowy znak ograniczenia</div>
+  <div class="poiAddr" id="adminRestrInfo">Stukaj na mapie kolejne punkty odcinka drogi lub wiaduktu (minimum 2: początek i koniec).</div>
+  <div class="poiBtns">
+    <select id="adminRestrKind">
+      <option value="height">Wysokość (m)</option>
+      <option value="weight">Tonaż (t)</option>
+      <option value="width">Szerokość (m)</option>
+    </select>
+    <input id="adminRestrValue" type="text" inputmode="decimal" maxlength="6" placeholder="np. 4,2" autocomplete="off">
+  </div>
+  <div class="poiBtns">
+    <button id="adminRestrUndo" type="button">↩ Cofnij punkt</button>
+    <button id="adminRestrCancel" type="button">Anuluj</button>
+    <button id="adminRestrSave" type="button">Zapisz</button>
   </div>
 </div>
 
@@ -1553,6 +1574,7 @@
       </div>
       <button type="button" id="adminLogoutBtn" class="navPrefBtn" style="margin:0; display:none;">Wyloguj</button>
     </div>
+    <button type="button" id="adminAddRestrBtn" class="navPrefBtn adminOnly">🚧 Dodaj znak ograniczenia (wysokość / tonaż / szerokość)</button>
     <div id="navKeyToggle" class="adminOnly">
       <span>🔑 Klucz API TomTom</span>
       <span class="chev">▾</span>
@@ -4815,7 +4837,11 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
+  let hgvCompaniesAll = [];          // wszystkie firmy (przed ukryciem przez administratora)
+  let hiddenPlaceKeys = new Set();   // klucze ukrytych miejsc: "osm:<id>" (firma z OSM) albo "place:<id>" (nazwa kierowców)
   function setHgvCompaniesData(features){
+    hgvCompaniesAll = features || [];
+    if(hiddenPlaceKeys.size) features = hgvCompaniesAll.filter(f => !(f.properties && hiddenPlaceKeys.has("osm:" + f.properties.osm_id)));
     if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
   }
@@ -5255,8 +5281,14 @@
   }
 
   // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
-  let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
+  let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0, restrictionBase = null;
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
+    restrictionBase = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [], s: signFeatures || [] };   // bez znaków administratora
+    if(typeof adminRestrictionFeatures === "function"){          // dokładamy znaki dodane przez administratora (js/44)
+      const A = adminRestrictionFeatures();
+      heightFeatures = restrictionBase.h.concat(A.h); weightFeatures = restrictionBase.w.concat(A.w);
+      widthFeatures = restrictionBase.d.concat(A.d); signFeatures = restrictionBase.s.concat(A.s);
+    }
     restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
     restrictionVer++; restrictionIdx = null;
     if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
@@ -6869,20 +6901,31 @@
       .then(d => d.results || [])
       .catch(err => { if(err.name === "AbortError") throw err; return []; });
   }
+  // opis wyniku lokalnego: źródło + odległość od środka mapy; adres dopisywany po odwrotnym geokodowaniu (z pamięcią podręczną)
+  const localAddrCache = new Map();
+  function localResultInfo(r){
+    const km = r._d ? (r._d < 1000 ? Math.round(r._d) + " m" : (r._d / 1000).toFixed(1) + " km") : "";
+    return [r.src === "drivers" ? "dodane przez kierowców" : "firma z OSM", km].filter(Boolean).join(" · ");
+  }
+  function localResultAddress(r){
+    const k = r.position.lat.toFixed(5) + "," + r.position.lon.toFixed(5);
+    if(!localAddrCache.has(k)) localAddrCache.set(k, reverseAddressChain(r.position.lat, r.position.lon).catch(() => ""));
+    return localAddrCache.get(k);
+  }
   // nazwy dodane przez kierowców + firmy HGV (Overpass/Supabase) pasujące do wpisanego tekstu
   function localNameMatches(query, bias){
     const q = query.toLowerCase();
     if(q.length < NAV_SUGGEST_MIN_CHARS) return [];
     const out = [];
-    const add = (name, lat, lon) => {
+    const add = (name, lat, lon, src) => {
       if(!name || typeof lat !== "number" || typeof lon !== "number") return;
       if(!(name.toLowerCase().includes(q) || namesMatch(query, name))) return;
       if(out.some(o => o.poi.name.toLowerCase() === name.toLowerCase() && _dM(o.position.lat, o.position.lon, lat, lon) < 100)) return;
-      out.push({ local: true, poi: { name }, address: { freeformAddress: name }, position: { lat, lon },
+      out.push({ local: true, src, poi: { name }, address: { freeformAddress: name }, position: { lat, lon },
         _d: bias ? _dM(bias.lat, bias.lon, lat, lon) : 0 });
     };
-    placeNames.forEach(p => add(p.name, p.lat, p.lon));
-    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0]); });
+    placeNames.forEach(p => add(p.name, p.lat, p.lon, "drivers"));
+    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0], "osm"); });
     return out.sort((a, b) => a._d - b._d).slice(0, 3);
   }
 
@@ -7044,7 +7087,9 @@
         item.className = "navSuggestion navSaved";
         item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-        item.querySelector(".addr2").textContent = r.local ? "Z bazy kierowców" : ((r.poi && r.poi.name) ? label : sub);
+        const addr2El = item.querySelector(".addr2");
+        addr2El.textContent = r.local ? localResultInfo(r) : ((r.poi && r.poi.name) ? label : sub);
+        if(r.local) localResultAddress(r).then(a => { if(a && addr2El.isConnected) addr2El.textContent = a + " · " + localResultInfo(r); });
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
         const star = document.createElement("button");
@@ -7691,6 +7736,7 @@
     const seen = new Set(placeNames.map(placeNameKey));
     list.forEach(p => {
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
+      if(p.id != null && hiddenPlaceKeys.has("place:" + p.id)) return;   // ukryte przez administratora
       const k = placeNameKey(p);
       // wpis z bazy wspólnej przejmuje id/status lokalnej kopii — dzięki temu można na niego głosować
       const adopt = q => { if(q && p.id != null){ q.id = p.id; q.status = p.status; } };
@@ -7951,10 +7997,11 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId, dbg){
+  function showPoiAsk(name, lat, lon, placeId, dbg, hideKey){
     const seq = ++poiAskSeq;
     hideVoteCard();
-    poiAskTarget = { lat, lon, name, address: "", placeId };
+    poiAskTarget = { lat, lon, name, address: "", placeId, hideKey };
+    document.getElementById("poiAskAdminRow").style.display = hideKey ? "" : "none";   // przycisk widoczny tylko dla administratora (.adminOnly)
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
     document.getElementById("poiAskName").textContent = dbg ? `${name}  [${dbg}]` : name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
@@ -8039,13 +8086,14 @@
       const d = ctr ? haversine(ctr.lat, ctr.lon, la, lo) : 0;
       if(d < bestD){ bestD = d; best = Object.assign({ name: n, lat: la, lon: lo }, extra || {}); }
     };
-    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0]); });
+    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { osmId: f.properties && f.properties.osm_id }); });
     placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
     return best;
   }
 
   function setupPoiClick(){
     map.on("click", (e) => {
+      if(typeof adminRestrClick === "function" && adminRestrClick(e)) return;   // rysowanie / usuwanie znaków (administrator)
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
@@ -8076,9 +8124,10 @@
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
           placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
+          hideKey: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? "place:" + p.id : (f.layer && f.layer.id === "hgv-companies-icon" && p.osm_id != null) ? "osm:" + p.osm_id : undefined,
           dbg: `v4 · warstwa ${f.layer ? f.layer.id : "?"} · ${Math.round(d)} px` }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.dbg); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.dbg, best.hideKey); return; }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
       if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
         const bLayers = map.getStyle().layers
@@ -8091,7 +8140,7 @@
           const c = bldInnerPoint(bld, buildingCenter(bld, { lat: e.lngLat.lat, lon: e.lngLat.lng }));
           // nazwa „znana” tylko gdy jej punkt leży w obrysie TEGO budynku albo tuż przy krawędzi (≤ 4 m) — nie w sąsiednim
           const known = findNameInBuilding(bld);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v4 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`); return; }
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v4 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`, known.placeId != null ? "place:" + known.placeId : known.osmId != null ? "osm:" + known.osmId : undefined); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
@@ -9244,7 +9293,7 @@
       const co = f.geometry && f.geometry.coordinates, val = Number(f.properties && f.properties[prop]);
       if(!co || co.length < 2 || !isFinite(val) || val <= 0) return;
       const idx = items.length;
-      items.push({ kind, value: val, co, id: kind + ":" + ((f.properties && f.properties.osm_id) || idx) });
+      items.push({ kind, value: val, co, admin: !!(f.properties && f.properties.admin), id: kind + ":" + ((f.properties && f.properties.osm_id) || idx) });
       const seen = new Set();
       co.forEach(c => {
         const k = Math.floor(c[1] / 0.01) + "," + Math.floor(c[0] / 0.01);
@@ -9331,7 +9380,7 @@
       /* Droga równoległa (np. zjazd/łącznik obok autostrady), która dopiero na końcu dochodzi do trasy, ma z nią
          wspólny tylko krótki ułamek swojej długości — to nie jest droga, którą jedziemy. Prawdziwe ograniczenie
          (most, tunel, odcinek ulicy) pokrywa się z trasą w większości albo na długim odcinku. */
-      if(hits >= 1 && (matchedLen >= totalLen * 0.6 || matchedLen >= 200)) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
+      if(hits >= 1 && (matchedLen >= totalLen * 0.6 || matchedLen >= 200)) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, admin: it.admin, said: {} });
     });
     route._restr.cum = cum;
     found.sort((a, b) => a.along - b.along);
@@ -9340,7 +9389,7 @@
       const prev = list[list.length - 1];
       if(prev && prev.kind === r.kind && r.along - prev.along < 60){
         if(r.to > prev.to) prev.to = r.to;
-        if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
+        if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; prev.admin = r.admin; }
       } else list.push(r);
     });
     list.forEach(r => restrictionVerifyInit(route, r));
@@ -9371,7 +9420,7 @@
   }
   function restrVerdictKey(r){ return r.id + "|" + r.lat.toFixed(4) + "," + r.lon.toFixed(4); }
   function restrictionVerifyInit(route, r){
-    if(r.lat == null || r.lon == null){ r.ok = true; return; }
+    if(r.admin || r.lat == null || r.lon == null){ r.ok = true; return; }   // znak administratora jest pewny — bez weryfikacji w Overpass
     const k = restrVerdictKey(r);
     if(k in restrVerdicts){ r.ok = restrVerdicts[k]; return; }
     r.ok = null;                                                   // oczekuje na weryfikację
@@ -11554,6 +11603,7 @@
     updateCompassBtn();
     map.on("zoom", updateReportBtnVisibility);
     try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
+    try{ loadAdminData(); }catch(e){ console.warn("Dane administratora:", e); }
     map.on("load", updateReportBtnVisibility);
     updateReportBtnVisibility();
   }
@@ -12465,6 +12515,172 @@
       ctx.closePath(); ctx.fillStyle = o.c; ctx.fill(); ctx.strokeStyle = o.c; ctx.stroke();
     });
   }
+</script>
+<script>
+/* ===== js/44-admin-tools.js — Narzędzia administratora: ukrywanie firm i własne znaki ograniczeń =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Wymaga w Supabase tabel hidden_places i admin_restrictions (supabase_admin.sql) oraz zalogowania jako admin. */
+"use strict";
+
+  /* ---------- zapis do Supabase jako administrator ---------- */
+  async function adminSupaWrite(method, path, body, headers){
+    const token = await supaAdminToken();
+    if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, {
+      method,
+      headers: Object.assign({ "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token }, headers || {}),
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    if(!r.ok){
+      let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
+      throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
+    }
+    return r;
+  }
+
+  /* ---------- ukrywanie firm / nazw ---------- */
+  function applyHiddenPlaces(){
+    try{ setHgvCompaniesData(hgvCompaniesAll); }catch(e){ console.warn("Ukrywanie firm:", e); }
+    placeNames = placeNames.filter(p => !(p.id != null && hiddenPlaceKeys.has("place:" + p.id)));
+    try{ renderPlaceNames(); }catch(e){}
+  }
+  async function adminHidePlace(key, name){
+    try{
+      await adminSupaWrite("POST", "hidden_places?on_conflict=key", { key, name: name || null }, { "Prefer": "resolution=ignore-duplicates,return=minimal" });
+      hiddenPlaceKeys.add(key);
+      applyHiddenPlaces();
+      hidePoiAsk();
+      showBanner("UKRYTO", `„${name}” zniknie u wszystkich użytkowników po odświeżeniu`, false);
+    }catch(e){
+      showBanner("NIE UKRYTO", String(e.message || e), false);
+    }
+  }
+  document.getElementById("poiAskHide").addEventListener("click", () => {
+    const t = poiAskTarget;
+    if(t && t.hideKey) adminHidePlace(t.hideKey, t.name);
+  });
+
+  /* ---------- własne znaki ograniczeń (wysokość / tonaż / szerokość) ---------- */
+  let adminRestrictions = [];          // [{ id, kind, value, coords:[[lon,lat],…], note }]
+  let adminDrawActive = false, adminDrawPts = [];
+  const ADMIN_KINDS = {
+    height: { arr: "h", prop: "maxheight", fmt: formatHeightLabel, min: 1, max: 10, unit: "m" },
+    weight: { arr: "w", prop: "maxweight", fmt: formatWeightLabel, min: 1, max: 100, unit: "t" },
+    width:  { arr: "d", prop: "maxwidth",  fmt: formatWidthLabel,  min: 1, max: 10, unit: "m" }
+  };
+  // cechy do wmieszania w dane ograniczeń (wołane z setRestrictionsData w js/16)
+  function adminRestrictionFeatures(){
+    const out = { h: [], w: [], d: [], s: [] };
+    adminRestrictions.forEach(r => {
+      const k = ADMIN_KINDS[r.kind];
+      if(!k || !Array.isArray(r.coords) || r.coords.length < 2) return;
+      out[k.arr].push({ type: "Feature", properties: { [k.prop]: r.value, osm_id: "a" + r.id, admin: true }, geometry: { type: "LineString", coordinates: r.coords } });
+      const lon = r.coords.reduce((s, c) => s + c[0], 0) / r.coords.length;
+      const lat = r.coords.reduce((s, c) => s + c[1], 0) / r.coords.length;
+      out.s.push({ type: "Feature", properties: { kind: r.kind, label: k.fmt(r.value), adminId: r.id }, geometry: { type: "Point", coordinates: [lon, lat] } });
+    });
+    return out;
+  }
+  function refreshRestrictionsDisplay(){
+    if(!map || !map.getSource("roads-maxheight")) return;
+    const b = restrictionBase || { h: [], w: [], d: [], s: [] };
+    setRestrictionsData(b.h, b.w, b.d, b.s);
+  }
+
+  function loadAdminData(){
+    if(!supaConfigured()) return;
+    fetchTableFromSupabase("hidden_places", "key").then(rows => {
+      if(rows){ hiddenPlaceKeys = new Set(rows.map(r => r.key)); applyHiddenPlaces(); }
+    }).catch(() => {});
+    fetchTableFromSupabase("admin_restrictions", "id,kind,value,coords,note").then(rows => {
+      if(rows){
+        adminRestrictions = rows.filter(r => ADMIN_KINDS[r.kind] && isFinite(Number(r.value)) && Array.isArray(r.coords) && r.coords.length >= 2)
+          .map(r => ({ id: r.id, kind: r.kind, value: Number(r.value), coords: r.coords, note: r.note }));
+        refreshRestrictionsDisplay();
+      }
+    }).catch(() => {});
+  }
+
+  // --- rysowanie odcinka na mapie ---
+  function ensureAdminDrawLayers(){
+    if(map.getSource("admin-draw")) return;
+    map.addSource("admin-draw", { type: "geojson", data: emptyFC() });
+    map.addLayer({ id: "admin-draw-line", type: "line", source: "admin-draw", filter: ["==", ["geometry-type"], "LineString"],
+      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ff2bd6", "line-width": 6, "line-opacity": 0.9 } });
+    map.addLayer({ id: "admin-draw-pts", type: "circle", source: "admin-draw", filter: ["==", ["geometry-type"], "Point"],
+      paint: { "circle-radius": 7, "circle-color": "#ffffff", "circle-stroke-color": "#ff2bd6", "circle-stroke-width": 3 } });
+  }
+  function renderAdminDraw(){
+    ensureAdminDrawLayers();
+    const f = adminDrawPts.map(p => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: p } }));
+    if(adminDrawPts.length > 1) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: adminDrawPts } });
+    map.getSource("admin-draw").setData({ type: "FeatureCollection", features: f });
+    document.getElementById("adminRestrInfo").textContent = adminDrawPts.length < 2
+      ? `Stukaj na mapie kolejne punkty odcinka drogi lub wiaduktu (minimum 2: początek i koniec). Punktów: ${adminDrawPts.length}`
+      : `Punktów: ${adminDrawPts.length}. Dodaj kolejne wzdłuż drogi albo wpisz wartość i zapisz.`;
+  }
+  function startAdminRestrDraw(){
+    if(!isAdmin()) return;
+    hidePoiAsk();
+    try{ closeNavSettings(); }catch(e){}
+    adminDrawActive = true; adminDrawPts = [];
+    document.getElementById("adminRestrValue").value = "";
+    document.getElementById("adminRestrCard").classList.add("show");
+    renderAdminDraw();
+  }
+  function stopAdminRestrDraw(){
+    adminDrawActive = false; adminDrawPts = [];
+    document.getElementById("adminRestrCard").classList.remove("show");
+    try{ if(map.getSource("admin-draw")) map.getSource("admin-draw").setData(emptyFC()); }catch(e){}
+  }
+  async function saveAdminRestr(){
+    const kind = document.getElementById("adminRestrKind").value, k = ADMIN_KINDS[kind];
+    const value = parseFloat(document.getElementById("adminRestrValue").value.replace(",", "."));
+    const info = document.getElementById("adminRestrInfo");
+    if(adminDrawPts.length < 2){ info.textContent = "Zaznacz co najmniej 2 punkty na mapie."; return; }
+    if(!isFinite(value) || value < k.min || value > k.max){ info.textContent = `Wpisz wartość od ${k.min} do ${k.max} ${k.unit}.`; return; }
+    const coords = adminDrawPts.map(p => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6]);
+    try{
+      const r = await adminSupaWrite("POST", "admin_restrictions", { kind, value, coords }, { "Prefer": "return=representation" });
+      const rows = await r.json().catch(() => []);
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      adminRestrictions.push({ id: row && row.id != null ? row.id : "l" + Date.now(), kind, value, coords });
+      refreshRestrictionsDisplay();
+      stopAdminRestrDraw();
+      showBanner("ZAPISANO ZNAK", `Ograniczenie ${k.fmt(value)} jest już na mapie i w alertach trasy`, false);
+    }catch(e){
+      info.textContent = "Nie zapisano: " + String(e.message || e);
+    }
+  }
+  async function deleteAdminRestr(id){
+    try{
+      await adminSupaWrite("DELETE", "admin_restrictions?id=eq." + encodeURIComponent(id));
+      adminRestrictions = adminRestrictions.filter(r => String(r.id) !== String(id));
+      refreshRestrictionsDisplay();
+      showBanner("USUNIĘTO ZNAK", "Ograniczenie zniknęło z mapy", false);
+    }catch(e){
+      showBanner("NIE USUNIĘTO", String(e.message || e), false);
+    }
+  }
+  // wołane na początku obsługi kliknięcia mapy (js/28): true = kliknięcie obsłużone
+  function adminRestrClick(e){
+    if(!isAdmin()) return false;
+    if(adminDrawActive){
+      adminDrawPts.push([e.lngLat.lng, e.lngLat.lat]);
+      renderAdminDraw();
+      return true;
+    }
+    if(!map.getLayer("restriction-signs-icon")) return false;
+    const hit = map.queryRenderedFeatures([[e.point.x - 14, e.point.y - 14], [e.point.x + 14, e.point.y + 14]], { layers: ["restriction-signs-icon"] })
+      .find(f => f.properties && f.properties.adminId != null);
+    if(!hit) return false;
+    if(confirm(`Usunąć ten znak ograniczenia (${hit.properties.label})?`)) deleteAdminRestr(hit.properties.adminId);
+    return true;
+  }
+  document.getElementById("adminAddRestrBtn").addEventListener("click", startAdminRestrDraw);
+  document.getElementById("adminRestrUndo").addEventListener("click", () => { adminDrawPts.pop(); renderAdminDraw(); });
+  document.getElementById("adminRestrCancel").addEventListener("click", stopAdminRestrDraw);
+  document.getElementById("adminRestrSave").addEventListener("click", saveAdminRestr);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
