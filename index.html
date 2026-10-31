@@ -2,6 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
+<meta name="theme-color" content="#12181e">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Nawigator — GPS, fotoradary i limity prędkości</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
@@ -283,7 +284,7 @@
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
   }
   /* "Cała trasa": tylko ikona (trasa z punktu A do B), okrągły przycisk bez podpisu */
-  #btnFitRoute{ touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnFitRoute{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnLocate.visible, #btnFitRoute.visible, #btnCompass.visible{
     opacity:1;
     transform: translateY(0) scale(1);
@@ -709,13 +710,18 @@
   .pickRow .grip{ touch-action:none; cursor:grab; font-size:20px; line-height:1; }
   .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
-  @keyframes gTailWag{ from{ transform:rotate(-16deg); } to{ transform:rotate(16deg); } }
-  @keyframes gLegStep{ from{ transform:translateY(-1.8px); } to{ transform:translateY(1.8px); } }
-  .gTail{ transform-origin:26px 34px; animation:gTailWag .7s ease-in-out infinite alternate; animation-play-state:paused; }
-  .gLegA{ animation:gLegStep .35s ease-in-out infinite alternate; animation-play-state:paused; }
-  .gLegB{ animation:gLegStep .35s ease-in-out infinite alternate-reverse; animation-play-state:paused; }
-  .avMoving .gTail, .avMoving .gLegA, .avMoving .gLegB{ animation-play-state:running; }
-  @media (prefers-reduced-motion: reduce){ .gTail, .gLegA, .gLegB{ animation:none; } }
+  @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
+  @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
+  @keyframes gSway{ from{ transform:rotate(-2.2deg); } to{ transform:rotate(2.2deg); } }
+  .gTail, .gLeg, .gBody{ transform-box:fill-box; }
+  .gTail{ transform-origin:50% 0%; animation:gTailWag .6s ease-in-out infinite alternate; }
+  .gBody{ transform-origin:50% 60%; animation:gSway .6s ease-in-out infinite alternate-reverse; }
+  .gLeg.l{ transform-origin:100% 50%; } .gLeg.r{ transform-origin:0% 50%; }
+  .gLegA{ animation:gLegStep .32s ease-in-out infinite alternate; }
+  .gLegB{ animation:gLegStep .32s ease-in-out infinite alternate-reverse; }
+  .gTail, .gLegA, .gLegB, .gBody{ animation-play-state:paused; }
+  .avMoving .gTail, .avMoving .gLeg, .avMoving .gBody{ animation-play-state:running; }
+  @media (prefers-reduced-motion: reduce){ .gTail, .gLeg, .gBody{ animation:none; } }
 
   /* ---------- Okno jazdy: tylko pozostały czas, pozostałe mile i godzina przyjazdu ---------- */
   #setTabs{ display:flex; gap:6px; }
@@ -758,13 +764,13 @@
   .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
   .avatarOpt svg{ width:100%; height:100%; }
   .avatarOpt.active{ border-color:var(--gator); background:rgba(124,154,58,.22); }
-  #routeHue{
+  #routeHue, #avatarHue{
     -webkit-appearance:none; appearance:none; width:100%; height:18px; border-radius:9px; outline:none; border:1px solid rgba(0,0,0,.25);
     background:linear-gradient(90deg,hsl(0,95%,55%),hsl(60,95%,55%),hsl(120,95%,55%),hsl(180,95%,55%),hsl(240,95%,55%),hsl(300,95%,55%),hsl(359,95%,55%));
   }
-  #routeHue::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #14181c; box-shadow:0 1px 5px rgba(0,0,0,.5); }
-  #routeHue::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #14181c; }
-  #routeSwatches{ display:flex; flex-wrap:wrap; gap:10px; }
+  #routeHue::-webkit-slider-thumb, #avatarHue::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #14181c; box-shadow:0 1px 5px rgba(0,0,0,.5); }
+  #avatarHue::-moz-range-thumb, #routeHue::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #14181c; }
+  #routeSwatches, #avatarSwatches{ display:flex; flex-wrap:wrap; gap:10px; }
   .routeSw{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,.85); box-shadow:0 0 0 1px rgba(0,0,0,.4); }
   .routeSw.active{ box-shadow:0 0 0 3px var(--gator); }
   .routeSw.auto{ background:conic-gradient(#1FD6C1 0 50%,#1DF5FF 50% 100%); }
@@ -971,17 +977,6 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
-
-  .navSwitchRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .navSwitchRow small{ display:block; opacity:.65; font-size:12px; margin-top:2px; }
-  input.navSwitch{ appearance:none; -webkit-appearance:none; flex:0 0 auto; width:48px !important; height:28px !important; border-radius:14px; background:rgba(128,128,128,.45); position:relative; cursor:pointer; transition:background .2s; }
-  input.navSwitch::after{ content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.4); }
-  input.navSwitch:checked{ background:var(--accent); }
-  input.navSwitch:checked::after{ transform:translateX(20px); }
-
-  input.navSwitch{ width:40px !important; height:24px !important; border-radius:12px; }
-  input.navSwitch::after{ top:3px; left:3px; width:18px; height:18px; }
-  input.navSwitch:checked::after{ transform:translateX(16px); }
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1276,7 +1271,7 @@
   </svg>
 </div>
 
-<div id="btnFitRoute" title="1× od pozycji do celu · 2× cała trasa · 3× trasa alternatywna stąd · przytrzymaj: zmień trasę" role="button" aria-label="Pokaż całą trasę">
+<div id="btnFitRoute" title="Pokaż całą trasę" role="button" aria-label="Pokaż całą trasę">
   <svg class="locate-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="5" cy="19" r="2.3"/>
     <circle cx="19" cy="5" r="2.3" fill="currentColor"/>
@@ -1398,8 +1393,9 @@
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
     <div id="navTollNote">£ Mimo unikania trasa ma odcinki płatne (zaznaczone na mapie)</div>
-    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: awatar i kolor trasy</div>
+    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
     <div id="navCustomize">
+      <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
     </div>
     <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
@@ -1482,7 +1478,7 @@
     <div class="setPane active" data-pane="screen">
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-      <label class="navPrefLabel navSwitchRow"><span>Znak ograniczenia prędkości<small id="navPrefLimitSignHint"></small></span><input type="checkbox" id="navPrefLimitSign" class="navSwitch" role="switch"></label>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
       <label class="navPrefLabel">Tryb mapy:
         <select id="navPrefTheme">
           <option value="auto">Auto (wschód/zachód słońca)</option>
@@ -1506,6 +1502,9 @@
       </div>
       <div class="navTitle" style="margin-top:12px">Avatar pojazdu</div>
       <div id="avatarGrid"></div>
+      <div class="navTitle" style="margin-top:12px">Kolor avatara</div>
+      <input type="range" id="avatarHue" min="0" max="359" value="170" aria-label="Barwa koloru avatara">
+      <div id="avatarSwatches" class="swatchRow"></div>
       <div class="navTitle" style="margin-top:12px">Kolor trasy</div>
       <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
       <div id="routeSwatches"></div>
@@ -1793,7 +1792,6 @@
   /* ---------- preferencje widoczności (użytkownik decyduje, co ma być na ekranie) ---------- */
   const PREF_SHOW_SPEEDOMETER = "nawigator_pref_show_speedometer";
   const PREF_SHOW_LIMIT_SIGN = "nawigator_pref_show_limit_sign";
-  const PREF_LIMIT_MODE = "nawigator_pref_limit_mode"; // "speeding" (domyślnie: znak tylko przy przekroczeniu) | "always"
   const REFETCH_DISTANCE_M = 600;    // od jakiego przesunięcia odświeżamy dane
   const REFETCH_INTERVAL_MS = 25000; // minimalny odstęp między zapytaniami
   const CAMERA_ALERT_M = 200;        // próg alertu dźwiękowego/wizualnego
@@ -2128,7 +2126,6 @@
   let supaKey = (adminMode && localStorage.getItem(SUPA_KEY_STORAGE)) || SUPA_DEFAULT_KEY;
   let supaLastError = "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
-  let prefLimitMode = localStorage.getItem(PREF_LIMIT_MODE) === "always" ? "always" : "speeding";
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
@@ -2542,64 +2539,9 @@
     ];
   }
 
-  /* Punkty z OSM (numery zjazdów, fotoradary) leżą na samej jezdni. Przesuwamy je w LEWO względem kierunku jazdy
-     (w UK zjazd/pobocze jest po lewej); kierunek bierzemy z najbliższego odcinka autostrady z kafelków mapy
-     (liczymy raz dla punktu, po wczytaniu kafelków; wynik trzymamy w pamięci). */
-  function makeRoadShifter(metres, getRaw, sourceId, getKey){
-    const cache = new Map(); let busy = false, at = 0;
-    const keyOf = f => f.geometry.coordinates[0] + "," + f.geometry.coordinates[1];
-    function shifted(){
-      return { type: "FeatureCollection", features: getRaw().map(f => {
-        const sh = cache.get(keyOf(f));
-        return sh ? { type:"Feature", properties: f.properties, geometry:{ type:"Point", coordinates: sh } } : f;
-      }) };
-    }
-    function compute(){
-      if(Date.now() - at < 1000) return;
-      at = Date.now();
-      const raw = getRaw();
-      if(busy || !map || !raw.length || map.getZoom() < 13 || typeof mwVectorSource === "undefined") return;
-      const bb = map.getBounds();
-      const todo = raw.filter(f => !cache.has(keyOf(f)) && bb.contains(f.geometry.coordinates));
-      if(!todo.length) return;
-      busy = true;
-      try{
-        const feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1]] });
-        const lines = [];
-        feats.forEach(f => { const g = f.geometry; if(!g) return;
-          if(g.type === "LineString") lines.push(g.coordinates); else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c)); });
-        let changed = false;
-        todo.forEach(f => {
-          const [lon, lat] = f.geometry.coordinates;
-          const mLat = 111320, mLon = 111320 * Math.cos(lat * Math.PI / 180);
-          let best = null, bd = 45;
-          lines.forEach(ln => { for(let i = 0; i < ln.length - 1; i++){
-            const ax = (ln[i][0] - lon) * mLon, ay = (ln[i][1] - lat) * mLat, bx = (ln[i+1][0] - lon) * mLon, by = (ln[i+1][1] - lat) * mLat;
-            const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; if(!l2) continue;
-            const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2));
-            const d = Math.hypot(ax + t * dx, ay + t * dy);
-            if(d < bd){ bd = d; best = { dx, dy, l: Math.sqrt(l2) }; }
-          } });
-          if(!best) return;   // brak kafelka z drogą — spróbujemy ponownie przy następnym ruchu mapy
-          const nx = -best.dy / best.l, ny = best.dx / best.l;   // lewa strona odcinka (x = wschód, y = północ)
-          cache.set(keyOf(f), [lon + nx * metres / mLon, lat + ny * metres / mLat]);
-          changed = true;
-        });
-        if(changed && map.getSource(sourceId)) map.getSource(sourceId).setData(shifted());
-      }catch(e){ /* kafelki jeszcze niegotowe */ }
-      busy = false;
-    }
-    return { shifted, compute };
-  }
-  let junctionRaw = [];
-  const junctionShifter = makeRoadShifter(26, () => junctionRaw, "motorway-junctions");
-  const junctionShifted = junctionShifter.shifted, junctionComputeShifts = junctionShifter.compute;
-
   function setJunctionData(features){
-    junctionRaw = features || [];
-    junctionData = junctionShifted();
+    junctionData = { type: "FeatureCollection", features };
     if(map && map.getSource("motorway-junctions")) map.getSource("motorway-junctions").setData(junctionData);
-    setTimeout(junctionComputeShifts, 600);
     try{
       if(shieldOverlay && shieldOverlay.getSource("motorway-junctions")){
         shieldOverlay.getSource("motorway-junctions").setData(junctionData);
@@ -3042,20 +2984,6 @@
   let nightLayerInfo = {};     // { idWarstwy: { type, sl, id, filter } }
   let nightOpacityLayers = []; // warstwy, którym w nocy zmieniamy krycie zależnie od zoomu: { id, prop, kind, orig }
   // Zapamiętuje dzienne kolory WSZYSTKICH warstw bazowej mapy (wołane raz, zanim dodamy własne warstwy).
-  // żółta tabliczka z aparatem — ikona fotoradaru na autostradzie
-  function makeCameraIcon(){
-    const S = 48, cv = document.createElement("canvas"); cv.width = cv.height = S;
-    const c = cv.getContext("2d");
-    c.fillStyle = "#FFC400"; c.strokeStyle = "#1a1a1a"; c.lineWidth = 2.5;
-    c.beginPath(); c.roundRect ? c.roundRect(3, 3, 42, 42, 8) : c.rect(3, 3, 42, 42); c.fill(); c.stroke();
-    c.fillStyle = "#1a1a1a";
-    c.beginPath(); c.roundRect ? c.roundRect(9, 16, 30, 20, 4) : c.rect(9, 16, 30, 20); c.fill();       // korpus aparatu
-    c.fillRect(17, 11, 10, 6);                                                                           // wizjer
-    c.fillStyle = "#FFC400"; c.beginPath(); c.arc(24, 26, 7, 0, Math.PI * 2); c.fill();                 // obiektyw
-    c.fillStyle = "#1a1a1a"; c.beginPath(); c.arc(24, 26, 4, 0, Math.PI * 2); c.fill();
-    c.fillStyle = "#fff"; c.beginPath(); c.arc(22.5, 24.5, 1.4, 0, Math.PI * 2); c.fill();
-    return c.getImageData(0, 0, S, S);
-  }
   function initNightTheme(){
     if(!map || nightOriginals) return;
     try{
@@ -3446,8 +3374,6 @@
       // źródło numerów zjazdów autostradowych (dane z OSM/Overpass, highway=motorway_junction)
       map.addSource("motorway-junctions", { type:"geojson", data: emptyFC() });
       junctionLayerSpecs().forEach(spec => map.addLayer(spec));
-      map.on("moveend", () => { try{ junctionComputeShifts(); }catch(e){} });
-      map.on("sourcedata", ev => { if(ev.isSourceLoaded && ev.sourceId === mwVectorSource) try{ junctionComputeShifts(); }catch(e){} });
 
       // tablice z numerami dróg mają leżeć NAD wyznaczoną trasą (ale nadal pod numerami zjazdów)
       SHIELD_LAYER_IDS.forEach(id => {
@@ -3459,22 +3385,20 @@
       // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
       // z okolicy pozycji, więc te większe je przykrywają, zamiast się dublować.
       map.addSource("motorway-cameras", { type:"geojson", data: emptyFC() });
-      // żółta ikona fotoradaru (rysowana raz na canvasie)
-      if(!map.hasImage("mw-cam-icon")) map.addImage("mw-cam-icon", makeCameraIcon(), { pixelRatio: 2 });
       map.addLayer({
         id:"motorway-cameras-dot",
-        type:"symbol",
+        type:"circle",
         source:"motorway-cameras",
         minzoom: 14,
-        layout:{
-          "icon-image": "mw-cam-icon",
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.45, 16, 0.7, 18, 1],
-          "icon-allow-overlap": true, "icon-ignore-placement": true
-        },
-        paint:{ "icon-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 1] }
+        paint:{
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2, 16, 3.5, 18, 5],
+          "circle-color": "#E5484D",
+          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75]
+        }
       }, "cameras-glow");
-      map.on("moveend", () => { try{ mwCamerasCompute(); }catch(e){} });
-      map.on("sourcedata", ev => { if(ev.isSourceLoaded && ev.sourceId === mwVectorSource) try{ mwCamerasCompute(); }catch(e){} });
 
       // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
       map.addSource("hgv-parking", { type:"geojson", data: emptyFC() });
@@ -3534,7 +3458,6 @@
       addUserMarker(lat, lon);
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
-      loadTrafficIncidents(lat, lon);
       // Pokaż panel postępu od razu przy starcie (nie tylko po pierwszym skonfigurowaniu Supabase),
       // żeby zawsze było widać co się właśnie dzieje z każdą kategorią wspólnych danych —
       // w tym to, że kategoria ze świeżym cache NIE pobiera nic od nowa (patrz "force" niżej).
@@ -3578,7 +3501,7 @@
                lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
-  const MW_FILTER = ["all", ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
+  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
   let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
   const mwSprites = {};
   const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
@@ -3625,35 +3548,23 @@
       "motorway-junction-circle", "motorway-junction-label", "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
     const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
-    let before = anchors[0];
-    // asfalt MUSI leżeć nad wszystkimi liniami dróg stylu (także mostami/wiaduktami) — inaczej niebieskie linie mostów przebijają przez asfalt
-    let lastRoad = -1;
-    styleLayers.forEach((l, i) => { if(l.type === "line" && l["source-layer"] === "transportation") lastRoad = i; });
-    if(lastRoad >= 0 && lastRoad + 1 < styleLayers.length && idx(before) <= lastRoad) before = styleLayers[lastRoad + 1].id;
-    const th = mwTheme();
+    const before = anchors[0];
+    const th = mwTheme(), W = MW.laneW, N = MW.lanes;
+    const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom };
+    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    mwLayerIds = []; mwMarkIds = [];
-    // zestaw warstw dla danej klasy drogi: autostrada (3 pasy) i droga A (2 pasy, węższa, przerywana linia środkowa)
-    const addSet = (key, isMw, N, W, shoulder) => {
-      const filter = ["==", ["get", "m"], isMw ? 1 : 0];
-      const b0 = Object.assign({ type:"line", source: MW_SRC, minzoom: MW.minZoom, filter });
-      const lay = { visibility:"none", "line-join":"round", "line-cap":"butt" };
-      const tex = MW_TEX + (isMw ? "" : "-a");
-      map.addLayer(Object.assign({ id: tex, layout: lay, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * shoulder) } }, b0), before);
-      mwLayerIds.push(tex);
-      [-1, 1].forEach(side => {                       // krawędzie jezdni
-        const id = "mw-" + key + "-edge-" + (side < 0 ? "l" : "r");
-        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, b0), before);
-        mwLayerIds.push(id); mwMarkIds.push(id);
-      });
-      for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
-        const id = "mw-" + key + "-div-" + k;
-        map.addLayer(Object.assign({ id, layout: lay, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, b0), before);
-        mwLayerIds.push(id); mwMarkIds.push(id);
-      }
-    };
-    addSet("m", true, MW.lanes, MW.laneW, MW.shoulder);
-    addSet("a", false, 2, 3.3, 0.4);
+    map.addLayer(Object.assign({ id: MW_TEX, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), before);
+    mwLayerIds = [MW_TEX]; mwMarkIds = [];
+    [-1, 1].forEach(side => {                       // krawędzie jezdni
+      const id = "mw-edge-" + (side < 0 ? "l" : "r");
+      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), before);
+      mwLayerIds.push(id); mwMarkIds.push(id);
+    });
+    for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+      const id = "mw-div-" + k;
+      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), before);
+      mwLayerIds.push(id); mwMarkIds.push(id);
+    }
     map.on("styleimagemissing", e => {
       const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
       if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSprites[m[1]] || (mwSprites[m[1]] = mwMakeSprite(m[1])), { pixelRatio: 2 });
@@ -3699,17 +3610,13 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad:", e); return; }
-    const out = [];
-    [1, 0].forEach(m => {
-      const lines = [];
-      feats.forEach(f => {
-        if(((f.properties && f.properties.class) === "motorway" ? 1 : 0) !== m) return;
-        const g = f.geometry; if(!g) return;
-        if(g.type === "LineString") lines.push(g.coordinates);
-        else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
-      });
-      mwClipToWindow(lines, lat, lon, hdg).forEach(c => out.push({ type:"Feature", properties:{ m }, geometry:{ type:"LineString", coordinates: c } }));
+    const lines = [];
+    feats.forEach(f => {
+      const g = f.geometry; if(!g) return;
+      if(g.type === "LineString") lines.push(g.coordinates);
+      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
     });
+    const out = mwClipToWindow(lines, lat, lon, hdg).map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } }));
     src.setData({ type:"FeatureCollection", features: out });
   }
 
@@ -3722,7 +3629,7 @@
     }
     if(!mwActive){
       mwActive = true; force = true;
-      [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwEnsureSprite(mwTheme())); });
+      map.setPaintProperty(MW_TEX, "line-pattern", mwEnsureSprite(mwTheme()));
       mwSetVisible(true);
     }
     // pozycja i kierunek pojazdu; bez GPS — środek i kierunek kamery
@@ -3739,7 +3646,7 @@
     if(!map || !map.getLayer(MW_TEX)) return;
     const th = mwTheme();
     mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", MW.marking[th]));
-    [MW_TEX, MW_TEX + "-a"].forEach(id => { if(map.getLayer(id)) map.setPaintProperty(id, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th); });
+    map.setPaintProperty(MW_TEX, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th);
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -3802,9 +3709,9 @@
   }
 
   // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
-  const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar";
-  let customRouteColor = null, vehicleAvatar = "arrow";
-  try{ customRouteColor = localStorage.getItem(ROUTE_COLOR_KEY) || null; vehicleAvatar = localStorage.getItem(AVATAR_KEY) || "arrow"; }catch(e){}
+  const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar", AVATAR_COLOR_KEY = "nawigator_avatar_color";
+  let customRouteColor = null, vehicleAvatar = "arrow", customAvatarColor = null;
+  try{ customRouteColor = localStorage.getItem(ROUTE_COLOR_KEY) || null; vehicleAvatar = localStorage.getItem(AVATAR_KEY) || "arrow"; customAvatarColor = localStorage.getItem(AVATAR_COLOR_KEY) || null; }catch(e){}
   function applyRouteNightStyle(){
     if(!map || !map.getLayer("route-line-main")) return;
     const night = document.body.classList.contains("night");
@@ -3839,150 +3746,138 @@
         <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
   }
 
-  function avShade(hex, f){
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return hex;
-    const n = parseInt(m[1], 16), ch = k => Math.max(0, Math.min(255, Math.round(((n >> k) & 255) * f)));
-    return "#" + [16, 8, 0].map(k => ch(k).toString(16).padStart(2, "0")).join("");
+  // avatary pojazdu: widok z góry, „nos” do góry; środek układu (0,0) = pozycja GPS (marker obraca się wg kierunku jazdy).
+  // Każdy avatar ma własną długość rzeczywistą (lenM) i długość w jednostkach rysunku (lenU), więc ciężarówka jest
+  // wyraźnie dłuższa od auta. H = połowa pola rysunku (viewBox = -H -H 2H 2H), ivb = kadr ikony w wyborze.
+  function shadeHex(hex, f){
+    let h = String(hex || "#888888").replace("#", "");
+    if(h.length === 3) h = h.split("").map(x => x + x).join("");
+    const n = parseInt(h, 16) || 0, t = f < 0 ? 0 : 255, p = Math.abs(f);
+    const ch = v => Math.round((t - v) * p + v);
+    const r = ch((n >> 16) & 255), g = ch((n >> 8) & 255), b = ch(n & 255);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   }
-  // avatary pojazdu: widok z góry, „nos” skierowany do góry (marker obraca się wg kierunku jazdy)
-  // każdy awatar: shadow (miękki cień 2D), body (sylwetka z detalami), wheels (koła — osobna niska warstwa w 3D)
-  function defAv(name, shadow, body, wheels, h3d){
-    return { name, svg: c => shadow + body(c), body, wheels, h3d };
+  function lgrad(id, x1, y1, x2, y2, stops){
+    return `<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">` +
+      stops.map(s => `<stop offset="${s[0]}" stop-color="${s[1]}"${s[2] != null ? ` stop-opacity="${s[2]}"` : ""}/>`).join("") + `</linearGradient>`;
   }
   const AVATARS = {
     arrow: { name:"Strzałka" },
-    // ciągnik siodłowy z naczepą 44 t (6 osi): długi zestaw, kabina nad osią skrętną, naczepa z 3 osiami
-    truck: defAv("Ciężarówka (44 t)",
-      `<ellipse cx="26" cy="27" rx="12" ry="26" fill="#000" opacity=".22"/>`,
-      c => `
-      <rect x="22.6" y="4" width="6.8" height="47.5" rx="1.2" fill="#23282c"/>
-      <g fill="#14181b">${[[5.6,3.4],[13,3.4],[17,3.4],[38.6,3.4],[42.8,3.4],[47,3.4]].map(([y,l]) => `<rect x="16.2" y="${y}" width="3" height="${l}" rx="1"/><rect x="32.8" y="${y}" width="3" height="${l}" rx="1"/>`).join("")}</g>
-      <rect x="19.2" y="20.4" width="13.6" height="30.6" rx="1.4" fill="#f1f4f5" stroke="#8d979c" stroke-width=".8"/>
-      <g stroke="#d3dadd" stroke-width=".7">${[24.5,28.5,32.5,36.5,40.5,44.5,48.5].map(y => `<path d="M20 ${y}H32"/>`).join("")}</g>
-      <path d="M26 21V50.6" stroke="#c4ccd0" stroke-width=".6"/>
-      <rect x="21.4" y="49.2" width="9.2" height="1.1" rx=".4" fill="#c0392b"/>
-      <rect x="21.6" y="14.4" width="8.8" height="6.4" rx="1.4" fill="#343b40" stroke="#14181b" stroke-width=".6"/><circle cx="26" cy="17.4" r="2.1" fill="#5b656b"/>
-      <path d="M19.4 4.6Q19.4 3 21.2 3H30.8Q32.6 3 32.6 4.6V12.6Q32.6 14 31.2 14H20.8Q19.4 14 19.4 12.6Z" fill="${c}" stroke="#0c0f12" stroke-width=".9"/>
-      <path d="M20.6 4.8Q26 3.6 31.4 4.8L30.8 8.8H21.2Z" fill="#10181d"/><path d="M21.6 5.6Q26 4.8 30.4 5.6" stroke="#7b97a4" stroke-width=".5" fill="none"/>
-      <rect x="20.6" y="9.8" width="10.8" height="2.6" rx="1" fill="#fff" opacity=".4"/>
-      <rect x="21.2" y="12.6" width="9.6" height="1.1" rx=".5" fill="#000" opacity=".25"/>
-      <rect x="17.6" y="6.6" width="2" height="3.4" rx=".7" fill="#0c0f12"/><rect x="32.4" y="6.6" width="2" height="3.4" rx=".7" fill="#0c0f12"/>
-      <rect x="20.2" y="2.6" width="2.6" height="1" rx=".5" fill="#fff6c9"/><rect x="29.2" y="2.6" width="2.6" height="1" rx=".5" fill="#fff6c9"/>`,
-      `<g fill="#0c0f12">${[[5.6,3.4],[13,3.4],[17,3.4],[38.6,3.4],[42.8,3.4],[47,3.4]].map(([y,l]) => `<rect x="16.2" y="${y}" width="3" height="${l}" rx="1"/><rect x="32.8" y="${y}" width="3" height="${l}" rx="1"/>`).join("")}</g>`, .2),
-    car: defAv("Auto",
-      `<ellipse cx="26" cy="27" rx="13" ry="24" fill="#000" opacity=".22"/>`,
-      c => `
-      <g fill="#14181b"><rect x="14.4" y="11" width="3" height="8" rx="1.2"/><rect x="34.6" y="11" width="3" height="8" rx="1.2"/><rect x="14.4" y="33" width="3" height="8" rx="1.2"/><rect x="34.6" y="33" width="3" height="8" rx="1.2"/></g>
-      <path d="M26 5C33 5 35.5 9 35.5 14V38C35.5 43 33 47 26 47C19 47 16.5 43 16.5 38V14C16.5 9 19 5 26 5Z" fill="${c}" stroke="#0c0f12" stroke-width="1"/>
-      <path d="M19.4 17.5Q26 14 32.6 17.5L31.6 23H20.4Z" fill="#10181d"/>
-      <rect x="20" y="23" width="12" height="11" rx="2" fill="${c}" stroke="#000" stroke-opacity=".25" stroke-width=".6"/>
-      <path d="M20.4 34H31.6L32.6 39.5Q26 42 19.4 39.5Z" fill="#10181d"/>
-      <path d="M17 24.5L14.6 25.3L14.6 28L17 28.4Z" fill="${c}" stroke="#0c0f12" stroke-width=".7"/><path d="M35 24.5L37.4 25.3L37.4 28L35 28.4Z" fill="${c}" stroke="#0c0f12" stroke-width=".7"/>
-      <rect x="19" y="5.6" width="3.4" height="1.2" rx=".6" fill="#fff6c9"/><rect x="29.6" y="5.6" width="3.4" height="1.2" rx=".6" fill="#fff6c9"/>
-      <rect x="19" y="45.2" width="3.4" height="1.1" rx=".5" fill="#ff4a4a"/><rect x="29.6" y="45.2" width="3.4" height="1.1" rx=".5" fill="#ff4a4a"/>`,
-      `<g fill="#0c0f12"><rect x="14.4" y="11" width="3" height="8" rx="1.2"/><rect x="34.6" y="11" width="3" height="8" rx="1.2"/><rect x="14.4" y="33" width="3" height="8" rx="1.2"/><rect x="34.6" y="33" width="3" height="8" rx="1.2"/></g>`, .15),
-    gator: defAv("Aligator",
-      `<ellipse cx="26" cy="28" rx="15" ry="24" fill="#000" opacity=".22"/>`,
-      c => `
-      <g class="gTail"><path d="M21 33Q22 41 24.4 46Q25.4 49.6 26 51Q26.6 49.6 27.6 46Q30 41 31 33Z" fill="#3f5a1e" stroke="#16210a" stroke-width=".9" stroke-linejoin="round"/>
-        <path d="M26 35V50" stroke="#2a3d12" stroke-width=".7" stroke-dasharray="1.2 1.6"/></g>
-      <g fill="#4d6b24" stroke="#16210a" stroke-width=".9">
-        <g class="gLegA"><path d="M19.5 19Q13 17 10.5 21.5L13 23.4Q14.8 21 19.5 22.4Z"/><path d="M10.5 21.5L9.2 24.2M12 22.6L11.2 25.2" stroke-width=".8" fill="none"/></g>
-        <g class="gLegB"><path d="M32.5 19Q39 17 41.5 21.5L39 23.4Q37.2 21 32.5 22.4Z"/><path d="M41.5 21.5L42.8 24.2M40 22.6L40.8 25.2" stroke-width=".8" fill="none"/></g>
-        <g class="gLegB"><path d="M19.8 34Q13.5 34 11.4 38.6L14 40.2Q15.6 37.8 20 37.8Z"/><path d="M11.4 38.6L10.4 41.2M12.9 39.6L12.3 42.2" stroke-width=".8" fill="none"/></g>
-        <g class="gLegA"><path d="M32.2 34Q38.5 34 40.6 38.6L38 40.2Q36.4 37.8 32 37.8Z"/><path d="M40.6 38.6L41.6 41.2M39.1 39.6L39.7 42.2" stroke-width=".8" fill="none"/></g>
+    truck: { name:"Ciężarówka", H:52, lenU:66, lenM:16.5, len2d:58, ivb:"-34 -17 68 68", svg: (c, p) => {
+      const ribs = []; for(let y = 10; y <= 46; y += 4.4) ribs.push(`M-7 ${y.toFixed(1)}H7`);
+      return `<defs>
+        ${lgrad(p+"cab", 0,0,1,0, [[0,shadeHex(c,-.38)],[.28,shadeHex(c,.12)],[.5,shadeHex(c,.38)],[.72,shadeHex(c,.12)],[1,shadeHex(c,-.38)]])}
+        ${lgrad(p+"roof", 0,0,0,1, [[0,shadeHex(c,.55)],[1,shadeHex(c,.1)]])}
+        ${lgrad(p+"glass", 0,0,0,1, [[0,"#4b6a82"],[.5,"#1b2a38"],[1,"#0e161d"]])}
+        ${lgrad(p+"trl", 0,0,1,0, [[0,"#aab3ba"],[.2,"#e9eef1"],[.5,"#ffffff"],[.8,"#e9eef1"],[1,"#aab3ba"]])}
+      </defs>
+      <rect x="-8.5" y="-16" width="17" height="21" rx="4" fill="#000" opacity=".22" transform="translate(1.6 2.4)"/>
+      <g class="trTrailer">
+        <rect x="-7.2" y="6" width="14.4" height="44" rx="1.6" fill="#000" opacity=".22" transform="translate(1.6 2.4)"/>
+        <rect x="-7.2" y="6" width="14.4" height="44" rx="1.6" fill="url(#${p}trl)" stroke="#0c0f12" stroke-opacity=".7" stroke-width=".7"/>
+        <path d="${ribs.join("")}" stroke="#000" stroke-opacity=".14" stroke-width=".5"/>
+        <rect x="-1.1" y="6.4" width="2.2" height="43.2" fill="${c}" opacity=".8"/>
+        <rect x="-8.8" y="36" width="1.7" height="5" rx=".6" fill="#14171a"/><rect x="-8.8" y="42.4" width="1.7" height="5" rx=".6" fill="#14171a"/>
+        <rect x="7.1" y="36" width="1.7" height="5" rx=".6" fill="#14171a"/><rect x="7.1" y="42.4" width="1.7" height="5" rx=".6" fill="#14171a"/>
+        <rect x="-6" y="48.6" width="12" height="1.5" rx=".6" fill="#2a2f34"/>
+        <rect x="-6.6" y="48.7" width="2.4" height="1" rx=".4" fill="#ff3b30"/><rect x="4.2" y="48.7" width="2.4" height="1" rx=".4" fill="#ff3b30"/>
       </g>
-      <path d="M26 16C32 16 33.6 22 33.2 29C32.9 34 30.6 38 26 38C21.4 38 19.1 34 18.8 29C18.4 22 20 16 26 16Z" fill="#587a2a" stroke="#16210a" stroke-width="1"/>
-      <g fill="#6c9132" stroke="#16210a" stroke-width=".5"><rect x="22.6" y="19" width="2.4" height="2.8" rx=".8"/><rect x="27" y="19" width="2.4" height="2.8" rx=".8"/><rect x="22.3" y="23.4" width="2.6" height="2.8" rx=".8"/><rect x="27.1" y="23.4" width="2.6" height="2.8" rx=".8"/><rect x="22.2" y="27.8" width="2.7" height="2.8" rx=".8"/><rect x="27.1" y="27.8" width="2.7" height="2.8" rx=".8"/><rect x="22.6" y="32.2" width="2.5" height="2.6" rx=".8"/><rect x="27" y="32.2" width="2.5" height="2.6" rx=".8"/></g>
-      <path d="M21 16.5Q20.6 9 23 5.6Q24 3.4 26 3Q28 3.4 29 5.6Q31.4 9 31 16.5Q26 18 21 16.5Z" fill="#628631" stroke="#16210a" stroke-width="1" stroke-linejoin="round"/>
-      <path d="M23.6 4.8Q26 4 28.4 4.8" stroke="#16210a" stroke-width=".6" fill="none"/><circle cx="24.6" cy="5.3" r=".35" fill="#16210a"/><circle cx="27.4" cy="5.3" r=".35" fill="#16210a"/>
-      <ellipse cx="21.8" cy="13.4" rx="1.9" ry="2.2" fill="#d9b92f" stroke="#16210a" stroke-width=".7"/><ellipse cx="30.2" cy="13.4" rx="1.9" ry="2.2" fill="#d9b92f" stroke="#16210a" stroke-width=".7"/>
-      <ellipse cx="21.8" cy="13.4" rx=".55" ry="1.4" fill="#16210a"/><ellipse cx="30.2" cy="13.4" rx=".55" ry="1.4" fill="#16210a"/>`,
-      null, .12),
-    dot: defAv("Punkt",
-      `<circle cx="26" cy="28" r="20" fill="#1DF5FF" opacity=".16"/><circle cx="26" cy="28" r="15" fill="#1DF5FF" opacity=".22"/><ellipse cx="27" cy="31" rx="11" ry="10" fill="#000" opacity=".3"/>`,
-      c => `
-      <defs><radialGradient id="dotG" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="${c}"/><stop offset="1" stop-color="${avShade(c, .45)}"/></radialGradient></defs>
-      <circle cx="26" cy="28" r="10.5" fill="url(#dotG)" stroke="#fff" stroke-width="2.6"/>
-      <path d="M26 3.6L33 17.4Q26 14.6 19 17.4Z" fill="${c}" stroke="#0c0f12" stroke-width="1" stroke-linejoin="round"/>`,
-      null, .10)
+      <rect x="-3" y="3" width="6" height="4" fill="#2a2f34"/>
+      <circle cx="0" cy="5" r="2.6" fill="#1c2024" stroke="#000" stroke-width=".5"/>
+      <rect x="-9.6" y="-10.5" width="1.8" height="5.2" rx=".7" fill="#14171a"/><rect x="7.8" y="-10.5" width="1.8" height="5.2" rx=".7" fill="#14171a"/>
+      <rect x="-9.6" y="-1.5" width="1.8" height="5.2" rx=".7" fill="#14171a"/><rect x="7.8" y="-1.5" width="1.8" height="5.2" rx=".7" fill="#14171a"/>
+      <rect x="-11.2" y="-11" width="2.6" height="4.2" rx="1" fill="#2a2f34"/><rect x="8.6" y="-11" width="2.6" height="4.2" rx="1" fill="#2a2f34"/>
+      <path d="M-7.5 -12 Q-7.5 -16 -3.5 -16 L3.5 -16 Q7.5 -16 7.5 -12 L8 3 Q8 4.5 6.5 4.5 L-6.5 4.5 Q-8 4.5 -8 3 Z" fill="url(#${p}cab)" stroke="#0c0f12" stroke-width=".8"/>
+      <path d="M-6 -12.6 Q0 -14.4 6 -12.6 L5.4 -8 L-5.4 -8 Z" fill="url(#${p}glass)"/>
+      <path d="M-4.6 -12.2 L-1.2 -12.5 L-2.2 -8.4 L-5 -8.4 Z" fill="#fff" opacity=".22"/>
+      <rect x="-6.1" y="-7" width="12.2" height="9.2" rx="2" fill="url(#${p}roof)" stroke="#000" stroke-opacity=".25" stroke-width=".4"/>
+      <rect x="-4.2" y="-4.6" width="8.4" height="2.4" rx=".8" fill="#fff" opacity=".18"/>
+      <rect x="-5.4" y="2.5" width="10.8" height="1.4" rx=".6" fill="#000" opacity=".28"/>
+      <rect x="-6.6" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/><rect x="3.8" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/>`;
+    } },
+    car: { name:"Auto", H:20, lenU:26, lenM:5.5, len2d:30, ivb:"-16 -16 32 32", svg: (c, p) => `<defs>
+        ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(c,-.4)],[.3,shadeHex(c,.1)],[.5,shadeHex(c,.4)],[.7,shadeHex(c,.1)],[1,shadeHex(c,-.4)]])}
+        ${lgrad(p+"roof", 0,0,0,1, [[0,shadeHex(c,.5)],[1,shadeHex(c,.05)]])}
+        ${lgrad(p+"glass", 0,0,0,1, [[0,"#52728a"],[1,"#101a22"]])}
+      </defs>
+      <rect x="-7.4" y="-11" width="15" height="26" rx="6" fill="#000" opacity=".24" transform="translate(.8 1.2)"/>
+      <rect x="-8.3" y="-8.4" width="2" height="5" rx=".8" fill="#14171a"/><rect x="6.3" y="-8.4" width="2" height="5" rx=".8" fill="#14171a"/>
+      <rect x="-8.3" y="5" width="2" height="5" rx=".8" fill="#14171a"/><rect x="6.3" y="5" width="2" height="5" rx=".8" fill="#14171a"/>
+      <rect x="-9" y="-4.6" width="2" height="2.4" rx=".9" fill="${shadeHex(c,-.45)}"/><rect x="7" y="-4.6" width="2" height="2.4" rx=".9" fill="${shadeHex(c,-.45)}"/>
+      <path d="M-6.8 -8 Q-6.8 -13 0 -13 Q6.8 -13 6.8 -8 L7 9 Q7 13 0 13 Q-7 13 -7 9 Z" fill="url(#${p}body)" stroke="#0c0f12" stroke-width=".7"/>
+      <path d="M-4.6 -10.6 Q0 -12.6 4.6 -10.6 L4.1 -5.8 L-4.1 -5.8 Z" fill="#fff" opacity=".22"/>
+      <path d="M-5.2 -5.3 L5.2 -5.3 L4.4 -.4 L-4.4 -.4 Z" fill="url(#${p}glass)"/>
+      <rect x="-4.8" y="-.4" width="9.6" height="7" rx="1.8" fill="url(#${p}roof)" stroke="#000" stroke-opacity=".25" stroke-width=".35"/>
+      <path d="M-4.4 6.8 L4.4 6.8 L5.1 9.4 L-5.1 9.4 Z" fill="url(#${p}glass)"/>
+      <rect x="-6.1" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/><rect x="2.9" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/>
+      <rect x="-6.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/><rect x="3.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/>` },
+    gator: { name:"Aligator", H:26, lenU:44, lenM:6, len2d:42, ivb:"-26 -25 52 52", svg: (c, p) => {
+      const skin = customAvatarColor || "#6f9136";
+      const scutes = []; for(let y = -9.5; y <= 11; y += 3.3){
+        const w = 1.9 + (y > 6 ? -(y - 6) * .18 : 0);
+        scutes.push(`<ellipse cx="-2.1" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1.35"/><ellipse cx="2.1" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1.35"/>`);
+      }
+      const tailScutes = []; for(let y = 13; y <= 21; y += 2.6){ const w = 2.1 - (y - 13) * .17; tailScutes.push(`<ellipse cx="0" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1"/>`); }
+      const leg = (cls, side, x, y, rot) => `<g class="gLeg ${cls} ${side}"><ellipse cx="${x}" cy="${y}" rx="5.4" ry="2.7" transform="rotate(${rot} ${x} ${y})" fill="url(#${p}leg)" stroke="#0c0f12" stroke-width=".7"/>` +
+        `<ellipse cx="${x + (side === "l" ? -4.4 : 4.4)}" cy="${y + (rot < 0 ? -1.6 : 1.6) * (y < 0 ? 1 : -1)}" rx="1.9" ry="1.4" fill="${shadeHex(skin,-.35)}" stroke="#0c0f12" stroke-width=".5"/></g>`;
+      return `<defs>
+        ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(skin,-.45)],[.35,shadeHex(skin,.05)],[.5,shadeHex(skin,.3)],[.65,shadeHex(skin,.05)],[1,shadeHex(skin,-.45)]])}
+        ${lgrad(p+"leg", 0,0,0,1, [[0,shadeHex(skin,.2)],[1,shadeHex(skin,-.35)]])}
+        ${lgrad(p+"tail", 0,0,1,0, [[0,shadeHex(skin,-.5)],[.5,shadeHex(skin,.1)],[1,shadeHex(skin,-.5)]])}
+      </defs>
+      <ellipse cx="1.4" cy="2.4" rx="14" ry="22" fill="#000" opacity=".2"/>
+      <g class="gTail"><path d="M-4.7 8 C-4.2 14 -2.2 19 0 23.5 C2.2 19 4.2 14 4.7 8 Z" fill="url(#${p}tail)" stroke="#0c0f12" stroke-width=".8" stroke-linejoin="round"/>
+        <g fill="${shadeHex(skin,-.55)}" opacity=".9">${tailScutes.join("")}</g></g>
+      ${leg("gLegA", "l", -9.6, -7.5, -26)}${leg("gLegB", "r", 9.6, -7.5, 26)}${leg("gLegB", "l", -9.8, 8, 26)}${leg("gLegA", "r", 9.8, 8, -26)}
+      <g class="gBody">
+        <ellipse cx="0" cy="0" rx="7.6" ry="13.4" fill="url(#${p}body)" stroke="#0c0f12" stroke-width=".9"/>
+        <g fill="${shadeHex(skin,-.5)}" stroke="${shadeHex(skin,.35)}" stroke-width=".3">${scutes.join("")}</g>
+        <path d="M-5.3 -9 C-6.2 -14 -3.4 -21 0 -21 C3.4 -21 6.2 -14 5.3 -9 Z" fill="url(#${p}body)" stroke="#0c0f12" stroke-width=".9" stroke-linejoin="round"/>
+        <path d="M-3 -19 Q0 -20.4 3 -19" stroke="#fff" stroke-opacity=".3" stroke-width=".7" fill="none"/>
+        <circle cx="-1.2" cy="-19.3" r=".45" fill="#101a08"/><circle cx="1.2" cy="-19.3" r=".45" fill="#101a08"/>
+        <circle cx="-3.9" cy="-12.6" r="2.1" fill="${shadeHex(skin,-.1)}" stroke="#0c0f12" stroke-width=".6"/><circle cx="3.9" cy="-12.6" r="2.1" fill="${shadeHex(skin,-.1)}" stroke="#0c0f12" stroke-width=".6"/>
+        <circle cx="-3.9" cy="-12.8" r="1.35" fill="#f2d54a"/><circle cx="3.9" cy="-12.8" r="1.35" fill="#f2d54a"/>
+        <ellipse cx="-3.9" cy="-12.8" rx=".35" ry="1.05" fill="#111"/><ellipse cx="3.9" cy="-12.8" rx=".35" ry="1.05" fill="#111"/>
+      </g>`;
+    } },
+    dot: { name:"Punkt", H:20, lenU:36, lenM:5, len2d:30, ivb:"-20 -20 40 40", svg: (c, p) => `<defs>
+        <radialGradient id="${p}sph" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="${shadeHex(c,.6)}"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${shadeHex(c,-.5)}"/></radialGradient>
+      </defs>
+      <circle cx="1" cy="2.2" r="12" fill="#000" opacity=".25"/>
+      <circle cx="0" cy="3" r="10" fill="url(#${p}sph)" stroke="#fff" stroke-width="2"/>
+      <path d="M0 -17 L6.2 -8 L-6.2 -8 Z" fill="${shadeHex(c,.15)}" stroke="#0c0f12" stroke-width=".9" stroke-linejoin="round"/>` }
   };
-  /* ---------- awatar w 3D: prawdziwa bryła ----------
-     Marker leży na mapie (pitchAlignment "map"), więc w widoku 3D jest spłaszczony. Zamiast tego układamy kilka warstw
-     (cień, koła, boki, góra ze szczegółami), przesuniętych w górę (translateZ) — przy pochyleniu kamery tworzą bryłę
-     z wysokością, bokami i cieniem. W 2D warstw nie ma. */
-  const AV3D_STEPS = 10;
-  function sync3dLayers(){
-    if(!userMarkerEl) return;
-    const a = AVATARS[vehicleAvatar];
-    const key = ((is3D || (map && map.getPitch() > 8)) && a && a.body) ? vehicleAvatar + "|" + avatarAccent() : "";
-    if(userMarkerEl._k3d === key) return;
-    userMarkerEl._k3d = key;
-    userMarkerEl.querySelectorAll(".av3dL").forEach(n => n.remove());
-    if(typeof avm3dModelLeave === "function") avm3dModelLeave();   // wracamy do wyrównania markera do mapy
-    const base = userMarkerEl.querySelector("svg:not(.av3dL)");
-    if(base) base.style.setProperty("display", key ? "none" : "", key ? "important" : "");
-    userMarkerEl.style.transformStyle = key ? "preserve-3d" : "";
-    if(!key) return;
-    const c = avatarAccent();
-    if(a.model && typeof avm3dModelEnter === "function"){ avm3dModelEnter(a); return; }   // pełny model 3D na canvasie
-    const side = a.body(c);
-    const mk = (inner, zf, css, sc) => {
-      const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      sv.setAttribute("viewBox", "0 0 52 52"); sv.setAttribute("class", "av3dL");
-      sv.style.cssText = "position:absolute;left:0;top:0;overflow:visible;pointer-events:none;transform-origin:50% 50%;" + (css || "");
-      sv.innerHTML = inner; sv._zf = zf * (a.h3d || .15); sv._sc = sc || 1;
-      userMarkerEl.appendChild(sv);
-    };
-    mk(side, 0, "filter:brightness(0) blur(2px);opacity:.4", 1.12);                       // cień na jezdni
-    if(a.wheels) mk(a.wheels, .12);                                                      // koła tuż nad ziemią
-    for(let i = 1; i < AV3D_STEPS; i++) mk(side, i / AV3D_STEPS, `filter:brightness(${(0.5 + 0.35 * i / AV3D_STEPS).toFixed(2)})`); // boki
-    mk(a.body(c), 1);                                                                    // góra: pełny wygląd
-    userMarkerEl._px3d = null; applyAvatarSize(); setAvRot(avSm && avSm.lastRot != null ? avSm.lastRot : 0);
-  }
-  function setAvRot(hdg){
-    if(!userMarkerEl) return;
-    if(userMarkerEl._model && typeof avm3dModelDraw === "function") avm3dModelDraw(hdg);
-    userMarkerEl.querySelectorAll("svg").forEach(sv => {
-      sv.style.transform = sv.classList.contains("av3dL")
-        ? `translateZ(${(sv._z || 0).toFixed(1)}px) rotate(${hdg.toFixed(2)}deg)${sv._sc !== 1 ? " scale(" + sv._sc + ")" : ""}`
-        : `rotate(${hdg.toFixed(2)}deg)`;
-    });
-  }
-  function avatarAccent(){ return customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
-  function avatarSvgInner(key){
+  function avatarAccent(){ return customAvatarColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
+  function avatarSvgInner(key, pfx){
     if(key === "arrow" || !AVATARS[key] || !AVATARS[key].svg) return null;
-    return AVATARS[key].svg(avatarAccent());
+    return AVATARS[key].svg(avatarAccent(), pfx || "m");
   }
-  // Rozmiar avatara: w 2D bez zmian; w 3D rośnie wraz z przybliżeniem (jak prawdziwy pojazd ~20 m), w granicach 64–150 px
-  const AVATAR_3D_MIN_PX = 64, AVATAR_3D_MAX_PX = 150, AVATAR_3D_LENGTH_M = 20;
-  function avatarBasePx(){
-    const night = document.body.classList.contains("night");
-    return (vehicleAvatar !== "arrow" && AVATARS[vehicleAvatar] && AVATARS[vehicleAvatar].svg) ? 46 : (night ? 52 : 26);
+  // Rozmiar avatara: w 2D stała długość pojazdu (px); w 3D skala rzeczywista (px na metr rośnie z przybliżeniem, 3,2–7,5 px/m),
+  // dzięki czemu ciężarówka 16,5 m jest proporcjonalnie dłuższa niż auto.
+  function avatarPxPerMeter(){
+    const lat = lastPos ? lastPos.lat : 53;
+    const ppm = Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
+    return Math.max(3.2, Math.min(7.5, ppm));
   }
   function avatarPx(){
-    const base = avatarBasePx();
-    if(!is3D || !map) return base;
-    const lat = lastPos ? lastPos.lat : 53;
-    const px = AVATAR_3D_LENGTH_M * Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
-    return Math.round(Math.max(AVATAR_3D_MIN_PX, Math.min(AVATAR_3D_MAX_PX, px)));
+    const a = AVATARS[vehicleAvatar];
+    const night = document.body.classList.contains("night");
+    if(a && a.svg){
+      const lenPx = (is3D && map) ? a.lenM * avatarPxPerMeter() : a.len2d;
+      return Math.round(2 * a.H / a.lenU * lenPx);
+    }
+    if(!is3D || !map) return night ? 52 : 26;
+    return Math.round(Math.max(64, Math.min(150, 20 * avatarPxPerMeter() * 1)));
   }
   function applyAvatarSize(){
     if(!userMarkerEl) return;
-    sync3dLayers();
-    const svg = userMarkerEl.querySelector("svg:not(.av3dL)");
+    const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
     const px = avatarPx();
     if(svg._px === px) return;
     svg._px = px;
-    userMarkerEl.querySelectorAll("svg").forEach(sv => {
-      sv.setAttribute("width", px); sv.setAttribute("height", px);
-      if(sv._zf !== undefined) sv._z = sv._zf * px;
-    });
+    svg.setAttribute("width", px); svg.setAttribute("height", px);
     userMarkerEl.style.width = userMarkerEl.style.height = px + "px";
-    userMarkerEl.style.setProperty("--u", (px / 52) + "px");
-    if(userMarkerEl._model && typeof avm3dModelDraw === "function") avm3dModelDraw();
-    if(userMarkerEl._k3d) setAvRot(avSm.lastRot != null ? avSm.lastRot : 0);
   }
   let avatarSizeQueued = false;
   function queueAvatarSize(){
@@ -3993,22 +3888,22 @@
   function applyUserMarkerStyle(){
     if(!userMarkerEl) return;
     const night = document.body.classList.contains("night");
-    const svg = userMarkerEl.querySelector("svg:not(.av3dL)");
+    const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
-    userMarkerEl._k3d = null;   // odbuduj warstwy 3D (zmiana awatara / koloru)
-    const av = avatarSvgInner(vehicleAvatar);
+    const av = avatarSvgInner(vehicleAvatar, "m");
     if(av){
-      svg.setAttribute("viewBox", "0 0 52 52");
-      svg.setAttribute("width", 46); svg.setAttribute("height", 46);
+      const H = AVATARS[vehicleAvatar].H;
+      svg.setAttribute("viewBox", `${-H} ${-H} ${2 * H} ${2 * H}`);
       svg.innerHTML = av;
-      svg._px = null; applyAvatarSize();
+      svg._px = null; avSm.trEl = null; avSm.trLast = null; applyAvatarSize();
       return;
     }
+    avSm.trEl = null;
     svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
-    svg._px = null; applyAvatarSize(); sync3dLayers();
+    svg._px = null; applyAvatarSize();
   }
 
   /* ---------- Mapa satelitarna (Mapbox Raster Tiles API) ----------
@@ -4120,6 +4015,11 @@
     customRouteColor = hex || null;
     try{ if(hex) localStorage.setItem(ROUTE_COLOR_KEY, hex); else localStorage.removeItem(ROUTE_COLOR_KEY); }catch(e){}
     applyRouteNightStyle();
+    refreshCustomizeUi();
+  }
+  function setAvatarColor(hex){
+    customAvatarColor = hex || null;
+    try{ if(hex) localStorage.setItem(AVATAR_COLOR_KEY, hex); else localStorage.removeItem(AVATAR_COLOR_KEY); }catch(e){}
     applyUserMarkerStyle();
     refreshCustomizeUi();
   }
@@ -4131,16 +4031,18 @@
   }
   const ROUTE_SWATCHES = ["#FF3B30","#FF9500","#FFD60A","#34C759","#1FD6C1","#0A84FF","#BF5AF2","#FF2D95","#FFFFFF"];
   function refreshCustomizeUi(){
-    const grid = document.getElementById("avatarGrid"), sw = document.getElementById("routeSwatches");
-    if(!grid || !sw) return;
+    const grid = document.getElementById("avatarGrid"), sw = document.getElementById("routeSwatches"), asw = document.getElementById("avatarSwatches");
+    if(!grid || !sw || !asw) return;
     grid.innerHTML = Object.keys(AVATARS).map(k => {
-      const inner = avatarSvgInner(k);
-      const svg = inner ? `<svg viewBox="0 0 52 52">${inner}</svg>`
+      const inner = avatarSvgInner(k, "g" + k);
+      const svg = inner ? `<svg viewBox="${AVATARS[k].ivb}">${inner}</svg>`
         : `<svg viewBox="0 0 52 52"><path d="M26 6 L38 42 L26 34 L14 42 Z" fill="${avatarAccent()}" stroke="#0c0f12" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
       return `<div class="avatarOpt${k === vehicleAvatar ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
     }).join("");
     sw.innerHTML = `<div class="routeSw auto${customRouteColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
       ROUTE_SWATCHES.map(c => `<div class="routeSw${customRouteColor && customRouteColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
+    asw.innerHTML = `<div class="routeSw auto${customAvatarColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
+      ROUTE_SWATCHES.map(c => `<div class="routeSw${customAvatarColor && customAvatarColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
   }
   safeInit("przełącznik dróg płatnych", () => {
     const seg = document.getElementById("tollSeg");
@@ -4164,6 +4066,11 @@
     });
     const hue = document.getElementById("routeHue");
     hue.addEventListener("input", () => setRouteColor(hslToHex(+hue.value, 95, 55)));
+    document.getElementById("avatarSwatches").addEventListener("click", ev => {
+      const el = ev.target.closest(".routeSw"); if(el) setAvatarColor(el.dataset.col || null);
+    });
+    const ahue = document.getElementById("avatarHue");
+    ahue.addEventListener("input", () => setAvatarColor(hslToHex(+ahue.value, 85, 52)));
   });
 
   function addUserMarker(lat, lon){
@@ -4171,6 +4078,7 @@
     userMarkerEl.style.width = "26px";
     userMarkerEl.style.height = "26px";
     userMarkerEl.style.willChange = "transform";
+    userMarkerEl.style.pointerEvents = "none";
     userMarkerEl.innerHTML = `
       <svg width="26" height="26" viewBox="0 0 26 26" style="transform-origin:50% 50%;">
         <circle cx="13" cy="13" r="11" fill="rgba(31,214,193,0.25)"/>
@@ -4226,12 +4134,23 @@
     userMarker.setLngLat([avSm.lon, avSm.lat]);
     if(avSm.lastRot === null || Math.abs(angDiff(avSm.lastRot, avSm.hdg)) > 0.15){
       avSm.lastRot = avSm.hdg;
-      setAvRot(avSm.hdg);
+      const sv = userMarkerEl.querySelector("svg"); if(sv) sv.style.transform = `rotate(${avSm.hdg.toFixed(2)}deg)`;
     }
     // UWAGA: jumpTo() przerywa gesty mapy — dlatego kamerę ruszamy tylko wtedy, gdy użytkownik nie dotyka mapy
     // i mapa nie jest w trakcie przesuwania/zoomu/inercji (inaczej nie dałoby się jej przeciągnąć).
     if(followUser && map && !avSm.touching && !map.isEasing() && !map.isMoving()){
       map.jumpTo({ center: [avSm.lon, avSm.lat], bearing: (is3D && !northUp) ? avSm.hdg : map.getBearing() });
+    }
+    if(vehicleAvatar === "truck"){
+      // naczepa dołamuje się w skrętach: kąt naczepy goni kąt kabiny (model ciągnik–naczepa, rozstaw ~8 m)
+      if(avSm.trH === undefined) avSm.trH = avSm.hdg;
+      const rel = Math.max(-70, Math.min(70, angDiff(avSm.trH, avSm.hdg)));
+      avSm.trH = (avSm.trH + (avSm.v / 8) * Math.sin(rel * Math.PI / 180) * dt * 180 / Math.PI + 360) % 360;
+      const loc = -Math.max(-60, Math.min(60, angDiff(avSm.trH, avSm.hdg)));
+      if(!avSm.trEl || !avSm.trEl.isConnected) avSm.trEl = userMarkerEl.querySelector(".trTrailer");
+      if(avSm.trEl && (avSm.trLast === null || avSm.trLast === undefined || Math.abs(loc - avSm.trLast) > 0.1)){
+        avSm.trLast = loc; avSm.trEl.setAttribute("transform", `rotate(${loc.toFixed(2)} 0 5)`);
+      }
     }
     if(t - avSm.calT > 700){ avSm.calT = t; try{ calibrateAvatarPosition(); }catch(e){} }
   }
@@ -4472,19 +4391,17 @@
   const MW_CAMERA_MAX_RETRIES = 3;
   let mwCameraRetries = 0;
 
-  let mwCamRaw = [];
-  const mwCamShifter = makeRoadShifter(2, () => mwCamRaw, "motorway-cameras");   // ok. 2 m w lewo od osi jezdni
-  function mwCamerasCompute(){ mwCamShifter.compute(); }
   function showMotorwayCameras(cams){
     const src = map && map.getSource("motorway-cameras");
     if(!src) return;
-    mwCamRaw = cams.map(c => ({
-      type: "Feature",
-      properties: { id: c.id },
-      geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-    }));
-    src.setData(mwCamShifter.shifted());
-    setTimeout(mwCamerasCompute, 600);
+    src.setData({
+      type: "FeatureCollection",
+      features: cams.map(c => ({
+        type: "Feature",
+        properties: { id: c.id },
+        geometry: { type: "Point", coordinates: [c.lon, c.lat] }
+      }))
+    });
   }
 
   function readMotorwayCameraCache(){
@@ -5029,7 +4946,7 @@
     })).catch(err => { console.warn(`IndexedDB zapis (${key}) nieudany:`, err); return false; });
   }
 
-  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v3";   // v3: + maxheight:physical i znaki-punkty (mosty kolejowe) — dane pobiorą się od nowa
+  const RESTRICTIONS_CACHE_KEY = "nav_uk_height_weight_restrictions_v2";   // v2: bez ścieżek/kanałów — dane pobiorą się raz od nowa
   const RESTRICTIONS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
   const RESTRICTIONS_ATTEMPT_TIMEOUT_MS = 120000;
   const RESTRICTIONS_MAX_RETRIES = 3; // ile razy ponowić CAŁE dociąganie brakujących fragmentów
@@ -5094,12 +5011,8 @@
       [out:json][timeout:120];
       (
         way["highway"]["maxheight"](${south},${west},${north},${east});
-        way["highway"]["maxheight:physical"](${south},${west},${north},${east});
         way["highway"]["maxweight"](${south},${west},${north},${east});
         way["highway"]["maxwidth"](${south},${west},${north},${east});
-        node["maxheight"]["barrier"~"^(height_restrictor|border_control|gate|bollard)$"](${south},${west},${north},${east});
-        node["maxheight"]["traffic_sign"](${south},${west},${north},${east});
-        node["maxheight:physical"](${south},${west},${north},${east});
       );
       out geom;
     `;
@@ -5120,18 +5033,9 @@
 
   // Wpisuje dane jednego fragmentu do wspólnych map (dedupe po id drogi z OSM).
   function applyRestrictionsBandData(data, heightWays, weightWays, widthWays, signs){
-    (data.elements || []).forEach(raw => {
-      if(!raw.tags) return;
-      let el = raw;
-      if(raw.type === "node"){
-        // znak/ogranicznik wysokości jako punkt (np. most kolejowy nad drogą): krótki odcinek ~2 m, ujemne id = węzeł
-        if(raw.lat === undefined || raw.tags.railway || raw.tags.waterway || raw.tags.access === "no" || raw.tags.hgv === "no") return;
-        el = { type: "way", id: -raw.id, tags: raw.tags, geometry: [{ lat: raw.lat, lon: raw.lon }, { lat: raw.lat, lon: raw.lon + 0.00003 }] };
-      } else {
-        if(raw.type !== "way" || !raw.geometry || raw.geometry.length < 2) return;
-        if(!isHgvRelevantWay(raw.tags)) return;
-      }
-      if(!el.tags.maxheight && el.tags["maxheight:physical"]) el = Object.assign({}, el, { tags: Object.assign({}, el.tags, { maxheight: el.tags["maxheight:physical"] }) });
+    (data.elements || []).forEach(el => {
+      if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags) return;
+      if(!isHgvRelevantWay(el.tags)) return;
 
       if(el.tags.maxheight && !heightWays.has(el.id)){
         const hm = parseMaxheightMeters(el.tags.maxheight);
@@ -6219,35 +6123,6 @@
     supaRep.rows = new Map(); supaRep.cover = null; supaRep.fetchedAt = 0;
     supaRealtime.retry = 0;
   }
-
-  // ---- tabela data_status (dataset, complete, missing jsonb): informuje, czy dane we wspólnej bazie są kompletne ----
-  const DATASET_LABELS = { road_restrictions:"znaki wysokości/tonażu/szerokości", restrictions:"znaki wysokości/tonażu/szerokości",
-    motorway_junctions:"zjazdy z autostrad", junctions:"zjazdy z autostrad", motorway_cameras:"kamery na autostradach", cameras:"kamery na autostradach",
-    avg_speed_cameras:"kamery odcinkowe", avgSpeed:"kamery odcinkowe", hgv_companies:"firmy HGV", hgv:"firmy HGV" };
-  let supaDataStatusRows = null;
-  function checkSupaDataStatus(){
-    if(!supaConfigured() || supaMissingTables.has("data_status")) return Promise.resolve(null);
-    return fetchTableFromSupabase("data_status", "dataset,complete,missing").then(rows => {
-      if(!rows) return null;
-      supaDataStatusRows = rows;
-      const bad = rows.filter(r => r && r.complete === false);
-      bad.forEach(r => {
-        const miss = Array.isArray(r.missing) ? r.missing.length : (r.missing && typeof r.missing === "object" ? Object.keys(r.missing).length : 0);
-        debugLog("warn", `Baza współdzielona: „${r.dataset}” niekompletna${miss ? " — brakuje " + miss + " fragm./poz." : ""}`);
-      });
-      if(bad.length && !isAdmin()){
-        const names = [...new Set(bad.map(r => DATASET_LABELS[r.dataset] || r.dataset))].join(", ");
-        try{ showBanner("Dane map niekompletne", "Część danych (" + names + ") jest w trakcie uzupełniania — niektórych znaków może brakować.", false); }catch(e){}
-      }
-      return rows;
-    });
-  }
-  // true/false gdy status znany, null gdy brak informacji
-  function supaDatasetComplete(name){
-    const r = (supaDataStatusRows || []).find(x => x && x.dataset === name);
-    return r ? r.complete !== false : null;
-  }
-  setTimeout(() => { try{ checkSupaDataStatus(); }catch(e){} }, 4000);
 </script>
 <script>
 /* ===== js/20-community-votes.js — Głosowanie społeczności i zgłoszenia punktów =====
@@ -6549,10 +6424,9 @@
   function showLimitSign(limit){
     if(!prefShowLimitSign){ hideLimitSign(); return; }
     const sign = document.getElementById("limitSign");
-    const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
-    if(prefLimitMode === "speeding" && !speeding){ hideLimitSign(); return; }
     sign.classList.remove("hidden");
     document.getElementById("limitValue").textContent = kmhToDisplay(limit);
+    const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
     sign.classList.toggle("blink", speeding);
   }
   function hideLimitSign(){
@@ -6703,7 +6577,11 @@
   function renderSpeedUI(){
     document.getElementById("speedValue").textContent = kmhToDisplay(currentSpeedKmh);
     document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
-    if(currentLimit) showLimitSign(currentLimit);
+    if(currentLimit){
+      document.getElementById("limitValue").textContent = kmhToDisplay(currentLimit);
+      const sign = document.getElementById("limitSign");
+      sign.classList.toggle("blink", currentSpeedKmh > currentLimit + 3);
+    }
   }
 
   let roadDataState = "searching"; // "ok" | "searching" | "retrying" | "unavailable"
@@ -6795,52 +6673,6 @@
     }catch(e){ /* localStorage niedostępny - klucz zostaje tylko w pamięci sesji */ }
   }
 
-  /* ---------- awaryjna wyszukiwarka adresów (tylko UK): Mapbox → Photon → Nominatim ---------- */
-  const UK_POSTCODE_RE = /^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/i;
-  // "pl65xx" → "PL6 5XX" (pełny kod pocztowy z wielkimi literami i spacją)
-  function normalizeUkQuery(q){
-    const m = q.trim().match(UK_POSTCODE_RE);
-    return m ? (m[1] + " " + m[2]).toUpperCase() : q.trim();
-  }
-  function geoResult(label, lat, lon, city, poiName){
-    const r = { address: { freeformAddress: label, municipality: city || "", country: "United Kingdom" }, position: { lat, lon } };
-    if(poiName) r.poi = { name: poiName };
-    return r;
-  }
-  const UK_BBOX = [-8.7, 49.8, 1.9, 60.9]; // minLon, minLat, maxLon, maxLat
-  function geoMapbox(q, bias, signal){
-    const token = (typeof mapboxToken === "string" && /^pk\./.test(mapboxToken)) ? mapboxToken : MAPBOX_DEFAULT_TOKEN;
-    if(!token) return Promise.resolve([]);
-    const p = new URLSearchParams({ access_token: token, country: "gb", autocomplete: "true", limit: "8", language: "en" });
-    if(bias) p.set("proximity", bias.lon + "," + bias.lat);
-    return fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?${p}`, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => (d.features || []).filter(f => f.center).map(f => {
-        const isPoi = (f.place_type || []).includes("poi");
-        return geoResult(f.place_name.replace(/, United Kingdom$/, ""), f.center[1], f.center[0], "", isPoi ? f.text : "");
-      }));
-  }
-  function geoPhoton(q, bias, signal){
-    const p = new URLSearchParams({ q, limit: "8", lang: "en", bbox: UK_BBOX.join(",") });
-    if(bias){ p.set("lat", bias.lat); p.set("lon", bias.lon); }
-    return fetch("https://photon.komoot.io/api/?" + p, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => (d.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === "GB").map(f => {
-        const pr = f.properties, c = f.geometry.coordinates;
-        const street = [pr.housenumber, pr.street].filter(Boolean).join(" ");
-        const label = [pr.name && pr.name !== pr.street ? pr.name : "", street, pr.postcode, pr.city || pr.district || pr.county]
-          .filter(Boolean).join(", ");
-        return geoResult(label || pr.name || "UK", c[1], c[0], pr.city || pr.county, pr.osm_key === "amenity" || pr.osm_key === "shop" ? pr.name : "");
-      }));
-  }
-  function geoNominatim(q, bias, signal){
-    const p = new URLSearchParams({ format: "jsonv2", q, countrycodes: "gb", limit: "8", addressdetails: "1" });
-    return fetch("https://nominatim.openstreetmap.org/search?" + p, { signal })
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(a => (a || []).map(x => geoResult(x.display_name.replace(/, United Kingdom$/, ""), +x.lat, +x.lon,
-        (x.address && (x.address.city || x.address.town || x.address.village)) || "")));
-  }
-
   /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead) ---------- */
   function navResultLabel(r){
     const addr = r.address || {};
@@ -6883,6 +6715,36 @@
     placeNames.forEach(p => add(p.name, p.lat, p.lon));
     hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0]); });
     return out.sort((a, b) => a._d - b._d).slice(0, 3);
+  }
+
+  /* ---------- ranking podpowiedzi: pełny adres z geokodera > częściowy > wpis z bazy kierowców ---------- */
+  function hasFullAddress(r){
+    const a = r.address || {};
+    return !r.local && !!(a.streetName && (a.municipality || a.localName) && a.postalCode);
+  }
+  function addrRank(r){
+    const a = r.address || {};
+    if(!r.local) return hasFullAddress(r) ? 0 : ((a.streetName || a.postalCode) ? 1 : 2);
+    return (a.municipality || a.postalCode) ? 3 : 4;      // wpis z bazy kierowców: z miastem/kodem, a na końcu surowy
+  }
+  const _revCache = new Map();
+  // uzupełnia wpisy z bazy kierowców miastem i kodem pocztowym (odwrotne geokodowanie TomTom, z pamięcią podręczną)
+  function enrichLocalAddresses(list, signal){
+    if(!tomtomApiKey || !list.length) return Promise.resolve();
+    return Promise.all(list.map(r => {
+      const lat = r.position.lat, lon = r.position.lon, k = lat.toFixed(4) + "," + lon.toFixed(4);
+      const apply = a => { if(a){ r.address = Object.assign({}, r.address, { municipality: a.municipality || a.localName, postalCode: a.postalCode, streetName: a.streetName, streetNumber: a.streetNumber }); } };
+      if(_revCache.has(k)){ apply(_revCache.get(k)); return null; }
+      return fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?key=${tomtomApiKey}&radius=150`, { signal })
+        .then(x => x.ok ? x.json() : null)
+        .then(d => { const a = d && d.addresses && d.addresses[0] && d.addresses[0].address; if(a){ _revCache.set(k, a); apply(a); } })
+        .catch(err => { if(err.name === "AbortError") throw err; });
+    }).filter(Boolean)).then(() => {});
+  }
+  function localSubLabel(r){
+    const a = r.address || {};
+    const parts = [a.municipality, a.postalCode].filter(Boolean).join(" ");
+    return parts ? parts + " · baza kierowców" : "Z bazy kierowców";
   }
 
   /* ---------- ULUBIONE I HISTORIA CELÓW (localStorage) ---------- */
@@ -7043,7 +6905,7 @@
         item.className = "navSuggestion navSaved";
         item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-        item.querySelector(".addr2").textContent = r.local ? "Z bazy kierowców" : ((r.poi && r.poi.name) ? label : sub);
+        item.querySelector(".addr2").textContent = r.local ? localSubLabel(r) : ((r.poi && r.poi.name) ? label : sub);
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
         const star = document.createElement("button");
@@ -7056,68 +6918,67 @@
       box.classList.add("open");
     }
     function fetchSuggestions(query, autoPick){
+      if(!tomtomApiKey){
+        showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
+        setNavKeyRowOpen(true);
+        return;
+      }
       showNavError("");
       if(abort) abort.abort();
       abort = new AbortController();
-      const signal = abort.signal;
+
+      const params = new URLSearchParams({
+        key: tomtomApiKey,
+        typeahead: autoPick ? "false" : "true",
+        limit: "8",
+        countrySet: NAV_DEFAULT_COUNTRY
+      });
       // wyniki faworyzują okolicę, którą widać na mapie (a bez mapy — pozycję GPS)
       const bias = searchBias();
-      const q = normalizeUkQuery(query);
-
-      function tomtomSearch(){
-        const params = new URLSearchParams({
-          key: tomtomApiKey,
-          typeahead: autoPick ? "false" : "true",
-          limit: "8",
-          countrySet: NAV_DEFAULT_COUNTRY
-        });
-        if(bias){ params.set("lat", bias.lat); params.set("lon", bias.lon); }
-        return fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(q)}.json?${params.toString()}`, { signal })
-          .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-          .then(data => {
-            const results = data.results || [];
-            // brak jakiejkolwiek firmy w wynikach (np. nazwa sieci, jak "Halfords") → dodatkowe zapytanie
-            // o firmy w promieniu ~50 km, najbliższe pierwsze
-            if(bias && !results.some(r => r.poi)) return fetchPoiNear(q, bias, signal).then(poi => poi.concat(results));
-            return results;
-          });
+      if(bias){
+        params.set("lat", bias.lat);
+        params.set("lon", bias.lon);
       }
-      // kolejność: TomTom (jeśli jest klucz) → Mapbox → Photon → Nominatim; pierwszy, który zwróci wyniki
-      const chain = [];
-      if(tomtomApiKey) chain.push(["TomTom", tomtomSearch]);
-      chain.push(["Mapbox", () => geoMapbox(q, bias, signal)]);
-      chain.push(["Photon", () => geoPhoton(q, bias, signal)]);
-      chain.push(["Nominatim", () => geoNominatim(q, bias, signal)]);
+      const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
 
-      (async () => {
-        let results = [], source = "";
-        for(const [name, fn] of chain){
-          try{
-            const r = await fn();
-            if(r && r.length){ results = r; source = name; break; }
-          }catch(err){
-            if(err && err.name === "AbortError") return;
-            console.warn(name + " search error:", err);
+      const signal = abort.signal;
+      fetch(url, { signal })
+        .then(r => {
+          if(r.status === 403) throw new Error("UNAUTHORIZED");
+          if(!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(data => {
+          const results = data.results || [];
+          // brak jakiejkolwiek firmy w wynikach (np. wpisano nazwę sieci, jak "Halfords") → dodatkowe
+          // zapytanie o firmy w promieniu ~50 km, najbliższe pierwsze
+          if(bias && results.filter(hasFullAddress).length < 3) return fetchPoiNear(query, bias, signal).then(poi => poi.concat(results));
+          return results;
+        })
+        .then(results => {
+          // najpierw nazwy z bazy kierowców/firm HGV (darmowe, bez TomTom), potem wyniki TomTom
+          const local = localNameMatches(query, bias).filter(l => !results.some(r =>
+            !r.local && r.position && _dM(r.position.lat, r.position.lon, l.position.lat, l.position.lon) < 200 &&
+            r.poi && namesMatch(r.poi.name, l.poi.name)));
+          const rank = list => list.map((r, i) => [addrRank(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+          return Promise.race([enrichLocalAddresses(local, signal), new Promise(res => setTimeout(res, 1800))])
+            .then(() => rank(results.concat(local)));
+        })
+        .then(all => {
+          if(autoPick){
+            if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
+            else showNavError("Nie znaleziono takiego adresu.");
+            return;
           }
-        }
-        if(signal.aborted) return;
-        // najpierw nazwy z bazy kierowców/firm HGV (darmowe), potem wyniki z geokodera
-        const all = localNameMatches(query, bias).concat(results);
-        if(autoPick){
-          if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
-          else showNavError("Nie znaleziono takiego adresu.");
-          return;
-        }
-        suggestionsFor = query;
-        render(all);
-        if(results.length && source !== "TomTom"){
-          const note = document.createElement("div");
-          note.className = "navSrcNote";
-          note.textContent = "Źródło awaryjne: " + source;
-          note.style.cssText = "font-size:11px;opacity:.55;text-align:right;padding:2px 10px 4px;pointer-events:none";
-          box.appendChild(note);
-        }
-      })();
+          suggestionsFor = query;
+          render(all);
+        })
+        .catch(err => {
+          if(err.name === "AbortError") return;
+          console.warn("TomTom search error:", err);
+          if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
+          else showNavError("Nie udało się pobrać podpowiedzi adresów.");
+        });
     }
 
     input.addEventListener("input", (e) => {
@@ -7537,27 +7398,27 @@
 
   // Nowy adres dla przesuniętej pinezki (odwrotne geokodowanie). Jeśli się nie uda,
   // zostaje opis "punkt wskazany na mapie" — trasa i tak liczona jest do pinezki.
-  // Odwrotne geokodowanie: Photon (OSM, bez klucza). Nominatim usunięty — podawał błędne adresy.
-  function addrFromParts(housenumber, street, place, postcode){
-    const st = [housenumber, street].filter(Boolean).join(" ");
-    return [st, place, postcode].filter(Boolean).join(", ");
-  }
-  function photonReverse(lat, lon, signal){
-    const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: "en", limit: "1" });
-    return fetch(`https://photon.komoot.io/reverse?${params.toString()}`, { signal })
+  // Odwrotne geokodowanie: darmowy Nominatim (OSM), bez klucza i bez limitów TomTom.
+  // Limit serwera: ok. 1 zapytanie/s — tu wysyłamy je tylko po kliknięciu/przesunięciu pinezki.
+  function nominatimReverse(lat, lon, signal){
+    const params = new URLSearchParams({ format: "jsonv2", lat: String(lat), lon: String(lon), zoom: "18", addressdetails: "1", "accept-language": "en-GB" });
+    return fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, { signal })
       .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => {
-        const f = d && d.features && d.features[0]; if(!f) return "";
-        const pr = f.properties || {};
-        return addrFromParts(pr.housenumber, pr.street || pr.name, pr.district || pr.locality || pr.city || pr.county, pr.postcode)
-          + ((pr.district || pr.locality) && pr.city && (pr.district || pr.locality) !== pr.city ? ", " + pr.city : "");
+      .then(data => {
+        const a = data && data.address;
+        if(!a) return data && data.display_name ? data.display_name : "";
+        const street = [a.house_number, a.road].filter(Boolean).join(" ");
+        const place = a.suburb || a.village || a.town || a.city || a.hamlet || "";
+        const city = (a.city || a.town || a.village || "");
+        const parts = [street, place, (place !== city ? city : ""), a.postcode].filter(Boolean);
+        return parts.length ? parts.join(", ") : (data.display_name || "");
       });
   }
 
   function reverseGeocodeDest(lat, lon, seq){
     if(destRevAbort) destRevAbort.abort();
     destRevAbort = new AbortController();
-    photonReverse(lat, lon, destRevAbort.signal)
+    nominatimReverse(lat, lon, destRevAbort.signal)
       .then(addr => {
         if(seq !== destMoveSeq || !navSelectedDest) return; // pinezka przesunięta ponownie / anulowano
         if(addr){
@@ -7565,7 +7426,7 @@
           setConfirmLabel();
         }
       })
-      .catch(err => { if(err.name !== "AbortError") console.warn("Photon reverse geocode:", err); });
+      .catch(err => { if(err.name !== "AbortError") console.warn("Nominatim reverse geocode:", err); });
   }
 
   // Cel zmieniony ręcznie (przeciągnięcie albo dwuklik). Trasy policzone do starego celu są nieaktualne.
@@ -7791,7 +7652,7 @@
     document.getElementById("poiAddStatus").textContent = "";
     const save = document.getElementById("poiAddSave"); save.disabled = false; save.textContent = "Zapisz nazwę";
     document.getElementById("poiAdd").classList.add("show");
-    photonReverse(lat, lon).then(addr => {
+    nominatimReverse(lat, lon).then(addr => {
       if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
         document.getElementById("poiAddAddr").textContent = addr;
     }).catch(() => {});
@@ -7894,7 +7755,7 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId, ownAddr){
+  function showPoiAsk(name, lat, lon, placeId){
     const seq = ++poiAskSeq;
     hideVoteCard();
     poiAskTarget = { lat, lon, name, address: "", placeId };
@@ -7902,41 +7763,13 @@
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
-    // adres z danych punktu (tagi addr:* z OSM / pole adresu w bazie) bierzemy bezpośrednio — bez geokodowania
-    if(ownAddr){ poiAskTarget.address = ownAddr; document.getElementById("poiAskAddr").textContent = ownAddr; return; }
-    // brak własnego adresu → Photon; liczymy zawsze dla środka budynku pod punktem i zapamiętujemy — ten sam budynek daje ten sam adres,
-    // niezależnie od tego, który duplikat nazwy (znacznik stylu mapy / firma / nazwa kierowców) kliknięto
-    const g = poiGeocodePoint(lat, lon);
-    const hit = poiAddrCache.find(c => c.name === name && haversine(c.lat, c.lon, g.lat, g.lon) <= 80);
-    if(hit){ poiAskTarget.address = hit.addr; document.getElementById("poiAskAddr").textContent = hit.addr; return; }
-    photonReverse(g.lat, g.lon)
+    nominatimReverse(lat, lon)
       .then(addr => {
-        if(!addr) return;
-        poiAddrCache.push({ name, lat: g.lat, lon: g.lon, addr });
-        if(poiAddrCache.length > 60) poiAddrCache.shift();
-        if(seq !== poiAskSeq || !poiAskTarget) return;
+        if(seq !== poiAskSeq || !poiAskTarget || !addr) return;
         poiAskTarget.address = addr;
         document.getElementById("poiAskAddr").textContent = addr;
       })
-      .catch(err => console.warn("Photon reverse geocode (POI):", err));
-  }
-  const poiAddrCache = [];
-  // adres zapisany w tagach punktu (addr:* z OSM albo gotowe pole adresu)
-  function addrFromProps(p){
-    if(!p) return "";
-    const a = addrFromParts(p["addr:housenumber"] || p.housenumber, p["addr:street"] || p.street, p["addr:city"] || p["addr:suburb"] || p.city, p["addr:postcode"] || p.postcode);
-    return a || (typeof p.address === "string" ? p.address : "");
-  }
-  // punkt do geokodowania: środek budynku zawierającego punkt (dla firm leżących przy granicy dzielnic/miast
-  // sąsiednie duplikaty dają inaczej „przyciągnięty” adres); bez budynku — sam punkt
-  function poiGeocodePoint(lat, lon){
-    try{
-      const bl = map.getStyle().layers.filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion")).map(l => l.id).filter(id => map.getLayer(id));
-      const pt = map.project([lon, lat]);
-      const bf = bl.length ? map.queryRenderedFeatures(pt, { layers: bl }) : [];
-      if(bf.length){ const c = buildingCenter(bf[0], { lat, lon }); return { lat: c.lat, lon: c.lon }; }
-    }catch(e){}
-    return { lat, lon };
+      .catch(err => console.warn("Nominatim reverse geocode (POI):", err));
   }
   function acceptPoiAsk(){
     if(!poiAskTarget) return;
@@ -7951,56 +7784,8 @@
   document.getElementById("poiAskYes").addEventListener("click", acceptPoiAsk);
   document.getElementById("poiAskNo").addEventListener("click", hidePoiAsk);
 
-
-  // długie przytrzymanie budynku (zoom ≥ 16): znana nazwa → pytanie o trasę, brak nazwy → pytanie o dodanie nazwy budynku
-  function handleBuildingPress(point, lngLat){
-    if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
-    if(map.getZoom() < PLACE_NAME_MIN_ZOOM) return;
-    const bLayers = map.getStyle().layers
-      .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
-      .map(l => l.id).filter(id => map.getLayer(id));
-    const bf = bLayers.length ? map.queryRenderedFeatures(point, { layers: bLayers }) : [];
-    if(!bf.length) return;
-    try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
-    const c = buildingCenter(bf[0], { lat: lngLat.lat, lon: lngLat.lng });
-    // nazwa „znana" tylko wtedy, gdy jej punkt leży WEWNĄTRZ tego budynku (albo tuż przy jego środku) — nie w sąsiednich
-    const ring = (bf[0].geometry.type === "Polygon" ? bf[0].geometry.coordinates[0] : (bf[0].geometry.type === "MultiPolygon" ? bf[0].geometry.coordinates[0][0] : null));
-    const inRing = (lon, lat) => { if(!ring) return false; let ins = false;
-      for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
-        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-        if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
-      } return ins; };
-    let known = null;
-    const consider = (n, la, lo, extra) => { if(!n) return; if(inRing(lo, la) || haversine(c.lat, c.lon, la, lo) <= 8){
-      const d = haversine(c.lat, c.lon, la, lo); if(!known || d < known.d) known = Object.assign({ name: n, lat: la, lon: lo, d }, extra || {}); } };
-    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { props: f.properties }); });
-    placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
-    if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, addrFromProps(known.props)); return; }
-    if(!hgvCompaniesLoaded){
-      hidePoiAsk();
-      showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
-      return;
-    }
-    showPlaceAdd(c.lat, c.lon);
-  }
-  let pressTimer = null, pressStart = null, pressFired = 0, pressHeld = false;
-  function cancelPress(){ clearTimeout(pressTimer); pressTimer = null; }
-  function setupBuildingLongPress(){
-    const start = (e) => {
-      if(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1){ cancelPress(); return; }
-      cancelPress(); pressStart = { x: e.point.x, y: e.point.y };
-      pressTimer = setTimeout(() => { pressTimer = null; pressFired = Date.now(); pressHeld = true; handleBuildingPress(pressStart, e.lngLat); }, 650);
-    };
-    map.on("mousedown", start); map.on("touchstart", start);
-    map.on("mousemove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
-    map.on("touchmove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
-    ["mouseup", "touchend", "touchcancel", "dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach(ev => map.on(ev, () => { if(pressHeld){ pressHeld = false; pressFired = Date.now(); } cancelPress(); }));
-  }
-
   function setupPoiClick(){
-    setupBuildingLongPress();
     map.on("click", (e) => {
-      if(Date.now() - pressFired < 900) return;   // klik zakończający długie przytrzymanie
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
@@ -8029,11 +7814,31 @@
         if(!name || !f.geometry || f.geometry.type !== "Point") return;
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
-        if(d > 34) return;   // etykieta długiej nazwy sięga nad sąsiednie budynki — liczy się tylko punkt blisko palca
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined, addr: addrFromProps(p) }; }
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.addr); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId); return; }
+      // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
+      if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
+        const bLayers = map.getStyle().layers
+          .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
+          .map(l => l.id).filter(id => map.getLayer(id));
+        const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
+        if(bf.length){
+          const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
+          // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
+          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
+          // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
+          if(!hgvCompaniesLoaded){
+            hidePoiAsk();
+            showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
+            return;
+          }
+          showPlaceAdd(c.lat, c.lon);
+          return;
+        }
+      }
       hidePoiAsk();
     });
   }
@@ -8596,33 +8401,11 @@
   // Pokazuje całą wyznaczoną trasę na mapie na płasko (bez pochylenia/obrotu), z odstępem na
   // pasek ikon i kartę nawigatora u dołu — używane zarówno tuż po zaplanowaniu trasy, jak i
   // przez szklany przycisk 🔎 (widoczny nad kartą, gdy trasa jest wyznaczona).
-  // pozostała część trasy od aktualnej pozycji GPS: [pozycja, …punkty trasy dalej]
-  function routeRemainingFromHere(){
-    if(!activeRoute || !activeRoute.coords || !lastPos) return null;
-    const c = activeRoute.coords;
-    let best = null;
-    for(let i = 0; i < c.length - 1; i++){
-      const q = projectPointToSegment(lastPos.lat, lastPos.lon, c[i], c[i + 1]);
-      if(!best || q.distM < best.distM){ best = q; best.i = i; }
-    }
-    if(!best) return null;
-    const pos = [lastPos.lon, lastPos.lat];
-    return best.distM > 300 ? [pos].concat(c) : [pos].concat(c.slice(best.i + 1));   // poza trasą: pozycja + cała trasa
-  }
-  // przytrzymanie przycisku „Cała trasa”: tryb zmiany trasy (przeciąganie) dla pozostałego odcinka
-  function startRouteEditFromHere(){
-    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2 || navUiState !== "nav") return;
-    if(activeRoute.planning && routeEditMode){ fitActiveRouteToView(); return; }
-    const rem = routeRemainingFromHere() || activeRoute.coords;
-    const full = routeLengthMeters(activeRoute.coords) || 1, frac = Math.max(0.02, Math.min(1, routeLengthMeters(rem) / full));
-    startPlannedRoute({ coords: rem, distanceM: activeRoute.distanceM * frac, timeS: activeRoute.timeS * frac, steps: null }, activeRoute.source);
-  }
-  // fromHere=true: tylko odcinek od aktualnej pozycji do celu; inaczej cała trasa
-  function fitActiveRouteToView(fromHere){
+  function fitActiveRouteToView(){
     if(!map || !activeRoute || !activeRoute.coords || activeRoute.coords.length < 2) return;
     followUser = false;
     updateLocateBtnVisibility();
-    const c = (fromHere === true && routeRemainingFromHere()) || activeRoute.coords;
+    const c = activeRoute.coords;
     const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
     // Cała trasa ma się zmieścić w GÓRNEJ części ekranu: nad oknem nawigatora, przyciskiem "Centruj"
     // i znakiem ograniczenia prędkości (po tym widoku prędkościomierz ustępuje "Centruj").
@@ -9000,21 +8783,6 @@
     return { html, sub };
   }
 
-  // czy pozycja GPS leży na autostradzie według mapy — gdy poprzedni krok trasy nie ma numeru drogi (np. start już na M1)
-  let ukMwCache = { t: 0, v: false };
-  function ukOnMotorwayByMap(){
-    if(Date.now() - ukMwCache.t < 1500) return ukMwCache.v;
-    let v = false;
-    try{
-      if(map && lastPos){
-        const p = map.project([lastPos.lon, lastPos.lat]), r = 22;
-        v = map.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]])
-          .some(f => f.sourceLayer === "transportation" && f.properties && f.properties.class === "motorway");
-      }
-    }catch(e){}
-    ukMwCache = { t: Date.now(), v };
-    return v;
-  }
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
   function ukCurrentRoad(g){
     const prev = g.steps[g.ptr - 1];
@@ -9059,9 +8827,7 @@
     const card = document.getElementById("guidanceCard");
     const arrive = step.t.indexOf("arrive") === 0;
     const along = step.d - dist;
-    const curRef = ukCurrentRoad(g);
-    let curCls = ukRoadClass(curRef);
-    if(curCls !== "motorway" && !arrive && ukOnMotorwayByMap()) curCls = "motorway";   // jedziemy autostradą → niebieska tablica
+    const curRef = ukCurrentRoad(g), curCls = ukRoadClass(curRef);
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
@@ -9140,7 +8906,6 @@
       updateNavTripStats();
     }
     try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
-    try{ trafficRouteTick(along); }catch(e){ console.warn("Utrudnienia na trasie:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
     const step = g.steps[g.ptr];
     if(!step){ hideGuidance(); return; }
@@ -9634,7 +9399,8 @@
   async function offerRoutesFromHere(){
     if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
     rerouteBusy = true;
-    showNavStatus("Szukam tras…");
+    const btn = document.getElementById("navRerouteBtn");
+    btn.disabled = true; btn.textContent = "Szukam tras…";
     const oldRoute = activeRoute;
     const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...getRemainingWaypoints(lastPos.lat, lastPos.lon), navSelectedDest];
     if(truckRouteAbort) truckRouteAbort.abort();
@@ -9660,6 +9426,7 @@
     }finally{
       showNavStatus("");
       rerouteBusy = false;
+      btn.disabled = false; btn.textContent = "🔀 Zmień trasę";
     }
   }
 
@@ -9684,6 +9451,7 @@
     clearNavRoute();
   }
 
+  document.getElementById("navRerouteBtn").addEventListener("click", offerRoutesFromHere);
 
   document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
   document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
@@ -9730,7 +9498,6 @@
     const info = document.getElementById("navRouteInfo");
     document.getElementById("btnFitRoute").classList.toggle("visible", !!(activeRoute && activeRoute.coords && activeRoute.coords.length));
     try{ updateTollMarking(); }catch(e){ console.warn("Oznaczanie dróg płatnych:", e); }
-    if(activeRoute && activeRoute.coords && activeRoute.coords.length) maybeShowFitGestureHint();
     if(!activeRoute){ info.classList.remove("show"); document.getElementById("navPanel").classList.remove("planning-mode"); return; }
     const sourceLabel = activeRoute.source === "alt" ? " · trasa alternatywna"
       : activeRoute.source === "truck" ? " · szybka trasa dla ciężarówki"
@@ -10036,14 +9803,7 @@
   const navPrefSpeedometerInput = document.getElementById("navPrefSpeedometer");
   const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
-  // przełącznik: lewo = tylko przy przekroczeniu prędkości, prawo = cały czas
-  prefShowLimitSign = true;
-  const navPrefLimitHint = document.getElementById("navPrefLimitSignHint");
-  function syncLimitSwitch(){
-    navPrefLimitSignInput.checked = prefLimitMode === "always";
-    navPrefLimitHint.textContent = prefLimitMode === "always" ? "Cały czas" : "Tylko przy przekroczeniu";
-  }
-  syncLimitSwitch();
+  navPrefLimitSignInput.checked = prefShowLimitSign;
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -10183,16 +9943,15 @@
     applyDisplayPrefs();
   });
   navPrefLimitSignInput.addEventListener("change", (e) => {
-    prefLimitMode = e.target.checked ? "always" : "speeding";
-    try{ localStorage.setItem(PREF_LIMIT_MODE, prefLimitMode); }catch(err){}
-    syncLimitSwitch();
-    if(currentLimit) showLimitSign(currentLimit); else hideLimitSign();
+    prefShowLimitSign = e.target.checked;
+    try{ localStorage.setItem(PREF_SHOW_LIMIT_SIGN, prefShowLimitSign ? "1" : "0"); }catch(err){}
+    applyDisplayPrefs();
   });
 
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
   const navApiKeyInput = document.getElementById("navApiKey");
   navApiKeyInput.value = tomtomApiKey;
-  if(tomtomApiKey){ document.getElementById("navKeyRow").classList.remove("open"); document.getElementById("navKeyToggle").classList.remove("open"); }  // bez klucza: awaryjna wyszukiwarka, bez wymuszania okna ustawień
+  setNavKeyRowOpen(!tomtomApiKey);
   document.getElementById("navSettingsPanel").classList.remove("open"); // nie pokazuj modala automatycznie przy starcie
 
   document.getElementById("navKeyToggle").addEventListener("click", () => {
@@ -11298,7 +11057,7 @@
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
     if(req){
-      try{ req.call(el).catch(() => {}); }catch(e){ /* np. iOS Safari nie wspiera pełnego ekranu strony */ }
+      try{ const r = req.call(el, { navigationUI: "show" }); if(r && r.catch) r.catch(() => {}); }catch(e){ /* np. iOS Safari nie wspiera pełnego ekranu strony */ }
     }
   }
 
@@ -11384,6 +11143,7 @@
       document.body.classList.toggle("night", on);
       try{ applyShieldMode(); applyMotorwayAsphaltTheme(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
     }
+    try{ const m = document.querySelector('meta[name="theme-color"]'); if(m) m.content = on ? "#0c0a08" : "#12181e"; }catch(e){}
     updateThemeBtn();
   }
   function applyThemeMode(){ setNightMode(themeWantsNight()); }
@@ -11413,42 +11173,7 @@
     }
   });
 
-  // podpowiedź o gestach przycisku „Cała trasa” — tylko przy 5. i 12. uruchomieniu aplikacji, raz na uruchomienie
-  const FIT_HINT_LAUNCH_KEY = "nawigator_launch_count", FIT_HINT_LAUNCHES = [5, 12];
-  let fitHintLaunch = 0, fitHintShown = false;
-  try{ fitHintLaunch = (parseInt(localStorage.getItem(FIT_HINT_LAUNCH_KEY), 10) || 0) + 1; localStorage.setItem(FIT_HINT_LAUNCH_KEY, String(fitHintLaunch)); }catch(e){}
-  function maybeShowFitGestureHint(){
-    if(fitHintShown || !FIT_HINT_LAUNCHES.includes(fitHintLaunch)) return;
-    fitHintShown = true;
-    setTimeout(() => showBanner("PRZYCISK TRASY", "1× stuknięcie: od pozycji do celu · 2×: cała trasa · 3×: trasa alternatywna stąd · przytrzymaj: zmiana trasy", false), 1500);
-  }
-  // „Cała trasa”: 1 stuknięcie = od pozycji do celu, 2 = cała trasa od startu, 3 = trasa alternatywna stąd, przytrzymanie = zmiana trasy
-  (function setupFitRouteGestures(){
-    const btn = document.getElementById("btnFitRoute");
-    const LONG_MS = 600, MULTI_MS = 320;
-    let taps = 0, tapTimer = null, pressTimer = null, longFired = false;
-    const flush = () => {
-      const n = taps; taps = 0; tapTimer = null;
-      if(n === 1) fitActiveRouteToView(true);
-      else if(n === 2) fitActiveRouteToView(false);
-      else if(n >= 3) offerRoutesFromHere();
-    };
-    btn.addEventListener("pointerdown", () => {
-      longFired = false; clearTimeout(pressTimer);
-      pressTimer = setTimeout(() => {
-        longFired = true; taps = 0; clearTimeout(tapTimer);
-        if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
-        startRouteEditFromHere();
-      }, LONG_MS);
-    });
-    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => btn.addEventListener(ev, () => clearTimeout(pressTimer)));
-    btn.addEventListener("click", () => {
-      if(longFired){ longFired = false; return; }
-      taps++; clearTimeout(tapTimer);
-      if(taps >= 3) flush(); else tapTimer = setTimeout(flush, MULTI_MS);
-    });
-    btn.addEventListener("contextmenu", e => e.preventDefault());
-  })();
+  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
 
   // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
   // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
@@ -11695,476 +11420,6 @@
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
-</script>
-<script>
-/* ===== js/42-traffic-incidents.js — korki, wypadki, remonty i zamknięcia dróg wokół pozycji (TomTom Traffic Incidents) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Funkcje wołane są tylko w callbackach (po załadowaniu). */
-"use strict";
-
-  const TRAFFIC_INC_URL = "https://api.tomtom.com/traffic/services/5/incidentDetails";
-  const TRAFFIC_INC_HALF_LAT = 0.35, TRAFFIC_INC_HALF_LON = 0.5;  // ~78 × 67 km (limit TomTom: 10 000 km²)
-  const TRAFFIC_INC_REFRESH_MS = 5 * 60 * 1000;                   // minimalny odstęp między pobraniami…
-  const TRAFFIC_INC_MOVE_M = 20000;                               // …ORAZ odjazd o tyle od środka poprzednio pobranego obszaru
-  const TRAFFIC_MOVE_KMH = 15;                                    // zapytania tylko, gdy pojazd naprawdę jedzie (nie w korku / na postoju)
-  const TRAFFIC_ROUTE_ALERT_M = 5000;                             // komunikat głosowy przed utrudnieniem na trasie
-  const TRAFFIC_ROUTE_MAX_CHUNKS = 10;                            // maks. liczba zapytań dla całej trasy (~500+ km)
-  // iconCategory TomTom → emoji (pomijamy mgłę/deszcz/wiatr — mało istotne dla trasy)
-  const TRAFFIC_INC_ICONS = { 1: "💥", 3: "⚠️", 5: "❄️", 6: "🚦", 7: "🚧", 8: "⛔", 9: "🚧", 11: "🌊", 14: "🚘" };
-  const TRAFFIC_INC_NAMES = { 1: "Wypadek", 3: "Niebezpieczne warunki", 5: "Lód / śnieg", 6: "Korek", 7: "Zamknięty pas", 8: "Droga zamknięta", 9: "Roboty drogowe", 11: "Zalana droga", 14: "Zepsuty pojazd" };
-  let trafficIncCenter = null, trafficIncFetchedAt = 0, trafficIncBusy = false, trafficIncTimer = null, trafficIncData = null;
-
-  function ensureTrafficIncidentLayers(){
-    if(!map || map.getSource("traffic-incidents")) return !!map;
-    map.addSource("traffic-incidents", { type: "geojson", data: emptyFC() });
-    const before = map.getLayer("route-incidents-icon") ? "route-incidents-icon" : undefined;
-    map.addLayer({
-      id: "traffic-incidents-line", type: "line", source: "traffic-incidents", filter: ["==", ["geometry-type"], "LineString"],
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": ["match", ["get", "cat"], 8, "#ff1f3d", 6, ["match", ["get", "mag"], 3, "#b0142b", 2, "#ff7a1a", "#ffc21a"], 9, "#ffb020", 7, "#ffb020", "#ff7a1a"],
-               "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 6], "line-opacity": 0.9 }
-    }, before);
-    map.addLayer({
-      id: "traffic-incidents-icon", type: "symbol", source: "traffic-incidents",
-      layout: { "text-field": ["get", "icon"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 13, 14, 19], "text-allow-overlap": true }
-    }, before);
-    map.on("click", "traffic-incidents-icon", ev => {
-      const f = ev.features && ev.features[0]; if(!f) return;
-      showBanner(f.properties.title, f.properties.text, false);
-    });
-    map.on("mouseenter", "traffic-incidents-icon", () => { if(!routeEditMode) map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", "traffic-incidents-icon", () => { if(!routeDragState) map.getCanvas().style.cursor = ""; });
-    return true;
-  }
-
-  let trafficIncLocalFeats = [], trafficRouteFeats = [];
-  // mapa pokazuje zdarzenia z okolicy ORAZ z całej trasy (bez duplikatów po id)
-  function trafficPublish(){
-    if(!ensureTrafficIncidentLayers()) return;
-    const seen = new Set(), feats = [];
-    trafficRouteFeats.concat(trafficIncLocalFeats).forEach(f => {
-      const id = f.properties.id, k = id ? id + f.geometry.type : "";
-      if(k){ if(seen.has(k)) return; seen.add(k); }
-      feats.push(f);
-    });
-    map.getSource("traffic-incidents").setData({ type: "FeatureCollection", features: feats });
-  }
-
-  function trafficIncidentToFeatures(inc){
-    const p = inc.properties || {}, g = inc.geometry || {};
-    const cat = p.iconCategory;
-    if(!TRAFFIC_INC_ICONS[cat] || !g.coordinates) return [];
-    const ev = (p.events && p.events[0] && p.events[0].description) || "";
-    const road = (p.roadNumbers || []).join(", ");
-    const route = [p.from, p.to].filter(Boolean).join(" → ");
-    const delayMin = p.delay ? Math.round(p.delay / 60) : 0;
-    const lenKm = p.length ? (p.length / 1000).toFixed(1) : "";
-    const text = [road, ev, route, delayMin ? `opóźnienie ~${delayMin} min` : "", lenKm ? `${lenKm} km` : ""].filter(Boolean).join(" · ");
-    const props = { id: p.id || "", cat, mag: p.magnitudeOfDelay || 0, icon: TRAFFIC_INC_ICONS[cat], title: TRAFFIC_INC_NAMES[cat] || "Utrudnienie", text: text || "Utrudnienie na drodze" };
-    const line = g.type === "LineString" ? g.coordinates : g.type === "Point" ? [g.coordinates] : null;
-    if(!line || !line.length) return [];
-    const feats = [];
-    if(line.length > 1) feats.push({ type: "Feature", properties: props, geometry: { type: "LineString", coordinates: line } });
-    const mid = line[Math.floor(line.length / 2)];
-    feats.push({ type: "Feature", properties: props, geometry: { type: "Point", coordinates: mid } });
-    return feats;
-  }
-
-  // jedno zapytanie TomTom o prostokąt (south, west, north, east) → tablica surowych zdarzeń
-  function trafficFetchBbox(south, west, north, east){
-    const bbox = [west, south, east, north].map(n => n.toFixed(4)).join(",");
-    const fields = "{incidents{geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description},from,to,length,delay,roadNumbers}}}";
-    const url = `${TRAFFIC_INC_URL}?key=${encodeURIComponent(tomtomApiKey)}&bbox=${bbox}&fields=${encodeURIComponent(fields)}&language=en-GB&timeValidityFilter=present`;
-    return fetch(url).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(d => d.incidents || []);
-  }
-
-  // Mapa wokół pozycji. Bramki oszczędzające zapytania:
-  //  1) pojazd musi jechać (> 15 km/h) — na postoju i w korku nie pytamy wcale,
-  //  2) kolejne pobranie dopiero po min. 5 minutach ORAZ po odjeździe > 20 km od poprzedniego.
-  let trafficIncLastTry = 0;
-  function loadTrafficIncidents(lat, lon){
-    if(!tomtomApiKey || !map || trafficIncBusy) return;
-    if(!(currentSpeedKmh > TRAFFIC_MOVE_KMH)) return;
-    if(trafficIncCenter){
-      if(Date.now() - trafficIncFetchedAt < TRAFFIC_INC_REFRESH_MS) return;
-      if(haversine(lat, lon, trafficIncCenter.lat, trafficIncCenter.lon) <= TRAFFIC_INC_MOVE_M) return;
-    } else if(Date.now() - trafficIncLastTry < 60000) return;   // po błędzie nie częściej niż co minutę
-    trafficIncLastTry = Date.now();
-    trafficIncBusy = true;
-    trafficFetchBbox(lat - TRAFFIC_INC_HALF_LAT, lon - TRAFFIC_INC_HALF_LON, lat + TRAFFIC_INC_HALF_LAT, lon + TRAFFIC_INC_HALF_LON).then(incs => {
-      trafficIncCenter = { lat, lon }; trafficIncFetchedAt = Date.now();
-      const feats = [];
-      incs.forEach(inc => feats.push(...trafficIncidentToFeatures(inc)));
-      trafficIncLocalFeats = feats;
-      trafficPublish();
-      debugLog("info", `Ruch drogowy (TomTom): ${incs.length} zdarzeń w okolicy, ${feats.length} elementów na mapie`);
-    }).catch(err => {
-      console.warn("Zdarzenia drogowe TomTom — błąd:", err);
-    }).finally(() => { trafficIncBusy = false; });
-  }
-  // sprawdzanie bramek co minutę (samo odpytanie następuje tylko, gdy wszystkie warunki są spełnione)
-  setInterval(() => { if(lastPos) loadTrafficIncidents(lastPos.lat, lastPos.lon); }, 30000);
-
-  /* ---------- utrudnienia NA TRASIE (cała trasa, niezależnie od długości) + komunikaty głosowe ---------- */
-  const TRAFFIC_ROUTE_CATS = { 1: "wypadek", 6: "korek", 7: "zamknięty pas", 8: "zamknięta droga", 9: "roboty drogowe", 11: "zalana droga" };
-  let trafficRouteCache = null;   // { key, at, incs } — ta sama trasa po przeliczeniu nie kosztuje kolejnych zapytań
-
-  function trafficRouteChunks(coords){
-    const chunks = []; let a = 0;
-    while(a < coords.length - 1 && chunks.length < TRAFFIC_ROUTE_MAX_CHUNKS){
-      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180, b = a;
-      for(; b < coords.length; b++){
-        const [lo, la] = coords[b];
-        const nMinLat = Math.min(minLat, la), nMaxLat = Math.max(maxLat, la), nMinLon = Math.min(minLon, lo), nMaxLon = Math.max(maxLon, lo);
-        if(b > a && (nMaxLat - nMinLat > 0.5 || nMaxLon - nMinLon > 0.8)) break;
-        minLat = nMinLat; maxLat = nMaxLat; minLon = nMinLon; maxLon = nMaxLon;
-      }
-      chunks.push({ a: Math.max(0, a - 1), b: Math.min(coords.length - 1, b), box: [minLat - 0.02, minLon - 0.03, maxLat + 0.02, maxLon + 0.03] });
-      a = b;
-    }
-    return chunks;
-  }
-  function trafficRouteCum(route){
-    if(route._trfCum && route._trfCumRef === route.coords) return route._trfCum;
-    const c = route.coords, cum = new Float64Array(c.length);
-    for(let i = 1; i < c.length; i++) cum[i] = cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
-    route._trfCum = cum; route._trfCumRef = route.coords;
-    return cum;
-  }
-  // odległość od początku trasy do punktu leżącego na trasie (≤ 100 m od niej) albo null
-  function trafficAlongRoute(route, lon, lat, from, to){
-    const c = route.coords, cum = trafficRouteCum(route);
-    let best = null;
-    for(let i = Math.max(0, from); i < Math.min(c.length - 1, to); i++){
-      const p0 = c[i], p1 = c[i + 1];   // szybkie odrzucenie odcinków oddalonych o > ~0,003° (trasa może mieć dziesiątki tysięcy punktów)
-      if((lat < p0[1] - 0.003 && lat < p1[1] - 0.003) || (lat > p0[1] + 0.003 && lat > p1[1] + 0.003) ||
-         (lon < p0[0] - 0.005 && lon < p1[0] - 0.005) || (lon > p0[0] + 0.005 && lon > p1[0] + 0.005)) continue;
-      const q = projectPointToSegment(lat, lon, p0, p1);
-      if(q.distM <= 100 && (!best || q.distM < best.d)) best = { d: q.distM, along: cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon) };
-    }
-    return best ? best.along : null;
-  }
-  function trafficBuildRouteList(route, incs, chunks){
-    const list = [], onRoute = [];
-    incs.forEach(x => {
-      const g = x.geometry || {}, p = x.properties || {}, cat = p.iconCategory;
-      if(!TRAFFIC_ROUTE_CATS[cat] || !g.coordinates) return;
-      if(cat === 6 && (p.magnitudeOfDelay || 0) < 2) return;           // drobne spowolnienia pomijamy
-      const pts = g.type === "Point" ? [g.coordinates] : g.type === "LineString" ? [g.coordinates[0], g.coordinates[g.coordinates.length - 1]] : [];
-      let along = null;
-      pts.forEach(pt => { const a = trafficAlongRoute(route, pt[0], pt[1], 0, route.coords.length - 1); if(a !== null && (along === null || a < along)) along = a; });
-      if(along === null) return;
-      onRoute.push(x);
-      list.push({ along, cat, delay: p.delay || 0, road: (p.roadNumbers || []).join(", "), said: false });
-    });
-    list.sort((a, b) => a.along - b.along);
-    // ten sam rodzaj w odległości < 1 km traktujemy jak jedno zdarzenie
-    const out = [];
-    list.forEach(it => { const last = out[out.length - 1]; if(last && last.cat === it.cat && it.along - last.along < 1000) return; out.push(it); });
-    out.onRoute = onRoute;
-    return out;
-  }
-  function trafficFetchRoute(route){
-    const end = route.coords[route.coords.length - 1], key = end[0].toFixed(2) + "," + end[1].toFixed(2);
-    if(trafficRouteCache && trafficRouteCache.key === key && Date.now() - trafficRouteCache.at < 30 * 60 * 1000)
-      return Promise.resolve({ incs: trafficRouteCache.incs, key, fresh: false });
-    const chunks = trafficRouteChunks(route.coords);
-    return Promise.all(chunks.map(ch => trafficFetchBbox(...ch.box).catch(() => []))).then(arrs => {
-      const incs = [].concat(...arrs);
-      trafficRouteCache = { key, at: Date.now(), incs };
-      return { incs, key, fresh: true };
-    });
-  }
-  function trafficStartRoute(route){
-    route._trf = { list: null };
-    trafficFetchRoute(route).then(({ incs, fresh }) => {
-      if(route !== activeRoute) return;
-      const list = trafficBuildRouteList(route, incs);
-      route._trf.list = list;
-      // zdarzenia z całej trasy od razu na mapie (ikony + kolorowe odcinki), nie tylko w okolicy GPS
-      trafficRouteFeats = [];
-      (list.onRoute || []).forEach(x => trafficRouteFeats.push(...trafficIncidentToFeatures(x)));
-      trafficPublish();
-      if(!list.length || !fresh) return;                     // po przeliczeniu trasy podsumowania nie powtarzamy
-      const names = list.slice(0, 2).map(it => TRAFFIC_ROUTE_CATS[it.cat] + " za " + guideSpeakDist(it.along));
-      showBanner("UTRUDNIENIA NA TRASIE (" + list.length + ")", list.slice(0, 3).map(it => TRAFFIC_INC_NAMES[it.cat] + " za " + guideDistLabel(it.along)).join(" · ") + (list.length > 3 ? " …" : ""), false);
-      guideSay("Uwaga. Na trasie są utrudnienia: " + list.length + ". Najbliższe: " + names.join(", ") + ".");
-    }).catch(err => { console.warn("Utrudnienia na trasie — błąd:", err); route._trf = { list: [] }; });
-  }
-  // wołane z updateGuidance() przy każdym odczycie GPS na trasie
-  function trafficRouteTick(along){
-    const r = activeRoute; if(!r || !tomtomApiKey) return;
-    if(!r._trf){ if(currentSpeedKmh > TRAFFIC_MOVE_KMH) trafficStartRoute(r); return; }   // start dopiero, gdy kierowca ruszy
-    if(!r._trf.list) return;
-    for(const it of r._trf.list){
-      const d = it.along - along;
-      if(it.said || d < -50 || d > TRAFFIC_ROUTE_ALERT_M) continue;
-      it.said = true;
-      showBanner(TRAFFIC_INC_NAMES[it.cat].toUpperCase(), "Za " + guideDistLabel(Math.max(0, d)) + (it.road ? " · " + it.road : "") + (it.delay ? " · opóźnienie ~" + Math.round(it.delay / 60) + " min" : ""), false);
-      guideSay("Za " + guideSpeakDist(Math.max(50, d)) + " " + TRAFFIC_ROUTE_CATS[it.cat] + ".");
-      return;                                              // jeden komunikat na odczyt GPS
-    }
-  }
-</script>
-<script>
-/* ===== js/43-avatar-3d-model.js — Prawdziwe modele 3D awatarów (własny rasteryzator na <canvas>, bez bibliotek) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
-   W widoku 3D awatar jest renderowany jako gładka bryła (loft przekrojów + walce kół), oświetlona i cieniowana,
-   obracana wg kierunku jazdy i nachylenia kamery mapy. Marker przełączany jest wtedy na wyrównanie do ekranu. */
-"use strict";
-
-  /* ---------- geometria ---------- */
-  // układ: x — w prawo, y — do przodu, z — w górę (metry)
-  const AVM_RING_PTS = 4;    // punkty na zaokrąglony róg przekroju
-  function avmShadeHex(hex, f){
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return [128, 128, 128];
-    const n = parseInt(m[1], 16);
-    return [((n >> 16) & 255) * f, ((n >> 8) & 255) * f, (n & 255) * f];
-  }
-  function avmHex(hex){ return avmShadeHex(hex, 1); }
-  function avmRing(st){
-    // zaokrąglony prostokąt (x,z) wokół środka przekroju; kolejność: od prawego dolnego rogu przeciwnie do ruchu wskazówek (patrząc z przodu)
-    const hw = st.w / 2, zb = st.zb, zt = st.zt, r = Math.max(0.001, Math.min(st.r == null ? 0.2 : st.r, hw, (zt - zb) / 2));
-    const out = [], corners = [[hw - r, zb + r, -90], [hw - r, zt - r, 0], [-hw + r, zt - r, 90], [-hw + r, zb + r, 180]];
-    corners.forEach(([cx, cz, a0]) => {
-      for(let i = 0; i <= AVM_RING_PTS; i++){
-        const a = (a0 + 90 * i / AVM_RING_PTS) * Math.PI / 180;
-        out.push([(st.x || 0) + cx + r * Math.cos(a), st.y, cz + r * Math.sin(a)]);
-      }
-    });
-    return out;
-  }
-  function avmSub(a, b){ return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
-  function avmCross(a, b){ return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
-  function avmNorm(v){ const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
-  function avmCenter(pts){ const c = [0, 0, 0]; pts.forEach(p => { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }); return c.map(v => v / pts.length); }
-  // dodaje ścianę; normalna zawsze „na zewnątrz" względem punktu centrum
-  function avmFace(faces, pts, centre, colorFn, extra){
-    const n0 = avmNorm(avmCross(avmSub(pts[1], pts[0]), avmSub(pts[2], pts[0])));
-    const fc = avmCenter(pts), out = avmSub(fc, centre);
-    const n = (n0[0] * out[0] + n0[1] * out[1] + n0[2] * out[2]) < 0 ? [-n0[0], -n0[1], -n0[2]] : n0;
-    faces.push(Object.assign({ pts, n, cz: fc[2], col: colorFn(n, fc) }, extra || {}));
-  }
-  // loft: kolejne przekroje wzdłuż osi y → gładka bryła (karoseria, naczepa, tułów)
-  function avmLoft(faces, stations, colorFn){
-    const rings = stations.map(avmRing);
-    const cen = avmCenter([].concat.apply([], rings));
-    for(let i = 0; i < rings.length - 1; i++){
-      const A = rings[i], B = rings[i + 1];
-      for(let j = 0; j < A.length; j++){
-        const k = (j + 1) % A.length;
-        avmFace(faces, [A[j], A[k], B[k], B[j]], cen, colorFn);
-      }
-    }
-    [rings[0], rings[rings.length - 1]].forEach(r => avmFace(faces, r.slice(), cen, colorFn));
-  }
-  // walec o osi x (koło): środek (cx,cy,cz), promień r, szerokość w
-  function avmWheel(faces, cx, cy, cz, r, w, tire, hub){
-    const N = 14, ring = a => [cy + r * Math.cos(a), cz + r * Math.sin(a)];
-    const cen = [cx, cy, cz];
-    for(let i = 0; i < N; i++){
-      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, p0 = ring(a0), p1 = ring(a1);
-      avmFace(faces, [[cx - w / 2, p0[0], p0[1]], [cx + w / 2, p0[0], p0[1]], [cx + w / 2, p1[0], p1[1]], [cx - w / 2, p1[0], p1[1]]], cen, () => tire);
-    }
-    [-1, 1].forEach(sd => {
-      const pts = []; for(let i = 0; i < N; i++){ const p = ring(i / N * Math.PI * 2); pts.push([cx + sd * w / 2, p[0], p[1]]); }
-      avmFace(faces, pts, cen, () => tire);
-      const hp = []; for(let i = 0; i < N; i++){ const a = i / N * Math.PI * 2; hp.push([cx + sd * (w / 2 + .01), cy + r * .55 * Math.cos(a), cz + r * .55 * Math.sin(a)]); }
-      avmFace(faces, hp, cen, () => hub);
-    });
-  }
-  // prosty prostopadłościan (światła, szczegóły)
-  function avmBox(faces, x0, x1, y0, y1, z0, z1, col){
-    const P = (x, y, z) => [x, y, z], cen = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], cf = () => col;
-    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y1,z0), P(x0,y1,z0)], cen, cf);
-    avmFace(faces, [P(x0,y0,z1), P(x1,y0,z1), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
-    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y0,z1), P(x0,y0,z1)], cen, cf);
-    avmFace(faces, [P(x0,y1,z0), P(x1,y1,z0), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
-    avmFace(faces, [P(x0,y0,z0), P(x0,y1,z0), P(x0,y1,z1), P(x0,y0,z1)], cen, cf);
-    avmFace(faces, [P(x1,y0,z0), P(x1,y1,z0), P(x1,y1,z1), P(x1,y0,z1)], cen, cf);
-  }
-
-  // pryzma: wielokąt 2D w planie (x,y) wyciągnięty w pionie od z0 do z1
-  function avmPrism(faces, poly, z0, z1, col, colTop){
-    const cen = avmCenter(poly.map(p => [p[0], p[1], (z0 + z1) / 2]));
-    const n = poly.length;
-    for(let i = 0; i < n; i++){ const a = poly[i], b = poly[(i + 1) % n];
-      avmFace(faces, [[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]], cen, () => col); }
-    avmFace(faces, poly.map(p => [p[0], p[1], z1]), cen, () => colTop || col);
-    avmFace(faces, poly.map(p => [p[0], p[1], z0]), cen, () => col);
-  }
-
-  /* ---------- modele ---------- */
-  const AVM_GLASS = [34, 52, 66], AVM_TIRE = [24, 26, 29], AVM_HUB = [150, 158, 164], AVM_DARK = [30, 34, 38];
-  const AVM_MODELS = {
-    // kompaktowy pick-up / terenówka (jak w nawigacjach samochodowych)
-    car: { len: 4.5, view: 4.5, build: (faces, c) => {
-      const body = avmHex(c);
-      const bodyCol = n => body;
-      avmLoft(faces, [
-        { y:-2.25, w:1.55, zb:.42, zt:.95, r:.3 }, { y:-2.1, w:1.84, zb:.32, zt:1.08, r:.32 }, { y:-0.75, w:1.92, zb:.3, zt:1.1, r:.3 },
-        { y:0.5, w:1.92, zb:.3, zt:1.08, r:.3 }, { y:1.6, w:1.88, zb:.3, zt:1.0, r:.32 }, { y:2.15, w:1.7, zb:.36, zt:.82, r:.3 }, { y:2.27, w:1.46, zb:.42, zt:.66, r:.25 }
-      ], bodyCol);
-      // kabina: szyby po bokach i z przodu, dach w kolorze karoserii
-      avmLoft(faces, [
-        { y:-0.55, w:1.78, zb:1.06, zt:1.12, r:.05 }, { y:-0.45, w:1.7, zb:1.06, zt:1.78, r:.28 }, { y:0.55, w:1.66, zb:1.06, zt:1.8, r:.28 },
-        { y:1.18, w:1.5, zb:1.04, zt:1.26, r:.15 }, { y:1.24, w:1.4, zb:1.02, zt:1.06, r:.04 }
-      ], (n) => (n[2] > .75 ? body.map(v => v * .95) : AVM_GLASS));
-      avmBox(faces, -.78, .78, -2.05, -.7, 1.07, 1.12, AVM_DARK);                         // skrzynia ładunkowa
-      avmBox(faces, -.86, -.5, -2.31, -2.25, .55, .8, [230, 40, 40]); avmBox(faces, .5, .86, -2.31, -2.25, .55, .8, [230, 40, 40]);   // tylne światła
-      avmBox(faces, -.82, -.48, 2.26, 2.3, .52, .68, [255, 246, 205]); avmBox(faces, .48, .82, 2.26, 2.3, .52, .68, [255, 246, 205]); // przednie światła
-      avmBox(faces, -.62, .62, 2.27, 2.31, .44, .6, AVM_DARK);                              // grill
-      avmBox(faces, -.9, .9, 2.2, 2.34, .3, .4, [60, 66, 72]);                              // zderzak
-      avmBox(faces, -.95, .95, -2.34, -2.2, .3, .4, [60, 66, 72]);
-      avmBox(faces, -1.16, -.93, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); avmBox(faces, .93, 1.16, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); // lusterka
-      avmBox(faces, -.82, -.74, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, .74, .82, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, -.82, .82, -.7, -.5, 1.82, 1.9, [50, 56, 62]); // pałąk
-      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .44, .44, .32, AVM_TIRE, AVM_HUB));
-    } },
-    // ciągnik siodłowy z naczepą 44 t (6 osi): długi zestaw
-    truck: { len: 16.5, view: 10, build: (faces, c) => {
-      const cab = avmHex(c), white = [243, 246, 247];
-      avmBox(faces, -.55, .55, -8.1, 8.0, .55, .95, AVM_DARK);                           // rama podwozia
-      // kabina
-      avmLoft(faces, [{ y:8.25, w:2.3, zb:.9, zt:1.9, r:.3 }, { y:8.15, w:2.5, zb:.85, zt:2.0, r:.3 }, { y:5.4, w:2.5, zb:.85, zt:2.0, r:.2 }], () => cab);
-      avmLoft(faces, [{ y:8.05, w:2.42, zb:1.9, zt:3.05, r:.3 }, { y:7.7, w:2.5, zb:1.9, zt:3.5, r:.3 }, { y:5.35, w:2.5, zb:1.9, zt:3.65, r:.25 }],
-        n => (n[1] > .5 ? AVM_GLASS : (n[2] > .75 ? cab.map(v => v * 1.05) : (Math.abs(n[0]) > .7 ? cab.map(v => v * .9) : cab))));
-      avmBox(faces, -.9, .9, 7.7, 8.0, 3.45, 3.62, cab.map(v => v * .8));                  // daszek
-      avmBox(faces, -1.0, 1.0, 8.2, 8.4, .5, .85, AVM_DARK);                               // zderzak
-      avmBox(faces, -1.0, -.6, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]); avmBox(faces, .6, 1.0, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]);
-      // naczepa
-      avmLoft(faces, [{ y:3.0, w:2.4, zb:.95, zt:4.0, r:.12 }, { y:2.9, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.15, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.25, w:2.4, zb:1.0, zt:3.95, r:.12 }],
-        n => (n[2] > .7 ? [226, 231, 234] : (Math.abs(n[0]) > .7 ? white.map(v => v * (n[0] > 0 ? .86 : 1)) : white.map(v => v * .8))));
-      avmBox(faces, -1.05, 1.05, -8.35, -8.2, .55, .85, [190, 40, 40]);                    // tylny zderzak/światła
-      // szczegóły: kominy, zbiorniki, lusterka, osłony, drzwi naczepy, pas ostrzegawczy
-      [-1.05, 1.05].forEach(x => avmBox(faces, x - .07, x + .07, 5.3, 5.45, 1.9, 3.75, [175, 182, 188]));                // kominy wydechowe
-      [-1, 1].forEach(sd => {
-        avmBox(faces, sd > 0 ? 1.0 : -1.5, sd > 0 ? 1.5 : -1.0, 4.4, 5.6, .5, 1.1, [165, 172, 178]);                  // zbiorniki paliwa
-        avmBox(faces, sd > 0 ? 1.18 : -1.5, sd > 0 ? 1.5 : -1.18, 7.4, 7.65, 2.0, 3.0, AVM_DARK);                      // lusterka kabiny
-        avmBox(faces, sd > 0 ? 1.17 : -1.28, sd > 0 ? 1.28 : -1.17, -7.9, -2.0, .55, 1.0, [150, 156, 160]);             // osłony boczne naczepy
-        avmBox(faces, sd > 0 ? 1.0 : -1.3, sd > 0 ? 1.3 : -1.0, -8.0, -7.6, .3, .8, AVM_DARK);                          // błotniki naczepy
-      });
-      avmBox(faces, -1.2, 1.2, -8.38, -8.25, 1.2, 3.8, [215, 220, 222]); avmBox(faces, -.03, .03, -8.4, -8.3, 1.0, 3.9, [120, 126, 130]); // drzwi tylne
-      avmBox(faces, -1.28, 1.28, -8.28, -8.2, 3.9, 4.0, [255, 196, 0]);                                                  // pas ostrzegawczy
-      avmBox(faces, -.8, .8, 8.2, 8.26, 1.1, 1.6, AVM_DARK);                                                              // grill
-      // koła: oś skrętna, 2 osie napędowe, 3 osie naczepy (podwójne na osiach napędowych i naczepy)
-      [[6.9, false], [3.6, true], [2.3, true], [-5.2, true], [-6.5, true], [-7.8, true]].forEach(([y, dual]) => {
-        [-1, 1].forEach(sd => {
-          avmWheel(faces, sd * 1.06, y, .52, .52, dual ? .3 : .34, AVM_TIRE, AVM_HUB);
-          if(dual) avmWheel(faces, sd * .7, y, .52, .52, .3, AVM_TIRE, AVM_HUB);
-        });
-      });
-    } },
-    gator: { len: 5.8, view: 4.6, anim: true, build: (faces, c, ph) => {
-      ph = ph || 0;
-      const wag = d => Math.sin(ph * .9 - d * .9) * Math.min(.55, Math.abs(d) * .2);   // fala wzdłuż ogona
-      const g = [92, 128, 48], gd = [66, 96, 34], gl = [112, 152, 58], belly = [150, 160, 80];
-      const col = n => (n[2] > .65 ? gl : (n[2] > .1 ? g : gd));
-      avmLoft(faces, [
-        { y:-3.3, x:wag(3.3), w:.1, zb:.2, zt:.3, r:.04 }, { y:-2.6, x:wag(2.6), w:.38, zb:.16, zt:.46, r:.16 }, { y:-1.6, x:wag(1.6), w:.8, zb:.12, zt:.7, r:.3 },
-        { y:-.4, x:wag(.4) * .3, w:1.4, zb:.1, zt:.95, r:.5 }, { y:.9, w:1.38, zb:.1, zt:.95, r:.5 }, { y:1.45, w:.85, zb:.12, zt:.66, r:.3 },
-        { y:1.95, w:.66, zb:.14, zt:.55, r:.24 }, { y:2.6, w:.5, zb:.16, zt:.42, r:.16 }, { y:2.82, w:.34, zb:.18, zt:.34, r:.1 }
-      ], col);
-      // nogi (płaskie, z palcami) — dwie pary, odchylone na boki
-      [[1, 1.0, 38, 0], [-1, 1.0, 38, Math.PI], [1, -1.05, -38, Math.PI], [-1, -1.05, -38, 0]].forEach(([sd, y0, ang, off]) => {
-        const sw = Math.sin(ph * 1.6 + off), y = y0 + sw * .28, lift = Math.max(0, Math.cos(ph * 1.6 + off)) * .1;
-        const leg = [[0, 0], [.55, .22], [.95, .12], [1.28, .32], [1.28, -.02], [1.0, -.22], [.55, -.2], [0, -.32]];
-        const r = ang * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
-        const poly = leg.map(([lx, ly]) => [sd * (.55 + lx * ca - ly * sa * sd), y + lx * sa * sd * (y > 0 ? 1 : -1) * .0 + ly * ca * .9 - (y > 0 ? -.15 : .15) * lx]);
-        avmPrism(faces, sd > 0 ? poly : poly.slice().reverse(), .08 + lift, .3 + lift, gd, g);
-      });
-      // grzbiet: rząd łusek
-      for(let y = -2.2; y <= 1.1; y += .42){ const w = .18 + Math.max(0, .5 - Math.abs(y + .5) * .18);
-        avmBox(faces, -w / 2, w / 2, y, y + .26, .86 - Math.max(0, -y - 1.2) * .22, 1.06 - Math.max(0, -y - 1.2) * .22, [78, 108, 38]); }
-      avmBox(faces, -.34, -.14, 1.6, 1.9, .5, .62, [226, 190, 50]); avmBox(faces, .14, .34, 1.6, 1.9, .5, .62, [226, 190, 50]);   // oczy
-      avmBox(faces, -.28, -.2, 1.68, 1.8, .6, .64, [20, 24, 12]); avmBox(faces, .2, .28, 1.68, 1.8, .6, .64, [20, 24, 12]);       // źrenice
-      avmBox(faces, -.18, -.1, 2.7, 2.78, .38, .42, [30, 40, 18]); avmBox(faces, .1, .18, 2.7, 2.78, .38, .42, [30, 40, 18]);     // nozdrza
-    } },
-    dot: { len: 2.6, view: 2.8, build: (faces, c) => {
-      const base = avmHex(c), R = 1.0, st = [];
-      avmPrism(faces, Array.from({ length: 20 }, (_, i) => [Math.cos(i / 20 * 6.2832) * 1.55, Math.sin(i / 20 * 6.2832) * 1.55]), 0, .03, base.map(v => v * .55 + 40));   // pierścień pod spodem
-      for(let i = -10; i <= 10; i++){ const t = i / 10 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
-      avmLoft(faces, st, n => { const h = Math.max(0, n[2]); return [base[0] * (.5 + .5 * h) + 70 * h * h, base[1] * (.5 + .5 * h) + 70 * h * h, base[2] * (.5 + .5 * h) + 70 * h * h]; });
-      avmPrism(faces, [[0, 2.35], [.62, 1.45], [-.62, 1.45]], .03, .09, [255, 255, 255]);                                                    // strzałka kierunku
-    } }
-  };
-  ["car", "truck", "gator", "dot"].forEach(k => { if(AVATARS[k]) AVATARS[k].model = AVM_MODELS[k]; });
-
-  /* ---------- render ---------- */
-  const AVM_LIGHT = avmNorm([-0.45, -0.35, 0.82]);
-  let avmCanvas = null, avmCtx = null, avmFaces = null, avmFacesKey = "", avmLastHdg = 0;
-  let avmPhase = 0;
-  function avmMakeFaces(a, c){
-    const key = vehicleAvatar + "|" + c;
-    if(!a.model.anim && avmFaces && avmFacesKey === key) return avmFaces;
-    const faces = []; a.model.build(faces, c, avmPhase);
-    avmFaces = faces; avmFacesKey = key; return faces;
-  }
-  function avm3dModelEnter(a){
-    if(!userMarkerEl) return;
-    avm3dModelLeave(true);
-    avmCanvas = document.createElement("canvas");
-    avmCanvas.className = "av3dModelCv";
-    avmCanvas.style.cssText = "position:absolute;left:50%;top:50%;pointer-events:none;transform:translate(-50%,-50%);";
-    userMarkerEl.appendChild(avmCanvas);
-    avmCtx = avmCanvas.getContext("2d");
-    userMarkerEl._model = a;
-    try{ if(userMarker.setPitchAlignment) userMarker.setPitchAlignment("viewport"); if(userMarker.setRotationAlignment) userMarker.setRotationAlignment("viewport"); }catch(e){}
-    if(!map._avmBound){ map._avmBound = true; ["rotate", "pitch", "zoom"].forEach(ev => map.on(ev, () => { if(userMarkerEl && userMarkerEl._model) avm3dModelDraw(); })); }
-    avm3dModelDraw();
-    if(a.model.anim && !avmLoop){ avmLoop = true; avmLast = performance.now(); requestAnimationFrame(avmTick); }
-  }
-  let avmLoop = false, avmLast = 0;
-  function avmTick(t){
-    if(!userMarkerEl || !userMarkerEl._model || !userMarkerEl._model.model.anim){ avmLoop = false; return; }
-    const dt = Math.min(.1, (t - avmLast) / 1000); avmLast = t;
-    if(typeof currentSpeedKmh !== "undefined" && currentSpeedKmh >= 3){ avmPhase += dt * (4 + Math.min(8, currentSpeedKmh / 12)); avm3dModelDraw(); }
-    requestAnimationFrame(avmTick);
-  }
-  function avm3dModelLeave(keepAlign){
-    if(avmCanvas){ avmCanvas.remove(); avmCanvas = null; avmCtx = null; }
-    if(userMarkerEl) userMarkerEl._model = null;
-    if(!keepAlign){ try{ if(userMarker && userMarker.setPitchAlignment) userMarker.setPitchAlignment("map"); if(userMarker && userMarker.setRotationAlignment) userMarker.setRotationAlignment("map"); }catch(e){} }
-  }
-  function avm3dModelDraw(hdg){
-    if(!avmCanvas || !userMarkerEl || !userMarkerEl._model) return;
-    if(hdg !== undefined) avmLastHdg = hdg;
-    const a = userMarkerEl._model, model = a.model;
-    const px = Math.max(40, parseFloat(userMarkerEl.style.width) || 80), size = Math.round(px * 1.9);
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(size * dpr);
-    if(avmCanvas.width !== W){ avmCanvas.width = avmCanvas.height = W; avmCanvas.style.width = avmCanvas.style.height = size + "px"; }
-    const ctx = avmCtx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size);
-    const faces = avmMakeFaces(a, avatarAccent());
-    const yaw = (avmLastHdg - map.getBearing()) * Math.PI / 180, cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const p = Math.min(78, Math.max(0, map.getPitch())) * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
-    const s = px * 0.86 / (model.view || model.len), cx0 = size / 2, cy0 = size / 2;
-    const rot = v => [v[0] * cy + v[1] * sy, -v[0] * sy + v[1] * cy, v[2]];
-    // cień na jezdni: obrócona elipsa pod pojazdem
-    ctx.save(); ctx.translate(cx0, cy0); ctx.scale(1, cp * .9 + .1);
-    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, model.len * s * .62);
-    gr.addColorStop(0, "rgba(0,0,0,.42)"); gr.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.rotate(yaw); ctx.scale(.55, 1); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, model.len * s * .62, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    const v = [0, -sp, cp], out = [];
-    faces.forEach(f => {
-      const n = rot(f.n);
-      const facing = n[0] * v[0] + n[1] * v[1] + n[2] * v[2];
-      if(facing <= 0.001) return;
-      const q = f.pts.map(pt => { const r = rot(pt); return [cx0 + r[0] * s, cy0 - (r[1] * cp + r[2] * sp) * s, r[2] * cp - r[1] * sp]; });
-      let depth = 0; q.forEach(t => { depth += t[2]; }); depth /= q.length;
-      // oświetlenie liczone w układzie świata mapy (światło z lewej-góry ekranu), nie modelu
-      const nl = Math.max(0, n[0] * AVM_LIGHT[0] + n[1] * AVM_LIGHT[1] + n[2] * AVM_LIGHT[2]);
-      // światło: rozproszone + połysk (Blinn-Phong) + przyciemnienie przy ziemi + chłodne niebo z góry
-      const hv = avmNorm([AVM_LIGHT[0], AVM_LIGHT[1] + 0.0, AVM_LIGHT[2] + 1]), sp2 = Math.pow(Math.max(0, n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]), 28) * 55;
-      const ao = 0.8 + 0.2 * Math.min(1, Math.max(0, f.cz / (model.view ? model.view * .22 : 1)));
-      const k = (0.46 + 0.62 * nl) * ao;
-      out.push({ q, depth, k, sp: sp2, sky: Math.max(0, n[2]) * 14, col: f.col });
-    });
-    out.sort((A, B) => A.depth - B.depth);
-    out.forEach(o => {
-      const c = "rgb(" + o.col.map((x, i) => Math.max(0, Math.min(255, Math.round(x * o.k + o.sp + o.sky * (i === 2 ? 1.2 : .6))))).join(",") + ")";
-      ctx.beginPath(); ctx.moveTo(o.q[0][0], o.q[0][1]);
-      for(let i = 1; i < o.q.length; i++) ctx.lineTo(o.q[i][0], o.q[i][1]);
-      ctx.closePath(); ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = .7; ctx.strokeStyle = c; ctx.lineJoin = "round"; ctx.stroke();
-    });
-  }
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
