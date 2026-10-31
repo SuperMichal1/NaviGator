@@ -452,7 +452,6 @@
     border:1px solid var(--panel-border); box-shadow:0 6px 24px rgba(0,0,0,.4);
   }
   .poiCard.show{ display:flex; }
-  .poiCard select{ flex:1; padding:9px 8px; border-radius:10px; border:1px solid var(--panel-border); background:rgba(255,255,255,.08); color:inherit; font-size:14px; }
   .poiCard .poiName{ font-size:15px; font-weight:700; line-height:1.25; word-break:break-word; }
   .poiCard .poiAddr{ font-size:13px; opacity:.8; line-height:1.3; word-break:break-word; }
   .poiCard .poiQ{ font-size:13px; font-weight:600; margin-top:2px; }
@@ -1296,26 +1295,6 @@
   <div class="poiBtns" id="poiVoteRow" style="display:none">
     <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
     <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
-  </div>  <div class="poiBtns adminOnly" id="poiAskAdminRow" style="display:none">
-    <button id="poiAskHide" type="button">🙈 Ukryj (admin)</button>
-  </div>
-</div>
-
-<div id="adminRestrCard" class="poiCard" role="dialog">
-  <div class="poiName">🚧 Nowy znak ograniczenia</div>
-  <div class="poiAddr" id="adminRestrInfo">Stukaj na mapie kolejne punkty odcinka drogi lub wiaduktu (minimum 2: początek i koniec).</div>
-  <div class="poiBtns">
-    <select id="adminRestrKind">
-      <option value="height">Wysokość (m)</option>
-      <option value="weight">Tonaż (t)</option>
-      <option value="width">Szerokość (m)</option>
-    </select>
-    <input id="adminRestrValue" type="text" inputmode="decimal" maxlength="6" placeholder="np. 4,2" autocomplete="off">
-  </div>
-  <div class="poiBtns">
-    <button id="adminRestrUndo" type="button">↩ Cofnij punkt</button>
-    <button id="adminRestrCancel" type="button">Anuluj</button>
-    <button id="adminRestrSave" type="button">Zapisz</button>
   </div>
 </div>
 
@@ -1332,7 +1311,6 @@
   <div id="poiAddAsk">
     <div class="poiName">Ten budynek nie ma nazwy</div>
     <div class="poiAddr" id="poiAddAddr"></div>
-    <input id="poiAddrInput" type="text" maxlength="80" placeholder="Postcode lub adres (np. LU2 9NL)" autocomplete="off">
     <div class="poiQ">Chcesz dodać nazwę firmy?</div>
     <div class="poiBtns">
       <button id="poiAddNo" type="button">Nie</button>
@@ -1574,7 +1552,6 @@
       </div>
       <button type="button" id="adminLogoutBtn" class="navPrefBtn" style="margin:0; display:none;">Wyloguj</button>
     </div>
-    <button type="button" id="adminAddRestrBtn" class="navPrefBtn adminOnly">🚧 Dodaj znak ograniczenia (wysokość / tonaż / szerokość)</button>
     <div id="navKeyToggle" class="adminOnly">
       <span>🔑 Klucz API TomTom</span>
       <span class="chev">▾</span>
@@ -4837,11 +4814,7 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
-  let hgvCompaniesAll = [];          // wszystkie firmy (przed ukryciem przez administratora)
-  let hiddenPlaceKeys = new Set();   // klucze ukrytych miejsc: "osm:<id>" (firma z OSM) albo "place:<id>" (nazwa kierowców)
   function setHgvCompaniesData(features){
-    hgvCompaniesAll = features || [];
-    if(hiddenPlaceKeys.size) features = hgvCompaniesAll.filter(f => !(f.properties && hiddenPlaceKeys.has("osm:" + f.properties.osm_id)));
     if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
     if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
   }
@@ -5281,14 +5254,8 @@
   }
 
   // kopia danych o ograniczeniach do alertów na trasie (indeks budowany leniwie przy pierwszym użyciu)
-  let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0, restrictionBase = null;
+  let restrictionSrc = null, restrictionIdx = null, restrictionVer = 0;
   function setRestrictionsData(heightFeatures, weightFeatures, widthFeatures, signFeatures){
-    restrictionBase = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [], s: signFeatures || [] };   // bez znaków administratora
-    if(typeof adminRestrictionFeatures === "function"){          // dokładamy znaki dodane przez administratora (js/44)
-      const A = adminRestrictionFeatures();
-      heightFeatures = restrictionBase.h.concat(A.h); weightFeatures = restrictionBase.w.concat(A.w);
-      widthFeatures = restrictionBase.d.concat(A.d); signFeatures = restrictionBase.s.concat(A.s);
-    }
     restrictionSrc = { h: heightFeatures || [], w: weightFeatures || [], d: widthFeatures || [] };
     restrictionVer++; restrictionIdx = null;
     if(map.getSource("roads-maxheight")) map.getSource("roads-maxheight").setData({ type:"FeatureCollection", features: heightFeatures });
@@ -6901,31 +6868,20 @@
       .then(d => d.results || [])
       .catch(err => { if(err.name === "AbortError") throw err; return []; });
   }
-  // opis wyniku lokalnego: źródło + odległość od środka mapy; adres dopisywany po odwrotnym geokodowaniu (z pamięcią podręczną)
-  const localAddrCache = new Map();
-  function localResultInfo(r){
-    const km = r._d ? (r._d < 1000 ? Math.round(r._d) + " m" : (r._d / 1000).toFixed(1) + " km") : "";
-    return [r.src === "drivers" ? "dodane przez kierowców" : "firma z OSM", km].filter(Boolean).join(" · ");
-  }
-  function localResultAddress(r){
-    const k = r.position.lat.toFixed(5) + "," + r.position.lon.toFixed(5);
-    if(!localAddrCache.has(k)) localAddrCache.set(k, reverseAddressChain(r.position.lat, r.position.lon).catch(() => ""));
-    return localAddrCache.get(k);
-  }
   // nazwy dodane przez kierowców + firmy HGV (Overpass/Supabase) pasujące do wpisanego tekstu
   function localNameMatches(query, bias){
     const q = query.toLowerCase();
     if(q.length < NAV_SUGGEST_MIN_CHARS) return [];
     const out = [];
-    const add = (name, lat, lon, src) => {
+    const add = (name, lat, lon) => {
       if(!name || typeof lat !== "number" || typeof lon !== "number") return;
       if(!(name.toLowerCase().includes(q) || namesMatch(query, name))) return;
       if(out.some(o => o.poi.name.toLowerCase() === name.toLowerCase() && _dM(o.position.lat, o.position.lon, lat, lon) < 100)) return;
-      out.push({ local: true, src, poi: { name }, address: { freeformAddress: name }, position: { lat, lon },
+      out.push({ local: true, poi: { name }, address: { freeformAddress: name }, position: { lat, lon },
         _d: bias ? _dM(bias.lat, bias.lon, lat, lon) : 0 });
     };
-    placeNames.forEach(p => add(p.name, p.lat, p.lon, "drivers"));
-    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0], "osm"); });
+    placeNames.forEach(p => add(p.name, p.lat, p.lon));
+    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) add(f.properties && f.properties.name, c[1], c[0]); });
     return out.sort((a, b) => a._d - b._d).slice(0, 3);
   }
 
@@ -7087,9 +7043,7 @@
         item.className = "navSuggestion navSaved";
         item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-        const addr2El = item.querySelector(".addr2");
-        addr2El.textContent = r.local ? localResultInfo(r) : ((r.poi && r.poi.name) ? label : sub);
-        if(r.local) localResultAddress(r).then(a => { if(a && addr2El.isConnected) addr2El.textContent = a + " · " + localResultInfo(r); });
+        item.querySelector(".addr2").textContent = r.local ? "Z bazy kierowców" : ((r.poi && r.poi.name) ? label : sub);
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
         const star = document.createElement("button");
@@ -7600,28 +7554,6 @@
       });
   }
 
-  // adres dla punktu: Mapbox → TomTom → Photon (pierwszy, który zwróci adres)
-  function mapboxReverse(lat, lon){
-    const token = (typeof mapboxToken === "string" && /^pk\./.test(mapboxToken)) ? mapboxToken : MAPBOX_DEFAULT_TOKEN;
-    if(!token) return Promise.resolve("");
-    const p = new URLSearchParams({ access_token: token, country: "gb", types: "address", limit: "1", language: "en" });
-    return fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?${p}`)
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => { const f = d && d.features && d.features[0]; return f && f.place_name ? f.place_name.replace(/, United Kingdom$/, "") : ""; });
-  }
-  function tomtomReverse(lat, lon){
-    if(!tomtomApiKey) return Promise.resolve("");
-    return fetch(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lon}.json?key=${encodeURIComponent(tomtomApiKey)}&radius=60&language=en-GB`)
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(d => { const a = d && d.addresses && d.addresses[0] && d.addresses[0].address; return a && a.freeformAddress ? a.freeformAddress : ""; });
-  }
-  async function reverseAddressChain(lat, lon){
-    for(const fn of [mapboxReverse, tomtomReverse, photonReverse]){
-      try{ const a = await fn(lat, lon); if(a) return a; }catch(e){ console.warn("reverse geocode:", e); }
-    }
-    return "";
-  }
-
   function reverseGeocodeDest(lat, lon, seq){
     if(destRevAbort) destRevAbort.abort();
     destRevAbort = new AbortController();
@@ -7736,7 +7668,6 @@
     const seen = new Set(placeNames.map(placeNameKey));
     list.forEach(p => {
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
-      if(p.id != null && hiddenPlaceKeys.has("place:" + p.id)) return;   // ukryte przez administratora
       const k = placeNameKey(p);
       // wpis z bazy wspólnej przejmuje id/status lokalnej kopii — dzięki temu można na niego głosować
       const adopt = q => { if(q && p.id != null){ q.id = p.id; q.status = p.status; } };
@@ -7854,50 +7785,17 @@
     hidePoiAsk();
     placeAddTarget = { lat, lon }; placeAddForce = false;
     document.getElementById("poiAddAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-    placeAddManualAddr = ""; document.getElementById("poiAddrInput").value = "";
     document.getElementById("poiAddAsk").style.display = "";
     document.getElementById("poiAddForm").style.display = "none";
     document.getElementById("poiNameInput").value = "";
     document.getElementById("poiAddStatus").textContent = "";
     const save = document.getElementById("poiAddSave"); save.disabled = false; save.textContent = "Zapisz nazwę";
     document.getElementById("poiAdd").classList.add("show");
-    reverseAddressChain(lat, lon).then(addr => {
+    photonReverse(lat, lon).then(addr => {
       if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
         document.getElementById("poiAddAddr").textContent = addr;
     }).catch(() => {});
   }
-  // adres wpisany ręcznie (postcode albo adres): TomTom → Mapbox → Photon → Nominatim; opis nie przesuwa pozycji budynku
-  let placeAddManualAddr = "", placeAddrTimer = null, placeAddrSeq = 0;
-  async function lookupTypedAddress(raw){
-    const q = normalizeUkQuery(raw), t = placeAddTarget, bias = t ? { lat: t.lat, lon: t.lon } : null;
-    const chain = [];
-    if(tomtomApiKey) chain.push(() => {
-      const p = new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY });
-      if(bias){ p.set("lat", bias.lat); p.set("lon", bias.lon); }
-      return fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(q)}.json?${p}`).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-        .then(d => (d.results || []).filter(r => r.address && r.address.freeformAddress));
-    });
-    chain.push(() => geoMapbox(q, bias), () => geoPhoton(q, bias), () => geoNominatim(q, bias));
-    for(const fn of chain){
-      try{ const r = await fn(); if(r && r.length){ let a = r[0].address.freeformAddress.replace(/, United Kingdom$/, ""); if(UK_POSTCODE_RE.test(q) && !a.includes(q)) a = q + ", " + a; return a; } }catch(e){ console.warn("address lookup:", e); }
-    }
-    return "";
-  }
-  function runTypedAddress(){
-    const raw = document.getElementById("poiAddrInput").value.trim();
-    clearTimeout(placeAddrTimer);
-    if(raw.length < 3 || !placeAddTarget) return;
-    const seq = ++placeAddrSeq, target = placeAddTarget;
-    lookupTypedAddress(raw).then(a => {
-      if(seq !== placeAddrSeq || placeAddTarget !== target) return;
-      if(a){ placeAddManualAddr = a; document.getElementById("poiAddAddr").textContent = a; }
-      else document.getElementById("poiAddAddr").textContent = "Nie znaleziono adresu „" + raw + "”";
-    });
-  }
-  document.getElementById("poiAddrInput").addEventListener("input", () => {
-    clearTimeout(placeAddrTimer); placeAddrTimer = setTimeout(runTypedAddress, 800);
-  });
-  document.getElementById("poiAddrInput").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); runTypedAddress(); e.target.blur(); } });
   function openPlaceForm(){
     document.getElementById("poiAddAsk").style.display = "none";
     const f = document.getElementById("poiAddForm"); f.style.display = "flex";
@@ -7914,7 +7812,6 @@
     }catch(e){}
     hidePlaceAdd();
     showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
-    if(placeAddManualAddr && poiAskTarget){ poiAskTarget.address = placeAddManualAddr; document.getElementById("poiAskAddr").textContent = placeAddManualAddr; }
     const tag = verified === true ? ` (potwierdzona w ${source})` : verified === false ? " (niezweryfikowana ❔)" : "";
     if(supaConfigured()){
       savePlaceNameRemote(p, source).then(ok => {
@@ -7997,16 +7894,49 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId, dbg, hideKey){
+  function showPoiAsk(name, lat, lon, placeId, ownAddr){
     const seq = ++poiAskSeq;
     hideVoteCard();
-    poiAskTarget = { lat, lon, name, address: "", placeId, hideKey };
-    document.getElementById("poiAskAdminRow").style.display = hideKey ? "" : "none";   // przycisk widoczny tylko dla administratora (.adminOnly)
+    poiAskTarget = { lat, lon, name, address: "", placeId };
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
-    document.getElementById("poiAskName").textContent = dbg ? `${name}  [${dbg}]` : name;
+    document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
-    photonReverse(lat, lon).then(addr => { if(seq !== poiAskSeq || !poiAskTarget || !addr) return; poiAskTarget.address = addr; document.getElementById("poiAskAddr").textContent = addr; }).catch(err => console.warn("Photon reverse geocode (POI):", err));
+    // adres z danych punktu (tagi addr:* z OSM / pole adresu w bazie) bierzemy bezpośrednio — bez geokodowania
+    if(ownAddr){ poiAskTarget.address = ownAddr; document.getElementById("poiAskAddr").textContent = ownAddr; return; }
+    // brak własnego adresu → Photon; liczymy zawsze dla środka budynku pod punktem i zapamiętujemy — ten sam budynek daje ten sam adres,
+    // niezależnie od tego, który duplikat nazwy (znacznik stylu mapy / firma / nazwa kierowców) kliknięto
+    const g = poiGeocodePoint(lat, lon);
+    const hit = poiAddrCache.find(c => c.name === name && haversine(c.lat, c.lon, g.lat, g.lon) <= 80);
+    if(hit){ poiAskTarget.address = hit.addr; document.getElementById("poiAskAddr").textContent = hit.addr; return; }
+    photonReverse(g.lat, g.lon)
+      .then(addr => {
+        if(!addr) return;
+        poiAddrCache.push({ name, lat: g.lat, lon: g.lon, addr });
+        if(poiAddrCache.length > 60) poiAddrCache.shift();
+        if(seq !== poiAskSeq || !poiAskTarget) return;
+        poiAskTarget.address = addr;
+        document.getElementById("poiAskAddr").textContent = addr;
+      })
+      .catch(err => console.warn("Photon reverse geocode (POI):", err));
+  }
+  const poiAddrCache = [];
+  // adres zapisany w tagach punktu (addr:* z OSM albo gotowe pole adresu)
+  function addrFromProps(p){
+    if(!p) return "";
+    const a = addrFromParts(p["addr:housenumber"] || p.housenumber, p["addr:street"] || p.street, p["addr:city"] || p["addr:suburb"] || p.city, p["addr:postcode"] || p.postcode);
+    return a || (typeof p.address === "string" ? p.address : "");
+  }
+  // punkt do geokodowania: środek budynku zawierającego punkt (dla firm leżących przy granicy dzielnic/miast
+  // sąsiednie duplikaty dają inaczej „przyciągnięty” adres); bez budynku — sam punkt
+  function poiGeocodePoint(lat, lon){
+    try{
+      const bl = map.getStyle().layers.filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion")).map(l => l.id).filter(id => map.getLayer(id));
+      const pt = map.project([lon, lat]);
+      const bf = bl.length ? map.queryRenderedFeatures(pt, { layers: bl }) : [];
+      if(bf.length){ const c = buildingCenter(bf[0], { lat, lon }); return { lat: c.lat, lon: c.lon }; }
+    }catch(e){}
+    return { lat, lon };
   }
   function acceptPoiAsk(){
     if(!poiAskTarget) return;
@@ -8022,78 +7952,55 @@
   document.getElementById("poiAskNo").addEventListener("click", hidePoiAsk);
 
 
-
-  /* ---------- który budynek ma nazwę: tylko punkt wewnątrz obrysu klikniętego budynku ---------- */
-  function bldRings(f){
-    const g = f && f.geometry; if(!g) return [];
-    if(g.type === "Polygon") return [g.coordinates[0]];
-    if(g.type === "MultiPolygon") return g.coordinates.map(pg => pg[0]);
-    return [];
-  }
-  function bldInRing(ring, lon, lat){
-    let ins = false;
-    for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
-      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-      if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
-    }
-    return ins;
-  }
-  function bldContains(f, lon, lat){ return bldRings(f).some(r => bldInRing(r, lon, lat)); }
-  function bldEdgeDistM(f, lon, lat){
-    const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540; let best = Infinity;
-    bldRings(f).forEach(r => { for(let i = 0; i < r.length - 1; i++){
-      const ax = (r[i][0] - lon) * kx, ay = (r[i][1] - lat) * ky, bx = (r[i + 1][0] - lon) * kx, by = (r[i + 1][1] - lat) * ky;
-      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
-      best = Math.min(best, Math.hypot(ax + dx * t, ay + dy * t)); } });
-    return best;
-  }
-  // punkt WEWNĄTRZ budynku: środek ciężkości; gdy leży poza obrysem — środek najdłuższego poziomego odcinka wewnątrz
-  function bldInnerPoint(f, fallback){
-    const rings = bldRings(f); if(!rings.length) return fallback;
-    let ring = rings[0], bestA = -1;
-    rings.forEach(r => { let a = 0; for(let i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; if(Math.abs(a) > bestA){ bestA = Math.abs(a); ring = r; } });
-    let A = 0, cx = 0, cy = 0;
-    for(let i = 0; i < ring.length - 1; i++){ const cr = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]; A += cr; cx += (ring[i][0] + ring[i + 1][0]) * cr; cy += (ring[i][1] + ring[i + 1][1]) * cr; }
-    if(Math.abs(A) > 1e-18){ const c = { lon: cx / (3 * A), lat: cy / (3 * A) }; if(bldInRing(ring, c.lon, c.lat)) return c; }
-    const lats = ring.map(q => q[1]), mid = (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2, xs = [];
-    for(let i = 0; i < ring.length - 1; i++){ const a = ring[i], b = ring[i + 1]; if((a[1] > mid) !== (b[1] > mid)) xs.push(a[0] + (mid - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
-    xs.sort((p, q) => p - q);
-    let bx = null, bw = -1; for(let i = 0; i + 1 < xs.length; i += 2){ if(xs[i + 1] - xs[i] > bw){ bw = xs[i + 1] - xs[i]; bx = (xs[i] + xs[i + 1]) / 2; } }
-    return bx === null ? fallback : { lon: bx, lat: mid };
-  }
-  // kafelek może oddać wiele budynków jako jeden MultiPolygon — bierzemy tylko ten wielokąt, który leży pod kliknięciem (albo najbliższy)
-  function bldSingle(f, lon, lat){
-    const rings = bldRings(f); if(rings.length <= 1) return f;
-    const mk = r => ({ geometry: { type: "Polygon", coordinates: [r] } });
-    let best = rings[0], bd = Infinity;
-    for(const r of rings){
-      if(bldInRing(r, lon, lat)) return mk(r);
-      const d = bldEdgeDistM(mk(r), lon, lat); if(d < bd){ bd = d; best = r; }
-    }
-    return mk(best);
-  }
-  // najbliższa znana nazwa (firmy HGV / dodane przez kierowców), której punkt leży w obrysie budynku lub ≤ 4 m od niego
-  function findNameInBuilding(bld){
-    let best = null, bestD = Infinity;
-    const ctr = bldInnerPoint(bld, null);
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    bldRings(bld).forEach(r => r.forEach(q => { if(q[0] < x0) x0 = q[0]; if(q[0] > x1) x1 = q[0]; if(q[1] < y0) y0 = q[1]; if(q[1] > y1) y1 = q[1]; }));
-    const pad = 0.00006;   // ~4 m — szybkie odrzucenie punktów spoza ramki budynku
-    const consider = (n, la, lo, extra) => {
-      if(!n || typeof la !== "number" || typeof lo !== "number") return;
-      if(lo < x0 - pad || lo > x1 + pad || la < y0 - pad || la > y1 + pad) return;
-      if(!bldContains(bld, lo, la) && bldEdgeDistM(bld, lo, la) > 4) return;
-      const d = ctr ? haversine(ctr.lat, ctr.lon, la, lo) : 0;
-      if(d < bestD){ bestD = d; best = Object.assign({ name: n, lat: la, lon: lo }, extra || {}); }
-    };
-    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { osmId: f.properties && f.properties.osm_id }); });
+  // długie przytrzymanie budynku (zoom ≥ 16): znana nazwa → pytanie o trasę, brak nazwy → pytanie o dodanie nazwy budynku
+  function handleBuildingPress(point, lngLat){
+    if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
+    if(map.getZoom() < PLACE_NAME_MIN_ZOOM) return;
+    const bLayers = map.getStyle().layers
+      .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
+      .map(l => l.id).filter(id => map.getLayer(id));
+    const bf = bLayers.length ? map.queryRenderedFeatures(point, { layers: bLayers }) : [];
+    if(!bf.length) return;
+    try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
+    const c = buildingCenter(bf[0], { lat: lngLat.lat, lon: lngLat.lng });
+    // nazwa „znana" tylko wtedy, gdy jej punkt leży WEWNĄTRZ tego budynku (albo tuż przy jego środku) — nie w sąsiednich
+    const ring = (bf[0].geometry.type === "Polygon" ? bf[0].geometry.coordinates[0] : (bf[0].geometry.type === "MultiPolygon" ? bf[0].geometry.coordinates[0][0] : null));
+    const inRing = (lon, lat) => { if(!ring) return false; let ins = false;
+      for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
+      } return ins; };
+    let known = null;
+    const consider = (n, la, lo, extra) => { if(!n) return; if(inRing(lo, la) || haversine(c.lat, c.lon, la, lo) <= 8){
+      const d = haversine(c.lat, c.lon, la, lo); if(!known || d < known.d) known = Object.assign({ name: n, lat: la, lon: lo, d }, extra || {}); } };
+    hgvCompaniesCache.forEach(f => { const g = f.geometry && f.geometry.coordinates; if(g) consider(f.properties && f.properties.name, g[1], g[0], { props: f.properties }); });
     placeNames.forEach(pn => consider(pn.name, pn.lat, pn.lon, { placeId: pn.id }));
-    return best;
+    if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, addrFromProps(known.props)); return; }
+    if(!hgvCompaniesLoaded){
+      hidePoiAsk();
+      showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
+      return;
+    }
+    showPlaceAdd(c.lat, c.lon);
+  }
+  let pressTimer = null, pressStart = null, pressFired = 0, pressHeld = false;
+  function cancelPress(){ clearTimeout(pressTimer); pressTimer = null; }
+  function setupBuildingLongPress(){
+    const start = (e) => {
+      if(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1){ cancelPress(); return; }
+      cancelPress(); pressStart = { x: e.point.x, y: e.point.y };
+      pressTimer = setTimeout(() => { pressTimer = null; pressFired = Date.now(); pressHeld = true; handleBuildingPress(pressStart, e.lngLat); }, 650);
+    };
+    map.on("mousedown", start); map.on("touchstart", start);
+    map.on("mousemove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
+    map.on("touchmove", e => { if(pressTimer && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) cancelPress(); });
+    ["mouseup", "touchend", "touchcancel", "dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach(ev => map.on(ev, () => { if(pressHeld){ pressHeld = false; pressFired = Date.now(); } cancelPress(); }));
   }
 
   function setupPoiClick(){
+    setupBuildingLongPress();
     map.on("click", (e) => {
-      if(typeof adminRestrClick === "function" && adminRestrClick(e)) return;   // rysowanie / usuwanie znaków (administrator)
+      if(Date.now() - pressFired < 900) return;   // klik zakończający długie przytrzymanie
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
@@ -8122,35 +8029,11 @@
         if(!name || !f.geometry || f.geometry.type !== "Point") return;
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
+        if(d > 34) return;   // etykieta długiej nazwy sięga nad sąsiednie budynki — liczy się tylko punkt blisko palca
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
-          hideKey: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? "place:" + p.id : (f.layer && f.layer.id === "hgv-companies-icon" && p.osm_id != null) ? "osm:" + p.osm_id : undefined,
-          dbg: `v4 · warstwa ${f.layer ? f.layer.id : "?"} · ${Math.round(d)} px` }; }
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined, addr: addrFromProps(p) }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.dbg, best.hideKey); return; }
-      // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
-      if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
-        const bLayers = map.getStyle().layers
-          .filter(l => l["source-layer"] === "building" && (l.type === "fill" || l.type === "fill-extrusion"))
-          .map(l => l.id).filter(id => map.getLayer(id));
-        const bf = bLayers.length ? map.queryRenderedFeatures(e.point, { layers: bLayers }) : [];
-        if(bf.length){
-          // budynek pod palcem: ten, w którego obrysie leży kliknięty punkt (inaczej pierwszy narysowany)
-          const bld = bldSingle(bf.find(f => bldContains(f, e.lngLat.lng, e.lngLat.lat)) || bf[0], e.lngLat.lng, e.lngLat.lat);
-          const c = bldInnerPoint(bld, buildingCenter(bld, { lat: e.lngLat.lat, lon: e.lngLat.lng }));
-          // nazwa „znana” tylko gdy jej punkt leży w obrysie TEGO budynku albo tuż przy krawędzi (≤ 4 m) — nie w sąsiednim
-          const known = findNameInBuilding(bld);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, `v4 · w budynku · ${known.placeId != null ? "baza kierowców" : "firma OSM"} · ${Math.round(haversine(e.lngLat.lat, e.lngLat.lng, known.lat, known.lon))} m od kliknięcia`, known.placeId != null ? "place:" + known.placeId : known.osmId != null ? "osm:" + known.osmId : undefined); return; }
-          // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
-          if(!hgvCompaniesLoaded){
-            hidePoiAsk();
-            showBanner("WCZYTUJĘ FIRMY HGV", "Dane firm jeszcze się ładują — spróbuj za chwilę", false);
-            return;
-          }
-          showPlaceAdd(c.lat, c.lon);
-          return;
-        }
-      }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.addr); return; }
       hidePoiAsk();
     });
   }
@@ -9293,7 +9176,7 @@
       const co = f.geometry && f.geometry.coordinates, val = Number(f.properties && f.properties[prop]);
       if(!co || co.length < 2 || !isFinite(val) || val <= 0) return;
       const idx = items.length;
-      items.push({ kind, value: val, co, admin: !!(f.properties && f.properties.admin), id: kind + ":" + ((f.properties && f.properties.osm_id) || idx) });
+      items.push({ kind, value: val, co, id: kind + ":" + ((f.properties && f.properties.osm_id) || idx) });
       const seen = new Set();
       co.forEach(c => {
         const k = Math.floor(c[1] / 0.01) + "," + Math.floor(c[0] / 0.01);
@@ -9380,7 +9263,7 @@
       /* Droga równoległa (np. zjazd/łącznik obok autostrady), która dopiero na końcu dochodzi do trasy, ma z nią
          wspólny tylko krótki ułamek swojej długości — to nie jest droga, którą jedziemy. Prawdziwe ograniczenie
          (most, tunel, odcinek ulicy) pokrywa się z trasą w większości albo na długim odcinku. */
-      if(hits >= 1 && (matchedLen >= totalLen * 0.6 || matchedLen >= 200)) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, admin: it.admin, said: {} });
+      if(hits >= 1 && (matchedLen >= totalLen * 0.6 || matchedLen >= 200)) found.push({ kind: it.kind, value: it.value, sev, along: minA, to: maxA, lat: first.lat, lon: first.lon, id: it.id, said: {} });
     });
     route._restr.cum = cum;
     found.sort((a, b) => a.along - b.along);
@@ -9389,7 +9272,7 @@
       const prev = list[list.length - 1];
       if(prev && prev.kind === r.kind && r.along - prev.along < 60){
         if(r.to > prev.to) prev.to = r.to;
-        if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; prev.admin = r.admin; }
+        if((r.sev === "danger" && prev.sev !== "danger") || (r.sev === prev.sev && r.value < prev.value)){ prev.sev = r.sev; prev.value = r.value; prev.id = r.id; }
       } else list.push(r);
     });
     list.forEach(r => restrictionVerifyInit(route, r));
@@ -9420,7 +9303,7 @@
   }
   function restrVerdictKey(r){ return r.id + "|" + r.lat.toFixed(4) + "," + r.lon.toFixed(4); }
   function restrictionVerifyInit(route, r){
-    if(r.admin || r.lat == null || r.lon == null){ r.ok = true; return; }   // znak administratora jest pewny — bez weryfikacji w Overpass
+    if(r.lat == null || r.lon == null){ r.ok = true; return; }
     const k = restrVerdictKey(r);
     if(k in restrVerdicts){ r.ok = restrVerdicts[k]; return; }
     r.ok = null;                                                   // oczekuje na weryfikację
@@ -11603,7 +11486,6 @@
     updateCompassBtn();
     map.on("zoom", updateReportBtnVisibility);
     try{ loadPlaceNames(); }catch(e){ console.warn("Nazwy budynków:", e); }
-    try{ loadAdminData(); }catch(e){ console.warn("Dane administratora:", e); }
     map.on("load", updateReportBtnVisibility);
     updateReportBtnVisibility();
   }
@@ -12026,55 +11908,27 @@
 <script>
 /* ===== js/43-avatar-3d-model.js — Prawdziwe modele 3D awatarów (własny rasteryzator na <canvas>, bez bibliotek) =====
    Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
-   W widoku 3D awatar jest renderowany jako bryła (loft przekrojów + walce kół) z materiałami (lakier, szkło, chrom, guma,
-   skóra), oświetleniem z odbiciem nieba, połyskiem, przyciemnieniem przy ziemi i rzucanym cieniem.
-   Aligator jest ANIMOWANY: fala ciała i ogona, krok łap (chód po przekątnej), kołysanie głowy — tempo zależy od prędkości.
-   Marker jest wtedy przełączany na wyrównanie do ekranu. */
+   W widoku 3D awatar jest renderowany jako gładka bryła (loft przekrojów + walce kół), oświetlona i cieniowana,
+   obracana wg kierunku jazdy i nachylenia kamery mapy. Marker przełączany jest wtedy na wyrównanie do ekranu. */
 "use strict";
-
-  /* ---------- materiały i światło ---------- */
-  const AVM_M_MATTE = 0, AVM_M_PAINT = 1, AVM_M_GLASS = 2, AVM_M_METAL = 3, AVM_M_RUBBER = 4, AVM_M_SKIN = 5, AVM_M_LIGHT = 6;
-  // sp — siła połysku, sh — ostrość, env — odbicie nieba (rośnie ku górze), emit — świeci własnym światłem (lampy)
-  const AVM_MATS = [
-    { sp: 0,   sh: 1,  env: 0 },        // matowy
-    { sp: .55, sh: 38, env: .10 },      // lakier
-    { sp: .95, sh: 80, env: .32 },      // szkło
-    { sp: .85, sh: 46, env: .22 },      // chrom / aluminium
-    { sp: .05, sh: 5,  env: 0 },        // guma
-    { sp: .22, sh: 16, env: .04 },      // skóra (wilgotna)
-    { emit: 1 }                         // lampy
-  ];
-  const AVM_SKY = [176, 204, 236];
 
   /* ---------- geometria ---------- */
   // układ: x — w prawo, y — do przodu, z — w górę (metry)
-  const AVM_RING_PTS = 4;    // punkty na zaokrąglony róg przekroju (pierścień = 4·(n+1) punktów)
+  const AVM_RING_PTS = 4;    // punkty na zaokrąglony róg przekroju
   function avmShadeHex(hex, f){
     const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if(!m) return [128, 128, 128];
     const n = parseInt(m[1], 16);
     return [((n >> 16) & 255) * f, ((n >> 8) & 255) * f, (n & 255) * f];
   }
   function avmHex(hex){ return avmShadeHex(hex, 1); }
-  function avmLerp(a, b, t){ return a + (b - a) * t; }
-  function avmMix(c1, c2, t){ return [avmLerp(c1[0], c2[0], t), avmLerp(c1[1], c2[1], t), avmLerp(c1[2], c2[2], t)]; }
-  function avmScale(c, f){ return [c[0] * f, c[1] * f, c[2] * f]; }
   function avmRing(st){
-    // przekrój: zaokrąglony prostokąt (domyślnie) albo superelipsa (st.e: 2 = elipsa, >2 = bardziej „kwadratowa"); st.x — przesunięcie boczne
-    const cx = st.x || 0, hw = st.w / 2, zb = st.zb, zt = st.zt, out = [];
-    if(st.e){
-      const N = (AVM_RING_PTS + 1) * 4, zc = (zb + zt) / 2, hh = (zt - zb) / 2, p = 2 / st.e;
-      for(let i = 0; i < N; i++){
-        const a = i / N * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-        out.push([cx + hw * Math.sign(c) * Math.pow(Math.abs(c), p), st.y, zc + hh * Math.sign(s) * Math.pow(Math.abs(s), p)]);
-      }
-      return out;
-    }
-    const r = Math.max(0.001, Math.min(st.r == null ? 0.2 : st.r, hw, (zt - zb) / 2));
-    const corners = [[cx + hw - r, zb + r, -90], [cx + hw - r, zt - r, 0], [cx - hw + r, zt - r, 90], [cx - hw + r, zb + r, 180]];
-    corners.forEach(([ccx, ccz, a0]) => {
+    // zaokrąglony prostokąt (x,z) wokół środka przekroju; kolejność: od prawego dolnego rogu przeciwnie do ruchu wskazówek (patrząc z przodu)
+    const hw = st.w / 2, zb = st.zb, zt = st.zt, r = Math.max(0.001, Math.min(st.r == null ? 0.2 : st.r, hw, (zt - zb) / 2));
+    const out = [], corners = [[hw - r, zb + r, -90], [hw - r, zt - r, 0], [-hw + r, zt - r, 90], [-hw + r, zb + r, 180]];
+    corners.forEach(([cx, cz, a0]) => {
       for(let i = 0; i <= AVM_RING_PTS; i++){
         const a = (a0 + 90 * i / AVM_RING_PTS) * Math.PI / 180;
-        out.push([ccx + r * Math.cos(a), st.y, ccz + r * Math.sin(a)]);
+        out.push([(st.x || 0) + cx + r * Math.cos(a), st.y, cz + r * Math.sin(a)]);
       }
     });
     return out;
@@ -12083,353 +11937,165 @@
   function avmCross(a, b){ return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
   function avmNorm(v){ const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
   function avmCenter(pts){ const c = [0, 0, 0]; pts.forEach(p => { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }); return c.map(v => v / pts.length); }
-  // dodaje ścianę; normalna zawsze „na zewnątrz" względem punktu centrum. colorFn(n, środek) → [r,g,b] lub [r,g,b,materiał]
+  // dodaje ścianę; normalna zawsze „na zewnątrz" względem punktu centrum
   function avmFace(faces, pts, centre, colorFn, extra){
     const n0 = avmNorm(avmCross(avmSub(pts[1], pts[0]), avmSub(pts[2], pts[0])));
     const fc = avmCenter(pts), out = avmSub(fc, centre);
     const n = (n0[0] * out[0] + n0[1] * out[1] + n0[2] * out[2]) < 0 ? [-n0[0], -n0[1], -n0[2]] : n0;
-    const col = colorFn(n, fc);
-    let m = extra && extra.m !== undefined ? extra.m : AVM_M_MATTE; if(col.length > 3) m = col[3];
-    faces.push(Object.assign({ pts, n, col, zc: fc[2] }, extra || {}, { m }));
-  }
-  // płaska nakładka (kreski, żebra, tablice) — jedna ściana z jawną normalną; b — przesunięcie głębi, żeby leżała NA bryle
-  function avmPlate(faces, pts, n, col, m, b){
-    faces.push({ pts, n, col, m: m === undefined ? AVM_M_MATTE : m, zc: avmCenter(pts)[2], b: b || 1.2 });
-  }
-  // zagęszcza przekroje (lepsze sortowanie i gładsze cieniowanie długich brył)
-  function avmSubdiv(sts, step){
-    const out = [];
-    for(let i = 0; i < sts.length - 1; i++){
-      const a = sts[i], b = sts[i + 1], n = Math.max(1, Math.round(Math.abs(b.y - a.y) / step));
-      for(let k = 0; k < n; k++){
-        const t = k / n, o = {};
-        Object.keys(a).forEach(key => { o[key] = (typeof a[key] === "number" && typeof b[key] === "number") ? avmLerp(a[key], b[key], t) : a[key]; });
-        out.push(o);
-      }
-    }
-    out.push(sts[sts.length - 1]); return out;
+    faces.push(Object.assign({ pts, n, cz: fc[2], col: colorFn(n, fc) }, extra || {}));
   }
   // loft: kolejne przekroje wzdłuż osi y → gładka bryła (karoseria, naczepa, tułów)
-  function avmLoft(faces, stations, colorFn, mat){
+  function avmLoft(faces, stations, colorFn){
     const rings = stations.map(avmRing);
     const cen = avmCenter([].concat.apply([], rings));
-    const ex = { m: mat === undefined ? AVM_M_PAINT : mat };
     for(let i = 0; i < rings.length - 1; i++){
       const A = rings[i], B = rings[i + 1];
       for(let j = 0; j < A.length; j++){
         const k = (j + 1) % A.length;
-        avmFace(faces, [A[j], A[k], B[k], B[j]], cen, colorFn, ex);
+        avmFace(faces, [A[j], A[k], B[k], B[j]], cen, colorFn);
       }
     }
-    [rings[0], rings[rings.length - 1]].forEach(r => avmFace(faces, r.slice(), cen, colorFn, ex));
+    [rings[0], rings[rings.length - 1]].forEach(r => avmFace(faces, r.slice(), cen, colorFn));
   }
-  // przekrój (interpolacja) w dowolnym y — do ustawiania dodatków na bryle
-  function avmStAt(sts, y){
-    let best = null, bd = Infinity;
-    for(let i = 0; i < sts.length - 1; i++){
-      const a = sts[i], b = sts[i + 1];
-      if((y <= a.y && y >= b.y) || (y >= a.y && y <= b.y)){
-        const t = a.y === b.y ? 0 : (y - a.y) / (b.y - a.y);
-        return { w: avmLerp(a.w, b.w, t), zt: avmLerp(a.zt, b.zt, t), zb: avmLerp(a.zb, b.zb, t), x: avmLerp(a.x || 0, b.x || 0, t) };
-      }
-    }
-    sts.forEach(s => { const d = Math.abs(s.y - y); if(d < bd){ bd = d; best = s; } });
-    return { w: best.w, zt: best.zt, zb: best.zb, x: best.x || 0 };
-  }
-  // walec o osi x (koło): opona z bieżnikiem, boczna ściana, felga ze szprychami, kołpak
-  function avmWheel(faces, cx, cy, cz, r, w, o){
-    o = o || {};
-    const N = 20, tire = o.tire || AVM_TIRE, side = o.side || [48, 50, 55], hub = o.hub || AVM_HUB, cap = o.cap || [84, 90, 96];
-    const cen = [cx, cy, cz], ring = (rr, a) => [cy + rr * Math.cos(a), cz + rr * Math.sin(a)];
-    const rub = { m: AVM_M_RUBBER }, met = { m: AVM_M_METAL };
+  // walec o osi x (koło): środek (cx,cy,cz), promień r, szerokość w
+  function avmWheel(faces, cx, cy, cz, r, w, tire, hub){
+    const N = 14, ring = a => [cy + r * Math.cos(a), cz + r * Math.sin(a)];
+    const cen = [cx, cy, cz];
     for(let i = 0; i < N; i++){
-      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, p0 = ring(r, a0), p1 = ring(r, a1), tc = avmScale(tire, i % 2 ? 1 : 1.18);
-      avmFace(faces, [[cx - w / 2, p0[0], p0[1]], [cx + w / 2, p0[0], p0[1]], [cx + w / 2, p1[0], p1[1]], [cx - w / 2, p1[0], p1[1]]], cen, () => tc, rub);
+      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, p0 = ring(a0), p1 = ring(a1);
+      avmFace(faces, [[cx - w / 2, p0[0], p0[1]], [cx + w / 2, p0[0], p0[1]], [cx + w / 2, p1[0], p1[1]], [cx - w / 2, p1[0], p1[1]]], cen, () => tire);
     }
     [-1, 1].forEach(sd => {
-      const x = cx + sd * w / 2;
-      for(let i = 0; i < N; i++){   // boczna ściana opony (pierścień)
-        const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, o0 = ring(r * .99, a0), o1 = ring(r * .99, a1), i0 = ring(r * .66, a0), i1 = ring(r * .66, a1);
-        avmFace(faces, [[x, o0[0], o0[1]], [x, o1[0], o1[1]], [x, i1[0], i1[1]], [x, i0[0], i0[1]]], cen, () => side, Object.assign({ b: .02 }, rub));
-      }
-      const disc = []; for(let i = 0; i < N; i++){ const p = ring(r * .66, i / N * Math.PI * 2); disc.push([x + sd * .004, p[0], p[1]]); }
-      avmFace(faces, disc, cen, () => hub, Object.assign({ b: .05 }, met));        // felga
-      const spokes = o.spokes || 0;
-      for(let k = 0; k < spokes; k++){                                              // szprychy (ciemniejsze, lekko wypukłe)
-        const a = k / spokes * Math.PI * 2, da = Math.PI / spokes * .42, p0 = ring(r * .2, a - da), p1 = ring(r * .2, a + da), p2 = ring(r * .62, a + da * .7), p3 = ring(r * .62, a - da * .7);
-        avmFace(faces, [p0, p1, p2, p3].map(p => [x + sd * .009, p[0], p[1]]), cen, () => avmScale(hub, .62), Object.assign({ b: .08 }, met));
-      }
-      const hc = []; for(let i = 0; i < 12; i++){ const p = ring(r * .22, i / 12 * Math.PI * 2); hc.push([x + sd * .014, p[0], p[1]]); }
-      avmFace(faces, hc, cen, () => cap, Object.assign({ b: .1 }, met));           // kołpak
+      const pts = []; for(let i = 0; i < N; i++){ const p = ring(i / N * Math.PI * 2); pts.push([cx + sd * w / 2, p[0], p[1]]); }
+      avmFace(faces, pts, cen, () => tire);
+      const hp = []; for(let i = 0; i < N; i++){ const a = i / N * Math.PI * 2; hp.push([cx + sd * (w / 2 + .01), cy + r * .55 * Math.cos(a), cz + r * .55 * Math.sin(a)]); }
+      avmFace(faces, hp, cen, () => hub);
     });
   }
-  // prostopadłościan; mat — materiał
-  function avmBox(faces, x0, x1, y0, y1, z0, z1, col, mat){
-    const P = (x, y, z) => [x, y, z], cen = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], cf = () => col, ex = { m: mat === undefined ? AVM_M_MATTE : mat };
-    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y1,z0), P(x0,y1,z0)], cen, cf, ex);
-    avmFace(faces, [P(x0,y0,z1), P(x1,y0,z1), P(x1,y1,z1), P(x0,y1,z1)], cen, cf, ex);
-    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y0,z1), P(x0,y0,z1)], cen, cf, ex);
-    avmFace(faces, [P(x0,y1,z0), P(x1,y1,z0), P(x1,y1,z1), P(x0,y1,z1)], cen, cf, ex);
-    avmFace(faces, [P(x0,y0,z0), P(x0,y1,z0), P(x0,y1,z1), P(x0,y0,z1)], cen, cf, ex);
-    avmFace(faces, [P(x1,y0,z0), P(x1,y1,z0), P(x1,y1,z1), P(x1,y0,z1)], cen, cf, ex);
+  // prosty prostopadłościan (światła, szczegóły)
+  function avmBox(faces, x0, x1, y0, y1, z0, z1, col){
+    const P = (x, y, z) => [x, y, z], cen = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], cf = () => col;
+    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y1,z0), P(x0,y1,z0)], cen, cf);
+    avmFace(faces, [P(x0,y0,z1), P(x1,y0,z1), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
+    avmFace(faces, [P(x0,y0,z0), P(x1,y0,z0), P(x1,y0,z1), P(x0,y0,z1)], cen, cf);
+    avmFace(faces, [P(x0,y1,z0), P(x1,y1,z0), P(x1,y1,z1), P(x0,y1,z1)], cen, cf);
+    avmFace(faces, [P(x0,y0,z0), P(x0,y1,z0), P(x0,y1,z1), P(x0,y0,z1)], cen, cf);
+    avmFace(faces, [P(x1,y0,z0), P(x1,y1,z0), P(x1,y1,z1), P(x1,y0,z1)], cen, cf);
   }
-  // to samo, ale po stronie sd (+1 prawa, −1 lewa): zakres x podajemy jak dla prawej strony
-  function avmBoxM(faces, sd, x0, x1, y0, y1, z0, z1, col, mat){
-    avmBox(faces, Math.min(sd * x0, sd * x1), Math.max(sd * x0, sd * x1), y0, y1, z0, z1, col, mat);
-  }
+
   // pryzma: wielokąt 2D w planie (x,y) wyciągnięty w pionie od z0 do z1
-  function avmPrism(faces, poly, z0, z1, col, colTop, mat){
+  function avmPrism(faces, poly, z0, z1, col, colTop){
     const cen = avmCenter(poly.map(p => [p[0], p[1], (z0 + z1) / 2]));
-    const n = poly.length, ex = { m: mat === undefined ? AVM_M_MATTE : mat };
+    const n = poly.length;
     for(let i = 0; i < n; i++){ const a = poly[i], b = poly[(i + 1) % n];
-      avmFace(faces, [[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]], cen, () => col, ex); }
-    avmFace(faces, poly.map(p => [p[0], p[1], z1]), cen, () => colTop || col, ex);
-  }
-  // walec poziomy wzdłuż osi y (zbiornik paliwa)
-  function avmCylY(faces, cx, y0, y1, cz, r, col, mat){
-    const N = 12, cen = [cx, (y0 + y1) / 2, cz], ex = { m: mat === undefined ? AVM_M_METAL : mat };
-    for(let i = 0; i < N; i++){
-      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, x0 = cx + r * Math.cos(a0), z0 = cz + r * Math.sin(a0), x1 = cx + r * Math.cos(a1), z1 = cz + r * Math.sin(a1);
-      avmFace(faces, [[x0, y0, z0], [x0, y1, z0], [x1, y1, z1], [x1, y0, z1]], cen, () => col, ex);
-    }
-    [y0, y1].forEach(yy => { const p = []; for(let i = 0; i < N; i++){ const a = i / N * Math.PI * 2; p.push([cx + r * Math.cos(a), yy, cz + r * Math.sin(a)]); } avmFace(faces, p, cen, () => col, ex); });
-  }
-  // walec pionowy (komin wydechowy)
-  function avmCylZ(faces, cx, cy, z0, z1, r, col, mat){
-    const poly = []; for(let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2; poly.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
-    avmPrism(faces, poly, z0, z1, col, col, mat === undefined ? AVM_M_METAL : mat);
-  }
-  // grube odcinki (kończyny): czworokąt wokół odcinka p0→p1 o szerokościach w0 → w1
-  function avmThick(p0, p1, w0, w1){
-    const dx = p1[0] - p0[0], dy = p1[1] - p0[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
-    return [[p0[0] + nx * w0 / 2, p0[1] + ny * w0 / 2], [p1[0] + nx * w1 / 2, p1[1] + ny * w1 / 2], [p1[0] - nx * w1 / 2, p1[1] - ny * w1 / 2], [p0[0] - nx * w0 / 2, p0[1] - ny * w0 / 2]];
+      avmFace(faces, [[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]], cen, () => col); }
+    avmFace(faces, poly.map(p => [p[0], p[1], z1]), cen, () => colTop || col);
+    avmFace(faces, poly.map(p => [p[0], p[1], z0]), cen, () => col);
   }
 
   /* ---------- modele ---------- */
-  const AVM_GLASS = [30, 48, 62, AVM_M_GLASS], AVM_TIRE = [24, 26, 29], AVM_HUB = [166, 174, 180], AVM_DARK = [30, 34, 38];
-  const AVM_LAMP = [255, 246, 205, AVM_M_LIGHT], AVM_TAIL = [232, 38, 38, AVM_M_LIGHT], AVM_AMBER = [255, 172, 20, AVM_M_LIGHT];
-
-  /* --- aligator: dane przekrojów (od pyska y=+3.1 do końca ogona y=−4.0); e — „kwadratowość" przekroju --- */
-  const AVM_GATOR_Y0 = 3.1, AVM_GATOR_LEN = 7.1;
-  const AVM_GATOR_ST = [
-    { y: 3.10, w: .30, zb: .12, zt: .20, e: 2 }, { y: 3.03, w: .48, zb: .10, zt: .25, e: 2 }, { y: 2.85, w: .58, zb: .10, zt: .28, e: 2.1 }, { y: 2.4, w: .62, zb: .10, zt: .30, e: 2.2 },
-    { y: 2.0, w: .74, zb: .10, zt: .33, e: 2.2 }, { y: 1.72, w: .96, zb: .10, zt: .46, e: 2.2 }, { y: 1.42, w: 1.06, zb: .10, zt: .58, e: 2.2 }, { y: 1.1, w: 1.0, zb: .10, zt: .62, e: 2.2 },
-    { y: .78, w: 1.04, zb: .10, zt: .66, e: 2.3 }, { y: .40, w: 1.22, zb: .10, zt: .80, e: 2.5 }, { y: -.10, w: 1.34, zb: .10, zt: .90, e: 2.7 }, { y: -.70, w: 1.38, zb: .10, zt: .92, e: 2.8 },
-    { y: -1.20, w: 1.32, zb: .10, zt: .88, e: 2.7 }, { y: -1.60, w: 1.18, zb: .10, zt: .78, e: 2.5 }, { y: -2.0, w: .98, zb: .10, zt: .66, e: 2.3 }, { y: -2.4, w: .78, zb: .10, zt: .54, e: 2.1 },
-    { y: -2.85, w: .54, zb: .10, zt: .42, e: 2 }, { y: -3.3, w: .36, zb: .10, zt: .32, e: 2 }, { y: -3.7, w: .22, zb: .10, zt: .22, e: 2 }, { y: -4.0, w: .10, zb: .10, zt: .15, e: 2 }
-  ];
-  // oś kręgosłupa: fala biegnąca od głowy do ogona, amplituda rośnie ku ogonowi
-  function avmGatorSpine(y, an){
-    const s = (AVM_GATOR_Y0 - y) / AVM_GATOR_LEN;
-    return (.07 + .2 * an.amp) * (.1 + 1.15 * s * s) * Math.sin(an.ph - s * 5.2) + .04 * Math.sin(an.t * .9 - s * 2) * s;
-  }
-  const AVM_G_DORSAL = [40, 56, 26], AVM_G_MID = [76, 100, 42], AVM_G_FLANK = [124, 138, 68], AVM_G_BELLY = [196, 190, 128], AVM_G_BAND = [26, 36, 17];
-  function avmGatorColor(n, fc){
-    // łaty skóry (powolny szum zależny od położenia) + prążki na ogonie + jasna linia pyska
-    const nz = Math.sin(fc[0] * 6.1 + fc[1] * 2.3) * Math.sin(fc[1] * 4.7 - fc[0] * 1.9);
-    let c;
-    if(n[2] < -.25) c = AVM_G_BELLY;
-    else { const t = Math.min(1, Math.max(0, n[2]) * 1.2); c = t < .5 ? avmMix(AVM_G_FLANK, AVM_G_MID, t * 2) : avmMix(AVM_G_MID, AVM_G_DORSAL, (t - .5) * 2); }
-    if(fc[1] < -1.5 && n[2] > -.25 && Math.floor(-fc[1] * 2.6) % 2) c = avmMix(c, AVM_G_BAND, .55);
-    if(fc[1] > 1.9 && fc[2] < .17 && n[2] > -.25 && n[2] < .55) c = [214, 208, 150];
-    const br = 1 + .13 * nz;
-    return [c[0] * br, c[1] * br, c[2] * br, AVM_M_SKIN];
-  }
-  // łapa: udo + podudzie + stopa z palcami. Krok: wymach w planie + podniesienie w fazie przenoszenia.
-  function avmGatorLeg(faces, hx, hy, sd, front, an){
-    const off = ((sd > 0) === front) ? 0 : Math.PI;                 // chód po przekątnej: przód-prawa + tył-lewa razem
-    const phase = an.ph + off, swing = an.amp * .62 * Math.sin(phase), lift = an.amp * Math.max(0, Math.cos(phase)) * .12;
-    const au = (front ? -.52 : .52) + swing, af = (front ? .62 : -.7) + swing;   // kąty (rad) od osi „na zewnątrz", dodatni = do przodu
-    const dir = a => [sd * Math.cos(a), Math.sin(a)];
-    const du = dir(au), df = dir(af);
-    const H = [hx, hy], E = [hx + du[0] * .56, hy + du[1] * .56], W = [E[0] + df[0] * .5, E[1] + df[1] * .5];
-    const top = [100, 124, 54], side = [78, 100, 42], z0 = .1 + lift;
-    avmPrism(faces, avmThick(H, E, .26, .19), z0, z0 + .24, side, top, AVM_M_SKIN);
-    avmPrism(faces, avmThick(E, W, .19, .14), z0, z0 + .17, side, top, AVM_M_SKIN);
-    // stopa: płetwa z czterema palcami
-    const tips = [-.55, -.18, .18, .55].map(d => { const v = dir(af + d); return [W[0] + v[0] * .3, W[1] + v[1] * .3]; });
-    const pp = [-df[1], df[0]], foot = [[W[0] + pp[0] * .07, W[1] + pp[1] * .07]];
-    for(let i = 0; i < 4; i++){
-      foot.push(tips[i]);
-      if(i < 3){ const mx = (tips[i][0] + tips[i + 1][0]) / 2, my = (tips[i][1] + tips[i + 1][1]) / 2; foot.push([W[0] + (mx - W[0]) * .62, W[1] + (my - W[1]) * .62]); }
-    }
-    foot.push([W[0] - pp[0] * .07, W[1] - pp[1] * .07]);
-    avmPrism(faces, foot, z0 - .02, z0 + .07, side, top, AVM_M_SKIN);
-    tips.forEach(t => avmBox(faces, t[0] - .02, t[0] + .02, t[1] - .02, t[1] + .02, z0 + .05, z0 + .09, [226, 222, 196]));   // pazury
-  }
-  function avmGatorBuild(faces, c, an){
-    an = an || { ph: 0, amp: 0, t: 0 };
-    const sts = AVM_GATOR_ST.map(s => ({ y: s.y, w: s.w, zb: s.zb, zt: s.zt, e: s.e, x: avmGatorSpine(s.y, an) }));
-    // oddychanie: tułów lekko się unosi i opada
-    const br = .012 * Math.sin(an.t * 2.2);
-    sts.forEach(s => { if(s.y < 1.4 && s.y > -1.8) s.zt += br; });
-    avmLoft(faces, avmSubdiv(sts, .5), avmGatorColor, AVM_M_SKIN);
-    const sx = y => avmGatorSpine(y, an);
-    // nogi: dwie pary
-    [[.62, true], [-1.45, false]].forEach(([y, front]) => [-1, 1].forEach(sd => {
-      const s = avmStAt(sts, y); avmGatorLeg(faces, s.x + sd * (s.w / 2 - .12), y, sd, front, an);
-    }));
-    // grzbiet: dwa rzędy kostnych płytek, za biodrami łączą się w jeden grzebień
-    const scute = (x, y, len, wid, h, tone) => {
-      const s = avmStAt(sts, y), z = s.zt - .03;
-      avmPrism(faces, [[x - wid, y], [x, y + len], [x + wid, y], [x, y - len * .7]], z, z + h, avmScale(AVM_G_DORSAL, tone * .85), avmScale(AVM_G_DORSAL, tone * 1.45), AVM_M_SKIN);
-    };
-    for(let y = 1.0; y > -3.25; y -= .3){
-      const s = avmStAt(sts, y), h = .075 + .06 * Math.min(1, (y + 3.4) / 2.2), tone = .9 + .2 * Math.abs(Math.sin(y * 9));
-      if(y > -1.95){ const dx = s.w * .13; scute(s.x - dx, y, .13, .075, h, tone); scute(s.x + dx, y, .13, .075, h, tone); }
-      else scute(s.x, y, .15, .085, h * 1.15, tone);
-    }
-    // głowa: oczy na wyniesionych łukach brwiowych, nozdrza, zęby
-    const hs = avmStAt(sts, 1.5);
-    [-1, 1].forEach(sd => {
-      const ex = hs.x + sd * .29, ez = hs.zt - .01;
-      avmBox(faces, ex - .14, ex + .14, 1.34, 1.68, ez - .02, ez + .11, avmMix(AVM_G_MID, AVM_G_DORSAL, .4), AVM_M_SKIN);   // łuk brwiowy
-      avmBox(faces, ex - .09, ex + .09, 1.4, 1.62, ez + .09, ez + .125, [222, 182, 38], AVM_M_GLASS);                     // tęczówka
-      avmBox(faces, ex - .018, ex + .018, 1.4, 1.62, ez + .123, ez + .135, [14, 16, 8]);                                 // źrenica (szczelina)
-      const ns = avmStAt(sts, 3.0);
-      avmBox(faces, ns.x + sd * .08 - .04, ns.x + sd * .08 + .04, 2.94, 3.05, ns.zt - .01, ns.zt + .04, [22, 28, 14], AVM_M_SKIN);   // nozdrze
-      for(let y = 1.95; y < 2.95; y += .2){                                                                              // zęby wystające przy pysku
-        const s = avmStAt(sts, y), tx = s.x + sd * s.w / 2;
-        avmBox(faces, Math.min(tx, tx + sd * .035), Math.max(tx, tx + sd * .035), y, y + .045, .12, .2, [236, 232, 205]);
-      }
-    });
-  }
-
+  const AVM_GLASS = [34, 52, 66], AVM_TIRE = [24, 26, 29], AVM_HUB = [150, 158, 164], AVM_DARK = [30, 34, 38];
   const AVM_MODELS = {
-    // SUV / pick-up (jak w nawigacjach samochodowych)
-    car: { len: 4.5, view: 4.5, h: 1.9, build: (faces, c) => {
-      const body = avmHex(c), trim = [40, 44, 49];
-      avmLoft(faces, avmSubdiv([
+    // kompaktowy pick-up / terenówka (jak w nawigacjach samochodowych)
+    car: { len: 4.5, view: 4.5, build: (faces, c) => {
+      const body = avmHex(c);
+      const bodyCol = n => body;
+      avmLoft(faces, [
         { y:-2.25, w:1.55, zb:.42, zt:.95, r:.3 }, { y:-2.1, w:1.84, zb:.32, zt:1.08, r:.32 }, { y:-0.75, w:1.92, zb:.3, zt:1.1, r:.3 },
         { y:0.5, w:1.92, zb:.3, zt:1.08, r:.3 }, { y:1.6, w:1.88, zb:.3, zt:1.0, r:.32 }, { y:2.15, w:1.7, zb:.36, zt:.82, r:.3 }, { y:2.27, w:1.46, zb:.42, zt:.66, r:.25 }
-      ], .8), n => body);
-      // kabina: szyby po bokach i z przodu/tyłu, słupki i dach w kolorze karoserii
+      ], bodyCol);
+      // kabina: szyby po bokach i z przodu, dach w kolorze karoserii
       avmLoft(faces, [
-        { y:-0.55, w:1.78, zb:1.06, zt:1.12, r:.05 }, { y:-0.45, w:1.7, zb:1.06, zt:1.78, r:.28 }, { y:-0.1, w:1.68, zb:1.06, zt:1.8, r:.28 }, { y:0.12, w:1.68, zb:1.06, zt:1.8, r:.28 },
-        { y:0.55, w:1.66, zb:1.06, zt:1.8, r:.28 }, { y:1.18, w:1.5, zb:1.04, zt:1.26, r:.15 }, { y:1.24, w:1.4, zb:1.02, zt:1.06, r:.04 }
-      ], (n, fc) => (n[2] > .75 || (Math.abs(fc[1] - .01) < .14 && Math.abs(n[0]) > .6) ? avmScale(body, .96) : AVM_GLASS));
-      avmBox(faces, -.78, .78, -2.05, -.7, 1.07, 1.12, AVM_DARK);                                          // skrzynia ładunkowa
-      avmBox(faces, -.9, .9, -.72, -.5, 1.8, 1.9, [50, 56, 62]); avmBox(faces, -.88, -.78, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, .78, .88, -.7, -.5, 1.12, 1.9, [50, 56, 62]);   // pałąk
-      [-1, 1].forEach(sd => {
-        avmBoxM(faces, sd, .5, .88, -2.34, -2.25, .55, .8, AVM_TAIL);                                       // tylne światła
-        avmBoxM(faces, sd, .46, .84, 2.26, 2.31, .5, .68, AVM_LAMP);                                        // przednie światła
-        avmBoxM(faces, sd, .92, 1.16, 1.0, 1.22, 1.22, 1.38, avmScale(body, .85), AVM_M_PAINT);            // lusterka
-        avmBoxM(faces, sd, .95, 1.0, .98, 1.04, 1.12, 1.26, trim);                                          // ramiona lusterek
-        avmBoxM(faces, sd, 0, .96, -1.4, 1.5, .32, .38, trim);                                              // progi
-        avmBoxM(faces, sd, .62, .8, -2.34, -2.31, 1.0, 1.08, [240, 220, 40]);
-      });
-      avmBox(faces, -.62, .62, 2.27, 2.31, .44, .6, AVM_DARK);                                              // grill
-      avmBox(faces, -.5, .5, 2.31, 2.325, .47, .57, [150, 156, 162], AVM_M_METAL);                           // listwa chromowa
-      avmBox(faces, -.9, .9, 2.2, 2.34, .3, .4, [60, 66, 72]); avmBox(faces, -.95, .95, -2.34, -2.2, .3, .4, [60, 66, 72]);   // zderzaki
-      avmBox(faces, -.26, .26, 2.335, 2.345, .4, .5, [236, 236, 236]);                                       // tablica przednia
-      avmBox(faces, -.26, .26, -2.345, -2.335, .55, .65, [240, 200, 40]);                                    // tablica tylna (UK — żółta)
-      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .44, .44, .32, { spokes: 5 }));
+        { y:-0.55, w:1.78, zb:1.06, zt:1.12, r:.05 }, { y:-0.45, w:1.7, zb:1.06, zt:1.78, r:.28 }, { y:0.55, w:1.66, zb:1.06, zt:1.8, r:.28 },
+        { y:1.18, w:1.5, zb:1.04, zt:1.26, r:.15 }, { y:1.24, w:1.4, zb:1.02, zt:1.06, r:.04 }
+      ], (n) => (n[2] > .75 ? body.map(v => v * .95) : AVM_GLASS));
+      avmBox(faces, -.78, .78, -2.05, -.7, 1.07, 1.12, AVM_DARK);                         // skrzynia ładunkowa
+      avmBox(faces, -.86, -.5, -2.31, -2.25, .55, .8, [230, 40, 40]); avmBox(faces, .5, .86, -2.31, -2.25, .55, .8, [230, 40, 40]);   // tylne światła
+      avmBox(faces, -.82, -.48, 2.26, 2.3, .52, .68, [255, 246, 205]); avmBox(faces, .48, .82, 2.26, 2.3, .52, .68, [255, 246, 205]); // przednie światła
+      avmBox(faces, -.62, .62, 2.27, 2.31, .44, .6, AVM_DARK);                              // grill
+      avmBox(faces, -.9, .9, 2.2, 2.34, .3, .4, [60, 66, 72]);                              // zderzak
+      avmBox(faces, -.95, .95, -2.34, -2.2, .3, .4, [60, 66, 72]);
+      avmBox(faces, -1.16, -.93, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); avmBox(faces, .93, 1.16, 1.0, 1.22, 1.22, 1.38, body.map(v => v * .85)); // lusterka
+      avmBox(faces, -.82, -.74, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, .74, .82, -.7, -.5, 1.12, 1.9, [50, 56, 62]); avmBox(faces, -.82, .82, -.7, -.5, 1.82, 1.9, [50, 56, 62]); // pałąk
+      [[-.98, 1.4], [.98, 1.4], [-.98, -1.35], [.98, -1.35]].forEach(([x, y]) => avmWheel(faces, x, y, .44, .44, .32, AVM_TIRE, AVM_HUB));
     } },
     // ciągnik siodłowy z naczepą 44 t (6 osi): długi zestaw
-    truck: { len: 16.5, view: 10, h: 4.2, build: (faces, c) => {
-      const cab = avmHex(c), white = [243, 246, 247], alu = [188, 195, 200];
-      // podwozie: podłużnice, poprzeczki, siodło
-      [-1, 1].forEach(sd => avmBoxM(faces, sd, .3, .6, -8.1, 8.0, .55, .95, AVM_DARK));
-      for(let y = -7.5; y < 8; y += 1.6) avmBox(faces, -.6, .6, y, y + .12, .6, .85, AVM_DARK);
-      avmPrism(faces, Array.from({ length: 14 }, (_, i) => [Math.cos(i / 14 * 6.2832) * .62, 2.7 + Math.sin(i / 14 * 6.2832) * .62]), .93, 1.02, [70, 76, 82], [96, 102, 108], AVM_M_METAL);
-      // kabina: dół (zderzak/progi) i góra (szyby, dach)
-      avmLoft(faces, [{ y:8.27, w:2.3, zb:.85, zt:2.0, r:.35 }, { y:8.15, w:2.5, zb:.8, zt:2.02, r:.3 }, { y:5.4, w:2.5, zb:.85, zt:2.0, r:.2 }], () => cab);
-      avmLoft(faces, [{ y:8.1, w:2.3, zb:1.95, zt:2.95, r:.25 }, { y:7.85, w:2.46, zb:1.95, zt:3.35, r:.3 }, { y:7.1, w:2.5, zb:1.95, zt:3.62, r:.3 }, { y:6.0, w:2.5, zb:1.95, zt:3.68, r:.28 }, { y:5.35, w:2.48, zb:1.95, zt:3.5, r:.25 }],
-        (n, fc) => (n[1] > .45 ? AVM_GLASS : (Math.abs(n[0]) > .6 && fc[2] > 2.3 && fc[2] < 3.3 && fc[1] > 6.5 ? AVM_GLASS : (n[2] > .7 ? avmScale(cab, 1.08) : cab))));
-      // deflektor dachowy, spojler boczny, światła obrysowe
-      avmLoft(faces, [{ y:7.2, w:2.2, zb:3.5, zt:3.72, r:.08 }, { y:6.3, w:2.2, zb:3.55, zt:4.35, r:.12 }, { y:5.5, w:2.2, zb:3.55, zt:4.3, r:.1 }], () => avmScale(cab, .92));
+    truck: { len: 16.5, view: 10, build: (faces, c) => {
+      const cab = avmHex(c), white = [243, 246, 247];
+      avmBox(faces, -.55, .55, -8.1, 8.0, .55, .95, AVM_DARK);                           // rama podwozia
+      // kabina
+      avmLoft(faces, [{ y:8.25, w:2.3, zb:.9, zt:1.9, r:.3 }, { y:8.15, w:2.5, zb:.85, zt:2.0, r:.3 }, { y:5.4, w:2.5, zb:.85, zt:2.0, r:.2 }], () => cab);
+      avmLoft(faces, [{ y:8.05, w:2.42, zb:1.9, zt:3.05, r:.3 }, { y:7.7, w:2.5, zb:1.9, zt:3.5, r:.3 }, { y:5.35, w:2.5, zb:1.9, zt:3.65, r:.25 }],
+        n => (n[1] > .5 ? AVM_GLASS : (n[2] > .75 ? cab.map(v => v * 1.05) : (Math.abs(n[0]) > .7 ? cab.map(v => v * .9) : cab))));
+      avmBox(faces, -.9, .9, 7.7, 8.0, 3.45, 3.62, cab.map(v => v * .8));                  // daszek
+      avmBox(faces, -1.0, 1.0, 8.2, 8.4, .5, .85, AVM_DARK);                               // zderzak
+      avmBox(faces, -1.0, -.6, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]); avmBox(faces, .6, 1.0, 8.22, 8.3, 1.1, 1.3, [255, 246, 205]);
+      // naczepa
+      avmLoft(faces, [{ y:3.0, w:2.4, zb:.95, zt:4.0, r:.12 }, { y:2.9, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.15, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.25, w:2.4, zb:1.0, zt:3.95, r:.12 }],
+        n => (n[2] > .7 ? [226, 231, 234] : (Math.abs(n[0]) > .7 ? white.map(v => v * (n[0] > 0 ? .86 : 1)) : white.map(v => v * .8))));
+      avmBox(faces, -1.05, 1.05, -8.35, -8.2, .55, .85, [190, 40, 40]);                    // tylny zderzak/światła
+      // szczegóły: kominy, zbiorniki, lusterka, osłony, drzwi naczepy, pas ostrzegawczy
+      [-1.05, 1.05].forEach(x => avmBox(faces, x - .07, x + .07, 5.3, 5.45, 1.9, 3.75, [175, 182, 188]));                // kominy wydechowe
       [-1, 1].forEach(sd => {
-        avmBoxM(faces, sd, 1.25, 1.31, 5.4, 6.9, 1.95, 3.7, avmScale(cab, .94), AVM_M_PAINT);                               // wiatrochron boczny
-        avmBoxM(faces, sd, 1.0, 1.28, 7.2, 7.9, .45, .55, AVM_DARK);                                                       // stopień wejściowy
-        avmBoxM(faces, sd, 1.25, 1.27, 6.66, 6.7, 1.0, 3.4, [20, 24, 28]);                                                // szczelina drzwi
-        avmBoxM(faces, sd, 1.28, 1.34, 6.35, 6.55, 2.55, 2.62, [150, 156, 160], AVM_M_METAL);                              // klamka
-        avmBoxM(faces, sd, 1.25, 1.62, 7.52, 7.62, 2.88, 2.96, AVM_DARK);                                                  // ramię lusterka
-        avmBoxM(faces, sd, 1.55, 1.7, 7.4, 7.72, 2.15, 3.2, AVM_DARK, AVM_M_PAINT);                                        // lusterko
-        avmBoxM(faces, sd, 1.0, 1.15, 8.22, 8.31, 1.05, 1.4, AVM_LAMP);                                                    // reflektor
-        avmBoxM(faces, sd, .62, .95, 8.22, 8.3, 1.1, 1.3, AVM_LAMP);
-        avmCylY(faces, sd * 1.22, 4.1, 5.8, .8, .4, alu, AVM_M_METAL);                                                     // zbiornik paliwa
-        avmCylZ(faces, sd * 1.12, 5.2, 1.9, 3.85, .09, alu);                                                              // komin wydechowy
-        avmBoxM(faces, sd, .95, 1.3, -8.0, -7.5, .28, .85, AVM_DARK);                                                      // błotniki naczepy
-        avmBoxM(faces, sd, 1.15, 1.3, -7.9, -2.0, .55, 1.0, [150, 156, 160], AVM_M_METAL);                                 // osłony boczne naczepy
+        avmBox(faces, sd > 0 ? 1.0 : -1.5, sd > 0 ? 1.5 : -1.0, 4.4, 5.6, .5, 1.1, [165, 172, 178]);                  // zbiorniki paliwa
+        avmBox(faces, sd > 0 ? 1.18 : -1.5, sd > 0 ? 1.5 : -1.18, 7.4, 7.65, 2.0, 3.0, AVM_DARK);                      // lusterka kabiny
+        avmBox(faces, sd > 0 ? 1.17 : -1.28, sd > 0 ? 1.28 : -1.17, -7.9, -2.0, .55, 1.0, [150, 156, 160]);             // osłony boczne naczepy
+        avmBox(faces, sd > 0 ? 1.0 : -1.3, sd > 0 ? 1.3 : -1.0, -8.0, -7.6, .3, .8, AVM_DARK);                          // błotniki naczepy
       });
-      [-.5, -.25, 0, .25, .5].forEach(x => avmBox(faces, x - .06, x + .06, 7.6, 7.75, 3.6, 3.7, AVM_AMBER));            // światła na dachu
-      avmBox(faces, -1.15, 1.15, 8.2, 8.44, .45, 1.0, [52, 58, 64]); avmBox(faces, -.8, .8, 8.3, 8.46, .5, .8, [26, 30, 34]);   // zderzak
-      avmBox(faces, -.82, .82, 8.26, 8.31, 1.2, 1.9, [28, 32, 36]);                                                            // atrapa
-      [1.35, 1.5, 1.65, 1.8].forEach(z => avmBox(faces, -.78, .78, 8.31, 8.33, z, z + .04, alu, AVM_M_METAL));                  // chromowane żebra
-      avmBox(faces, -.3, .3, 8.46, 8.48, .62, .78, [236, 236, 236]);                                                          // tablica
-      // naczepa: gładka bryła + pas firmowy, żebra, drzwi
-      avmLoft(faces, avmSubdiv([{ y:3.0, w:2.4, zb:.95, zt:4.0, r:.12 }, { y:2.9, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.15, w:2.55, zb:.95, zt:4.05, r:.14 }, { y:-8.25, w:2.4, zb:1.0, zt:3.95, r:.12 }], 2.2),
-        n => (n[2] > .7 ? [228, 233, 236] : (Math.abs(n[0]) > .7 ? white.map(v => v * (n[0] > 0 ? .88 : 1)) : white.map(v => v * .82))));
-      [-1, 1].forEach(sd => {
-        const X = sd * 1.2768, nn = [sd, 0, 0];
-        avmPlate(faces, [[X, -8.0, 1.55], [X, 2.7, 1.55], [X, 2.7, 2.0], [X, -8.0, 2.0]], nn, cab, AVM_M_PAINT, 1.6);      // pas w kolorze firmy
-        avmPlate(faces, [[X, -8.0, 2.06], [X, 2.7, 2.06], [X, 2.7, 2.12], [X, -8.0, 2.12]], nn, avmScale(cab, .7), AVM_M_PAINT, 1.6);
-        for(let y = -7.6; y < 2.8; y += 1.3) avmPlate(faces, [[X, y, 1.2], [X, y + .06, 1.2], [X, y + .06, 3.95], [X, y, 3.95]], nn, [206, 212, 215], AVM_M_MATTE, 1.5);   // żebra
-      });
-      const rn = [0, -1, 0];
-      avmPlate(faces, [[-1.2, -8.27, 1.2], [1.2, -8.27, 1.2], [1.2, -8.27, 3.8], [-1.2, -8.27, 3.8]], rn, [216, 221, 224], AVM_M_PAINT, 1.4);     // drzwi tylne
-      avmPlate(faces, [[-.025, -8.28, 1.2], [.025, -8.28, 1.2], [.025, -8.28, 3.8], [-.025, -8.28, 3.8]], rn, [120, 126, 130], AVM_M_METAL, 1.6);  // łączenie skrzydeł
-      avmPlate(faces, [[-1.2, -8.28, 3.62], [1.2, -8.28, 3.62], [1.2, -8.28, 3.78], [-1.2, -8.28, 3.78]], rn, [255, 196, 0], AVM_M_PAINT, 1.6);     // pas ostrzegawczy
-      avmPlate(faces, [[-1.2, -8.28, 1.22], [1.2, -8.28, 1.22], [1.2, -8.28, 1.38], [-1.2, -8.28, 1.38]], rn, [255, 196, 0], AVM_M_PAINT, 1.6);
-      avmBox(faces, -1.05, 1.05, -8.4, -8.2, .55, .85, [70, 74, 78]);                                                           // zderzak podjazdowy
-      [-1, 1].forEach(sd => { avmBoxM(faces, sd, .7, 1.1, -8.34, -8.27, 1.0, 1.35, AVM_TAIL); avmBoxM(faces, sd, .7, 1.1, -8.34, -8.27, 1.4, 1.5, AVM_AMBER); });
-      avmBox(faces, -.28, .28, -8.35, -8.33, .7, .82, [240, 200, 40]);
+      avmBox(faces, -1.2, 1.2, -8.38, -8.25, 1.2, 3.8, [215, 220, 222]); avmBox(faces, -.03, .03, -8.4, -8.3, 1.0, 3.9, [120, 126, 130]); // drzwi tylne
+      avmBox(faces, -1.28, 1.28, -8.28, -8.2, 3.9, 4.0, [255, 196, 0]);                                                  // pas ostrzegawczy
+      avmBox(faces, -.8, .8, 8.2, 8.26, 1.1, 1.6, AVM_DARK);                                                              // grill
       // koła: oś skrętna, 2 osie napędowe, 3 osie naczepy (podwójne na osiach napędowych i naczepy)
-      const wo = { tire: [24, 26, 29], hub: [172, 180, 186] };
       [[6.9, false], [3.6, true], [2.3, true], [-5.2, true], [-6.5, true], [-7.8, true]].forEach(([y, dual]) => {
         [-1, 1].forEach(sd => {
-          avmWheel(faces, sd * 1.06, y, .52, .52, dual ? .3 : .34, Object.assign({ spokes: 0 }, wo));
-          if(dual) avmWheel(faces, sd * .7, y, .52, .52, .3, wo);
+          avmWheel(faces, sd * 1.06, y, .52, .52, dual ? .3 : .34, AVM_TIRE, AVM_HUB);
+          if(dual) avmWheel(faces, sd * .7, y, .52, .52, .3, AVM_TIRE, AVM_HUB);
         });
       });
     } },
-    gator: { len: 7.1, view: 5.5, h: 1.1, anim: true, build: (faces, c, an) => avmGatorBuild(faces, c, an) },
-    dot: { len: 2.6, view: 2.8, h: 1.7, build: (faces, c) => {
+    gator: { len: 5.8, view: 4.6, anim: true, build: (faces, c, ph) => {
+      ph = ph || 0;
+      const wag = d => Math.sin(ph * .9 - d * .9) * Math.min(.55, Math.abs(d) * .2);   // fala wzdłuż ogona
+      const g = [92, 128, 48], gd = [66, 96, 34], gl = [112, 152, 58], belly = [150, 160, 80];
+      const col = n => (n[2] > .65 ? gl : (n[2] > .1 ? g : gd));
+      avmLoft(faces, [
+        { y:-3.3, x:wag(3.3), w:.1, zb:.2, zt:.3, r:.04 }, { y:-2.6, x:wag(2.6), w:.38, zb:.16, zt:.46, r:.16 }, { y:-1.6, x:wag(1.6), w:.8, zb:.12, zt:.7, r:.3 },
+        { y:-.4, x:wag(.4) * .3, w:1.4, zb:.1, zt:.95, r:.5 }, { y:.9, w:1.38, zb:.1, zt:.95, r:.5 }, { y:1.45, w:.85, zb:.12, zt:.66, r:.3 },
+        { y:1.95, w:.66, zb:.14, zt:.55, r:.24 }, { y:2.6, w:.5, zb:.16, zt:.42, r:.16 }, { y:2.82, w:.34, zb:.18, zt:.34, r:.1 }
+      ], col);
+      // nogi (płaskie, z palcami) — dwie pary, odchylone na boki
+      [[1, 1.0, 38, 0], [-1, 1.0, 38, Math.PI], [1, -1.05, -38, Math.PI], [-1, -1.05, -38, 0]].forEach(([sd, y0, ang, off]) => {
+        const sw = Math.sin(ph * 1.6 + off), y = y0 + sw * .28, lift = Math.max(0, Math.cos(ph * 1.6 + off)) * .1;
+        const leg = [[0, 0], [.55, .22], [.95, .12], [1.28, .32], [1.28, -.02], [1.0, -.22], [.55, -.2], [0, -.32]];
+        const r = ang * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
+        const poly = leg.map(([lx, ly]) => [sd * (.55 + lx * ca - ly * sa * sd), y + lx * sa * sd * (y > 0 ? 1 : -1) * .0 + ly * ca * .9 - (y > 0 ? -.15 : .15) * lx]);
+        avmPrism(faces, sd > 0 ? poly : poly.slice().reverse(), .08 + lift, .3 + lift, gd, g);
+      });
+      // grzbiet: rząd łusek
+      for(let y = -2.2; y <= 1.1; y += .42){ const w = .18 + Math.max(0, .5 - Math.abs(y + .5) * .18);
+        avmBox(faces, -w / 2, w / 2, y, y + .26, .86 - Math.max(0, -y - 1.2) * .22, 1.06 - Math.max(0, -y - 1.2) * .22, [78, 108, 38]); }
+      avmBox(faces, -.34, -.14, 1.6, 1.9, .5, .62, [226, 190, 50]); avmBox(faces, .14, .34, 1.6, 1.9, .5, .62, [226, 190, 50]);   // oczy
+      avmBox(faces, -.28, -.2, 1.68, 1.8, .6, .64, [20, 24, 12]); avmBox(faces, .2, .28, 1.68, 1.8, .6, .64, [20, 24, 12]);       // źrenice
+      avmBox(faces, -.18, -.1, 2.7, 2.78, .38, .42, [30, 40, 18]); avmBox(faces, .1, .18, 2.7, 2.78, .38, .42, [30, 40, 18]);     // nozdrza
+    } },
+    dot: { len: 2.6, view: 2.8, build: (faces, c) => {
       const base = avmHex(c), R = 1.0, st = [];
-      avmPrism(faces, Array.from({ length: 24 }, (_, i) => [Math.cos(i / 24 * 6.2832) * 1.55, Math.sin(i / 24 * 6.2832) * 1.55]), 0, .03, base.map(v => v * .55 + 40));   // pierścień pod spodem
-      for(let i = -9; i <= 9; i++){ const t = i / 9 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
-      avmLoft(faces, st, n => { const h = Math.max(0, n[2]); return [base[0] * (.5 + .5 * h) + 70 * h * h, base[1] * (.5 + .5 * h) + 70 * h * h, base[2] * (.5 + .5 * h) + 70 * h * h, AVM_M_GLASS]; });
-      avmPrism(faces, [[0, 2.35], [.62, 1.45], [-.62, 1.45]], .03, .09, [255, 255, 255], [255, 255, 255], AVM_M_PAINT);                                                    // strzałka kierunku
+      avmPrism(faces, Array.from({ length: 20 }, (_, i) => [Math.cos(i / 20 * 6.2832) * 1.55, Math.sin(i / 20 * 6.2832) * 1.55]), 0, .03, base.map(v => v * .55 + 40));   // pierścień pod spodem
+      for(let i = -10; i <= 10; i++){ const t = i / 10 * .985, y = R * t, rad = R * Math.sqrt(1 - t * t); st.push({ y, w: Math.max(.04, 2 * rad), zb: R * .75 - rad * .75, zt: R * .75 + rad * .75, r: 10 }); }
+      avmLoft(faces, st, n => { const h = Math.max(0, n[2]); return [base[0] * (.5 + .5 * h) + 70 * h * h, base[1] * (.5 + .5 * h) + 70 * h * h, base[2] * (.5 + .5 * h) + 70 * h * h]; });
+      avmPrism(faces, [[0, 2.35], [.62, 1.45], [-.62, 1.45]], .03, .09, [255, 255, 255]);                                                    // strzałka kierunku
     } }
   };
   ["car", "truck", "gator", "dot"].forEach(k => { if(AVATARS[k]) AVATARS[k].model = AVM_MODELS[k]; });
 
-  /* ---------- animacja (aligator) ----------
-     Pętla rAF działa tylko, gdy wybrany awatar ma model animowany i jest w widoku 3D. W ruchu (≥ 3 km/h) ~30 klatek/s,
-     na postoju ~12 klatek/s (spokojne oddychanie i kołysanie ogona). Tempo kroku rośnie z prędkością. */
-  const AVM_LIGHT = avmNorm([-0.5, 0.4, 0.78]), AVM_FILL = avmNorm([0.3, -0.6, 0.35]);
-  const avmAnim = { raf: 0, last: 0, ph: 0, amp: 0, t: 0 };
-  function avmReducedMotion(){ try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch(e){ return false; } }
-  function avmAnimState(){ return { ph: avmAnim.ph, amp: avmAnim.amp, t: avmAnim.t }; }
-  function avmTick(ts){
-    avmAnim.raf = 0;
-    const a = userMarkerEl && userMarkerEl._model;
-    if(!avmCanvas || !a || !a.model || !a.model.anim) return;
-    avmAnim.raf = requestAnimationFrame(avmTick);
-    if(document.hidden) return;
-    const speed = (typeof currentSpeedKmh === "number" && isFinite(currentSpeedKmh)) ? currentSpeedKmh : 0;
-    const target = speed >= 3 ? 1 : 0;
-    const dt = Math.min(.1, Math.max(0, (ts - (avmAnim.last || ts)) / 1000));
-    if(dt < (avmAnim.amp > .04 || target ? 1 / 30 : 1 / 12) - .004) return;
-    avmAnim.last = ts;
-    avmAnim.amp += (target - avmAnim.amp) * Math.min(1, dt * 2.6);
-    avmAnim.ph += Math.PI * 2 * (.55 + Math.min(speed, 100) / 100 * 1.5) * dt * (.2 + .8 * avmAnim.amp);
-    avmAnim.t += dt;
-    avmMakeFaces(a, avatarAccent(), true);
-    avm3dModelDraw();
-  }
-  function avmAnimStart(a){
-    if(!a.model || !a.model.anim || avmReducedMotion() || avmAnim.raf) return;
-    avmAnim.last = 0; avmAnim.raf = requestAnimationFrame(avmTick);
-  }
-  function avmAnimStop(){ if(avmAnim.raf){ cancelAnimationFrame(avmAnim.raf); avmAnim.raf = 0; } }
-
   /* ---------- render ---------- */
+  const AVM_LIGHT = avmNorm([-0.45, -0.35, 0.82]);
   let avmCanvas = null, avmCtx = null, avmFaces = null, avmFacesKey = "", avmLastHdg = 0;
-  function avmMakeFaces(a, c, force){
-    const key = vehicleAvatar + "|" + c, anim = !!a.model.anim;
-    if(avmFaces && avmFacesKey === key && !(anim && force)) return avmFaces;
-    const faces = []; a.model.build(faces, c, anim ? avmAnimState() : null);
+  let avmPhase = 0;
+  function avmMakeFaces(a, c){
+    const key = vehicleAvatar + "|" + c;
+    if(!a.model.anim && avmFaces && avmFacesKey === key) return avmFaces;
+    const faces = []; a.model.build(faces, c, avmPhase);
     avmFaces = faces; avmFacesKey = key; return faces;
   }
   function avm3dModelEnter(a){
@@ -12444,29 +12110,19 @@
     try{ if(userMarker.setPitchAlignment) userMarker.setPitchAlignment("viewport"); if(userMarker.setRotationAlignment) userMarker.setRotationAlignment("viewport"); }catch(e){}
     if(!map._avmBound){ map._avmBound = true; ["rotate", "pitch", "zoom"].forEach(ev => map.on(ev, () => { if(userMarkerEl && userMarkerEl._model) avm3dModelDraw(); })); }
     avm3dModelDraw();
-    avmAnimStart(a);
+    if(a.model.anim && !avmLoop){ avmLoop = true; avmLast = performance.now(); requestAnimationFrame(avmTick); }
+  }
+  let avmLoop = false, avmLast = 0;
+  function avmTick(t){
+    if(!userMarkerEl || !userMarkerEl._model || !userMarkerEl._model.model.anim){ avmLoop = false; return; }
+    const dt = Math.min(.1, (t - avmLast) / 1000); avmLast = t;
+    if(typeof currentSpeedKmh !== "undefined" && currentSpeedKmh >= 3){ avmPhase += dt * (4 + Math.min(8, currentSpeedKmh / 12)); avm3dModelDraw(); }
+    requestAnimationFrame(avmTick);
   }
   function avm3dModelLeave(keepAlign){
-    avmAnimStop();
     if(avmCanvas){ avmCanvas.remove(); avmCanvas = null; avmCtx = null; }
     if(userMarkerEl) userMarkerEl._model = null;
     if(!keepAlign){ try{ if(userMarker && userMarker.setPitchAlignment) userMarker.setPitchAlignment("map"); if(userMarker && userMarker.setRotationAlignment) userMarker.setRotationAlignment("map"); }catch(e){} }
-  }
-  // rzucany cień: wszystkie ściany zrzutowane na jezdnię wzdłuż kierunku światła, jedna wypełniona ścieżka (suma) + rozmycie
-  function avmDrawShadow(ctx, faces, rot, cx0, cy0, s, cp, size, dpr){
-    const OFF = size * 4, sdx = -AVM_LIGHT[0] / AVM_LIGHT[2], sdy = -AVM_LIGHT[1] / AVM_LIGHT[2];
-    ctx.save();
-    try{ ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = Math.max(2, s * .35) * dpr; ctx.shadowOffsetX = OFF * dpr; ctx.shadowOffsetY = 0; }catch(e){}
-    ctx.fillStyle = "#000"; ctx.beginPath();
-    faces.forEach(f => {
-      if(f.b) return;
-      const q = f.pts.map(pt => { const r = rot(pt), X = r[0] + sdx * r[2], Y = r[1] + sdy * r[2]; return [cx0 + X * s - OFF, cy0 - Y * cp * s]; });
-      let area = 0; for(let i = 0; i < q.length; i++){ const A = q[i], B = q[(i + 1) % q.length]; area += A[0] * B[1] - B[0] * A[1]; }
-      if(Math.abs(area) < 1e-3) return;
-      if(area < 0) q.reverse();                      // jednakowa orientacja — nakładające się ściany się nie wycinają
-      ctx.moveTo(q[0][0], q[0][1]); for(let i = 1; i < q.length; i++) ctx.lineTo(q[i][0], q[i][1]); ctx.closePath();
-    });
-    ctx.fill(); ctx.restore();
   }
   function avm3dModelDraw(hdg){
     if(!avmCanvas || !userMarkerEl || !userMarkerEl._model) return;
@@ -12479,208 +12135,36 @@
     const faces = avmMakeFaces(a, avatarAccent());
     const yaw = (avmLastHdg - map.getBearing()) * Math.PI / 180, cy = Math.cos(yaw), sy = Math.sin(yaw);
     const p = Math.min(78, Math.max(0, map.getPitch())) * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
-    const s = px * 0.86 / (model.view || model.len), cx0 = size / 2, cy0 = size / 2, H = model.h || 1.6;
+    const s = px * 0.86 / (model.view || model.len), cx0 = size / 2, cy0 = size / 2;
     const rot = v => [v[0] * cy + v[1] * sy, -v[0] * sy + v[1] * cy, v[2]];
-    // miękki cień kontaktowy pod pojazdem + cień rzucany
+    // cień na jezdni: obrócona elipsa pod pojazdem
     ctx.save(); ctx.translate(cx0, cy0); ctx.scale(1, cp * .9 + .1);
-    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, model.len * s * .55);
-    gr.addColorStop(0, "rgba(0,0,0,.34)"); gr.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.rotate(yaw); ctx.scale(.5, 1); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, model.len * s * .55, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    avmDrawShadow(ctx, faces, rot, cx0, cy0, s, cp, size, dpr);
-    const v = [0, -sp, cp], hv = avmNorm([AVM_LIGHT[0] + v[0], AVM_LIGHT[1] + v[1], AVM_LIGHT[2] + v[2]]), out = [];
+    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, model.len * s * .62);
+    gr.addColorStop(0, "rgba(0,0,0,.42)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.rotate(yaw); ctx.scale(.55, 1); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, model.len * s * .62, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const v = [0, -sp, cp], out = [];
     faces.forEach(f => {
       const n = rot(f.n);
       const facing = n[0] * v[0] + n[1] * v[1] + n[2] * v[2];
       if(facing <= 0.001) return;
       const q = f.pts.map(pt => { const r = rot(pt); return [cx0 + r[0] * s, cy0 - (r[1] * cp + r[2] * sp) * s, r[2] * cp - r[1] * sp]; });
-      let depth = 0; q.forEach(t => { depth += t[2]; }); depth = depth / q.length + (f.b || 0);
-      const mat = AVM_MATS[f.m] || AVM_MATS[0], col = f.col; let rr, gg, bb;
-      if(mat.emit){ rr = col[0] * 1.06 + 24; gg = col[1] * 1.06 + 24; bb = col[2] * 1.06 + 24; }
-      else {
-        // światło w układzie świata mapy: otoczenie (niebo/ziemia) + światło główne + wypełnienie z przodu; ciemniej przy ziemi
-        const nl = Math.max(0, n[0] * AVM_LIGHT[0] + n[1] * AVM_LIGHT[1] + n[2] * AVM_LIGHT[2]), nf = Math.max(0, n[0] * AVM_FILL[0] + n[1] * AVM_FILL[1] + n[2] * AVM_FILL[2]);
-        const ao = .8 + .2 * Math.min(1, Math.max(0, f.zc) / H);
-        const k = (.34 + .14 * n[2] + .55 * nl + .22 * nf) * ao;
-        const sh = mat.sp ? Math.pow(Math.max(0, n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]), mat.sh) * mat.sp * 255 : 0;
-        const env = mat.env * Math.max(0, n[2]) * Math.max(0, n[2]);
-        rr = (col[0] * (1 - env) + AVM_SKY[0] * env) * k + sh; gg = (col[1] * (1 - env) + AVM_SKY[1] * env) * k + sh; bb = (col[2] * (1 - env) + AVM_SKY[2] * env) * k + sh;
-      }
-      out.push({ q, depth, c: "rgb(" + [rr, gg, bb].map(x => Math.max(0, Math.min(255, Math.round(x)))).join(",") + ")" });
+      let depth = 0; q.forEach(t => { depth += t[2]; }); depth /= q.length;
+      // oświetlenie liczone w układzie świata mapy (światło z lewej-góry ekranu), nie modelu
+      const nl = Math.max(0, n[0] * AVM_LIGHT[0] + n[1] * AVM_LIGHT[1] + n[2] * AVM_LIGHT[2]);
+      // światło: rozproszone + połysk (Blinn-Phong) + przyciemnienie przy ziemi + chłodne niebo z góry
+      const hv = avmNorm([AVM_LIGHT[0], AVM_LIGHT[1] + 0.0, AVM_LIGHT[2] + 1]), sp2 = Math.pow(Math.max(0, n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]), 28) * 55;
+      const ao = 0.8 + 0.2 * Math.min(1, Math.max(0, f.cz / (model.view ? model.view * .22 : 1)));
+      const k = (0.46 + 0.62 * nl) * ao;
+      out.push({ q, depth, k, sp: sp2, sky: Math.max(0, n[2]) * 14, col: f.col });
     });
     out.sort((A, B) => A.depth - B.depth);
-    ctx.lineWidth = .7; ctx.lineJoin = "round";
     out.forEach(o => {
+      const c = "rgb(" + o.col.map((x, i) => Math.max(0, Math.min(255, Math.round(x * o.k + o.sp + o.sky * (i === 2 ? 1.2 : .6))))).join(",") + ")";
       ctx.beginPath(); ctx.moveTo(o.q[0][0], o.q[0][1]);
       for(let i = 1; i < o.q.length; i++) ctx.lineTo(o.q[i][0], o.q[i][1]);
-      ctx.closePath(); ctx.fillStyle = o.c; ctx.fill(); ctx.strokeStyle = o.c; ctx.stroke();
+      ctx.closePath(); ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = .7; ctx.strokeStyle = c; ctx.lineJoin = "round"; ctx.stroke();
     });
   }
-</script>
-<script>
-/* ===== js/44-admin-tools.js — Narzędzia administratora: ukrywanie firm i własne znaki ograniczeń =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
-   Wymaga w Supabase tabel hidden_places i admin_restrictions (supabase_admin.sql) oraz zalogowania jako admin. */
-"use strict";
-
-  /* ---------- zapis do Supabase jako administrator ---------- */
-  async function adminSupaWrite(method, path, body, headers){
-    const token = await supaAdminToken();
-    if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
-    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, {
-      method,
-      headers: Object.assign({ "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token }, headers || {}),
-      body: body === undefined ? undefined : JSON.stringify(body)
-    });
-    if(!r.ok){
-      let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
-      throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
-    }
-    return r;
-  }
-
-  /* ---------- ukrywanie firm / nazw ---------- */
-  function applyHiddenPlaces(){
-    try{ setHgvCompaniesData(hgvCompaniesAll); }catch(e){ console.warn("Ukrywanie firm:", e); }
-    placeNames = placeNames.filter(p => !(p.id != null && hiddenPlaceKeys.has("place:" + p.id)));
-    try{ renderPlaceNames(); }catch(e){}
-  }
-  async function adminHidePlace(key, name){
-    try{
-      await adminSupaWrite("POST", "hidden_places?on_conflict=key", { key, name: name || null }, { "Prefer": "resolution=ignore-duplicates,return=minimal" });
-      hiddenPlaceKeys.add(key);
-      applyHiddenPlaces();
-      hidePoiAsk();
-      showBanner("UKRYTO", `„${name}” zniknie u wszystkich użytkowników po odświeżeniu`, false);
-    }catch(e){
-      showBanner("NIE UKRYTO", String(e.message || e), false);
-    }
-  }
-  document.getElementById("poiAskHide").addEventListener("click", () => {
-    const t = poiAskTarget;
-    if(t && t.hideKey) adminHidePlace(t.hideKey, t.name);
-  });
-
-  /* ---------- własne znaki ograniczeń (wysokość / tonaż / szerokość) ---------- */
-  let adminRestrictions = [];          // [{ id, kind, value, coords:[[lon,lat],…], note }]
-  let adminDrawActive = false, adminDrawPts = [];
-  const ADMIN_KINDS = {
-    height: { arr: "h", prop: "maxheight", fmt: formatHeightLabel, min: 1, max: 10, unit: "m" },
-    weight: { arr: "w", prop: "maxweight", fmt: formatWeightLabel, min: 1, max: 100, unit: "t" },
-    width:  { arr: "d", prop: "maxwidth",  fmt: formatWidthLabel,  min: 1, max: 10, unit: "m" }
-  };
-  // cechy do wmieszania w dane ograniczeń (wołane z setRestrictionsData w js/16)
-  function adminRestrictionFeatures(){
-    const out = { h: [], w: [], d: [], s: [] };
-    adminRestrictions.forEach(r => {
-      const k = ADMIN_KINDS[r.kind];
-      if(!k || !Array.isArray(r.coords) || r.coords.length < 2) return;
-      out[k.arr].push({ type: "Feature", properties: { [k.prop]: r.value, osm_id: "a" + r.id, admin: true }, geometry: { type: "LineString", coordinates: r.coords } });
-      const lon = r.coords.reduce((s, c) => s + c[0], 0) / r.coords.length;
-      const lat = r.coords.reduce((s, c) => s + c[1], 0) / r.coords.length;
-      out.s.push({ type: "Feature", properties: { kind: r.kind, label: k.fmt(r.value), adminId: r.id }, geometry: { type: "Point", coordinates: [lon, lat] } });
-    });
-    return out;
-  }
-  function refreshRestrictionsDisplay(){
-    if(!map || !map.getSource("roads-maxheight")) return;
-    const b = restrictionBase || { h: [], w: [], d: [], s: [] };
-    setRestrictionsData(b.h, b.w, b.d, b.s);
-  }
-
-  function loadAdminData(){
-    if(!supaConfigured()) return;
-    fetchTableFromSupabase("hidden_places", "key").then(rows => {
-      if(rows){ hiddenPlaceKeys = new Set(rows.map(r => r.key)); applyHiddenPlaces(); }
-    }).catch(() => {});
-    fetchTableFromSupabase("admin_restrictions", "id,kind,value,coords,note").then(rows => {
-      if(rows){
-        adminRestrictions = rows.filter(r => ADMIN_KINDS[r.kind] && isFinite(Number(r.value)) && Array.isArray(r.coords) && r.coords.length >= 2)
-          .map(r => ({ id: r.id, kind: r.kind, value: Number(r.value), coords: r.coords, note: r.note }));
-        refreshRestrictionsDisplay();
-      }
-    }).catch(() => {});
-  }
-
-  // --- rysowanie odcinka na mapie ---
-  function ensureAdminDrawLayers(){
-    if(map.getSource("admin-draw")) return;
-    map.addSource("admin-draw", { type: "geojson", data: emptyFC() });
-    map.addLayer({ id: "admin-draw-line", type: "line", source: "admin-draw", filter: ["==", ["geometry-type"], "LineString"],
-      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ff2bd6", "line-width": 6, "line-opacity": 0.9 } });
-    map.addLayer({ id: "admin-draw-pts", type: "circle", source: "admin-draw", filter: ["==", ["geometry-type"], "Point"],
-      paint: { "circle-radius": 7, "circle-color": "#ffffff", "circle-stroke-color": "#ff2bd6", "circle-stroke-width": 3 } });
-  }
-  function renderAdminDraw(){
-    ensureAdminDrawLayers();
-    const f = adminDrawPts.map(p => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: p } }));
-    if(adminDrawPts.length > 1) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: adminDrawPts } });
-    map.getSource("admin-draw").setData({ type: "FeatureCollection", features: f });
-    document.getElementById("adminRestrInfo").textContent = adminDrawPts.length < 2
-      ? `Stukaj na mapie kolejne punkty odcinka drogi lub wiaduktu (minimum 2: początek i koniec). Punktów: ${adminDrawPts.length}`
-      : `Punktów: ${adminDrawPts.length}. Dodaj kolejne wzdłuż drogi albo wpisz wartość i zapisz.`;
-  }
-  function startAdminRestrDraw(){
-    if(!isAdmin()) return;
-    hidePoiAsk();
-    try{ closeNavSettings(); }catch(e){}
-    adminDrawActive = true; adminDrawPts = [];
-    document.getElementById("adminRestrValue").value = "";
-    document.getElementById("adminRestrCard").classList.add("show");
-    renderAdminDraw();
-  }
-  function stopAdminRestrDraw(){
-    adminDrawActive = false; adminDrawPts = [];
-    document.getElementById("adminRestrCard").classList.remove("show");
-    try{ if(map.getSource("admin-draw")) map.getSource("admin-draw").setData(emptyFC()); }catch(e){}
-  }
-  async function saveAdminRestr(){
-    const kind = document.getElementById("adminRestrKind").value, k = ADMIN_KINDS[kind];
-    const value = parseFloat(document.getElementById("adminRestrValue").value.replace(",", "."));
-    const info = document.getElementById("adminRestrInfo");
-    if(adminDrawPts.length < 2){ info.textContent = "Zaznacz co najmniej 2 punkty na mapie."; return; }
-    if(!isFinite(value) || value < k.min || value > k.max){ info.textContent = `Wpisz wartość od ${k.min} do ${k.max} ${k.unit}.`; return; }
-    const coords = adminDrawPts.map(p => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6]);
-    try{
-      const r = await adminSupaWrite("POST", "admin_restrictions", { kind, value, coords }, { "Prefer": "return=representation" });
-      const rows = await r.json().catch(() => []);
-      const row = Array.isArray(rows) ? rows[0] : rows;
-      adminRestrictions.push({ id: row && row.id != null ? row.id : "l" + Date.now(), kind, value, coords });
-      refreshRestrictionsDisplay();
-      stopAdminRestrDraw();
-      showBanner("ZAPISANO ZNAK", `Ograniczenie ${k.fmt(value)} jest już na mapie i w alertach trasy`, false);
-    }catch(e){
-      info.textContent = "Nie zapisano: " + String(e.message || e);
-    }
-  }
-  async function deleteAdminRestr(id){
-    try{
-      await adminSupaWrite("DELETE", "admin_restrictions?id=eq." + encodeURIComponent(id));
-      adminRestrictions = adminRestrictions.filter(r => String(r.id) !== String(id));
-      refreshRestrictionsDisplay();
-      showBanner("USUNIĘTO ZNAK", "Ograniczenie zniknęło z mapy", false);
-    }catch(e){
-      showBanner("NIE USUNIĘTO", String(e.message || e), false);
-    }
-  }
-  // wołane na początku obsługi kliknięcia mapy (js/28): true = kliknięcie obsłużone
-  function adminRestrClick(e){
-    if(!isAdmin()) return false;
-    if(adminDrawActive){
-      adminDrawPts.push([e.lngLat.lng, e.lngLat.lat]);
-      renderAdminDraw();
-      return true;
-    }
-    if(!map.getLayer("restriction-signs-icon")) return false;
-    const hit = map.queryRenderedFeatures([[e.point.x - 14, e.point.y - 14], [e.point.x + 14, e.point.y + 14]], { layers: ["restriction-signs-icon"] })
-      .find(f => f.properties && f.properties.adminId != null);
-    if(!hit) return false;
-    if(confirm(`Usunąć ten znak ograniczenia (${hit.properties.label})?`)) deleteAdminRestr(hit.properties.adminId);
-    return true;
-  }
-  document.getElementById("adminAddRestrBtn").addEventListener("click", startAdminRestrDraw);
-  document.getElementById("adminRestrUndo").addEventListener("click", () => { adminDrawPts.pop(); renderAdminDraw(); });
-  document.getElementById("adminRestrCancel").addEventListener("click", stopAdminRestrDraw);
-  document.getElementById("adminRestrSave").addEventListener("click", saveAdminRestr);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
