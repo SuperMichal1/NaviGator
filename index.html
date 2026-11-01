@@ -150,21 +150,21 @@
   }
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
-  /* ---------- Menu ikon: szklana pigułka po prawej stronie prędkościomierza ----------
-     Domyślnie schowana — widać tylko uchwyt › tuż obok prędkościomierza. Przesunięcie palcem w prawo
-     (albo dotknięcie uchwytu) wysuwa menu; wtedy prędkościomierz (i "Centruj") podskakuje nad nie.
-     Menu nie zajmuje już dolnego paska, więc karta nawigatora dokuje się do samego dołu ekranu. */
+  /* ---------- Menu ikon: szklana pigułka wysuwana z LEWEJ krawędzi ekranu ----------
+     Domyślnie schowana — przy lewej krawędzi, na lewo od prędkościomierza, widać tylko uchwyt ›.
+     Przesunięcie palcem w prawo (albo dotknięcie uchwytu) wysuwa menu; wtedy prędkościomierz
+     (i "Centruj") podskakuje nad nie. Gdy na mapie jest zaplanowana trasa, menu jest schowane całkiem.
+     Karta nawigatora dokuje się do samego dołu ekranu (--nav-icon-row-h = 0). */
   :root{
-    --nav-icon-row-h: calc(6px + env(safe-area-inset-bottom, 0px) * .4);   /* wolny margines pod kartą nawigatora */
-    --menu-w: 268px;      /* szerokość wysuniętego menu (5 ikon + uchwyt) */
+    --nav-icon-row-h: 0px;   /* karta nawigatora dotyka dołu ekranu / paska nawigacji telefonu */
+    --menu-w: 222px;      /* szerokość wysuniętego menu (4 ikony + uchwyt) */
     --menu-hw: 24px;      /* szerokość uchwytu */
     --menu-h: 54px;
-    --speed-w: 100px;     /* szerokość prędkościomierza (min-width #speedPanel) */
   }
   #navBottomProbe{ position:fixed; left:0; bottom:0; width:1px; height:var(--nav-icon-row-h); visibility:hidden; pointer-events:none; }
   #navIconRow{
-    position:fixed; left:16px;
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + 2px);
+    position:fixed; left:0;
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + 2px);
     z-index:47;
     box-sizing:border-box;
     width:var(--menu-w); height:var(--menu-h);
@@ -173,16 +173,17 @@
     padding:0 4px 0 6px;
     background: rgba(255,255,255,0.10);
     border:1px solid rgba(255,255,255,0.28);
-    border-radius:27px;
+    border-left:none;
+    border-radius:0 27px 27px 0;
     backdrop-filter: blur(22px) saturate(180%);
     -webkit-backdrop-filter: blur(22px) saturate(180%);
     touch-action:none;
-    /* schowane: odsłonięty tylko uchwyt, przesunięty tuż za prędkościomierz */
-    transform: translateX(calc(16px + var(--speed-w) + 8px - 16px - (var(--menu-w) - var(--menu-hw) - 4px)));
-    clip-path: inset(0 0 0 calc(var(--menu-w) - var(--menu-hw) - 6px) round 14px);
-    transition: transform .3s cubic-bezier(.2,.85,.3,1), clip-path .3s cubic-bezier(.2,.85,.3,1), bottom .25s ease, background .3s;
+    /* schowane: za lewą krawędzią ekranu, odsłonięty tylko uchwyt */
+    transform: translateX(calc(-1 * (var(--menu-w) - var(--menu-hw) - 7px)));
+    clip-path: inset(0 0 0 calc(var(--menu-w) - var(--menu-hw) - 8px) round 0 14px 14px 0);
+    transition: transform .3s cubic-bezier(.2,.85,.3,1), clip-path .3s cubic-bezier(.2,.85,.3,1), bottom .25s ease, background .3s, opacity .2s;
   }
-  body.menu-open #navIconRow{ transform:none; clip-path: inset(0 0 0 0 round 27px); }
+  body.menu-open #navIconRow{ transform:none; clip-path: inset(0 0 0 0 round 0 27px 27px 0); }
   body.night #navIconRow{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
   #navIconRow .ctrl-btn{ width:42px; height:42px; flex:0 0 auto; }
   body:not(.menu-open) #navIconRow .ctrl-btn{ pointer-events:none; }
@@ -197,15 +198,17 @@
   #menuHandle::before{ content:"A"; }
   body.menu-open #menuHandle::before{ content:"9"; }
   body.night #menuHandle{ color: var(--text-main); }
+  /* zaplanowana trasa na mapie: prędkościomierz i menu schowane */
+  body.route-planning #speedCluster, body.route-planning #navIconRow{ opacity:0; visibility:hidden; pointer-events:none; }
   /* prędkościomierz i "Centruj" skaczą nad wysunięte menu */
   body.menu-open #speedCluster{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) - 4px + var(--menu-h) + 10px);
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) - 4px + var(--menu-h) + 10px);
   }
   body.menu-open.locate-visible #speedCluster{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + 54px + var(--menu-h) + 10px);
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + 54px + var(--menu-h) + 10px);
   }
   body.menu-open #btnLocate{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + var(--menu-h) + 10px);
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + var(--menu-h) + 10px);
   }
   .navIconWrap{ position:relative; display:flex; }
   .ctrl-btn{
@@ -320,7 +323,7 @@
   #zoomChip small{ font-weight:600; opacity:.7; margin-right:4px; letter-spacing:.04em; text-transform:uppercase; font-size:10px; }
   /* przy włączonej tablicy z instrukcjami wskaźnik schodzi pod nią, żeby jej nie zasłaniać */
   body.guidance-on #zoomChip{ top: calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); }
-  #btnLocate{ left:16px; }
+  #btnLocate{ left:36px; }
   #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnCompass svg{ display:block; transition: transform .12s linear; }
   /* prawa kolumna od dołu: Cała trasa -> Kompas -> Zgłoszenia (każdy kolejny pojawia się nad poprzednim) */
@@ -347,7 +350,7 @@
      wtedy widoczny zostaje tylko pasek ikon. */
   #navPanel{
     position:fixed; left:0; right:0;
-    bottom: var(--nav-icon-row-h, 64px);
+    bottom: var(--nav-icon-row-h, 0px);
     width:100%;
     background: rgba(255,255,255,0.08);
     border:1px solid rgba(255,255,255,0.16);
@@ -356,7 +359,7 @@
     -webkit-backdrop-filter: blur(26px) saturate(190%);
     border-radius:20px 20px 0 0;
     box-shadow: 0 -10px 34px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.16);
-    padding:0 14px 14px;
+    padding:0 14px calc(10px + env(safe-area-inset-bottom, 0px) * .5);
     z-index:45;
     display:flex;
     flex-direction:column;
@@ -406,9 +409,14 @@
   .unitSeg{ display:flex; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; }
   .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
   #navTruckBlock.units-imperial .unitSeg button[data-u="imperial"], #navTruckBlock.units-metric .unitSeg button[data-u="metric"]{ background: var(--gator-dark); color: var(--gator-on); }
-  .truckImpWrap{ display:flex; gap:6px; }
-  .truckImpWrap .truckInputWrap{ flex:1; min-width:0; }
-  .truckImpWrap input{ padding-right:22px !important; }
+  /* ft i in w jednym polu (tak samo jak m przy metrach) */
+  .truckInputWrap.impPair{ display:flex; align-items:center; border-radius:9px; background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
+  body.night .truckInputWrap.impPair{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
+  .truckInputWrap.impPair:focus-within{ border-color: var(--accent); }
+  .truckInputWrap.impPair:has(input.bad){ border-color:#ff4d4d; }
+  .impPair input{ flex:1 1 0; min-width:0; width:auto; border:none !important; background:transparent !important; border-radius:0; padding:9px 3px 9px 8px; text-align:right; }
+  .impPair input:last-of-type{ padding-left:3px; }
+  .impPair em{ position:static; transform:none; padding:0 7px 0 3px; flex:0 0 auto; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -429,6 +437,18 @@
   .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color:#5b6570; pointer-events:none; }
   body.night .truckInputWrap em{ color: var(--text-dim); }
   .truckResetWrap{ justify-content:flex-end; }
+  .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
+  .truckActionRow #tpReset{ flex:1; }
+  .truckActionRow .avatarIconBtn{ flex:0 0 64px; display:flex; align-items:center; justify-content:center; padding:4px 6px; color: var(--text-main); }
+  .avatarIconBtn.on{ border-color: var(--accent); background: rgba(255,255,255,0.08); }
+  .truckRouteIco .rt{ stroke: var(--accent); }
+  .truckRouteIco .tk{ fill: currentColor; }
+  .truckRouteIco .wh{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.6; }
+  /* menu avatara i kolorów rozwijane pod przyciskami, w tym samym oknie */
+  #avatarInline{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease, margin-top .25s ease; margin-top:0; }
+  #avatarInline.open{ grid-template-rows:1fr; margin-top:10px; }
+  #avatarInline > .aiIn{ overflow:hidden; min-height:0; }
+  #avatarInline .cuHead{ margin-top:0; margin-bottom:8px; }
   .truckResetWrap button{
     padding:9px 8px; border-radius:9px; cursor:pointer; font:600 12px 'Inter', system-ui, sans-serif;
     background:transparent; color: var(--text-dim); border:1px solid var(--panel-border);
@@ -836,15 +856,13 @@
   #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
   #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
   /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
-  #navSettingsPanel, #avatarPanel{
+  #navSettingsPanel{
     position:fixed; inset:0; z-index:80;
     display:none; align-items:flex-end; justify-content:center;
   }
-  #navSettingsPanel.open, #avatarPanel.open{ display:flex; }
-  #avatarPanel{ z-index:82; }
-  #avatarClose{ width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); cursor:pointer; color:var(--text-main); }
-  #navSettingsBackdrop, #avatarBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
-  #navSettingsCard, #avatarCard{
+  #navSettingsPanel.open{ display:flex; }
+  #navSettingsBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
+  #navSettingsCard{
     position:relative;
     width:100%; max-width:420px;
     background: var(--panel-bg-solid);
@@ -1023,12 +1041,30 @@
   .navSupaCategoryRow .catLabel{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
+
+  /* ---------- Tryb mapy: trzy małe ikony (dzień / noc / auto) + godziny nocy dla trybu auto ---------- */
+  .themeSeg{ display:flex; gap:8px; }
+  .themeSeg button{
+    width:46px; height:40px; border-radius:12px; font-size:19px; line-height:1; cursor:pointer;
+    border:1px solid var(--panel-border); background:transparent; color:var(--text-main);
+  }
+  .themeSeg button.active{ background: var(--accent); border-color: var(--accent); }
+  .themeAutoRow{ display:none; align-items:center; gap:8px; margin-top:8px; font-size:13px; color:var(--text-main); flex-wrap:wrap; }
+  .themeAutoRow.show{ display:flex; }
+  .themeAutoRow input[type="time"]{
+    padding:8px 10px; border-radius:10px; border:1px solid var(--panel-border);
+    background: rgba(255,255,255,0.10); color:var(--text-main); font:700 15px 'Inter', system-ui, sans-serif;
+  }
+
+  .themeHint{ margin-top:8px; font-size:12px; color: var(--text-dim); }
+  .themeSunBtn{ margin-top:8px; padding:8px 12px; border-radius:10px; font-size:13px; cursor:pointer;
+    border:1px solid var(--panel-border); background:transparent; color:var(--text-main); }
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
      podąża za pojazdem), prędkościomierz znika i ustępuje mu miejsca; znak zostaje nad przyciskiem. */
   #speedCluster{
-    position:absolute; left:16px;
+    position:absolute; left:36px;
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) - 4px);
     display:flex; flex-direction:column-reverse; align-items:center; gap:8px;
     z-index:40;
@@ -1098,6 +1134,22 @@
   }
   #statusPill .dot.searching{ animation: pulseDot 1s infinite; background:#f2b632; }
   @keyframes pulseDot{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  /* ---------- Znak ❓: droga bez podanego limitu (dotknięcie: admin wpisuje limit, kierowca głosuje) ---------- */
+  #limitSign{ touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  #limitSign.unknown{ background: rgba(255,255,255,.22); border-color: var(--accent); cursor:pointer;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #limitSign.unknown #limitValue{ font-size:30px; line-height:1; }
+  #limitSign.editable{ cursor:pointer; }
+  #limitEdit .limitSigns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:6px 0; }
+  #limitEdit .limSignBtn{ flex:0 0 auto; width:64px; height:64px; padding:0; border-radius:50%;
+    background:#fff; border:6px solid #e53935; color:#111; cursor:pointer;
+    font:700 24px 'Space Grotesk','Inter',system-ui,sans-serif; }
+  #limitEdit .limSignBtn.mine{ box-shadow:0 0 0 3px var(--accent); }
+  #limitEdit .limitEditRow{ display:flex; align-items:center; gap:8px; margin:4px 0; }
+  #limitEdit #limitEditInput{ flex:1; min-width:0; padding:10px 12px; border-radius:10px; font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif;
+    border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); }
+  #limitEdit #limitEditUnit{ font-weight:700; font-size:14px; color: var(--text-dim); }
   /* ---------- Konsola debugowania ---------- */
   #debugConsole{
     position:fixed; left:10px; right:10px;
@@ -1348,6 +1400,23 @@
   </div>
 </div>
 
+<div id="limitEdit" class="poiCard" role="dialog">
+  <div class="poiName" id="limitEditTitle">Brak limitu prędkości na tej drodze</div>
+  <div class="poiAddr" id="limitEditInfo"></div>
+  <div class="limitSigns" id="limitEditSigns"></div>
+  <div class="limitEditRow" id="limitEditOtherRow" style="display:none">
+    <input id="limitEditInput" type="number" inputmode="numeric" min="5" max="70" step="5" placeholder="np. 25" autocomplete="off">
+    <span id="limitEditUnit">mph</span>
+    <button id="limitEditSave" type="button">OK</button>
+  </div>
+  <div class="poiAddr" id="limitEditTally"></div>
+  <div class="poiAddr" id="limitEditStatus"></div>
+  <div class="poiBtns">
+    <button id="limitEditOther" type="button">Inna prędkość</button>
+    <button id="limitEditCancel" type="button">Zamknij</button>
+  </div>
+</div>
+
 <div id="poiAdd" class="poiCard" role="dialog">
   <div id="poiAddAsk">
     <div class="poiName">Ten budynek nie ma nazwy</div>
@@ -1452,41 +1521,42 @@
     <div class="truckGrid">
       <div class="truckField"><span>Wysokość</span>
         <div class="truckInputWrap metOnly"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
-        <div class="truckImpWrap impOnly">
-          <div class="truckInputWrap"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
-          <div class="truckInputWrap"><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        <div class="truckInputWrap impOnly impPair"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
       <div class="truckField"><span>Szerokość</span>
         <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
-        <div class="truckImpWrap impOnly">
-          <div class="truckInputWrap"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
-          <div class="truckInputWrap"><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        <div class="truckInputWrap impOnly impPair"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
       <div class="truckField"><span>Długość</span>
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
-        <div class="truckImpWrap impOnly">
-          <div class="truckInputWrap"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off"><em>ft</em></div>
-          <div class="truckInputWrap"><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off"><em>in</em></div>
-        </div></div>
+        <div class="truckInputWrap impOnly impPair"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
       <div class="truckField"><span>Masa całkowita</span>
         <div class="truckInputWrap metOnly"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
         <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
       <div class="truckField"><span>Maks. obciążenie osi</span>
         <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
         <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
-      <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
-      <div class="truckField truckResetWrap"><button id="tpAvatarBtn" type="button" class="secondary">🎨 Avatar, trasa i kolory</button></div>
+      <div class="truckField truckResetWrap truckActionRow">
+        <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 48 28" width="40" height="24" aria-hidden="true"><path class="rt" d="M2 25 C14 25 14 7 26 9 S42 7 46 3" fill="none" stroke-width="3" stroke-linecap="round"/><circle class="rt" cx="46" cy="3" r="2" stroke-width="1"/><rect class="tk" x="5" y="9" width="22" height="12" rx="2"/><path class="tk" d="M27 13h7l4 4v4H27z"/><circle class="wh" cx="12" cy="22.5" r="3"/><circle class="wh" cx="33" cy="22.5" r="3"/></svg></button>
+      </div>
     </div>
+    <div id="avatarInline"><div class="aiIn">
+      <div class="cuHead"><div class="navTitle">Avatar i trasa</div>
+        <button type="button" id="colorToggle" aria-label="Kolor" title="Kolor"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7.6" cy="11" r="1.2" fill="currentColor"/><circle cx="10.2" cy="7.2" r="1.2" fill="currentColor"/><circle cx="14.6" cy="7.2" r="1.2" fill="currentColor"/></svg></button></div>
+      <div id="avatarGrid"></div>
+      <div id="colorPanel"><div class="cpIn">
+        <span id="colorLabel">Kolor avatara</span>
+        <input type="range" id="colorHue" min="0" max="359" value="170" aria-label="Barwa koloru">
+        <button type="button" id="colorReset" aria-label="Kolor domyślny" title="Domyślny">↺</button>
+      </div></div>
+    </div></div>
   </div>
 </div>
 
 <div id="navIconRow">
-  <div class="ctrl-btn" id="btnNav" title="Rozwiń / zwiń okno nawigatora">🔍</div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
   <div class="ctrl-btn" id="btnDim" title="2D / 3D">
     <span id="dimIcon">3D</span>
   </div>
-  <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
 </div>
@@ -1504,22 +1574,6 @@
   </div>
 </div>
 
-
-<div id="avatarPanel">
-  <div id="avatarBackdrop"></div>
-  <div id="avatarCard">
-    <span class="sheetGrip"></span>
-    <div class="navSettingsHeader"><span>Avatar, trasa i kolory</span><div id="avatarClose">✕</div></div>
-    <div class="cuHead"><div class="navTitle">Avatar i trasa</div>
-      <button type="button" id="colorToggle" aria-label="Kolor" title="Kolor"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7.6" cy="11" r="1.2" fill="currentColor"/><circle cx="10.2" cy="7.2" r="1.2" fill="currentColor"/><circle cx="14.6" cy="7.2" r="1.2" fill="currentColor"/></svg></button></div>
-    <div id="avatarGrid"></div>
-    <div id="colorPanel"><div class="cpIn">
-      <span id="colorLabel">Kolor avatara</span>
-      <input type="range" id="colorHue" min="0" max="359" value="170" aria-label="Barwa koloru">
-      <button type="button" id="colorReset" aria-label="Kolor domyślny" title="Domyślny">↺</button>
-    </div></div>
-  </div>
-</div>
 
 <div id="navSettingsPanel">
   <div id="navSettingsBackdrop"></div>
@@ -1540,13 +1594,19 @@
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel">Tryb mapy:
-        <select id="navPrefTheme">
-          <option value="auto">Auto (wschód/zachód słońca)</option>
-          <option value="day">Dzień</option>
-          <option value="night">Noc</option>
-        </select>
-      </label>
+      <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
+      <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
+      <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
+        <button type="button" data-theme="day" title="Dzień" aria-label="Dzień">☀️</button>
+        <button type="button" data-theme="night" title="Noc" aria-label="Noc">🌙</button>
+        <button type="button" data-theme="auto" title="Auto — wg godzin" aria-label="Auto">🌗</button>
+      </div>
+      <div class="themeAutoRow" id="themeAutoRow">
+        <span>Noc od</span><input type="time" id="themeNightFrom" value="20:00" aria-label="Noc od godziny">
+        <span>do</span><input type="time" id="themeNightTo" value="06:00" aria-label="Noc do godziny">
+      </div>
+      <div class="themeHint" id="themeHint"></div>
+      <button type="button" id="themeSunBtn" class="themeSunBtn">↺ Wróć do zachodu słońca</button>
       <div class="navTitle" style="margin-top:12px">Podkład mapy</div>
       <div class="voiceSeg" id="baseSeg" role="group" aria-label="Podkład mapy">
         <button type="button" data-base="std">🗺 Standardowa</button>
@@ -1831,6 +1891,11 @@
   const OVERPASS_RETRY_AFTER_FAIL_MS = 15000; // po całkowitym niepowodzeniu, ponów próbę po tym czasie
   const CAMERA_RADIUS_M = 3000;      // promień pobierania fotoradarów
   const ROAD_RADIUS_M   = 900;       // promień pobierania dróg z maxspeed
+  const SPEED_VOTE_MIN = 3;          // tylu zgodnych głosów kierowców potrzeba, by limit z głosowania pojawił się na znaku
+  const MY_ROAD_VOTES_KEY = "nawigator_road_votes";
+  const PREF_SHOW_NOLIMIT_MAP = "nawigator_pref_show_nolimit_map";
+  const NOLIMIT_RADIUS_M = 450;      // promień pobierania dróg BEZ maxspeed (na nich znak pokazuje ❓)
+  const NOLIMIT_HIGHWAY_RE = /^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$/;
   const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
 
   const HGV_PARKING_STORAGE = "nawigator_hgv_parking_user"; // lokalnie zgłoszone przez użytkownika (nie współdzielone)
@@ -2142,6 +2207,10 @@
     if(needle) needle.style.transform = `rotate(${-b}deg)`; // czerwona strzałka zawsze wskazuje północ
   }
   function updateLocateBtnVisibility(){
+    // gdy na mapie pokazana jest zaplanowana trasa: bez prędkościomierza i menu ikon (więcej miejsca na trasę)
+    const shown = isRouteShownUi();
+    document.body.classList.toggle("route-planning", shown);
+    if(shown) document.body.classList.remove("menu-open");
     const btn = document.getElementById("btnLocate");
     if(!btn) return;
     // pokaż przycisk tylko wtedy, gdy widok NIE podąża za użytkownikiem (wymaga wyśrodkowania)
@@ -2149,6 +2218,11 @@
     const show = !followUser && !isRoutePlanningUi();
     btn.classList.toggle("visible", show);
     document.body.classList.toggle("locate-visible", show); // prędkościomierz <-> "Centruj" zamiennie
+  }
+  // true, gdy trasa jest już pokazana do wyboru/edycji (picker albo edycja przed ruszeniem)
+  function isRouteShownUi(){
+    try{ return navUiState === "picker" || !!(navUiState === "nav" && activeRoute && activeRoute.planning); }
+    catch(e){ return false; }
   }
   // true, gdy użytkownik jest na etapie planowania: wybrany cel (confirm), wybór trasy (picker)
   // albo edycja zaplanowanej trasy przed ruszeniem. Po "Jedź" (stan nav, bez planning) przycisk wraca.
@@ -2165,6 +2239,12 @@
   let queuedRefetchPos = null; // gdy fetchOverpassData() wywołano w trakcie innego zapytania (np. zaraz po zgłoszeniu fotoradaru/parkingu) — zamiast po cichu je gubić, odpalamy je ponownie zaraz po zakończeniu bieżącego
   let cameras = [];             // [{id, lat, lon, alerted}] — WYNIKOWA lista (OSM+społeczność+lokalne zgłoszenia), używana do alertu
   let osmCameras = [];          // fotoradary z OSM/Overpass + zgłoszenia społeczności (Supabase), odświeżane co refetch
+  let noLimitSegments = [];     // [{a,b,wayId,highway}] — drogi OSM bez limitu (znak ❓); admin może uzupełnić limit
+  let adminRoadLimits = new Map(); // wayId -> mph; limity ustalone przez administratora (tabela road_speed_limits)
+  let roadVoteTotals = new Map();  // wayId -> Map(mph -> liczba głosów kierowców)
+  let lastNoLimitFeatures = [];    // drogi bez limitu jako linie GeoJSON (podgląd dla administratora)
+  let prefShowNoLimitMap = localStorage.getItem(PREF_SHOW_NOLIMIT_MAP) !== "0";   // admin: podgląd dróg bez limitu, domyślnie włączony
+  let tapLimitWay = null;       // {wayId, highway, lat, lon, known, curMph, src} — droga pod znakiem (❓ albo limit ze społeczności/admina)
   let roadSegments = [];        // [{a:[lon,lat], b:[lon,lat], maxspeed:number}]
   let currentLimit = null;
   let preferredEndpointIdx = 0; // zapamiętujemy który serwer ostatnio zadziałał, żeby próbować go pierwszego
@@ -3351,6 +3431,15 @@
         }
       }, "cameras-glow");
 
+      // podgląd dróg bez limitu prędkości (tylko administrator): przerywana bursztynowa linia, dotknięcie = wpisanie limitu
+      map.addSource("roads-nolimit", { type:"geojson", data: emptyFC() });
+      map.addLayer({
+        id:"roads-nolimit-line", type:"line", source:"roads-nolimit",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#FFB020", "line-width":4, "line-opacity":0.85, "line-dasharray":[2, 1.6] }
+      }, "cameras-glow");
+      try{ refreshNoLimitLayer(); }catch(e){}
+
       // źródła/warstwy znaków wysokości wiaduktów/przejazdów i ograniczeń tonażowych
       try{
         setupRestrictionLayers();
@@ -3606,7 +3695,7 @@
     map.addSource(MW_SRC, { type:"geojson", data: emptyFC(), buffer: 128, tolerance: 0.3 });
     // pod pierwszą warstwą tekstową i pod naszymi warstwami (tablice, trasa, zjazdy…)
     const idx = id => styleLayers.findIndex(l => l.id === id);
-    const own = ["uk-road-shields-b", "roads-maxspeed-line", "roads-maxheight-line", "roads-maxweight-line", "roads-maxwidth-line",
+    const own = ["uk-road-shields-b", "roads-maxspeed-line", "roads-nolimit-line", "roads-maxheight-line", "roads-maxweight-line", "roads-maxwidth-line",
       "restriction-signs-icon", "route-line-casing", "motorway-cameras-dot", "cameras-glow", "avg-speed-cameras-glow",
       "motorway-junction-circle", "motorway-junction-label", "hgv-parking-icon", "hgv-parking-user-icon", "hgv-parking-community-icon"];
     const firstSymbol = styleLayers.find(l => l.type === "symbol");
@@ -4329,10 +4418,14 @@
     const hue = document.getElementById("colorHue");
     hue.addEventListener("input", () => { cancelAnimationFrame(hueAnim); setCtxColor(hslToHex(+hue.value, colorCtx === "route" ? 95 : 80, colorCtx === "route" ? 55 : 52)); hue.style.setProperty("--thumb", currentCtxColor()); const r = document.getElementById("colorReset"); if(r) r.style.visibility = "visible"; });
     document.getElementById("colorReset").addEventListener("click", () => { setCtxColor(null); syncColorPanel(true); });
-    const ap = document.getElementById("avatarPanel");
-    document.getElementById("tpAvatarBtn").addEventListener("click", () => { refreshCustomizeUi(); syncColorPanel(false); ap.classList.add("open"); });
-    document.getElementById("avatarClose").addEventListener("click", () => ap.classList.remove("open"));
-    document.getElementById("avatarBackdrop").addEventListener("click", () => ap.classList.remove("open"));
+    // menu avatara i kolorów rozwija się w tym samym oknie, pod przyciskami
+    const ai = document.getElementById("avatarInline"), ab = document.getElementById("tpAvatarBtn");
+    ab.addEventListener("click", () => {
+      const o = !ai.classList.contains("open");
+      if(o){ refreshCustomizeUi(); syncColorPanel(false); }
+      ai.classList.toggle("open", o); ab.classList.toggle("on", o); ab.setAttribute("aria-expanded", o ? "true" : "false");
+      if(o) setTimeout(() => { try{ ai.scrollIntoView({ block:"nearest", behavior:"smooth" }); }catch(e){} }, 260);
+    });
     const tg = document.getElementById("colorToggle"), pn = document.getElementById("colorPanel");
     tg.addEventListener("click", () => { const o = !pn.classList.contains("open"); pn.classList.toggle("open", o); tg.classList.toggle("on", o); });
   });
@@ -5589,6 +5682,7 @@
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
+        way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$"][!"maxspeed"](around:${NOLIMIT_RADIUS_M},${lat},${lon});
         node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
         node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
@@ -5599,7 +5693,7 @@
       out geom;
     `;
 
-    Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon)])
+    Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon), fetchRoadLimits(lat, lon)])
       .then(([data, supaReports]) => {
         applyOverpassResult(data, supaReports);
         lastOverpassData = data; lastOverpassPos = { lat, lon };
@@ -6315,6 +6409,93 @@
     return supaRep.inflight.then(() => supaRepInBox(lat, lon));
   }
 
+  // ---- brakujące limity prędkości: ustalone przez administratora (road_speed_limits, mph) i głosy kierowców
+  //      (road_speed_votes przez funkcje vote_road_speed / road_speed_vote_totals); klucz = id drogi OSM ----
+  const roadLimitsCache = { cover: null, fetchedAt: 0, inflight: null };
+  function fetchRoadLimits(lat, lon){
+    if(!supaConfigured()) return Promise.resolve();
+    const c = roadLimitsCache.cover;
+    const covered = c && lat - 0.02 >= c.latMin && lat + 0.02 <= c.latMax && lon - 0.03 >= c.lonMin && lon + 0.03 <= c.lonMax;
+    if(covered && Date.now() - roadLimitsCache.fetchedAt < 10 * 60000) return Promise.resolve();
+    if(roadLimitsCache.inflight) return roadLimitsCache.inflight;
+    const cover = { latMin: lat - 0.05, latMax: lat + 0.05, lonMin: lon - 0.08, lonMax: lon + 0.08 };
+    const base = normSupaUrl(supaUrl) + "/rest/v1/";
+    const hdr = { "apikey": supaKey, "Authorization": "Bearer " + supaKey };
+    const miss = name => { supaMissingTables.add(name); debugLog("warn", "Supabase: brak „" + name + "” — uruchom skrypt SQL (limity prędkości)."); };
+    const pAdmin = supaMissingTables.has("road_speed_limits") ? Promise.resolve(null)
+      : fetch(base + "road_speed_limits?select=way_id,maxspeed_mph&limit=5000"
+          + `&lat=gte.${cover.latMin}&lat=lte.${cover.latMax}&lon=gte.${cover.lonMin}&lon=lte.${cover.lonMax}`, { headers: hdr })
+        .then(r => { if(r.status === 404){ miss("road_speed_limits"); return null; } return r.ok ? r.json() : null; }).catch(() => null);
+    const pVotes = supaMissingTables.has("road_speed_vote_totals") ? Promise.resolve(null)
+      : fetch(base + "rpc/road_speed_vote_totals", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, hdr),
+          body: JSON.stringify({ p_lat_min: cover.latMin, p_lat_max: cover.latMax, p_lon_min: cover.lonMin, p_lon_max: cover.lonMax }) })
+        .then(r => { if(r.status === 404){ miss("road_speed_vote_totals"); return null; } return r.ok ? r.json() : null; }).catch(() => null);
+    roadLimitsCache.inflight = Promise.all([pAdmin, pVotes]).then(([adm, votes]) => {
+      if(adm) adminRoadLimits = new Map(adm.map(r => [Number(r.way_id), Number(r.maxspeed_mph)]));
+      if(votes){
+        roadVoteTotals = new Map();
+        votes.forEach(r => {
+          const id = Number(r.way_id);
+          if(!roadVoteTotals.has(id)) roadVoteTotals.set(id, new Map());
+          roadVoteTotals.get(id).set(Number(r.vote_mph), Number(r.votes));
+        });
+      }
+      if(adm || votes){ roadLimitsCache.cover = cover; roadLimitsCache.fetchedAt = Date.now(); }
+    }).catch(() => {}).finally(() => { roadLimitsCache.inflight = null; });
+    return roadLimitsCache.inflight;
+  }
+  // obowiązujący limit drogi bez limitu w OSM: najpierw administrator, potem zwycięzca głosowania
+  // (min. SPEED_VOTE_MIN głosów i więcej niż jakakolwiek inna wartość); null = nadal brak limitu (znak ❓)
+  function roadLimitInfo(wayId){
+    const a = adminRoadLimits.get(wayId);
+    if(a) return { mph: a, source: "admin" };
+    const t = roadVoteTotals.get(wayId);
+    if(!t) return null;
+    let best = 0, bv = 0, second = 0;
+    t.forEach((n, mph) => { if(n > bv){ second = bv; bv = n; best = mph; } else if(n > second) second = n; });
+    return (bv >= SPEED_VOTE_MIN && bv > second) ? { mph: best, source: "votes" } : null;
+  }
+  // zapis limitu przez zalogowanego administratora (upsert po way_id); rzuca błąd z opisem
+  async function saveRoadLimitToSupabase(way, mph){
+    if(!supaConfigured()) throw new Error("Brak konfiguracji Supabase");
+    const token = await supaAdminToken();
+    if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+    const sess = adminSessionLoad();
+    const row = { way_id: way.wayId, maxspeed_mph: mph, highway: way.highway || null, lat: way.lat, lon: way.lon,
+                  set_by: (sess && sess.email) || null, updated_at: new Date().toISOString() };
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/road_speed_limits?on_conflict=way_id", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token,
+                 "Prefer": "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([row])
+    });
+    if(!r.ok){
+      let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
+      throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
+    }
+  }
+  // głos zwykłego kierowcy (jeden głos na urządzenie i drogę, można zmienić); aktualizuje też lokalne sumy
+  function loadMyRoadVotes(){ try{ return JSON.parse(localStorage.getItem(MY_ROAD_VOTES_KEY) || "{}"); }catch(e){ return {}; } }
+  async function voteRoadSpeed(way, mph){
+    if(!supaConfigured()) throw new Error("Brak połączenia z wspólną bazą");
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/rpc/vote_road_speed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey },
+      body: JSON.stringify({ p_way_id: way.wayId, p_mph: mph, p_device: getDeviceId(), p_lat: way.lat, p_lon: way.lon, p_highway: way.highway || null })
+    });
+    if(!r.ok){
+      let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){}
+      throw new Error("HTTP " + r.status + (t ? " — " + t : ""));
+    }
+    const id = Number(way.wayId), mine = loadMyRoadVotes(), prev = mine[id];
+    if(!roadVoteTotals.has(id)) roadVoteTotals.set(id, new Map());
+    const t = roadVoteTotals.get(id);
+    if(prev && t.has(prev)){ t.set(prev, Math.max(0, t.get(prev) - 1)); if(!t.get(prev)) t.delete(prev); }
+    t.set(mph, (t.get(mph) || 0) + 1);
+    mine[id] = mph;
+    try{ localStorage.setItem(MY_ROAD_VOTES_KEY, JSON.stringify(mine)); }catch(e){}
+  }
+
   function supaRealtimeApply(d){
     if(!d || !d.type) return;
     const rec = d.record || {}, old = d.old_record || {};
@@ -6527,10 +6708,19 @@
     return false;
   }
 
+  // podgląd dróg bez limitu na mapie — tylko dla administratora (i gdy włączony w Ustawienia → Ekran)
+  function refreshNoLimitLayer(){
+    if(!map || !map.getSource || !map.getSource("roads-nolimit")) return;
+    const on = isAdmin() && prefShowNoLimitMap;
+    map.getSource("roads-nolimit").setData({ type:"FeatureCollection", features: on ? lastNoLimitFeatures : [] });
+  }
+
   function applyOverpassResult(data, supaReports){
     supaReports = supaReports || [];
     const newCameras = [];
     const newRoads = [];
+    const newNoLimit = [];
+    const noLimitFeatures = [];
     const roadFeatures = [];
     const hgvParkingFeatures = [];
     const communityParkingFeatures = [];
@@ -6559,6 +6749,19 @@
           lon: el.lon,
           alerted: false
         });
+      } else if(el.type === "way" && el.geometry && el.tags && !el.tags.maxspeed && NOLIMIT_HIGHWAY_RE.test(el.tags.highway || "")){
+        // droga bez limitu w OSM: jeśli ma limit od administratora albo z głosowania — traktujemy jak zwykły;
+        // inaczej znak pokaże ❓, a administrator zobaczy ją na mapie (podgląd)
+        const info = roadLimitInfo(el.id);
+        const coords = el.geometry.map(g => [g.lon, g.lat]);
+        if(info){
+          const kmh = Math.round(info.mph * 1.60934);
+          for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source });
+          roadFeatures.push({ type:"Feature", properties:{ maxspeed: kmh }, geometry:{ type:"LineString", coordinates: coords } });
+        } else {
+          for(let i=0;i<coords.length-1;i++) newNoLimit.push({ a: coords[i], b: coords[i+1], wayId: el.id, highway: el.tags.highway });
+          noLimitFeatures.push({ type:"Feature", properties:{ wayId: el.id, highway: el.tags.highway }, geometry:{ type:"LineString", coordinates: coords } });
+        }
       } else if(el.type === "way" && el.geometry && el.tags && el.tags.maxspeed){
         const ms = parseMaxspeed(el.tags.maxspeed);
         if(ms){
@@ -6616,6 +6819,9 @@
 
     osmCameras = newCameras;
     roadSegments = newRoads;
+    noLimitSegments = newNoLimit;
+    lastNoLimitFeatures = noLimitFeatures;
+    refreshNoLimitLayer();
     rebuildCameraList(); // scala osmCameras z lokalnymi zgłoszeniami tego urządzenia i odświeża mapę
 
     if(map.getSource("roads-maxspeed")){
@@ -6662,22 +6868,39 @@
     // łączymy segmenty z OSM (Overpass) z segmentami limitów pobranymi wraz z trasą z TomTom,
     // żeby nie trzeba było wykonywać dodatkowych zapytań o limity wzdłuż wyznaczonej trasy
     const allSegments = roadSegments.length ? roadSegments.concat(routeSpeedSegments) : routeSpeedSegments;
-    if(allSegments.length === 0){
-      currentLimit = null;
+    if(allSegments.length === 0 && noLimitSegments.length === 0){
+      currentLimit = null; tapLimitWay = null;
       hideLimitSign();
       return;
     }
-    let best = null, bestDist = Infinity;
+    let best = null, bestDist = Infinity, bestNo = null, bestNoDist = Infinity;
     for(const seg of allSegments){
       const d = pointToSegmentMeters(lat, lon, seg.a, seg.b);
       if(d < bestDist){ bestDist = d; best = seg; }
     }
+    for(const seg of noLimitSegments){
+      const d = pointToSegmentMeters(lat, lon, seg.a, seg.b);
+      if(d < bestNoDist){ bestNoDist = d; bestNo = seg; }
+    }
     // jeśli najbliższa droga jest zbyt daleko, nie pokazuj limitu (błędne dopasowanie)
-    if(best && bestDist <= 60){
+    const limOk = best && bestDist <= 60;
+    const noOk = bestNo && bestNoDist <= 40;
+    const sign = document.getElementById("limitSign");
+    if(limOk && (!noOk || bestDist <= bestNoDist + 5)){
       currentLimit = best.maxspeed;
+      // limit ustalony przez administratora / głosowanie: admin może go zmienić dotknięciem znaku
+      tapLimitWay = best.wayId ? { wayId: best.wayId, highway: null, lat, lon, known: true, src: best.limSrc,
+                                   curMph: Math.round(best.maxspeed * 0.621371) } : null;
       showLimitSign(currentLimit);
-    } else {
+      sign.classList.toggle("editable", !!(tapLimitWay && isAdmin()));
+    } else if(noOk){
+      // droga bez podanego limitu: znak ❓ — dotknięcie pozwala wskazać limit (admin: zapisuje, kierowca: głosuje)
       currentLimit = null;
+      tapLimitWay = { wayId: bestNo.wayId, highway: bestNo.highway, known: false,
+                      lat: (bestNo.a[1] + bestNo.b[1]) / 2, lon: (bestNo.a[0] + bestNo.b[0]) / 2 };
+      showUnknownLimitSign();
+    } else {
+      currentLimit = null; tapLimitWay = null;
       hideLimitSign();
     }
   }
@@ -6685,16 +6908,117 @@
   function showLimitSign(limit){
     if(!prefShowLimitSign){ hideLimitSign(); return; }
     const sign = document.getElementById("limitSign");
-    sign.classList.remove("hidden");
+    sign.classList.remove("hidden", "unknown");
     document.getElementById("limitValue").textContent = kmhToDisplay(limit);
     const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
     sign.classList.toggle("blink", speeding);
   }
+  function showUnknownLimitSign(){
+    if(!prefShowLimitSign){ hideLimitSign(); return; }
+    const sign = document.getElementById("limitSign");
+    sign.classList.remove("hidden", "blink", "editable");
+    sign.classList.add("unknown");
+    document.getElementById("limitValue").textContent = "❓";
+  }
   function hideLimitSign(){
     const sign = document.getElementById("limitSign");
     sign.classList.add("hidden");
-    sign.classList.remove("blink");
+    sign.classList.remove("blink", "unknown", "editable");
   }
+
+  /* ---------- wskazanie brakującego limitu: znaki do wyboru (mph) ----------
+     Administrator zapisuje limit od razu dla wszystkich; zwykły kierowca głosuje (limit pojawia się na znaku,
+     gdy SPEED_VOTE_MIN kierowców wskaże to samo). Podpowiadane znaki zależą od aktualnej prędkości. */
+  let limitEditTarget = null;
+  function suggestLimitsMph(fromMap){
+    if(fromMap) return [20, 30, 40, 50, 60, 70];            // podgląd na mapie: prędkość jazdy nie ma znaczenia
+    const v = Math.round((currentSpeedKmh || 0) * 0.621371);
+    if(v < 30) return [20, 30, 40, 50];                      // jedziemy wolno: dochodzi 20 mph
+    if(v >= 50) return [40, 50, 60, 70];
+    return [30, 40, 50];
+  }
+  function roadTallyText(wayId){
+    const t = roadVoteTotals.get(Number(wayId));
+    if(!t || !t.size) return "";
+    return "Głosy kierowców: " + Array.from(t.entries()).sort((a, b) => b[1] - a[1]).map(e => e[0] + " mph ×" + e[1]).join(" · ");
+  }
+  function renderLimitEdit(){
+    const w = limitEditTarget; if(!w) return;
+    const admin = isAdmin();
+    document.getElementById("limitEditTitle").textContent = w.known ? "Limit na tej drodze: " + w.curMph + " mph" : "Brak limitu prędkości na tej drodze";
+    document.getElementById("limitEditInfo").textContent = admin
+      ? "Wybierz znak — limit zapisze się dla wszystkich kierowców" + (w.known ? " (zastąpi obecny)." : ".")
+      : "Wybierz znak z limitem. Gdy " + SPEED_VOTE_MIN + " kierowców wskaże ten sam limit, pojawi się na znaku.";
+    document.getElementById("limitEditTally").textContent = roadTallyText(w.wayId);
+    const mine = loadMyRoadVotes()[Number(w.wayId)];
+    const box = document.getElementById("limitEditSigns");
+    box.textContent = "";
+    suggestLimitsMph(!!w.fromMap).forEach(mph => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "limSignBtn" + (!admin && mine === mph ? " mine" : ""); b.dataset.mph = mph;
+      b.textContent = mph; b.setAttribute("aria-label", mph + " mph");
+      box.appendChild(b);
+    });
+  }
+  function openLimitEdit(target){
+    limitEditTarget = target || tapLimitWay;
+    if(!limitEditTarget) return;
+    document.getElementById("limitEditStatus").textContent = "";
+    document.getElementById("limitEditOtherRow").style.display = "none";
+    document.getElementById("limitEditInput").value = "";
+    renderLimitEdit();
+    document.getElementById("limitEdit").classList.add("show");
+  }
+  function closeLimitEdit(){ document.getElementById("limitEdit").classList.remove("show"); limitEditTarget = null; }
+  // klik w drogę bez limitu na mapie (podgląd administratora)
+  function handleNoLimitMapClick(e){
+    if(!isAdmin() || !prefShowNoLimitMap || !map.getLayer("roads-nolimit-line")) return false;
+    const f = map.queryRenderedFeatures([[e.point.x - 14, e.point.y - 14], [e.point.x + 14, e.point.y + 14]], { layers: ["roads-nolimit-line"] });
+    if(!f.length) return false;
+    const p = f[0].properties || {};
+    openLimitEdit({ wayId: Number(p.wayId), highway: p.highway, lat: e.lngLat.lat, lon: e.lngLat.lng, known: false, fromMap: true });
+    return true;
+  }
+  async function submitLimitMph(mph){
+    const w = limitEditTarget, st = document.getElementById("limitEditStatus");
+    if(!w) return closeLimitEdit();
+    if(!(Number.isInteger(mph) && mph >= 5 && mph <= 70 && mph % 5 === 0)){ st.textContent = "Wybierz limit 5–70 mph (co 5)."; return; }
+    const btns = document.querySelectorAll("#limitEdit button"); btns.forEach(b => b.disabled = true);
+    st.textContent = "Zapisuję…";
+    try{
+      const admin = isAdmin();
+      if(admin){
+        await saveRoadLimitToSupabase(w, mph);
+        adminRoadLimits.set(Number(w.wayId), mph);
+      } else {
+        await voteRoadSpeed(w, mph);
+      }
+      const active = roadLimitInfo(Number(w.wayId));
+      closeLimitEdit();
+      showBanner(admin ? "LIMIT ZAPISANY" : "DZIĘKUJĘ ZA GŁOS", mph + " mph" + (admin ? " dla tej drogi" : (active ? " — limit aktywny" : "")), false);
+      // przebuduj segmenty z już pobranych danych, żeby zmiana zadziałała od razu
+      try{ if(lastOverpassData && lastOverpassPos) applyOverpassResult(lastOverpassData, supaRepInBox(lastOverpassPos.lat, lastOverpassPos.lon)); }catch(e){}
+      if(lastPos) updateSpeedLimit(lastPos.lat, lastPos.lon);
+    }catch(e){
+      st.textContent = "⚠ Nie zapisano: " + ((e && e.message) || e);
+    }
+    btns.forEach(b => b.disabled = false);
+  }
+  document.getElementById("limitSign").addEventListener("click", () => {
+    if(!tapLimitWay) return;
+    if(tapLimitWay.known && !isAdmin()) return;      // gotowy limit zmienia tylko administrator
+    openLimitEdit(tapLimitWay);
+  });
+  document.getElementById("limitEditSigns").addEventListener("click", e => {
+    const b = e.target.closest(".limSignBtn"); if(b) submitLimitMph(parseInt(b.dataset.mph, 10));
+  });
+  document.getElementById("limitEditOther").addEventListener("click", () => {
+    const row = document.getElementById("limitEditOtherRow");
+    row.style.display = row.style.display === "none" ? "flex" : "none";
+    if(row.style.display === "flex") setTimeout(() => document.getElementById("limitEditInput").focus(), 60);
+  });
+  document.getElementById("limitEditSave").addEventListener("click", () => submitLimitMph(parseInt(document.getElementById("limitEditInput").value, 10)));
+  document.getElementById("limitEditCancel").addEventListener("click", closeLimitEdit);
 
   // stosuje preferencje widoczności prędkościomierza / znaku ograniczenia (ustawiane w ⋮ → Nawigator)
   function applyDisplayPrefs(){
@@ -7382,7 +7706,6 @@
     panel.classList.toggle("collapsed", collapsed);
     panel.classList.toggle("compact", !!collapsed && navIsDriving());   // w jeździe zostają widoczne statystyki
     if(collapsed) panel.classList.remove("nav-expanded");
-    document.getElementById("btnNav").classList.toggle("active", !collapsed);
     if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar();
   }
 
@@ -7434,9 +7757,17 @@
       const all = (S ? S.coords : []).concat(O ? O.coords : []);
       if(all.length > 1){
         const bounds = all.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
-        map.fitBounds(bounds, { padding: { top: 90, bottom: 230, left: 40, right: 40 }, duration: 600 });
+        map.fitBounds(bounds, { padding: planFitPadding(), duration: 600, maxZoom: 17 });
       }
     }
+  }
+  // odstępy dla fitBounds przy planowaniu: trasa ma zająć CAŁE wolne miejsce nad kartą nawigatora
+  // (prędkościomierz, menu i Centruj są wtedy schowane, więc nic poza kartą nie zasłania mapy)
+  function planFitPadding(){
+    const mapH = (map && map.getContainer().clientHeight) || window.innerHeight;
+    const top = 56, side = 20;
+    const bottom = Math.max(0, Math.min((getNavBottomChromeHeight() || 200) + 14, mapH - top - 140));
+    return { top, bottom, left: side, right: side };
   }
   function pickSelect(k){
     if(!pendingRoutes || !pendingRoutes[k]) return;
@@ -8050,6 +8381,7 @@
   function setupPoiClick(){
     map.on("click", (e) => {
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
+      if(navUiState !== "picker" && !routeEditMode && handleNoLimitMapClick(e)) return;   // admin: dotknięcie drogi bez limitu
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
       const tgt = e.originalEvent && e.originalEvent.target;
       if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
@@ -8270,7 +8602,7 @@
     );
     if(allCoords.length > 1){
       const bounds = allCoords.reduce((b,c) => b.extend(c), new maplibregl.LngLatBounds(allCoords[0], allCoords[0]));
-      map.fitBounds(bounds, { padding: 70, duration: 600 });
+      map.fitBounds(bounds, { padding: planFitPadding(), duration: 600, maxZoom: 17 });
     }
   }
 
@@ -8698,15 +9030,20 @@
     const chromeH = getNavBottomChromeHeight() || 220;
     const locateBtn = document.getElementById("btnLocate");
     const sign = document.getElementById("limitSign");
-    let bottomPad = chromeH + 14 + (locateBtn ? locateBtn.offsetHeight : 46) + 10;
-    if(sign && !sign.classList.contains("hidden")) bottomPad += sign.offsetHeight + 8;
-    bottomPad += 10;
-    const topPad = 64;
+    let bottomPad;
+    if(isRouteShownUi()){
+      bottomPad = chromeH + 14;      // planowanie: prędkościomierz, znak i Centruj są schowane
+    } else {
+      bottomPad = chromeH + 14 + (locateBtn ? locateBtn.offsetHeight : 46) + 10;
+      if(sign && !sign.classList.contains("hidden")) bottomPad += sign.offsetHeight + 8;
+      bottomPad += 10;
+    }
+    const topPad = isRouteShownUi() ? 56 : 64;
     const mapH = map.getContainer().clientHeight || window.innerHeight;
     // zabezpieczenie: MapLibre nie wykona fitBounds, gdy odstępy zjadają cały ekran
     bottomPad = Math.max(0, Math.min(bottomPad, mapH - topPad - 140));
     map.fitBounds(bounds, {
-      padding: { top: topPad, left: 24, right: 24, bottom: bottomPad },
+      padding: { top: topPad, left: isRouteShownUi() ? 20 : 24, right: isRouteShownUi() ? 20 : 24, bottom: bottomPad },
       pitch: 0, bearing: 0, duration: 700, maxZoom: 17
     });
   }
@@ -9887,15 +10224,6 @@
   document.getElementById("navGoBtn").addEventListener("click", planRoutes);
   document.getElementById("navCloseBtn").addEventListener("click", onNavClose);
 
-  document.getElementById("btnNav").addEventListener("click", () => {
-    const panel = document.getElementById("navPanel");
-    const willCollapse = !panel.classList.contains("collapsed");
-    setNavPanelCollapsed(willCollapse);
-    if(!willCollapse && navUiState === "search"){
-      setTimeout(() => document.getElementById("navDest").focus(), 220);
-    }
-  });
-
   // Ile pikseli chowamy przy zwinięciu: cała wysokość karty MINUS uchwyt+nagłówek, które mają
   // zostać widoczne jako "uchwyt" tuż nad paskiem ikon. Liczone na bieżąco, bo wysokość karty
   // zależy od tego, który blok (wyszukiwanie/potwierdzenie/trasa) jest akurat pokazany.
@@ -10118,6 +10446,13 @@
   const navPrefLimitSignInput = document.getElementById("navPrefLimitSign");
   navPrefSpeedometerInput.checked = prefShowSpeedometer;
   navPrefLimitSignInput.checked = prefShowLimitSign;
+  const navPrefNoLimitMapInput = document.getElementById("navPrefNoLimitMap");
+  navPrefNoLimitMapInput.checked = prefShowNoLimitMap;
+  navPrefNoLimitMapInput.addEventListener("change", (e) => {
+    prefShowNoLimitMap = e.target.checked;
+    try{ localStorage.setItem(PREF_SHOW_NOLIMIT_MAP, prefShowNoLimitMap ? "1" : "0"); }catch(err){}
+    refreshNoLimitLayer();
+  });
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -11418,10 +11753,26 @@
     }
   });
 
-  /* ---------- TRYB DZIEŃ / NOC: auto (wschód i zachód słońca z pozycji i daty), dzień, noc ---------- */
+  /* ---------- TRYB DZIEŃ / NOC: dzień, noc albo auto (noc w godzinach wybranych przez użytkownika) ---------- */
   const THEME_KEY = "nawigator_theme_mode";
-  let themeMode = (() => { try{ const v = localStorage.getItem(THEME_KEY); return v === "day" || v === "night" ? v : "auto"; }catch(e){ return "auto"; } })();
+  const NIGHT_FROM_KEY = "nawigator_night_from", NIGHT_TO_KEY = "nawigator_night_to";
+  // tryby: "sun" (domyślny: wg zachodu/wschodu słońca), "day", "night", "auto" (noc w godzinach wybranych przez użytkownika)
   const THEME_DEFAULT_POS = { lat: 52.5, lon: -1.5 };   // środek Anglii, dopóki nie ma fixa GPS
+  let themeMode = (() => { try{
+    const v = localStorage.getItem(THEME_KEY);
+    if(v === "day" || v === "night") return v;
+    if(v === "auto") return localStorage.getItem(NIGHT_FROM_KEY) ? "auto" : "sun";   // stary „auto” = wg słońca
+    return "sun";
+  }catch(e){ return "sun"; } })();
+  function loadNightHour(key, def){ try{ const v = localStorage.getItem(key); return /^\d{2}:\d{2}$/.test(v) ? v : def; }catch(e){ return def; } }
+  let nightFrom = loadNightHour(NIGHT_FROM_KEY, "20:00"), nightTo = loadNightHour(NIGHT_TO_KEY, "06:00");
+  function hhmmToMin(t){ const p = String(t).split(":"); return (+p[0]) * 60 + (+p[1]); }
+  // czy teraz jest w oknie nocnym (okno może przechodzić przez północ, np. 20:00 → 06:00)
+  function inNightWindow(d){
+    const now = d.getHours() * 60 + d.getMinutes(), a = hhmmToMin(nightFrom), b = hhmmToMin(nightTo);
+    if(a === b) return false;
+    return a < b ? (now >= a && now < b) : (now >= a || now < b);
+  }
   // wysokość Słońca nad horyzontem w stopniach (uproszczony algorytm astronomiczny, dokładność ~0,1°)
   function sunAltitudeDeg(date, lat, lon){
     const rad = Math.PI / 180, mod = (a, m) => ((a % m) + m) % m;
@@ -11439,18 +11790,19 @@
   function themeWantsNight(){
     if(themeMode === "night") return true;
     if(themeMode === "day") return false;
+    if(themeMode === "auto") return inNightWindow(new Date());
     const p = lastPos || THEME_DEFAULT_POS;
     const alt = sunAltitudeDeg(new Date(), p.lat, p.lon);
     return document.body.classList.contains("night") ? alt < 0 : alt < -1;
   }
   function updateThemeBtn(){
-    const b = document.getElementById("btnNight");
-    const night = document.body.classList.contains("night");
-    b.textContent = themeMode === "auto" ? "🌗" : themeMode === "day" ? "☀️" : "🌙";
-    b.classList.toggle("active", themeMode !== "auto");
-    b.title = themeMode === "auto" ? "Tryb mapy: auto (teraz " + (night ? "noc" : "dzień") + ") — dotknij, aby zmienić"
-      : "Tryb mapy: " + (themeMode === "day" ? "dzień" : "noc") + " (na stałe) — dotknij, aby zmienić";
-    const sel = document.getElementById("navPrefTheme"); if(sel) sel.value = themeMode;
+    document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("active", b.dataset.theme === themeMode));
+    const row = document.getElementById("themeAutoRow"); if(row) row.classList.toggle("show", themeMode === "auto");
+    const hint = document.getElementById("themeHint"), sunBtn = document.getElementById("themeSunBtn");
+    if(hint) hint.textContent = themeMode === "sun" ? "Domyślnie wg zachodu słońca (teraz: " + (document.body.classList.contains("night") ? "noc" : "dzień") + ")" : "";
+    if(sunBtn) sunBtn.style.display = themeMode === "sun" ? "none" : "";
+    const f = document.getElementById("themeNightFrom"), t = document.getElementById("themeNightTo");
+    if(f) f.value = nightFrom; if(t) t.value = nightTo;
   }
   function setNightMode(on){
     if(document.body.classList.contains("night") !== on){
@@ -11467,16 +11819,32 @@
     applyThemeMode();
     if(announce){
       const night = document.body.classList.contains("night");
-      if(m === "auto") showBanner("TRYB AUTO", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie słońca", false);
-      else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — wróć do „Auto” w ustawieniach lub kolejnym dotknięciem", false);
+      if(m === "sun") showBanner("WG ZACHODU SŁOŃCA", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie", false);
+      else if(m === "auto") showBanner("TRYB AUTO", "Noc od " + nightFrom + " do " + nightTo + " — teraz: " + (night ? "noc" : "dzień"), false);
+      else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — zmienisz w Ustawieniach → Tryb mapy", false);
     }
   }
-  document.getElementById("btnNight").addEventListener("click", () => {
-    setThemeMode(themeMode === "auto" ? "day" : themeMode === "day" ? "night" : "auto", true);
-  });
-  document.getElementById("navPrefTheme").addEventListener("change", e => setThemeMode(e.target.value, false));
-  setInterval(() => { if(themeMode === "auto") applyThemeMode(); }, 30000);
-  document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "auto") applyThemeMode(); });
+  // trzy ikony w Ustawieniach; wybór „Auto” od razu pyta o godziny trybu nocnego (od – do)
+  document.querySelectorAll("#themeSeg button").forEach(b => b.addEventListener("click", () => {
+    const m = b.dataset.theme;
+    setThemeMode(m, false);
+    if(m === "auto"){
+      const f = document.getElementById("themeNightFrom");
+      setTimeout(() => { try{ f.focus(); if(f.showPicker) f.showPicker(); }catch(e){} }, 60);
+    }
+  }));
+  document.getElementById("themeSunBtn").addEventListener("click", () => setThemeMode("sun", true));
+  function onNightHoursChange(){
+    const f = document.getElementById("themeNightFrom").value, t = document.getElementById("themeNightTo").value;
+    if(!f || !t) return;
+    nightFrom = f; nightTo = t;
+    try{ localStorage.setItem(NIGHT_FROM_KEY, f); localStorage.setItem(NIGHT_TO_KEY, t); }catch(e){}
+    applyThemeMode();
+  }
+  document.getElementById("themeNightFrom").addEventListener("change", onNightHoursChange);
+  document.getElementById("themeNightTo").addEventListener("change", onNightHoursChange);
+  setInterval(() => { if(themeMode === "sun" || themeMode === "auto") applyThemeMode(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && (themeMode === "sun" || themeMode === "auto")) applyThemeMode(); });
   applyThemeMode();
 
   // Menu ikon (🔍 ⛶ 3D 🌙 🐞): szklana pigułka obok prędkościomierza. Schowana — widać tylko uchwyt;
