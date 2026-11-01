@@ -415,9 +415,9 @@
   body.night .truckInputWrap.impPair{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
   .truckInputWrap.impPair:focus-within{ border-color: var(--accent); }
   .truckInputWrap.impPair:has(input.bad){ border-color:#ff4d4d; }
-  .impPair input{ flex:0 0 auto; min-width:0; width:2.3em; border:none !important; background:transparent !important; border-radius:0; padding:9px 2px 9px 0; text-align:right; }
-  .impPair input:last-of-type{ padding-left:0; }
-  .impPair em{ position:static; transform:none; padding:0 8px 0 2px; flex:0 0 auto; }
+  .truckInputWrap.impPair input{ flex:0 0 auto; min-width:0; width:2.3em; border:none !important; background:transparent !important; border-radius:0; padding:9px 2px 9px 0; text-align:right; box-sizing:content-box; }
+  .truckInputWrap.impPair input:last-of-type{ padding-left:0; }
+  .truckInputWrap.impPair em{ position:static; transform:none; padding:0 8px 0 2px; flex:0 0 auto; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -440,10 +440,12 @@
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
   .truckActionRow #tpReset{ flex:1; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 96px; display:flex; align-items:center; justify-content:center; padding:2px 4px; color: var(--text-main); }
+  .truckActionRow .avatarIconBtn{ flex:0 0 110px; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); }
   .avatarIconBtn.on{ border-color: var(--accent); background: rgba(255,255,255,0.08); }
   /* ikona: ciągnik siodłowy (kabina, kominy, piąte koło, trzy osie) przed wyraźną, kropkowaną trasą z pinem celu */
-  .truckRouteIco{ display:block; overflow:visible; }
+  .truckRouteIco{ display:block; width:100%; height:auto; }
+  /* klawiatura ekranowa: panel unosi się nad nią, żeby pola były widoczne */
+  body.kb-open #navPanel{ bottom: var(--kb, 0px); }
   .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:5.6; }
   .truckRouteIco .rt{ stroke: var(--accent); stroke-width:3.4; }
   .truckRouteIco .pin{ fill:#ff4d4d; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
@@ -1525,7 +1527,7 @@
 
   <div id="navTruckBlock" class="units-imperial">
     <div class="truckHead"><span>🚛 Parametry ciężarówki</span>
-      <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · lb</button><button type="button" data-u="metric">m · t</button></div>
+      <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · t</button><button type="button" data-u="metric">m · t</button></div>
     </div>
     <div class="truckGrid">
       <div class="truckField"><span>Wysokość</span>
@@ -1543,16 +1545,33 @@
         <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 72 38" width="72" height="38" aria-hidden="true">
-<rect class="tk" x="3" y="3" width="39" height="16" rx="1.8"/>
-<rect class="ch" x="3" y="19" width="59" height="2.4" rx="1"/>
-<path class="tk" d="M44.5 19V8.5h9.2l7 6.2V19z"/>
-<path class="gl" d="M47 10.6h5.8l4.4 4H47z"/>
-<g class="wh"><circle cx="10" cy="23" r="3.6"/><circle cx="18" cy="23" r="3.6"/><circle cx="31" cy="23" r="3.6"/><circle cx="52" cy="23" r="3.6"/></g>
-<g class="hub"><circle cx="10" cy="23" r="1.3"/><circle cx="18" cy="23" r="1.3"/><circle cx="31" cy="23" r="1.3"/><circle cx="52" cy="23" r="1.3"/></g>
-<path class="rtc" d="M4 34 C16 28 26 36 40 32 S58 30 63 32" fill="none" stroke-linecap="round"/>
-<path class="rt" d="M4 34 C16 28 26 36 40 32 S58 30 63 32" fill="none" stroke-linecap="round" stroke-dasharray="4 4"/>
-<circle class="pin" cx="67" cy="31" r="3.6"/><circle class="pinDot" cx="67" cy="31" r="1.3"/>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 120 68" aria-hidden="true">
+<defs><linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22364f"/><stop offset="1" stop-color="#0f1a2b"/></linearGradient>
+<linearGradient id="trCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b5a8a"/><stop offset="1" stop-color="#25406a"/></linearGradient>
+<filter id="trGlow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.6"/></filter>
+<clipPath id="trClip"><rect width="120" height="68" rx="13"/></clipPath></defs>
+<g clip-path="url(#trClip)">
+<rect width="120" height="68" fill="url(#trBg)"/>
+<path d="M-6 60 C30 50 72 62 126 34" fill="none" stroke="#22e66a" stroke-width="7" opacity=".55" filter="url(#trGlow)"/>
+<path d="M-6 60 C30 50 72 62 126 34" fill="none" stroke="#5dff95" stroke-width="2.6" stroke-linecap="round"/>
+<polygon points="48,15 112,8 112,43 48,47" fill="#243a5e"/>
+<polygon points="48,15 56,11 114,5 112,8" fill="#3a5686"/>
+<g stroke="#34507c" stroke-width=".8"><path d="M58 14V46M68 13V45M78 12V44M88 11V43M98 10V42M108 9V41"/></g>
+<rect x="60" y="45" width="36" height="3" fill="#18263b" transform="skewY(-3)"/>
+<g fill="#0c121b"><ellipse cx="86" cy="45" rx="4" ry="6"/><ellipse cx="95" cy="44" rx="4" ry="6"/><ellipse cx="104" cy="43" rx="4" ry="6"/></g>
+<g fill="#7d8b9a"><ellipse cx="86" cy="45" rx="1.5" ry="2.4"/><ellipse cx="95" cy="44" rx="1.5" ry="2.4"/><ellipse cx="104" cy="43" rx="1.5" ry="2.4"/></g>
+<polygon points="38,19 52,17 52,50 38,52" fill="#1f3558"/>
+<polygon points="40,23 49,22 49,34 40,35" fill="#0d1624"/>
+<polygon points="8,24 38,19 38,52 8,54" fill="url(#trCab)"/>
+<polygon points="8,24 38,19 44,12 14,16" fill="#4b6ea3" opacity="0"/>
+<polygon points="11,27 35,23 35,35 11,38" fill="#0d1624"/>
+<polygon points="11,27 35,23 35,25 11,29" fill="#6f8fc0" opacity=".45"/>
+<polygon points="10,41 36,38 36,49 10,52" fill="#1b2d4b"/>
+<g stroke="#b9c6d6" stroke-width="1.1"><path d="M10 43.6L36 40.6M10 46.4L36 43.6M10 49.2L36 46.6"/></g>
+<polygon points="9,39 15,38.4 15,41 9,41.6" fill="#dff3ff"/><polygon points="31,36.6 36,36 36,38.4 31,39" fill="#dff3ff"/>
+<rect x="17" y="33" width="12" height="3" rx="1" fill="#9fb2c8" transform="skewY(-4)"/>
+<ellipse cx="40" cy="54" rx="8" ry="9" fill="#0c121b"/><ellipse cx="40" cy="54" rx="3.6" ry="4.6" fill="#8d9aa8"/>
+</g>
 </svg></button>
       </div>
     </div>
@@ -10570,6 +10589,19 @@
       refillWhenLeft([w.t], () => fillWt(k));
     });
 
+    // klawiatura ekranowa nie może zasłaniać pól: panel unosi się nad nią (visualViewport), a aktywne pole jest przewijane do widoku
+    (function(){
+      const vv = window.visualViewport; if(!vv) return;
+      const upd = () => {
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        const open = kb > 80;
+        document.documentElement.style.setProperty("--kb", open ? kb + "px" : "0px");
+        document.body.classList.toggle("kb-open", open);
+        if(open && document.activeElement && block.contains(document.activeElement))
+          setTimeout(() => { try{ document.activeElement.scrollIntoView({ block:"center", behavior:"smooth" }); }catch(e){} }, 60);
+      };
+      vv.addEventListener("resize", upd); vv.addEventListener("scroll", upd);
+    })();
     // dotknięcie pola zaznacza całą wartość — od razu wpisujesz nową, bez kasowania starej
     block.querySelectorAll(".truckInputWrap input").forEach(inp => {
       const sel = () => setTimeout(() => { try{ inp.select(); }catch(e){} }, 0);
