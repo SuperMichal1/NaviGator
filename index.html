@@ -74,9 +74,10 @@
   #guidanceCard .gText{ font-weight:700; }
   #guidanceCard .gText .to{ display:block; font-weight:600; font-size:13px; opacity:.95; margin-top:2px; }
   #guidanceCard.sign-motorway{ background:#0079C1; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #0079C1, 0 10px 30px rgba(0,0,0,.45); }
-  #guidanceCard.sign-primary{ background:#006633; color:#fff; border:2px solid #fff; box-shadow:0 0 0 2px #006633, 0 10px 30px rgba(0,0,0,.45); }
+  #guidanceCard.sign-primary{ background:#006633; color:#FFD800; border:2px solid #FFD800; box-shadow:0 0 0 2px #006633, 0 10px 30px rgba(0,0,0,.45); }
   #guidanceCard.sign-local{ background:#f5f5f5; color:#111; border:3px solid #111; box-shadow:0 10px 30px rgba(0,0,0,.4); }
-  #guidanceCard.sign-motorway .gIcon, #guidanceCard.sign-primary .gIcon{ background:rgba(255,255,255,.14); color:#fff; }
+  #guidanceCard.sign-motorway .gIcon{ background:rgba(255,255,255,.14); color:#fff; }
+  #guidanceCard.sign-primary .gIcon{ background:rgba(255,216,0,.16); color:#FFD800; }
   #guidanceCard.sign-local .gIcon{ background:rgba(0,0,0,.07); color:#111; }
   #guidanceCard.sign-local #gVoiceBtn{ background:rgba(0,0,0,.07); border-color:rgba(0,0,0,.35); color:#111; }
   body.night #guidanceCard.sign-local{ background:#e9e9e9; }
@@ -410,13 +411,13 @@
   .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
   #navTruckBlock.units-imperial .unitSeg button[data-u="imperial"], #navTruckBlock.units-metric .unitSeg button[data-u="metric"]{ background: var(--gator-dark); color: var(--gator-on); }
   /* ft i in w jednym polu (tak samo jak m przy metrach) */
-  .truckInputWrap.impPair{ display:flex; align-items:center; border-radius:9px; background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
+  .truckInputWrap.impPair{ display:flex; align-items:center; justify-content:center; gap:0; border-radius:9px; background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
   body.night .truckInputWrap.impPair{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
   .truckInputWrap.impPair:focus-within{ border-color: var(--accent); }
   .truckInputWrap.impPair:has(input.bad){ border-color:#ff4d4d; }
-  .impPair input{ flex:1 1 0; min-width:0; width:auto; border:none !important; background:transparent !important; border-radius:0; padding:9px 3px 9px 8px; text-align:right; }
-  .impPair input:last-of-type{ padding-left:3px; }
-  .impPair em{ position:static; transform:none; padding:0 7px 0 3px; flex:0 0 auto; }
+  .impPair input{ flex:0 0 auto; min-width:0; width:2.3em; border:none !important; background:transparent !important; border-radius:0; padding:9px 2px 9px 0; text-align:right; }
+  .impPair input:last-of-type{ padding-left:0; }
+  .impPair em{ position:static; transform:none; padding:0 8px 0 2px; flex:0 0 auto; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -439,12 +440,12 @@
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
   .truckActionRow #tpReset{ flex:1; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 92px; display:flex; align-items:center; justify-content:center; padding:2px 4px; color: var(--text-main); }
+  .truckActionRow .avatarIconBtn{ flex:0 0 96px; display:flex; align-items:center; justify-content:center; padding:2px 4px; color: var(--text-main); }
   .avatarIconBtn.on{ border-color: var(--accent); background: rgba(255,255,255,0.08); }
   /* ikona: ciągnik siodłowy (kabina, kominy, piąte koło, trzy osie) przed wyraźną, kropkowaną trasą z pinem celu */
   .truckRouteIco{ display:block; overflow:visible; }
-  .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:7.5; }
-  .truckRouteIco .rt{ stroke: var(--accent); stroke-width:4.6; }
+  .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:5.6; }
+  .truckRouteIco .rt{ stroke: var(--accent); stroke-width:3.4; }
   .truckRouteIco .pin{ fill:#ff4d4d; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
   .truckRouteIco .pinDot{ fill:#fff; }
   .truckRouteIco .tk{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1; paint-order: stroke; }
@@ -1537,28 +1538,21 @@
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
       <div class="truckField"><span>Masa całkowita</span>
-        <div class="truckInputWrap metOnly"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpWeightLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
+        <div class="truckInputWrap"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField"><span>Maks. obciążenie osi</span>
-        <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
-        <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
+        <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 72 34" width="72" height="34" aria-hidden="true">
-<path class="rtc" d="M2 24 C13 8 27 6 38 15 S58 27 66 9" fill="none" stroke-linecap="round"/>
-<path class="rt" d="M2 24 C13 8 27 6 38 15 S58 27 66 9" fill="none" stroke-linecap="round" stroke-dasharray="1 7.5"/>
-<circle class="pin" cx="66" cy="8" r="3.4"/><circle class="pinDot" cx="66" cy="8" r="1.2"/>
-<rect class="tk" x="22.6" y="3.6" width="2.6" height="17" rx="1.2"/>
-<rect class="ch" x="5" y="22" width="43" height="2.6" rx="1"/>
-<rect class="tk" x="6.5" y="19.4" width="17" height="2.8" rx="1"/>
-<path class="tk" d="M26 24V10h12l7.5 6.6V24z"/>
-<path class="tk" d="M26 10V6.4h9.4l2.6 3.6z"/>
-<path class="gl" d="M36.2 11.6h3L43.6 16.2H36.2z"/><rect class="gl" x="28" y="12.2" width="5.6" height="4.2" rx=".8"/>
-<rect x="44.2" y="18.2" width="1.8" height="2.4" rx=".5" fill="#ffb020"/>
-<g fill="#ffb020"><circle cx="28.4" cy="5.4" r=".8"/><circle cx="31" cy="5.4" r=".8"/><circle cx="33.6" cy="5.4" r=".8"/></g>
-<rect class="tk" x="26.8" y="24.6" width="9.4" height="3.8" rx="1.9"/>
-<g class="wh"><circle cx="13" cy="27.2" r="4.3"/><circle cx="21" cy="27.2" r="4.3"/><circle cx="40.5" cy="27.2" r="4.3"/></g>
-<g class="hub"><circle cx="13" cy="27.2" r="1.5"/><circle cx="21" cy="27.2" r="1.5"/><circle cx="40.5" cy="27.2" r="1.5"/></g>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 72 38" width="72" height="38" aria-hidden="true">
+<rect class="tk" x="3" y="3" width="39" height="16" rx="1.8"/>
+<rect class="ch" x="3" y="19" width="59" height="2.4" rx="1"/>
+<path class="tk" d="M44.5 19V8.5h9.2l7 6.2V19z"/>
+<path class="gl" d="M47 10.6h5.8l4.4 4H47z"/>
+<g class="wh"><circle cx="10" cy="23" r="3.6"/><circle cx="18" cy="23" r="3.6"/><circle cx="31" cy="23" r="3.6"/><circle cx="52" cy="23" r="3.6"/></g>
+<g class="hub"><circle cx="10" cy="23" r="1.3"/><circle cx="18" cy="23" r="1.3"/><circle cx="31" cy="23" r="1.3"/><circle cx="52" cy="23" r="1.3"/></g>
+<path class="rtc" d="M4 34 C16 28 26 36 40 32 S58 30 63 32" fill="none" stroke-linecap="round"/>
+<path class="rt" d="M4 34 C16 28 26 36 40 32 S58 30 63 32" fill="none" stroke-linecap="round" stroke-dasharray="4 4"/>
+<circle class="pin" cx="67" cy="31" r="3.6"/><circle class="pinDot" cx="67" cy="31" r="1.3"/>
 </svg></button>
       </div>
     </div>
@@ -2938,7 +2932,7 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), od zoomu 8 dwie linie (mwtwin-*), drogi A zielone (jak tablice),
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
        • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
@@ -2962,8 +2956,9 @@
   // żeby sieć dróg była zawsze widoczna): z daleka stonowana zieleń wtopiona w tło, po przybliżeniu
   // wyraźna, nasycona zieleń — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fillFar: "#9a6b1f", casingFar: "#3a2509",    // z daleka: stonowany ciemny bursztyn
-                fillNear: "#c4801a", casingNear: "#4a2c06" },  // po przybliżeniu: ciemnobursztynowy #c4801a
+    motorway: { fillFar: "#4a86bd", casingFar: "#0e2a45",    // z daleka: stonowany niebieski (jak tablice autostrad UK)
+                fillNear: "#5b9bd5", casingNear: "#0f2f4f" },  // po przybliżeniu: wyraźny niebieski #5b9bd5
+    motorwayGap: "#0b2236",                               // ciemny „rów środkowy” między dwiema jezdniami (zoom 8+)
     major:    {
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
@@ -3200,6 +3195,7 @@
     });
     applyNightDetail(night);
     applyNightZones(night);
+    applyMotorwayTwin(night);
     applyMinorRoadZoom(night);
     try{ applySatBrightness(); }catch(e){}
   }
@@ -3244,6 +3240,34 @@
     }catch(e){
       console.warn("Nie udało się dodać warstwy stref przemysłowych:", e);
     }
+  }
+  // Autostrady jako DWIE LINIE (dwie jezdnie): od zoomu 8 cienka ciemna kreska pośrodku autostrady (tylko noc).
+  // Dla każdej warstwy wypełnienia autostrady ze stylu powstaje bliźniacza warstwa "mwtwin-<id>".
+  function setupMotorwayTwin(){
+    if(!map) return;
+    try{
+      const layers = map.getStyle().layers || [];
+      layers.forEach(l => {
+        if(l.type !== "line" || l["source-layer"] !== "transportation") return;
+        if(!/^(road|bridge)_motorway/.test(l.id) || /casing|link|ramp/.test(l.id)) return;
+        const tid = "mwtwin-" + l.id;
+        if(map.getLayer(tid)) return;
+        const w = map.getPaintProperty(l.id, "line-width");
+        if(w === undefined || w === null) return;
+        map.addLayer({
+          id: tid, type: "line", source: l.source, "source-layer": "transportation",
+          minzoom: 8, filter: l.filter,
+          layout: { "line-cap": "butt", "line-join": "round", visibility: "none" },
+          paint: { "line-color": NIGHT_ROADS.motorwayGap, "line-width": scaleWidthExpression(w, 0.2) }
+        }, (layers[layers.findIndex(x => x.id === l.id) + 1] || {}).id);
+      });
+    }catch(e){ console.warn("Nie udało się dodać drugiej linii autostrad:", e); }
+  }
+  function applyMotorwayTwin(night){
+    if(!map) return;
+    (map.getStyle().layers || []).forEach(l => {
+      if(/^mwtwin-/.test(l.id)){ try{ map.setLayoutProperty(l.id, "visibility", night ? "visible" : "none"); }catch(e){} }
+    });
   }
   function applyNightZones(night){
     if(!map || !map.getLayer("night-industrial")) return;
@@ -3327,6 +3351,7 @@
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
+      setupMotorwayTwin(); applyMotorwayTwin(document.body.classList.contains("night"));
       try{
         setupUkRoadShields();
         applyShieldMode();
@@ -3676,7 +3701,7 @@
                lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
-  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
+  const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "brunnel"], "tunnel"]];   // autostrada + jej zjazdy/dojazdy (ramp=1)
   let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwTexIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
   const mwSprites = {};
   const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
@@ -3731,21 +3756,26 @@
     let topRoute = -1; styleLayers.forEach((l, i) => { if(/^route-/.test(l.id)) topRoute = i; });
     const aboveRoute = topRoute >= 0 && styleLayers[topRoute + 1] ? styleLayers[topRoute + 1].id : undefined;
     mwLayerIds = []; mwMarkIds = []; mwTexIds = [];
-    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", aboveRoute || before, ["==", ["get", "bridge"], 1]]].forEach(([sfx, bef, filter]) => {
+    // jezdnia główna (3 pasy) oraz zjazdy/dojazdy (ramp=1, 1 pas) — oba z asfaltem
+    [["", 0, N], ["-rp", 1, 1]].forEach(([rsfx, ramp, LN]) => {
+    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", aboveRoute || before, ["==", ["get", "bridge"], 1]]].forEach(([sfx0, bef, bf]) => {
+      const sfx = sfx0 + rsfx;
+      const filter = ["all", bf, ["==", ["get", "ramp"], ramp]];
       const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom, filter };
       const tex = MW_TEX + sfx;
-      map.addLayer(Object.assign({ id: tex, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), bef);
+      map.addLayer(Object.assign({ id: tex, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(LN * W + 2 * MW.shoulder) } }, base), bef);
       mwLayerIds.push(tex); mwTexIds.push(tex);
       [-1, 1].forEach(side => {                       // krawędzie jezdni
         const id = "mw-edge-" + (side < 0 ? "l" : "r") + sfx;
-        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), bef);
+        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * LN * W / 2) } }, base), bef);
         mwLayerIds.push(id); mwMarkIds.push(id);
       });
-      for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+      for(let k = 1; k < LN; k++){                     // podziały pasów (przerywane)
         const id = "mw-div-" + k + sfx;
-        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), bef);
+        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - LN * W / 2) } }, base), bef);
         mwLayerIds.push(id); mwMarkIds.push(id);
       }
+    });
     });
     map.on("styleimagemissing", e => {
       const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
@@ -3792,15 +3822,17 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad:", e); return; }
-    const lines = [], bridges = [];
+    const lines = [], bridges = [], rLines = [], rBridges = [];
     feats.forEach(f => {
       const g = f.geometry; if(!g) return;
-      const dst = (f.properties && f.properties.brunnel === "bridge") ? bridges : lines;
+      const isRamp = f.properties && Number(f.properties.ramp) === 1;
+      const isBr = f.properties && f.properties.brunnel === "bridge";
+      const dst = isRamp ? (isBr ? rBridges : rLines) : (isBr ? bridges : lines);
       if(g.type === "LineString") dst.push(g.coordinates);
       else if(g.type === "MultiLineString") g.coordinates.forEach(c => dst.push(c));
     });
-    const mk = (ls, br) => mwClipToWindow(ls, lat, lon, hdg).map(c => ({ type:"Feature", properties:{ bridge: br }, geometry:{ type:"LineString", coordinates: c } }));
-    const out = mk(lines, 0).concat(mk(bridges, 1));
+    const mk = (ls, br, rp) => mwClipToWindow(ls, lat, lon, hdg).map(c => ({ type:"Feature", properties:{ bridge: br, ramp: rp }, geometry:{ type:"LineString", coordinates: c } }));
+    const out = mk(lines, 0, 0).concat(mk(bridges, 1, 0), mk(rLines, 0, 1), mk(rBridges, 1, 1));
     src.setData({ type:"FeatureCollection", features: out });
   }
 
@@ -4151,8 +4183,10 @@
     mir(1.24, -.05, 1.3, 1.0, 1.85, 2.55, glass);                                // szyby boczne
     mir(.5, -.9, 1.1, .6, 2.95, 3.3, shadeHex(c, .2));                           // dach
     bx(-1.1, -.9, 1.1, .1, 3.3, 3.72, c);                                        // deflektor
-    mir(1.27, .9, 1.62, 1.05, 1.9, 2.0, dk);                                     // ramiona lusterek
-    mir(1.5, .75, 1.64, 1.3, 1.65, 2.5, dk);                                     // lusterka
+    // lusterka: rozłożone na wysięgnikach, tafla odchylona ku tyłowi (jak w prawdziwej ciężarówce)
+    mir(1.25, 1.0, 1.66, 1.1, 2.3, 2.38, dk); mir(1.25, 1.0, 1.66, 1.1, 1.78, 1.86, dk);   // wysięgniki (górny i dolny)
+    const mirPoly = (pts, b, h, col) => { add(pts, b, h, col); add(pts.map(q => [-q[0], q[1]]).reverse(), b, h, col); };
+    mirPoly(a3Rot(a3Box(1.62, 1.0, 1.98, 1.14), 14, 1.62, 1.07), 1.62, 2.52, dk);          // obudowa lusterka
     // naczepa kurtynowa (obraca się wokół siodła)
     bx(-1.0, -1.4, 1.0, -13.9, .48, .98, dk, true);
     bx(-1.28, -1.5, 1.28, -13.8, .98, 4.0, white, true);
@@ -4165,7 +4199,6 @@
     mir(1.28, -9.8, 1.33, -13.4, .5, .98, "#16191c", true);                      // błotniki
     bx(-1.2, -13.8, 1.2, -14.1, .46, .82, "#2b3035", true);                      // zderzak ICC
     bx(-1.28, -13.78, 1.28, -13.9, 1.0, 4.0, "#d5dadd", true);                   // drzwi tylne
-    mir(.8, -13.9, 1.2, -14.0, .9, 1.7, "#ff3b30", true);                        // lampy
     // --- szczegóły ciągnika ---
     mir(1.02, -1.2, 1.22, -1.0, .9, 3.6, "#d9dee1"); mir(1.02, -1.2, 1.22, -1.0, 3.6, 3.72, "#2a2f34");   // rury wydechowe + osłonki
     [-3.1, -2.4, -1.7].forEach(y => mir(.99, y - .03, 1.29, y + .03, .42, 1.07, "#5a6168"));              // pasy zbiornika paliwa
@@ -4184,7 +4217,7 @@
     mir(1.0, -3.96, 1.32, -3.9, .1, .7, "#14171a");                                                        // chlapacze
     [1.4, -2.0, -3.3].forEach(y => { mir(1.3, y - .3, 1.36, y + .3, .3, .8, "#cfd4d8"); mir(1.34, y - .1, 1.38, y + .1, .5, .62, "#8a9096"); });   // felgi i piasty
     bx(-.45, -1.35, -.2, -1.15, 1.5, 1.6, "#e53935"); bx(.2, -1.35, .45, -1.15, 1.5, 1.6, "#f2c200");     // przewody powietrzne (czerwony / żółty)
-    mir(1.5, .75, 1.54, 1.3, 1.7, 2.45, "#2a3a47");                                                        // szkło lusterek
+    mirPoly(a3Rot(a3Box(1.65, .97, 1.95, 1.0), 14, 1.62, 1.07), 1.68, 2.46, "#2a3a47");                   // szkło lusterek (od strony kierowcy)
     // --- szczegóły naczepy ---
     for(let y = -2.6; y > -13.2; y -= 1.4) mir(1.28, y - .08, 1.30, y, 1.0, 3.95, "#d5dadd", true);       // żebra plandeki
     mir(1.18, -3.0, 1.22, -9.5, .55, .62, "#aab1b6", true);                                                // boczna osłona podjazdowa
@@ -4194,7 +4227,8 @@
     [-10.5, -11.7, -12.9].forEach(y => { mir(1.3, y - .3, 1.36, y + .3, .3, .8, "#cfd4d8", true); mir(1.34, y - .1, 1.38, y + .1, .5, .62, "#8a9096", true); });
     bx(-.02, -13.9, .02, -13.95, .98, 4.0, "#9aa1a6", true); mir(.35, -13.9, .4, -13.96, 1.2, 3.8, "#aab1b6", true);   // rygle drzwi
     bx(-.35, -14.1, .35, -14.14, .55, .7, "#f2c200", true);                                               // tablica tylna
-    mir(.5, -13.9, .7, -14.02, 1.0, 1.1, "#ffffff", true);                                                 // światła cofania
+    mir(.74, -14.1, 1.2, -14.17, .55, .73, "#ff3b30", true);                                               // światła tylne: szerokie, na zderzaku
+    mir(.4, -14.1, .66, -14.15, .58, .7, "#ffffff", true);                                                 // światła cofania (na zderzaku)
     const sh = [{ p: a3Box(-1.45, -.95, 1.45, 2.8), sh: 1 }, { p: a3Box(-1.45, -14.1, 1.45, -1.3), sh: 1, tr: true }];
     return { parts: P, shadow: sh, pivot: [0, -2.6] };
   }
@@ -9491,6 +9525,33 @@
   }
 
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
+  // klasa drogi pod pojazdem wg kafelków mapy (pewniejsza niż numer z poprzedniego kroku, który bywa pusty):
+  // autostrada (też zjazdy/dojazdy) → "motorway", trunk/primary → "primary"; null = brak danych
+  let ukRoadLayerIds = null;
+  function ukMapRoadClasses(g){
+    try{
+      if(!map || !g || !g.pos) return null;
+      if(!ukRoadLayerIds) ukRoadLayerIds = (map.getStyle().layers || []).filter(l => l.type === "line" && l["source-layer"] === "transportation" && !/casing/.test(l.id)).map(l => l.id);
+      const layers = ukRoadLayerIds.filter(id => map.getLayer(id));
+      if(!layers.length) return null;
+      const pt = map.project([g.pos[1], g.pos[0]]), r = 6;
+      const feats = map.queryRenderedFeatures([[pt.x - r, pt.y - r], [pt.x + r, pt.y + r]], { layers });
+      const out = new Set();
+      feats.forEach(f => {
+        const c = f.properties && f.properties.class;
+        if(c === "motorway") out.add("motorway");
+        else if(c === "trunk" || c === "primary") out.add("primary");
+      });
+      return out;
+    }catch(e){ return null; }
+  }
+  function ukCurrentClass(g, ref){
+    const stepCls = ref ? ukRoadClass(ref) : "local";
+    const set = ukMapRoadClasses(g);
+    if(!set || !set.size) return stepCls;
+    if(stepCls !== "local" && set.has(stepCls)) return stepCls;
+    return set.has("motorway") ? "motorway" : "primary";
+  }
   function ukCurrentRoad(g){
     const prev = g.steps[g.ptr - 1];
     return prev && prev.ref ? prev.ref : null;
@@ -9534,7 +9595,7 @@
     const card = document.getElementById("guidanceCard");
     const arrive = step.t.indexOf("arrive") === 0;
     const along = step.d - dist;
-    const curRef = ukCurrentRoad(g), curCls = ukRoadClass(curRef);
+    const curRef = ukCurrentRoad(g), curCls = ukCurrentClass(g, curRef);
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
@@ -9606,6 +9667,7 @@
     if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
     const along = guideProgress(g, lat, lon);
     if(along === null) return;
+    g.pos = [lat, lon];
     const totalM = g.cum[g.cum.length - 1];
     if(totalM > 0){
       const f = Math.max(0, Math.min(1, (totalM - along) / totalM));
@@ -10435,8 +10497,8 @@
       length:{ m:"tpLength", ft:"tpLengthFt", inch:"tpLengthIn" }
     };
     const WTS = {
-      weight:   { t:"tpWeight", lb:"tpWeightLb" },
-      axle_load:{ t:"tpAxle",   lb:"tpAxleLb"   }
+      weight:   { t:"tpWeight" },
+      axle_load:{ t:"tpAxle"   }
     };
     const $ = id => document.getElementById(id);
     const comma = n => String(n).replace(".", ",");
@@ -10457,7 +10519,6 @@
     function fillWt(k){
       const w = WTS[k], t = HGV_PROFILE[k];
       $(w.t).value = comma(Math.round(t * 100) / 100);
-      $(w.lb).value = thousands(t / LB_T);
     }
     function fill(){
       block.classList.toggle("units-imperial", units === "imperial");
@@ -10491,14 +10552,29 @@
         const ft = fi.value.trim() === "" ? 0 : num(fi.value), inch = ii.value.trim() === "" ? 0 : num(ii.value);
         accept(k, (ft * 12 + inch) * IN_M, [fi, ii]);   // cale → metry automatycznie
       };
-      fi.addEventListener("input", fromImp); ii.addEventListener("input", fromImp);
+      fi.addEventListener("input", e => {
+        fromImp();
+        // po wpisaniu stóp od razu przechodzimy do cali: gdy kolejna cyfra dałaby wartość poza zakresem (np. 5 ft → nie ma 50 ft wysokości)
+        // albo gdy są już 2 cyfry
+        const t = fi.value.trim(), maxFt = Math.floor(HGV_LIMITS[k][1] / 0.3048 + 1e-9);
+        if(e && e.inputType && !/^insert/.test(e.inputType)) return;
+        if(/^\d+$/.test(t) && (t.length >= 2 || Number(t) * 10 > maxFt)){ ii.focus(); try{ ii.select(); }catch(_){} }
+      });
+      ii.addEventListener("input", fromImp);
+      ii.addEventListener("keydown", e => { if(e.key === "Backspace" && ii.value === "") { fi.focus(); } });   // puste cale + Backspace → wróć do stóp
       refillWhenLeft([d.m], () => fillDim(k)); refillWhenLeft([d.ft, d.inch], () => fillDim(k));
     });
     Object.keys(WTS).forEach(k => {
-      const w = WTS[k], ti = $(w.t), li = $(w.lb);
+      const w = WTS[k], ti = $(w.t);
       ti.addEventListener("input", () => accept(k, num(ti.value), [ti]));
-      li.addEventListener("input", () => accept(k, num(li.value) * LB_T, [li]));   // funty → tony automatycznie
-      refillWhenLeft([w.t], () => fillWt(k)); refillWhenLeft([w.lb], () => fillWt(k));
+      refillWhenLeft([w.t], () => fillWt(k));
+    });
+
+    // dotknięcie pola zaznacza całą wartość — od razu wpisujesz nową, bez kasowania starej
+    block.querySelectorAll(".truckInputWrap input").forEach(inp => {
+      const sel = () => setTimeout(() => { try{ inp.select(); }catch(e){} }, 0);
+      inp.addEventListener("focus", sel);
+      inp.addEventListener("click", sel);
     });
 
     document.querySelectorAll("#tpUnits button").forEach(b => b.addEventListener("click", () => {
