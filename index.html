@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="theme-color" content="#12181e">
+<meta name="theme-color" content="#000000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Nawigator — GPS, fotoradary i limity prędkości</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
@@ -156,8 +156,9 @@
     z-index:47;
     display:flex; align-items:center; justify-content:space-evenly;
     gap:6px;
-    padding: 8px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom));
-    background: rgba(255,255,255,0.07);
+    padding: 6px max(8px, env(safe-area-inset-left)) calc(3px + env(safe-area-inset-bottom, 0px) * .4);
+    /* ciemna „przejściówka”: pasek ikon płynnie ciemnieje do czerni paska nawigacji telefonu */
+    background: linear-gradient(180deg, rgba(14,18,22,.55) 0%, rgba(8,10,12,.9) 55%, #000 100%);
     border-top:1px solid rgba(255,255,255,0.14);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -284,7 +285,7 @@
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
   }
   /* "Cała trasa": tylko ikona (trasa z punktu A do B), okrągły przycisk bez podpisu */
-  #btnFitRoute{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnFitRoute{ touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnLocate.visible, #btnFitRoute.visible, #btnCompass.visible{
     opacity:1;
     transform: translateY(0) scale(1);
@@ -754,32 +755,28 @@
   #navRouteInfo:not(.planning) #navRouteSub,
   #navRouteInfo:not(.planning) #navRouteTraffic{ display:none; }
   #navRouteInfo:not(.planning) #navTripStats{ display:flex; }
-  #navExpandHint{ display:none; text-align:center; font-size:11px; color:var(--text-dim); cursor:pointer; padding:2px 0 0; }
-  #navRouteInfo:not(.planning) #navExpandHint{ display:block; }
-  #navPanel.nav-expanded #navExpandHint{ display:none; }
-  #navCustomize{ display:none; flex-direction:column; gap:8px; margin-top:6px; padding-top:10px; border-top:1px solid var(--panel-border); }
-  #navPanel.nav-expanded #navRouteInfo:not(.planning) #navCustomize{ display:flex; }
   .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
   #avatarGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
   .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
   .avatarOpt svg{ width:100%; height:100%; }
   .avatarOpt.active{ border-color:var(--gator); background:rgba(124,154,58,.22); }
-  #routeHue, #avatarHue{
-    -webkit-appearance:none; appearance:none; width:100%; height:18px; border-radius:9px; outline:none; border:1px solid rgba(0,0,0,.25);
-    background:linear-gradient(90deg,hsl(0,95%,55%),hsl(60,95%,55%),hsl(120,95%,55%),hsl(180,95%,55%),hsl(240,95%,55%),hsl(300,95%,55%),hsl(359,95%,55%));
+  .cuHead{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
+  #colorToggle{ width:32px; height:32px; border-radius:50%; border:0; background:transparent; color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:.7; transition:opacity .2s, background .2s; }
+  #colorToggle.on{ opacity:1; background:rgba(128,128,128,.2); color:var(--text-main); }
+  #colorPanel{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease, margin .25s ease; margin-top:0; }
+  #colorPanel.open{ grid-template-rows:1fr; margin-top:8px; }
+  #colorPanel .cpIn{ overflow:hidden; display:flex; align-items:center; gap:10px; min-height:0; }
+  #colorLabel{ font-size:12px; color:var(--text-dim); min-width:84px; transition:opacity .15s; }
+  #colorHue{
+    -webkit-appearance:none; appearance:none; flex:1; height:14px; border-radius:7px; outline:none; border:1px solid rgba(0,0,0,.25); --thumb:#8a8f94;
+    background:linear-gradient(90deg,hsl(0,90%,55%),hsl(60,90%,55%),hsl(120,90%,50%),hsl(180,90%,50%),hsl(240,90%,60%),hsl(300,90%,55%),hsl(359,90%,55%));
   }
-  #routeHue::-webkit-slider-thumb, #avatarHue::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #14181c; box-shadow:0 1px 5px rgba(0,0,0,.5); }
-  #avatarHue::-moz-range-thumb, #routeHue::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #14181c; }
-  #routeSwatches, #avatarSwatches{ display:flex; flex-wrap:wrap; gap:10px; }
-  .routeSw{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,.85); box-shadow:0 0 0 1px rgba(0,0,0,.4); }
-  .routeSw.active{ box-shadow:0 0 0 3px var(--gator); }
-  .routeSw.auto{ background:conic-gradient(#1FD6C1 0 50%,#1DF5FF 50% 100%); }
-  #navCustomize #navRerouteRow{ display:block; margin-bottom:2px; }
+  #colorHue::-webkit-slider-thumb{ -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:var(--thumb); border:3px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.5); transition:background .25s; }
+  #colorHue::-moz-range-thumb{ width:18px; height:18px; border-radius:50%; background:var(--thumb); border:3px solid #fff; }
+  #colorReset{ border:0; background:transparent; color:var(--text-dim); font-size:18px; width:28px; height:28px; cursor:pointer; }
   /* zminimalizowane okno jazdy: tylko uchwyt + pozostały czas, mile i godzina przyjazdu */
   #navPanel.compact{ transform:none; }
   #navPanel.compact .navHeader,
-  #navPanel.compact #navExpandHint,
-  #navPanel.compact #navCustomize{ display:none !important; }
   #navPanel.compact{ padding-bottom:2px; gap:0; border-radius:14px 14px 0 0; }
   #navPanel.compact #navDragHandle{ padding:4px 0 2px; }
   #navPanel.compact #navRouteInfo{ padding:0 12px 4px; background:transparent; }
@@ -792,13 +789,15 @@
   #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
   #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
   /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
-  #navSettingsPanel{
+  #navSettingsPanel, #avatarPanel{
     position:fixed; inset:0; z-index:80;
     display:none; align-items:flex-end; justify-content:center;
   }
-  #navSettingsPanel.open{ display:flex; }
-  #navSettingsBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
-  #navSettingsCard{
+  #navSettingsPanel.open, #avatarPanel.open{ display:flex; }
+  #avatarPanel{ z-index:82; }
+  #avatarClose{ width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); cursor:pointer; color:var(--text-main); }
+  #navSettingsBackdrop, #avatarBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.5); }
+  #navSettingsCard, #avatarCard{
     position:relative;
     width:100%; max-width:420px;
     background: var(--panel-bg-solid);
@@ -1271,7 +1270,7 @@
   </svg>
 </div>
 
-<div id="btnFitRoute" title="Pokaż całą trasę" role="button" aria-label="Pokaż całą trasę">
+<div id="btnFitRoute" title="1× od pozycji do celu · 2× cała trasa · 3× trasa alternatywna stąd · przytrzymaj: zmień trasę" role="button" aria-label="Pokaż całą trasę">
   <svg class="locate-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="5" cy="19" r="2.3"/>
     <circle cx="19" cy="5" r="2.3" fill="currentColor"/>
@@ -1393,11 +1392,7 @@
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
     <div id="navTollNote">£ Mimo unikania trasa ma odcinki płatne (zaznaczone na mapie)</div>
-    <div id="navExpandHint" role="button">⌃ Przeciągnij w górę: zmień trasę</div>
-    <div id="navCustomize">
-      <div id="navRerouteRow"><button id="navRerouteBtn" type="button">🔀 Zmień trasę</button></div>
-    </div>
-    <div id="navRouteBtnRow">
+        <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
       <button id="navStartBtn">Jedziemy</button>
     </div>
@@ -1433,6 +1428,7 @@
         <div class="truckInputWrap metOnly"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div>
         <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
       <div class="truckField truckResetWrap"><button id="tpReset" type="button" class="secondary">Przywróć domyślne</button></div>
+      <div class="truckField truckResetWrap"><button id="tpAvatarBtn" type="button" class="secondary">🎨 Avatar, trasa i kolory</button></div>
     </div>
   </div>
 </div>
@@ -1459,6 +1455,22 @@
   </div>
 </div>
 
+
+<div id="avatarPanel">
+  <div id="avatarBackdrop"></div>
+  <div id="avatarCard">
+    <span class="sheetGrip"></span>
+    <div class="navSettingsHeader"><span>Avatar, trasa i kolory</span><div id="avatarClose">✕</div></div>
+    <div class="cuHead"><div class="navTitle">Avatar i trasa</div>
+      <button type="button" id="colorToggle" aria-label="Kolor" title="Kolor"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7.6" cy="11" r="1.2" fill="currentColor"/><circle cx="10.2" cy="7.2" r="1.2" fill="currentColor"/><circle cx="14.6" cy="7.2" r="1.2" fill="currentColor"/></svg></button></div>
+    <div id="avatarGrid"></div>
+    <div id="colorPanel"><div class="cpIn">
+      <span id="colorLabel">Kolor avatara</span>
+      <input type="range" id="colorHue" min="0" max="359" value="170" aria-label="Barwa koloru">
+      <button type="button" id="colorReset" aria-label="Kolor domyślny" title="Domyślny">↺</button>
+    </div></div>
+  </div>
+</div>
 
 <div id="navSettingsPanel">
   <div id="navSettingsBackdrop"></div>
@@ -1500,14 +1512,6 @@
         </div>
         <div id="satStatus"></div>
       </div>
-      <div class="navTitle" style="margin-top:12px">Avatar pojazdu</div>
-      <div id="avatarGrid"></div>
-      <div class="navTitle" style="margin-top:12px">Kolor avatara</div>
-      <input type="range" id="avatarHue" min="0" max="359" value="170" aria-label="Barwa koloru avatara">
-      <div id="avatarSwatches" class="swatchRow"></div>
-      <div class="navTitle" style="margin-top:12px">Kolor trasy</div>
-      <input type="range" id="routeHue" min="0" max="359" value="170" aria-label="Barwa koloru trasy">
-      <div id="routeSwatches"></div>
     </div>
 
     <div class="setPane" data-pane="sound" id="soundPane">
@@ -1535,7 +1539,7 @@
         <button type="button" data-toll="free">Unikaj płatnych</button>
         <button type="button" data-toll="paid">Płatne dozwolone</button>
       </div>
-      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz przyciskiem „Zmień trasę”.</div>
+      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
     <div class="adminOnly" id="adminRow" style="align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px;">
@@ -3502,7 +3506,7 @@
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
   const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "ramp"], 1], ["!=", ["get", "brunnel"], "tunnel"]];
-  let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
+  let mwVectorSource = "openmaptiles", mwLayerIds = [], mwMarkIds = [], mwTexIds = [], mwActive = false, mwAnchor = null, mwRefreshAt = 0;
   const mwSprites = {};
   const mwTheme = () => document.body.classList.contains("night") ? "night" : "day";
   // metry → piksele (skaluje się 2× na zoom)
@@ -3550,21 +3554,27 @@
     const anchors = [firstSymbol && firstSymbol.id].concat(own).filter(id => id && idx(id) >= 0).sort((a, b) => idx(a) - idx(b));
     const before = anchors[0];
     const th = mwTheme(), W = MW.laneW, N = MW.lanes;
-    const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom };
-    const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    map.addLayer(Object.assign({ id: MW_TEX, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), before);
-    mwLayerIds = [MW_TEX]; mwMarkIds = [];
-    [-1, 1].forEach(side => {                       // krawędzie jezdni
-      const id = "mw-edge-" + (side < 0 ? "l" : "r");
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
+    // wiadukty i mosty: asfalt rysowany NAD linią trasy (żeby trasa dołem nie zasłaniała jezdni nad nią)
+    let topRoute = -1; styleLayers.forEach((l, i) => { if(/^route-/.test(l.id)) topRoute = i; });
+    const aboveRoute = topRoute >= 0 && styleLayers[topRoute + 1] ? styleLayers[topRoute + 1].id : undefined;
+    mwLayerIds = []; mwMarkIds = []; mwTexIds = [];
+    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", aboveRoute || before, ["==", ["get", "bridge"], 1]]].forEach(([sfx, bef, filter]) => {
+      const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom, filter };
+      const tex = MW_TEX + sfx;
+      map.addLayer(Object.assign({ id: tex, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(N * W + 2 * MW.shoulder) } }, base), bef);
+      mwLayerIds.push(tex); mwTexIds.push(tex);
+      [-1, 1].forEach(side => {                       // krawędzie jezdni
+        const id = "mw-edge-" + (side < 0 ? "l" : "r") + sfx;
+        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-offset": mwPx(side * N * W / 2) } }, base), bef);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      });
+      for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
+        const id = "mw-div-" + k + sfx;
+        map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), bef);
+        mwLayerIds.push(id); mwMarkIds.push(id);
+      }
     });
-    for(let k = 1; k < N; k++){                     // podziały pasów (przerywane)
-      const id = "mw-div-" + k;
-      map.addLayer(Object.assign({ id, layout, paint: { "line-color": MW.marking[th], "line-width": mw, "line-dasharray": [10, 35], "line-offset": mwPx(k * W - N * W / 2) } }, base), before);
-      mwLayerIds.push(id); mwMarkIds.push(id);
-    }
     map.on("styleimagemissing", e => {
       const m = /^mw-asphalt-(day|night)$/.exec(e.id || "");
       if(m && !map.hasImage(e.id)) map.addImage(e.id, mwSprites[m[1]] || (mwSprites[m[1]] = mwMakeSprite(m[1])), { pixelRatio: 2 });
@@ -3610,13 +3620,15 @@
     let feats = [];
     try{ feats = map.querySourceFeatures(mwVectorSource, { sourceLayer: "transportation", filter: MW_FILTER }); }
     catch(e){ console.warn("Asfalt autostrad:", e); return; }
-    const lines = [];
+    const lines = [], bridges = [];
     feats.forEach(f => {
       const g = f.geometry; if(!g) return;
-      if(g.type === "LineString") lines.push(g.coordinates);
-      else if(g.type === "MultiLineString") g.coordinates.forEach(c => lines.push(c));
+      const dst = (f.properties && f.properties.brunnel === "bridge") ? bridges : lines;
+      if(g.type === "LineString") dst.push(g.coordinates);
+      else if(g.type === "MultiLineString") g.coordinates.forEach(c => dst.push(c));
     });
-    const out = mwClipToWindow(lines, lat, lon, hdg).map(c => ({ type:"Feature", properties:{}, geometry:{ type:"LineString", coordinates: c } }));
+    const mk = (ls, br) => mwClipToWindow(ls, lat, lon, hdg).map(c => ({ type:"Feature", properties:{ bridge: br }, geometry:{ type:"LineString", coordinates: c } }));
+    const out = mk(lines, 0).concat(mk(bridges, 1));
     src.setData({ type:"FeatureCollection", features: out });
   }
 
@@ -3629,7 +3641,7 @@
     }
     if(!mwActive){
       mwActive = true; force = true;
-      map.setPaintProperty(MW_TEX, "line-pattern", mwEnsureSprite(mwTheme()));
+      mwTexIds.forEach(id => map.setPaintProperty(id, "line-pattern", mwEnsureSprite(mwTheme())));
       mwSetVisible(true);
     }
     // pozycja i kierunek pojazdu; bez GPS — środek i kierunek kamery
@@ -3646,7 +3658,7 @@
     if(!map || !map.getLayer(MW_TEX)) return;
     const th = mwTheme();
     mwMarkIds.forEach(id => map.setPaintProperty(id, "line-color", MW.marking[th]));
-    map.setPaintProperty(MW_TEX, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th);
+    mwTexIds.forEach(id => map.setPaintProperty(id, "line-pattern", mwActive ? mwEnsureSprite(th) : "mw-asphalt-" + th));
   }
 
   function emptyFC(){ return { type:"FeatureCollection", features:[] }; }
@@ -3712,6 +3724,7 @@
   const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar", AVATAR_COLOR_KEY = "nawigator_avatar_color";
   let customRouteColor = null, vehicleAvatar = "arrow", customAvatarColor = null;
   try{ customRouteColor = localStorage.getItem(ROUTE_COLOR_KEY) || null; vehicleAvatar = localStorage.getItem(AVATAR_KEY) || "arrow"; customAvatarColor = localStorage.getItem(AVATAR_COLOR_KEY) || null; }catch(e){}
+  if(["arrow","truck","car","gator"].indexOf(vehicleAvatar) < 0) vehicleAvatar = "arrow";
   function applyRouteNightStyle(){
     if(!map || !map.getLayer("route-line-main")) return;
     const night = document.body.classList.contains("night");
@@ -3725,16 +3738,17 @@
   }
 
   function userMarkerSvgInner(night){
+    const cc = customAvatarColor;
     if(!night) return `
-        <circle cx="13" cy="13" r="11" fill="rgba(31,214,193,0.25)"/>
-        <path d="M13 3 L20 20 L13 16 L6 20 Z" fill="#1FD6C1" stroke="#0c0f12" stroke-width="1.2"/>`;
+        <circle cx="13" cy="13" r="11" fill="${cc ? cc + "40" : "rgba(31,214,193,0.25)"}"/>
+        <path d="M13 3 L20 20 L13 16 L6 20 Z" fill="${cc || "#1FD6C1"}" stroke="#0c0f12" stroke-width="1.2"/>`;
     // noc: jasnoniebieska strzałka z gradientem i czerwoną poświatą
     return `
         <defs>
           <linearGradient id="gpsArrowGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#7FE3FF"/>
-            <stop offset="0.55" stop-color="#2F9EEF"/>
-            <stop offset="1" stop-color="#1F5FB0"/>
+            <stop offset="0" stop-color="${cc ? shadeHex(cc,.5) : "#7FE3FF"}"/>
+            <stop offset="0.55" stop-color="${cc || "#2F9EEF"}"/>
+            <stop offset="1" stop-color="${cc ? shadeHex(cc,-.4) : "#1F5FB0"}"/>
           </linearGradient>
           <radialGradient id="gpsArrowGlow" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0" stop-color="#FF3B3B" stop-opacity="0.75"/>
@@ -3743,7 +3757,7 @@
           </radialGradient>
         </defs>
         <circle cx="26" cy="26" r="24" fill="url(#gpsArrowGlow)"/>
-        <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="#BFF1FF" stroke-width="1" stroke-linejoin="round"/>`;
+        <path d="M26 8 L38 40 L26 33 L14 40 Z" fill="url(#gpsArrowGrad)" stroke="${cc ? shadeHex(cc,.7) : "#BFF1FF"}" stroke-width="1" stroke-linejoin="round"/>`;
   }
 
   // avatary pojazdu: widok z góry, „nos” do góry; środek układu (0,0) = pozycja GPS (marker obraca się wg kierunku jazdy).
@@ -3763,7 +3777,7 @@
   }
   const AVATARS = {
     arrow: { name:"Strzałka" },
-    truck: { name:"Ciężarówka", H:52, lenU:66, lenM:16.5, len2d:58, ivb:"-34 -17 68 68", svg: (c, p) => {
+    truck: { name:"Ciężarówka", m3d:true, t3d:150, t2d:80, H:52, lenU:66, lenM:16.5, len2d:58, ivb:"-34 -17 68 68", svg: (c, p) => {
       const ribs = []; for(let y = 10; y <= 46; y += 4.4) ribs.push(`M-7 ${y.toFixed(1)}H7`);
       return `<defs>
         ${lgrad(p+"cab", 0,0,1,0, [[0,shadeHex(c,-.38)],[.28,shadeHex(c,.12)],[.5,shadeHex(c,.38)],[.72,shadeHex(c,.12)],[1,shadeHex(c,-.38)]])}
@@ -3795,7 +3809,7 @@
       <rect x="-5.4" y="2.5" width="10.8" height="1.4" rx=".6" fill="#000" opacity=".28"/>
       <rect x="-6.6" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/><rect x="3.8" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/>`;
     } },
-    car: { name:"Auto", H:20, lenU:26, lenM:5.5, len2d:30, ivb:"-16 -16 32 32", svg: (c, p) => `<defs>
+    car: { name:"Auto", m3d:true, t3d:80, t2d:44, H:20, lenU:26, lenM:4.5, len2d:30, ivb:"-16 -16 32 32", svg: (c, p) => `<defs>
         ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(c,-.4)],[.3,shadeHex(c,.1)],[.5,shadeHex(c,.4)],[.7,shadeHex(c,.1)],[1,shadeHex(c,-.4)]])}
         ${lgrad(p+"roof", 0,0,0,1, [[0,shadeHex(c,.5)],[1,shadeHex(c,.05)]])}
         ${lgrad(p+"glass", 0,0,0,1, [[0,"#52728a"],[1,"#101a22"]])}
@@ -3811,7 +3825,7 @@
       <path d="M-4.4 6.8 L4.4 6.8 L5.1 9.4 L-5.1 9.4 Z" fill="url(#${p}glass)"/>
       <rect x="-6.1" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/><rect x="2.9" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/>
       <rect x="-6.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/><rect x="3.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/>` },
-    gator: { name:"Aligator", H:26, lenU:44, lenM:6, len2d:42, ivb:"-26 -25 52 52", svg: (c, p) => {
+    gator: { name:"Aligator", m3d:true, t3d:90, t2d:52, H:26, lenU:44, lenM:5.2, len2d:42, ivb:"-26 -25 52 52", svg: (c, p) => {
       const skin = customAvatarColor || "#6f9136";
       const scutes = []; for(let y = -9.5; y <= 11; y += 3.3){
         const w = 1.9 + (y > 6 ? -(y - 6) * .18 : 0);
@@ -3839,13 +3853,7 @@
         <circle cx="-3.9" cy="-12.8" r="1.35" fill="#f2d54a"/><circle cx="3.9" cy="-12.8" r="1.35" fill="#f2d54a"/>
         <ellipse cx="-3.9" cy="-12.8" rx=".35" ry="1.05" fill="#111"/><ellipse cx="3.9" cy="-12.8" rx=".35" ry="1.05" fill="#111"/>
       </g>`;
-    } },
-    dot: { name:"Punkt", H:20, lenU:36, lenM:5, len2d:30, ivb:"-20 -20 40 40", svg: (c, p) => `<defs>
-        <radialGradient id="${p}sph" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="${shadeHex(c,.6)}"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${shadeHex(c,-.5)}"/></radialGradient>
-      </defs>
-      <circle cx="1" cy="2.2" r="12" fill="#000" opacity=".25"/>
-      <circle cx="0" cy="3" r="10" fill="url(#${p}sph)" stroke="#fff" stroke-width="2"/>
-      <path d="M0 -17 L6.2 -8 L-6.2 -8 Z" fill="${shadeHex(c,.15)}" stroke="#0c0f12" stroke-width=".9" stroke-linejoin="round"/>` }
+    } }
   };
   function avatarAccent(){ return customAvatarColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1"); }
   function avatarSvgInner(key, pfx){
@@ -3862,6 +3870,7 @@
   function avatarPx(){
     const a = AVATARS[vehicleAvatar];
     const night = document.body.classList.contains("night");
+    if(a && a.m3d) return 20;
     if(a && a.svg){
       const lenPx = (is3D && map) ? a.lenM * avatarPxPerMeter() : a.len2d;
       return Math.round(2 * a.H / a.lenU * lenPx);
@@ -3890,20 +3899,142 @@
     const night = document.body.classList.contains("night");
     const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
-    const av = avatarSvgInner(vehicleAvatar, "m");
-    if(av){
-      const H = AVATARS[vehicleAvatar].H;
-      svg.setAttribute("viewBox", `${-H} ${-H} ${2 * H} ${2 * H}`);
-      svg.innerHTML = av;
-      svg._px = null; avSm.trEl = null; avSm.trLast = null; applyAvatarSize();
+    const a = AVATARS[vehicleAvatar];
+    if(a && a.m3d){
+      svg.style.display = "none";            // pojazd rysuje warstwa 3D mapy; marker zostaje jako punkt odniesienia
+      svg._px = null; applyAvatarSize();
+      ensureAvatarLayers(); avSm.t3 = 0;
       return;
     }
-    avSm.trEl = null;
+    svg.style.display = "";
+    avatar3dClear();
     svg.setAttribute("viewBox", night ? "0 0 52 52" : "0 0 26 26");
     svg.setAttribute("width", night ? 52 : 26);
     svg.setAttribute("height", night ? 52 : 26);
     svg.innerHTML = userMarkerSvgInner(night);
     svg._px = null; applyAvatarSize();
+  }
+
+  /* ---------- Avatary w prawdziwym 3D (fill-extrusion MapLibre) ----------
+     Pojazd to zestaw brył (x w prawo, y do przodu, metry; (0,0) = pozycja GPS) rysowanych jako warstwa 3D mapy:
+     skaluje się z mapą, obraca z kierunkiem jazdy, ma cień i światło. Ciężarówka ma naczepę łamiącą się w skrętach,
+     aligator rusza łapami, ogonem i ciałem. avatarScale() powiększa pojazd, gdy rzeczywisty rozmiar byłby za mały. */
+  function a3Box(x0, y0, x1, y1){ return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]]; }
+  function a3Ell(cx, cy, rx, ry, n){ n = n || 16; const o = []; for(let i = 0; i < n; i++){ const a = i / n * 2 * Math.PI; o.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); } return o; }
+  function a3Rot(pts, deg, px, py){
+    const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    return pts.map(p => { const x = p[0] - px, y = p[1] - py; return [px + x * c + y * s, py - x * s + y * c]; });
+  }
+  function avatarScale(a){
+    const lat = lastPos ? lastPos.lat : 53;
+    const ppm = Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
+    return Math.max(1, Math.min(14, (is3D ? a.t3d : a.t2d) / (a.lenM * ppm)));
+  }
+  // lista brył: { p: obrys, b: podstawa (m), h: wysokość (m), c: kolor, tr: należy do naczepy, sh: tylko cień }
+  function a3Truck(c, ctx){
+    const P = [], dark = "#16191c", glass = "#1d2c3a", white = "#eef2f4";
+    const add = (p, b, h, col, tr) => P.push({ p, b, h, c: col, tr: !!tr });
+    // podwozie, koła i siodło
+    add(a3Box(-.85, -2.4, .85, 4.2), .35, .95, "#2a2f34");
+    [-1.7, 2.0, 3.3].forEach(y => { add(a3Box(-1.3, y - .55, -.95, y + .55), 0, 1.0, dark); add(a3Box(.95, y - .55, 1.3, y + .55), 0, 1.0, dark); });
+    add(a3Ell(0, 2.6, .75, .75, 12), .95, 1.15, "#1c2024");
+    // kabina: dół, szyba, dach, deflektor
+    add(a3Box(-1.25, -2.6, 1.25, .9), .6, 2.1, c);
+    add(a3Box(-1.2, -2.62, 1.2, -1.75), 1.4, 2.35, glass);
+    add(a3Box(-1.25, -1.75, 1.25, .9), 2.1, 3.15, shadeHex(c, .2));
+    add(a3Box(-1.0, .15, 1.0, .9), 3.15, 3.65, c);
+    add(a3Box(-1.45, -1.9, -1.25, -1.45), 1.5, 2.2, dark); add(a3Box(1.25, -1.9, 1.45, -1.45), 1.5, 2.2, dark);   // lusterka
+    add(a3Box(-1.0, -2.68, -.55, -2.6), .85, 1.1, "#fff6b8"); add(a3Box(.55, -2.68, 1.0, -2.6), .85, 1.1, "#fff6b8");
+    // naczepa (obraca się wokół siodła)
+    add(a3Box(-.9, 1.4, .9, 2.6), .35, .95, "#2a2f34", true);
+    add(a3Box(-1.28, 2.0, 1.28, 13.9), .95, 4.0, white, true);
+    add(a3Box(-.18, 2.0, .18, 13.9), 4.0, 4.07, c, true);
+    [10.5, 11.8].forEach(y => { add(a3Box(-1.32, y - .55, -.96, y + .55), 0, 1.0, dark, true); add(a3Box(.96, y - .55, 1.32, y + .55), 0, 1.0, dark, true); });
+    add(a3Box(-1.2, 13.8, 1.2, 13.95), .45, 1.0, "#2a2f34", true);
+    add(a3Box(-1.15, 13.95, -.7, 14.0), .6, .85, "#ff3b30", true); add(a3Box(.7, 13.95, 1.15, 14.0), .6, .85, "#ff3b30", true);
+    const sh = [{ p: a3Box(-1.4, -2.7, 1.4, 1.0), sh: 1 }, { p: a3Box(-1.4, 1.9, 1.4, 14), sh: 1, tr: true }];
+    return { parts: P, shadow: sh, pivot: [0, 2.6] };
+  }
+  function a3Car(c){
+    const P = [], dark = "#16191c", glass = "#1d2c3a";
+    const add = (p, b, h, col) => P.push({ p, b, h, c: col });
+    [-1.4, 1.4].forEach(y => { add(a3Box(-1.0, y - .38, -.78, y + .38), 0, .62, dark); add(a3Box(.78, y - .38, 1.0, y + .38), 0, .62, dark); });
+    add(a3Box(-.9, -2.2, .9, 2.2), .28, .85, c);
+    add(a3Box(-.8, -.95, .8, 1.35), .85, 1.45, glass);
+    add(a3Box(-.74, -.55, .74, .95), 1.45, 1.55, shadeHex(c, .25));
+    add(a3Box(-.7, -2.25, -.35, -2.2), .45, .62, "#fff6b8"); add(a3Box(.35, -2.25, .7, -2.2), .45, .62, "#fff6b8");
+    add(a3Box(-.7, 2.2, -.35, 2.25), .45, .62, "#ff3b30"); add(a3Box(.35, 2.2, .7, 2.25), .45, .62, "#ff3b30");
+    add(a3Box(-1.12, -.7, -.9, -.3), .75, .95, shadeHex(c, -.4)); add(a3Box(.9, -.7, 1.12, -.3), .75, .95, shadeHex(c, -.4));
+    return { parts: P, shadow: [{ p: a3Box(-1.05, -2.3, 1.05, 2.3), sh: 1 }] };
+  }
+  function a3Gator(c, ph){
+    const skin = customAvatarColor || "#6f9136", dk = shadeHex(skin, -.4), lt = shadeHex(skin, .2);
+    const P = [], add = (p, b, h, col) => P.push({ p, b, h, c: col });
+    const sw = Math.sin(ph) * 2.5, wag = ph * .5;
+    // ogon: segmenty z falą
+    let prev = null;
+    for(let i = 0; i <= 5; i++){
+      const y = 1.1 + i * .45, w = .5 - i * .085, off = Math.sin(wag - i * .7) * (.04 + i * .07) * 2;
+      const cur = [off - w, off + w, y];
+      if(prev) add([[prev[0], prev[2]], [prev[1], prev[2]], [cur[1], cur[2]], [cur[0], cur[2]]], .12, .42 - i * .045, i % 2 ? dk : skin);
+      prev = cur;
+    }
+    // łapy: kołysanie na przemian (przód-lewa i tył-prawa razem)
+    const leg = (sx, sy, side, swing) => {
+      const base = a3Box(0, -.12, .8, .12).map(p => [p[0] * side, p[1]]);
+      const rotated = a3Rot(base, swing * side + (sy < 0 ? -20 : 20) * side, 0, 0).map(p => [p[0] + sx * side, p[1] + sy]);
+      add(rotated, .05, .26, lt);
+      const tip = rotated[1], tip2 = rotated[2];
+      add(a3Ell((tip[0] + tip2[0]) / 2 + .12 * side, (tip[1] + tip2[1]) / 2, .16, .13, 8), .03, .12, dk);
+    };
+    const s1 = Math.sin(ph * 2) * 28, s2 = -s1;
+    leg(.45, -.45, -1, s1); leg(.45, -.45, 1, s2); leg(.45, .85, -1, s2); leg(.45, .85, 1, s1);
+    // tułów i głowa (lekkie kołysanie)
+    const sway = a => a3Rot(a, sw, 0, .8);
+    add(sway(a3Ell(0, .2, .56, 1.05, 18)), .22, .62, skin);
+    for(let y = -.6; y <= 1.0; y += .36){ add(sway(a3Box(-.2, y, -.04, y + .2)), .62, .72, dk); add(sway(a3Box(.04, y, .2, y + .2)), .62, .72, dk); }
+    add(sway([[-.4,-.7],[-.3,-1.5],[-.15,-2.1],[.15,-2.1],[.3,-1.5],[.4,-.7]]), .2, .44, lt);
+    add(sway(a3Box(-.38, -1.05, -.2, -.88)), .44, .6, "#f2d54a"); add(sway(a3Box(.2, -1.05, .38, -.88)), .44, .6, "#f2d54a");
+    return { parts: P, shadow: [{ p: a3Ell(0, .5, .8, 1.9, 14), sh: 1 }, { p: a3Box(-.5, 1.1, .5, 3.5), sh: 1 }] };
+  }
+  const A3_BUILD = { truck: a3Truck, car: a3Car, gator: a3Gator };
+  function ensureAvatarLayers(){
+    if(!map) return;
+    if(!map.isStyleLoaded()){ map.once("idle", ensureAvatarLayers); return; }
+    try{
+      if(!map.getSource("avatar3d")) map.addSource("avatar3d", { type:"geojson", data:{ type:"FeatureCollection", features:[] }, maxzoom:22, tolerance:0, buffer:0 });
+      if(!map.getLayer("avatar3d-shadow")) map.addLayer({ id:"avatar3d-shadow", type:"fill", source:"avatar3d", filter:["==", ["get","sh"], 1], paint:{ "fill-color":"#000", "fill-opacity":.28 } });
+      if(!map.getLayer("avatar3d-body")) map.addLayer({ id:"avatar3d-body", type:"fill-extrusion", source:"avatar3d", filter:["!=", ["get","sh"], 1],
+        paint:{ "fill-extrusion-color":["get","c"], "fill-extrusion-height":["get","h"], "fill-extrusion-base":["get","b"], "fill-extrusion-opacity":1, "fill-extrusion-vertical-gradient":true } });
+    }catch(e){ console.warn("Avatar 3D:", e); }
+  }
+  function avatar3dClear(){
+    try{ const s = map && map.getSource("avatar3d"); if(s) s.setData({ type:"FeatureCollection", features:[] }); }catch(e){}
+    avSm.t3 = 0;
+  }
+  function avatar3dUpdate(t, dt){
+    const a = AVATARS[vehicleAvatar];
+    if(!a || !a.m3d || !map || t - (avSm.t3 || 0) < 28) return;
+    const src = map.getSource("avatar3d"); if(!src){ ensureAvatarLayers(); return; }
+    avSm.t3 = t;
+    const moving = currentSpeedKmh >= 3;
+    if(moving) avSm.ph = (avSm.ph || 0) + 0.033 * (4 + Math.min(30, avSm.v) * .35);
+    const model = A3_BUILD[vehicleAvatar](avatarAccent(), avSm.ph || 0);
+    const s = avatarScale(a), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
+    const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180)));
+    const trRot = avSm.trLoc || 0, pv = model.pivot || [0, 0];
+    const conv = (pts, tr) => {
+      if(tr && trRot) pts = a3Rot(pts, trRot, pv[0], pv[1]);
+      const ring = pts.map(p => { const x = p[0] * s, y = p[1] * s; return [avSm.lon + (x * ch + y * sh) * kLon, avSm.lat + (-x * sh + y * ch) * kLat]; });
+      ring.push(ring[0]); return [ring];
+    };
+    const feats = [];
+    model.shadow.forEach(o => {
+      const off = o.p.map(p => [p[0] + .35, p[1] - .45]);
+      feats.push({ type:"Feature", properties:{ sh:1 }, geometry:{ type:"Polygon", coordinates: conv(off, o.tr) } });
+    });
+    model.parts.forEach(o => feats.push({ type:"Feature", properties:{ sh:0, c:o.c, b:o.b * s, h:o.h * s }, geometry:{ type:"Polygon", coordinates: conv(o.p, o.tr) } }));
+    src.setData({ type:"FeatureCollection", features: feats });
   }
 
   /* ---------- Mapa satelitarna (Mapbox Raster Tiles API) ----------
@@ -4029,20 +4160,47 @@
     applyUserMarkerStyle();
     refreshCustomizeUi();
   }
-  const ROUTE_SWATCHES = ["#FF3B30","#FF9500","#FFD60A","#34C759","#1FD6C1","#0A84FF","#BF5AF2","#FF2D95","#FFFFFF"];
+  // jeden suwak koloru: działa na avatar albo na trasę — zależnie od ostatnio wybranego kafelka
+  let colorCtx = "avatar";
+  function hexToHue(hex){
+    const h = String(hex || "").replace("#", ""); if(h.length !== 6) return null;
+    const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
+    const mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn; if(!d) return 0;
+    let hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return Math.round((hh * 60 + 360) % 360);
+  }
+  let hueAnim = 0;
+  function currentCtxColor(){ return colorCtx === "route" ? customRouteColor : customAvatarColor; }
+  function syncColorPanel(animate){
+    const hue = document.getElementById("colorHue"), lab = document.getElementById("colorLabel"), rst = document.getElementById("colorReset");
+    if(!hue) return;
+    const col = currentCtxColor(), target = hexToHue(col) != null ? hexToHue(col) : 170;
+    if(lab){ lab.style.opacity = 0; setTimeout(() => { lab.textContent = colorCtx === "route" ? "Kolor trasy" : "Kolor avatara"; lab.style.opacity = 1; }, animate ? 120 : 0); }
+    if(rst) rst.style.visibility = col ? "visible" : "hidden";
+    hue.style.setProperty("--thumb", col || "#8a8f94");
+    cancelAnimationFrame(hueAnim);
+    const from = +hue.value, t0 = performance.now();
+    if(!animate || from === target){ hue.value = target; return; }
+    const step = now => { const k = Math.min(1, (now - t0) / 260), e = 1 - Math.pow(1 - k, 3); hue.value = Math.round(from + (target - from) * e); if(k < 1) hueAnim = requestAnimationFrame(step); };
+    hueAnim = requestAnimationFrame(step);
+  }
+  function setCtxColor(hex){ if(colorCtx === "route") setRouteColor(hex); else setAvatarColor(hex); }
   function refreshCustomizeUi(){
-    const grid = document.getElementById("avatarGrid"), sw = document.getElementById("routeSwatches"), asw = document.getElementById("avatarSwatches");
-    if(!grid || !sw || !asw) return;
-    grid.innerHTML = Object.keys(AVATARS).map(k => {
+    const grid = document.getElementById("avatarGrid");
+    if(!grid) return;
+    const keys = ["arrow", "truck", "car", "gator"];
+    const tiles = keys.map(k => {
       const inner = avatarSvgInner(k, "g" + k);
       const svg = inner ? `<svg viewBox="${AVATARS[k].ivb}">${inner}</svg>`
         : `<svg viewBox="0 0 52 52"><path d="M26 6 L38 42 L26 34 L14 42 Z" fill="${avatarAccent()}" stroke="#0c0f12" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-      return `<div class="avatarOpt${k === vehicleAvatar ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
-    }).join("");
-    sw.innerHTML = `<div class="routeSw auto${customRouteColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
-      ROUTE_SWATCHES.map(c => `<div class="routeSw${customRouteColor && customRouteColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
-    asw.innerHTML = `<div class="routeSw auto${customAvatarColor ? "" : " active"}" data-col="" role="button" aria-label="Kolor domyślny" title="Domyślny"></div>` +
-      ROUTE_SWATCHES.map(c => `<div class="routeSw${customAvatarColor && customAvatarColor.toLowerCase() === c.toLowerCase() ? " active" : ""}" data-col="${c}" style="background:${c}" role="button" aria-label="Kolor ${c}"></div>`).join("");
+      return `<div class="avatarOpt${(k === vehicleAvatar && colorCtx === "avatar") ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
+    });
+    const rc = customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1");
+    tiles.push(`<div class="avatarOpt routeOpt${colorCtx === "route" ? " active" : ""}" data-route="1" role="button" aria-label="Trasa" title="Trasa"><svg viewBox="0 0 52 52">` +
+      `<path d="M11 43 C11 26 41 30 41 10" fill="none" stroke="#0c0f12" stroke-width="9" stroke-linecap="round" opacity=".55"/>` +
+      `<path d="M11 43 C11 26 41 30 41 10" fill="none" stroke="${rc}" stroke-width="5.5" stroke-linecap="round"/>` +
+      `<circle cx="11" cy="43" r="3.4" fill="#fff" stroke="#0c0f12" stroke-width="1.2"/><circle cx="41" cy="10" r="3.4" fill="#fff" stroke="#0c0f12" stroke-width="1.2"/></svg></div>`);
+    grid.innerHTML = tiles.join("");
   }
   safeInit("przełącznik dróg płatnych", () => {
     const seg = document.getElementById("tollSeg");
@@ -4057,20 +4215,21 @@
     });
   });
   safeInit("avatar i kolor trasy", () => {
-    refreshCustomizeUi();
+    refreshCustomizeUi(); syncColorPanel(false);
     document.getElementById("avatarGrid").addEventListener("click", ev => {
-      const el = ev.target.closest(".avatarOpt"); if(el) setVehicleAvatar(el.dataset.av);
+      const el = ev.target.closest(".avatarOpt"); if(!el) return;
+      if(el.dataset.route){ colorCtx = "route"; refreshCustomizeUi(); syncColorPanel(true); return; }
+      colorCtx = "avatar"; setVehicleAvatar(el.dataset.av); syncColorPanel(true);
     });
-    document.getElementById("routeSwatches").addEventListener("click", ev => {
-      const el = ev.target.closest(".routeSw"); if(el) setRouteColor(el.dataset.col || null);
-    });
-    const hue = document.getElementById("routeHue");
-    hue.addEventListener("input", () => setRouteColor(hslToHex(+hue.value, 95, 55)));
-    document.getElementById("avatarSwatches").addEventListener("click", ev => {
-      const el = ev.target.closest(".routeSw"); if(el) setAvatarColor(el.dataset.col || null);
-    });
-    const ahue = document.getElementById("avatarHue");
-    ahue.addEventListener("input", () => setAvatarColor(hslToHex(+ahue.value, 85, 52)));
+    const hue = document.getElementById("colorHue");
+    hue.addEventListener("input", () => { cancelAnimationFrame(hueAnim); setCtxColor(hslToHex(+hue.value, colorCtx === "route" ? 95 : 80, colorCtx === "route" ? 55 : 52)); hue.style.setProperty("--thumb", currentCtxColor()); const r = document.getElementById("colorReset"); if(r) r.style.visibility = "visible"; });
+    document.getElementById("colorReset").addEventListener("click", () => { setCtxColor(null); syncColorPanel(true); });
+    const ap = document.getElementById("avatarPanel");
+    document.getElementById("tpAvatarBtn").addEventListener("click", () => { refreshCustomizeUi(); syncColorPanel(false); ap.classList.add("open"); });
+    document.getElementById("avatarClose").addEventListener("click", () => ap.classList.remove("open"));
+    document.getElementById("avatarBackdrop").addEventListener("click", () => ap.classList.remove("open"));
+    const tg = document.getElementById("colorToggle"), pn = document.getElementById("colorPanel");
+    tg.addEventListener("click", () => { const o = !pn.classList.contains("open"); pn.classList.toggle("open", o); tg.classList.toggle("on", o); });
   });
 
   function addUserMarker(lat, lon){
@@ -4142,16 +4301,13 @@
       map.jumpTo({ center: [avSm.lon, avSm.lat], bearing: (is3D && !northUp) ? avSm.hdg : map.getBearing() });
     }
     if(vehicleAvatar === "truck"){
-      // naczepa dołamuje się w skrętach: kąt naczepy goni kąt kabiny (model ciągnik–naczepa, rozstaw ~8 m)
+      // naczepa dołamuje się w skrętach: kąt naczepy goni kąt kabiny (model ciągnik–naczepa)
       if(avSm.trH === undefined) avSm.trH = avSm.hdg;
       const rel = Math.max(-70, Math.min(70, angDiff(avSm.trH, avSm.hdg)));
       avSm.trH = (avSm.trH + (avSm.v / 8) * Math.sin(rel * Math.PI / 180) * dt * 180 / Math.PI + 360) % 360;
-      const loc = -Math.max(-60, Math.min(60, angDiff(avSm.trH, avSm.hdg)));
-      if(!avSm.trEl || !avSm.trEl.isConnected) avSm.trEl = userMarkerEl.querySelector(".trTrailer");
-      if(avSm.trEl && (avSm.trLast === null || avSm.trLast === undefined || Math.abs(loc - avSm.trLast) > 0.1)){
-        avSm.trLast = loc; avSm.trEl.setAttribute("transform", `rotate(${loc.toFixed(2)} 0 5)`);
-      }
+      avSm.trLoc = -Math.max(-60, Math.min(60, angDiff(avSm.trH, avSm.hdg)));
     }
+    avatar3dUpdate(t, dt);
     if(t - avSm.calT > 700){ avSm.calT = t; try{ calibrateAvatarPosition(); }catch(e){} }
   }
   // utrzymuje avatar nad dolnym paskiem: pozycję avatara na ekranie mierzymy i delikatnie korygujemy górny padding kamery
@@ -8401,11 +8557,33 @@
   // Pokazuje całą wyznaczoną trasę na mapie na płasko (bez pochylenia/obrotu), z odstępem na
   // pasek ikon i kartę nawigatora u dołu — używane zarówno tuż po zaplanowaniu trasy, jak i
   // przez szklany przycisk 🔎 (widoczny nad kartą, gdy trasa jest wyznaczona).
-  function fitActiveRouteToView(){
+  // pozostała część trasy od aktualnej pozycji GPS: [pozycja, …punkty trasy dalej]
+  function routeRemainingFromHere(){
+    if(!activeRoute || !activeRoute.coords || !lastPos) return null;
+    const c = activeRoute.coords;
+    let best = null;
+    for(let i = 0; i < c.length - 1; i++){
+      const q = projectPointToSegment(lastPos.lat, lastPos.lon, c[i], c[i + 1]);
+      if(!best || q.distM < best.distM){ best = q; best.i = i; }
+    }
+    if(!best) return null;
+    const pos = [lastPos.lon, lastPos.lat];
+    return best.distM > 300 ? [pos].concat(c) : [pos].concat(c.slice(best.i + 1));   // poza trasą: pozycja + cała trasa
+  }
+  // przytrzymanie: ręczna zmiana pozostałego odcinka trasy (przeciąganie punktów); trasa skrócona do [pozycja → cel]
+  function startRouteEditFromHere(){
+    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2 || navUiState !== "nav") return;
+    if(activeRoute.planning && routeEditMode){ fitActiveRouteToView(); return; }
+    const rem = routeRemainingFromHere() || activeRoute.coords;
+    const full = routeLengthMeters(activeRoute.coords) || 1, frac = Math.max(0.02, Math.min(1, routeLengthMeters(rem) / full));
+    startPlannedRoute({ coords: rem, distanceM: activeRoute.distanceM * frac, timeS: activeRoute.timeS * frac, steps: null }, activeRoute.source);
+  }
+  // fromHere === true: tylko odcinek od aktualnej pozycji do celu; inaczej cała trasa
+  function fitActiveRouteToView(fromHere){
     if(!map || !activeRoute || !activeRoute.coords || activeRoute.coords.length < 2) return;
     followUser = false;
     updateLocateBtnVisibility();
-    const c = activeRoute.coords;
+    const c = (fromHere === true && routeRemainingFromHere()) || activeRoute.coords;
     const bounds = c.reduce((b, pt) => b.extend(pt), new maplibregl.LngLatBounds(c[0], c[0]));
     // Cała trasa ma się zmieścić w GÓRNEJ części ekranu: nad oknem nawigatora, przyciskiem "Centruj"
     // i znakiem ograniczenia prędkości (po tym widoku prędkościomierz ustępuje "Centruj").
@@ -9399,8 +9577,7 @@
   async function offerRoutesFromHere(){
     if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
     rerouteBusy = true;
-    const btn = document.getElementById("navRerouteBtn");
-    btn.disabled = true; btn.textContent = "Szukam tras…";
+    showNavStatus("Szukam tras…");
     const oldRoute = activeRoute;
     const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...getRemainingWaypoints(lastPos.lat, lastPos.lon), navSelectedDest];
     if(truckRouteAbort) truckRouteAbort.abort();
@@ -9426,7 +9603,6 @@
     }finally{
       showNavStatus("");
       rerouteBusy = false;
-      btn.disabled = false; btn.textContent = "🔀 Zmień trasę";
     }
   }
 
@@ -9451,7 +9627,33 @@
     clearNavRoute();
   }
 
-  document.getElementById("navRerouteBtn").addEventListener("click", offerRoutesFromHere);
+  // przycisk „cała trasa”: 1× od pozycji do celu · 2× cała trasa · 3× trasy alternatywne stąd · przytrzymanie: ręczna zmiana trasy
+  (function setupFitRouteGestures(){
+    const btn = document.getElementById("btnFitRoute");
+    const LONG_MS = 600, MULTI_MS = 320;
+    let taps = 0, tapTimer = null, pressTimer = null, longFired = false;
+    const flush = () => {
+      const n = taps; taps = 0; tapTimer = null;
+      if(n === 1) fitActiveRouteToView(true);
+      else if(n === 2) fitActiveRouteToView(false);
+      else if(n >= 3) offerRoutesFromHere();
+    };
+    btn.addEventListener("pointerdown", () => {
+      longFired = false; clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        longFired = true; taps = 0; clearTimeout(tapTimer);
+        if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
+        startRouteEditFromHere();
+      }, LONG_MS);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => btn.addEventListener(ev, () => clearTimeout(pressTimer)));
+    btn.addEventListener("click", () => {
+      if(longFired){ longFired = false; return; }
+      taps++; clearTimeout(tapTimer);
+      if(taps >= 3) flush(); else tapTimer = setTimeout(flush, MULTI_MS);
+    });
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+  })();
 
   document.getElementById("navPlanBtn").addEventListener("click", planTruckRoute);
   document.getElementById("navStartBtn").addEventListener("click", startPlannedDriving);
@@ -11143,7 +11345,7 @@
       document.body.classList.toggle("night", on);
       try{ applyShieldMode(); applyMotorwayAsphaltTheme(); applyNightTheme(); applyRouteNightStyle(); }catch(e){ console.warn("Zmiana trybu:", e); }
     }
-    try{ const m = document.querySelector('meta[name="theme-color"]'); if(m) m.content = on ? "#0c0a08" : "#12181e"; }catch(e){}
+    try{ const m = document.querySelector('meta[name="theme-color"]'); if(m) m.content = "#000000"; }catch(e){}
     updateThemeBtn();
   }
   function applyThemeMode(){ setNightMode(themeWantsNight()); }
@@ -11173,7 +11375,6 @@
     }
   });
 
-  document.getElementById("btnFitRoute").addEventListener("click", fitActiveRouteToView);
 
   // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
   // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
