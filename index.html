@@ -439,11 +439,19 @@
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
   .truckActionRow #tpReset{ flex:1; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 64px; display:flex; align-items:center; justify-content:center; padding:4px 6px; color: var(--text-main); }
+  .truckActionRow .avatarIconBtn{ flex:0 0 92px; display:flex; align-items:center; justify-content:center; padding:2px 4px; color: var(--text-main); }
   .avatarIconBtn.on{ border-color: var(--accent); background: rgba(255,255,255,0.08); }
-  .truckRouteIco .rt{ stroke: var(--accent); }
-  .truckRouteIco .tk{ fill: currentColor; }
-  .truckRouteIco .wh{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.6; }
+  /* ikona: ciągnik siodłowy (kabina, kominy, piąte koło, trzy osie) przed wyraźną, kropkowaną trasą z pinem celu */
+  .truckRouteIco{ display:block; overflow:visible; }
+  .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:7.5; }
+  .truckRouteIco .rt{ stroke: var(--accent); stroke-width:4.6; }
+  .truckRouteIco .pin{ fill:#ff4d4d; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
+  .truckRouteIco .pinDot{ fill:#fff; }
+  .truckRouteIco .tk{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1; paint-order: stroke; }
+  .truckRouteIco .ch{ fill: var(--text-dim); stroke: var(--panel-bg-solid, #0c0f12); stroke-width:.8; }
+  .truckRouteIco .gl{ fill: var(--panel-bg-solid, #0c0f12); opacity:.85; }
+  .truckRouteIco .wh circle{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
+  .truckRouteIco .hub circle{ fill: var(--panel-bg-solid, #0c0f12); }
   /* menu avatara i kolorów rozwijane pod przyciskami, w tym samym oknie */
   #avatarInline{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease, margin-top .25s ease; margin-top:0; }
   #avatarInline.open{ grid-template-rows:1fr; margin-top:10px; }
@@ -1536,7 +1544,22 @@
         <div class="truckInputWrap impOnly"><input id="tpAxleLb" type="text" inputmode="numeric" autocomplete="off"><em>lb</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 48 28" width="40" height="24" aria-hidden="true"><path class="rt" d="M2 25 C14 25 14 7 26 9 S42 7 46 3" fill="none" stroke-width="3" stroke-linecap="round"/><circle class="rt" cx="46" cy="3" r="2" stroke-width="1"/><rect class="tk" x="5" y="9" width="22" height="12" rx="2"/><path class="tk" d="M27 13h7l4 4v4H27z"/><circle class="wh" cx="12" cy="22.5" r="3"/><circle class="wh" cx="33" cy="22.5" r="3"/></svg></button>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 72 34" width="72" height="34" aria-hidden="true">
+<path class="rtc" d="M2 24 C13 8 27 6 38 15 S58 27 66 9" fill="none" stroke-linecap="round"/>
+<path class="rt" d="M2 24 C13 8 27 6 38 15 S58 27 66 9" fill="none" stroke-linecap="round" stroke-dasharray="1 7.5"/>
+<circle class="pin" cx="66" cy="8" r="3.4"/><circle class="pinDot" cx="66" cy="8" r="1.2"/>
+<rect class="tk" x="22.6" y="3.6" width="2.6" height="17" rx="1.2"/>
+<rect class="ch" x="5" y="22" width="43" height="2.6" rx="1"/>
+<rect class="tk" x="6.5" y="19.4" width="17" height="2.8" rx="1"/>
+<path class="tk" d="M26 24V10h12l7.5 6.6V24z"/>
+<path class="tk" d="M26 10V6.4h9.4l2.6 3.6z"/>
+<path class="gl" d="M36.2 11.6h3L43.6 16.2H36.2z"/><rect class="gl" x="28" y="12.2" width="5.6" height="4.2" rx=".8"/>
+<rect x="44.2" y="18.2" width="1.8" height="2.4" rx=".5" fill="#ffb020"/>
+<g fill="#ffb020"><circle cx="28.4" cy="5.4" r=".8"/><circle cx="31" cy="5.4" r=".8"/><circle cx="33.6" cy="5.4" r=".8"/></g>
+<rect class="tk" x="26.8" y="24.6" width="9.4" height="3.8" rx="1.9"/>
+<g class="wh"><circle cx="13" cy="27.2" r="4.3"/><circle cx="21" cy="27.2" r="4.3"/><circle cx="40.5" cy="27.2" r="4.3"/></g>
+<g class="hub"><circle cx="13" cy="27.2" r="1.5"/><circle cx="21" cy="27.2" r="1.5"/><circle cx="40.5" cy="27.2" r="1.5"/></g>
+</svg></button>
       </div>
     </div>
     <div id="avatarInline"><div class="aiIn">
@@ -2939,8 +2962,8 @@
   // żeby sieć dróg była zawsze widoczna): z daleka stonowana zieleń wtopiona w tło, po przybliżeniu
   // wyraźna, nasycona zieleń — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fillFar: "#3b6aa8", casingFar: "#142f55",    // z daleka: stonowany niebieski
-                fillNear: "#2A75D3", casingNear: "#10346a" },  // po przybliżeniu: #2A75D3
+    motorway: { fillFar: "#9a6b1f", casingFar: "#3a2509",    // z daleka: stonowany ciemny bursztyn
+                fillNear: "#c4801a", casingNear: "#4a2c06" },  // po przybliżeniu: ciemnobursztynowy #c4801a
     major:    {
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
@@ -3956,7 +3979,16 @@
       <rect x="-6.1" y="-7" width="12.2" height="9.2" rx="2" fill="url(#${p}roof)" stroke="#000" stroke-opacity=".25" stroke-width=".4"/>
       <rect x="-4.2" y="-4.6" width="8.4" height="2.4" rx=".8" fill="#fff" opacity=".18"/>
       <rect x="-5.4" y="2.5" width="10.8" height="1.4" rx=".6" fill="#000" opacity=".28"/>
-      <rect x="-6.6" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/><rect x="3.8" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/>`;
+      <rect x="-6.6" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/><rect x="3.8" y="-15.5" width="2.8" height="1" rx=".5" fill="#fff6b8"/>
+      <circle cx="-6.9" cy="5.6" r="1.2" fill="#d9dee1" stroke="#0c0f12" stroke-width=".4"/><circle cx="-6.9" cy="5.6" r=".5" fill="#2a2f34"/>
+      <circle cx="6.9" cy="5.6" r="1.2" fill="#d9dee1" stroke="#0c0f12" stroke-width=".4"/><circle cx="6.9" cy="5.6" r=".5" fill="#2a2f34"/>
+      <g fill="#ffb020">${[-4, -2, 0, 2, 4].map(x => `<circle cx="${x}" cy="-6.4" r=".6"/>`).join("")}</g>
+      <path d="M-4.8 -9.6 L-.6 -8.7 M.6 -8.7 L4.8 -9.6" stroke="#0c0f12" stroke-width=".5" stroke-linecap="round" fill="none"/>
+      <rect x="-9.1" y="-9" width="1.2" height="3" rx=".5" fill="#aab1b6"/><rect x="7.9" y="-9" width="1.2" height="3" rx=".5" fill="#aab1b6"/>
+      <rect x="-4.2" y="-14.9" width="8.4" height=".7" rx=".3" fill="#7d858b"/>
+      <rect x="-4.5" y="7.2" width="1.2" height="2" fill="#3a4046"/><rect x="3.3" y="7.2" width="1.2" height="2" fill="#3a4046"/>
+      <g>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="-7.9" y="${(8 + i * 5).toFixed(1)}" width=".9" height="2.5" fill="${i % 2 ? "#ff3b30" : "#ffffff"}" opacity=".85"/><rect x="7" y="${(8 + i * 5).toFixed(1)}" width=".9" height="2.5" fill="${i % 2 ? "#ff3b30" : "#ffffff"}" opacity=".85"/>`).join("")}</g>
+      <rect x="-2" y="49.2" width="4" height=".9" rx=".3" fill="#f2c200"/>`;
     } },
     car: { name:"Auto", m3d:true, t3d:80, t2d:44, H:20, lenU:26, lenM:4.5, len2d:30, ivb:"-16 -16 32 32", svg: (c, p) => `<defs>
         ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(c,-.4)],[.3,shadeHex(c,.1)],[.5,shadeHex(c,.4)],[.7,shadeHex(c,.1)],[1,shadeHex(c,-.4)]])}
@@ -3981,8 +4013,20 @@
         scutes.push(`<ellipse cx="-2.1" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1.35"/><ellipse cx="2.1" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1.35"/>`);
       }
       const tailScutes = []; for(let y = 13; y <= 21; y += 2.6){ const w = 2.1 - (y - 13) * .17; tailScutes.push(`<ellipse cx="0" cy="${y.toFixed(1)}" rx="${w.toFixed(1)}" ry="1"/>`); }
-      const leg = (cls, side, x, y, rot) => `<g class="gLeg ${cls} ${side}"><ellipse cx="${x}" cy="${y}" rx="5.4" ry="2.7" transform="rotate(${rot} ${x} ${y})" fill="url(#${p}leg)" stroke="#0c0f12" stroke-width=".7"/>` +
-        `<ellipse cx="${x + (side === "l" ? -4.4 : 4.4)}" cy="${y + (rot < 0 ? -1.6 : 1.6) * (y < 0 ? 1 : -1)}" rx="1.9" ry="1.4" fill="${shadeHex(skin,-.35)}" stroke="#0c0f12" stroke-width=".5"/></g>`;
+      // łapa dwuczłonowa: bark → udo → kolano (zgięcie) → podudzie → stopa z palcami (kąty od osi „na zewnątrz”, + = do przodu)
+      const K = 12, rd = d => d * Math.PI / 180;
+      const lq = (x0, y0, x1, y1, w0, w1) => { const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+        return [[x0 + nx * w0, y0 + ny * w0], [x1 + nx * w1, y1 + ny * w1], [x1 - nx * w1, y1 - ny * w1], [x0 - nx * w0, y0 - ny * w0]].map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" "); };
+      const leg = (cls, side, sy, front) => {
+        const vec = (ang, L) => [side * Math.cos(rd(ang)) * L * K, -Math.sin(rd(ang)) * L * K];
+        const aU = front ? -28 : 30, aL = aU + (front ? 78 : -78);
+        const sh = [side * .5 * K, sy * K], u = vec(aU, .52), kn = [sh[0] + u[0], sh[1] + u[1]], l = vec(aL, .46), ft = [kn[0] + l[0], kn[1] + l[1]];
+        const toes = [-.45, 0, .45].map(o => { const v = vec(50 + o * 57, .22); return `<line x1="${ft[0].toFixed(1)}" y1="${ft[1].toFixed(1)}" x2="${(ft[0] + v[0]).toFixed(1)}" y2="${(ft[1] + v[1]).toFixed(1)}" stroke="#e8e2c8" stroke-width=".7" stroke-linecap="round"/>`; }).join("");
+        return `<g class="gLeg ${cls} ${side < 0 ? "l" : "r"}"><polygon points="${lq(sh[0], sh[1], kn[0], kn[1], 2, 1.5)}" fill="url(#${p}leg)" stroke="#0c0f12" stroke-width=".6" stroke-linejoin="round"/>` +
+          `<polygon points="${lq(kn[0], kn[1], ft[0], ft[1], 1.5, 1)}" fill="url(#${p}leg)" stroke="#0c0f12" stroke-width=".6" stroke-linejoin="round"/>` +
+          `<circle cx="${kn[0].toFixed(1)}" cy="${kn[1].toFixed(1)}" r="1.9" fill="${shadeHex(skin,.12)}" stroke="#0c0f12" stroke-width=".5"/>` +
+          `<ellipse cx="${ft[0].toFixed(1)}" cy="${ft[1].toFixed(1)}" rx="1.9" ry="1.6" fill="${shadeHex(skin,-.35)}" stroke="#0c0f12" stroke-width=".5"/>${toes}</g>`;
+      };
       return `<defs>
         ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(skin,-.45)],[.35,shadeHex(skin,.05)],[.5,shadeHex(skin,.3)],[.65,shadeHex(skin,.05)],[1,shadeHex(skin,-.45)]])}
         ${lgrad(p+"leg", 0,0,0,1, [[0,shadeHex(skin,.2)],[1,shadeHex(skin,-.35)]])}
@@ -3991,7 +4035,7 @@
       <ellipse cx="1.4" cy="2.4" rx="14" ry="22" fill="#000" opacity=".2"/>
       <g class="gTail"><path d="M-4.7 8 C-4.2 14 -2.2 19 0 23.5 C2.2 19 4.2 14 4.7 8 Z" fill="url(#${p}tail)" stroke="#0c0f12" stroke-width=".8" stroke-linejoin="round"/>
         <g fill="${shadeHex(skin,-.55)}" opacity=".9">${tailScutes.join("")}</g></g>
-      ${leg("gLegA", "l", -9.6, -7.5, -26)}${leg("gLegB", "r", 9.6, -7.5, 26)}${leg("gLegB", "l", -9.8, 8, 26)}${leg("gLegA", "r", 9.8, 8, -26)}
+      ${leg("gLegA", -1, -.55, true)}${leg("gLegB", 1, -.55, true)}${leg("gLegB", -1, .75, false)}${leg("gLegA", 1, .75, false)}
       <g class="gBody">
         <ellipse cx="0" cy="0" rx="7.6" ry="13.4" fill="url(#${p}body)" stroke="#0c0f12" stroke-width=".9"/>
         <g fill="${shadeHex(skin,-.5)}" stroke="${shadeHex(skin,.35)}" stroke-width=".3">${scutes.join("")}</g>
@@ -4122,6 +4166,35 @@
     bx(-1.2, -13.8, 1.2, -14.1, .46, .82, "#2b3035", true);                      // zderzak ICC
     bx(-1.28, -13.78, 1.28, -13.9, 1.0, 4.0, "#d5dadd", true);                   // drzwi tylne
     mir(.8, -13.9, 1.2, -14.0, .9, 1.7, "#ff3b30", true);                        // lampy
+    // --- szczegóły ciągnika ---
+    mir(1.02, -1.2, 1.22, -1.0, .9, 3.6, "#d9dee1"); mir(1.02, -1.2, 1.22, -1.0, 3.6, 3.72, "#2a2f34");   // rury wydechowe + osłonki
+    [-3.1, -2.4, -1.7].forEach(y => mir(.99, y - .03, 1.29, y + .03, .42, 1.07, "#5a6168"));              // pasy zbiornika paliwa
+    mir(1.0, -.8, 1.25, -.3, .25, .55, "#2f5fa8");                                                         // zbiornik AdBlue
+    mir(1.2, .1, 1.42, .9, .5, .57, "#aab1b6"); mir(1.2, .1, 1.42, .9, 1.0, 1.07, "#aab1b6");             // stopnie wejściowe
+    mir(1.255, 1.05, 1.29, 1.1, .8, 2.0, "#0c0f12"); mir(1.255, -.15, 1.29, -.1, .8, 2.0, "#0c0f12");     // szczeliny drzwi
+    mir(1.26, .7, 1.33, .95, 1.45, 1.55, "#d8dde0");                                                       // klamka
+    mir(1.25, -.75, 1.3, -.35, 1.9, 2.4, glass);                                                           // okno sypialni
+    [.8, .95, 1.1, 1.25].forEach(h => bx(-1.1, 2.68, 1.1, 2.71, h, h + .05, "#7d858b"));                   // żeberka atrapy
+    bx(-.22, 2.71, .22, 2.74, 1.0, 1.14, "#cfd4d8");                                                       // logo
+    mir(.6, 2.74, .85, 2.8, .45, .62, "#fff6c8");                                                          // halogeny
+    bx(-.3, 2.76, .3, 2.8, .42, .58, "#f5f5f5");                                                           // tablica przednia
+    [-.8, -.4, 0, .4, .8].forEach(x => bx(x - .08, .95, x + .08, 1.03, 2.95, 3.07, "#ffb020"));            // światła obrysowe dachu
+    mir(.1, 1.84, .95, 1.88, 2.0, 2.04, "#0c0f12");                                                        // wycieraczki
+    mir(1.0, .7, 1.34, 2.1, 1.1, 1.22, shadeHex(c, -.1));                                                  // błotniki przednie
+    mir(1.0, -3.96, 1.32, -3.9, .1, .7, "#14171a");                                                        // chlapacze
+    [1.4, -2.0, -3.3].forEach(y => { mir(1.3, y - .3, 1.36, y + .3, .3, .8, "#cfd4d8"); mir(1.34, y - .1, 1.38, y + .1, .5, .62, "#8a9096"); });   // felgi i piasty
+    bx(-.45, -1.35, -.2, -1.15, 1.5, 1.6, "#e53935"); bx(.2, -1.35, .45, -1.15, 1.5, 1.6, "#f2c200");     // przewody powietrzne (czerwony / żółty)
+    mir(1.5, .75, 1.54, 1.3, 1.7, 2.45, "#2a3a47");                                                        // szkło lusterek
+    // --- szczegóły naczepy ---
+    for(let y = -2.6; y > -13.2; y -= 1.4) mir(1.28, y - .08, 1.30, y, 1.0, 3.95, "#d5dadd", true);       // żebra plandeki
+    mir(1.18, -3.0, 1.22, -9.5, .55, .62, "#aab1b6", true);                                                // boczna osłona podjazdowa
+    mir(.85, -2.0, .95, -2.2, 0, .98, "#3a4046", true);                                                    // podpory
+    for(let y = -2.0, i = 0; y > -13.0; y -= 1.0, i++) mir(1.31, y - .5, 1.32, y, 1.55, 1.7, i % 2 ? "#ff3b30" : "#ffffff", true);   // taśma odblaskowa
+    [-.9, -.45, 0, .45, .9].forEach(x => bx(x - .07, -1.75, x + .07, -1.69, 4.08, 4.16, "#ffb020", true)); // światła obrysowe naczepy
+    [-10.5, -11.7, -12.9].forEach(y => { mir(1.3, y - .3, 1.36, y + .3, .3, .8, "#cfd4d8", true); mir(1.34, y - .1, 1.38, y + .1, .5, .62, "#8a9096", true); });
+    bx(-.02, -13.9, .02, -13.95, .98, 4.0, "#9aa1a6", true); mir(.35, -13.9, .4, -13.96, 1.2, 3.8, "#aab1b6", true);   // rygle drzwi
+    bx(-.35, -14.1, .35, -14.14, .55, .7, "#f2c200", true);                                               // tablica tylna
+    mir(.5, -13.9, .7, -14.02, 1.0, 1.1, "#ffffff", true);                                                 // światła cofania
     const sh = [{ p: a3Box(-1.45, -.95, 1.45, 2.8), sh: 1 }, { p: a3Box(-1.45, -14.1, 1.45, -1.3), sh: 1, tr: true }];
     return { parts: P, shadow: sh, pivot: [0, -2.6] };
   }
@@ -4153,20 +4226,31 @@
       }
       prev = cur;
     }
-    // łapy: udo + przedramię + stopa z palcami; przód-lewa i tył-prawa razem
-    const leg = (sx, sy, side, swing) => {
-      const dir = (sy < 0 ? -22 : 22) * side;
-      const up = a3Rot(a3Box(0, -.17, .5, .17).map(p => [p[0] * side, p[1]]), swing * side + dir, 0, 0).map(p => [p[0] + sx * side, p[1] + sy]);
-      add(up, .08, .34, skin);
-      const kx = (up[1][0] + up[2][0]) / 2, ky = (up[1][1] + up[2][1]) / 2;
-      const fo = a3Rot(a3Box(0, -.12, .5, .12).map(p => [p[0] * side, p[1]]), swing * side * .6 + dir * 1.8 + (sy < 0 ? 22 : -22) * side, 0, 0).map(p => [p[0] + kx, p[1] + ky]);
-      add(fo, .04, .24, lt);
-      const fx = (fo[1][0] + fo[2][0]) / 2, fy = (fo[1][1] + fo[2][1]) / 2;
-      add(a3Ell(fx + .1 * side, fy, .2, .17, 8), .02, .1, dk);
-      [-.12, 0, .12].forEach(o => add(a3Box(fx + .2 * side, fy + o - .02, fx + .34 * side, fy + o + .02), .02, .07, "#e8e2c8"));
+    // łapy z prawdziwymi stawami: bark/biodro → udo (ramię) → KOLANO (łokieć) → podudzie (przedramię) → stopa z palcami.
+    // Kąty liczone od osi „na zewnątrz”, dodatnie = ku przodowi. Przy przenoszeniu łapy do przodu staw zgina się
+    // mocniej, a łapa unosi się nad ziemię; przy podporze łapa prostuje się i dociska. Przód-lewa i tył-prawa razem.
+    const rad = d => d * Math.PI / 180;
+    const quad = (x0, y0, x1, y1, w0, w1) => {
+      const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+      return [[x0 + nx * w0, y0 + ny * w0], [x1 + nx * w1, y1 + ny * w1], [x1 - nx * w1, y1 - ny * w1], [x0 - nx * w0, y0 - ny * w0]];
     };
-    const s1 = Math.sin(ph * 2) * 26, s2 = -s1;
-    leg(.5, -.55, -1, s1); leg(.5, -.55, 1, s2); leg(.5, .75, -1, s2); leg(.5, .75, 1, s1);
+    const leg = (side, sy, front, phase) => {
+      const sn = Math.sin(phase), lift = Math.max(0, Math.cos(phase));       // cos>0: łapa idzie do przodu (w powietrzu)
+      const vec = (ang, L) => [side * Math.cos(rad(ang)) * L, -Math.sin(rad(ang)) * L];
+      const aU = (front ? -28 : 30) + sn * 24;                                // kąt uda / ramienia
+      const bend = 62 + lift * 34;                                            // zgięcie w kolanie / łokciu
+      const aL = aU + (front ? bend : -bend);                                 // podudzie zgięte „w drugą stronę”
+      const sh = [.5 * side, sy], u = vec(aU, .52), kn = [sh[0] + u[0], sh[1] + u[1]];
+      const l = vec(aL, .46), ft = [kn[0] + l[0], kn[1] + l[1]];
+      const bU = .1 + lift * .08, bL = .04 + lift * .16;
+      add(quad(sh[0], sh[1], kn[0], kn[1], .17, .13), bU, bU + .26, skin);   // udo / ramię
+      add(a3Ell(sh[0], sh[1], .2, .2, 10), .08, .4, skin);                   // bark / biodro
+      add(a3Ell(kn[0], kn[1], .17, .17, 10), bU - .02, bU + .34, lt);        // kolano / łokieć
+      add(quad(kn[0], kn[1], ft[0], ft[1], .13, .09), bL, bL + .22, skin);   // podudzie / przedramię
+      add(a3Ell(ft[0], ft[1], .17, .15, 8), bL, bL + .12, dk);               // stopa
+      [-.45, 0, .45].forEach(o => { const v = vec(50 + o * 57, .22); add(quad(ft[0], ft[1], ft[0] + v[0], ft[1] + v[1], .035, .02), bL, bL + .07, "#e8e2c8"); });
+    };
+    leg(-1, -.55, true, ph * 2); leg(1, -.55, true, ph * 2 + Math.PI); leg(-1, .75, false, ph * 2 + Math.PI); leg(1, .75, false, ph * 2);
     // tułów: brzuch + grzbiet + pancerz
     const sway = a => a3Rot(a, sw, 0, .8);
     add(sway(a3Ell(0, .15, .6, 1.12, 22)), .06, .3, belly);
