@@ -150,19 +150,62 @@
   }
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
-  /* ---------- Pasek ikon — teraz na dole ekranu, wewnątrz "okna" nawigatora ---------- */
+  /* ---------- Menu ikon: szklana pigułka po prawej stronie prędkościomierza ----------
+     Domyślnie schowana — widać tylko uchwyt › tuż obok prędkościomierza. Przesunięcie palcem w prawo
+     (albo dotknięcie uchwytu) wysuwa menu; wtedy prędkościomierz (i "Centruj") podskakuje nad nie.
+     Menu nie zajmuje już dolnego paska, więc karta nawigatora dokuje się do samego dołu ekranu. */
+  :root{
+    --nav-icon-row-h: calc(6px + env(safe-area-inset-bottom, 0px) * .4);   /* wolny margines pod kartą nawigatora */
+    --menu-w: 268px;      /* szerokość wysuniętego menu (5 ikon + uchwyt) */
+    --menu-hw: 24px;      /* szerokość uchwytu */
+    --menu-h: 54px;
+    --speed-w: 100px;     /* szerokość prędkościomierza (min-width #speedPanel) */
+  }
+  #navBottomProbe{ position:fixed; left:0; bottom:0; width:1px; height:var(--nav-icon-row-h); visibility:hidden; pointer-events:none; }
   #navIconRow{
-    position:fixed; left:0; right:0; bottom:0;
+    position:fixed; left:16px;
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + 2px);
     z-index:47;
-    display:flex; align-items:center; justify-content:space-evenly;
-    gap:6px;
-    padding: 6px max(8px, env(safe-area-inset-left)) calc(3px + env(safe-area-inset-bottom, 0px) * .4);
-    /* ciemna „przejściówka”: pasek ikon płynnie ciemnieje do czerni paska nawigacji telefonu */
-    background: linear-gradient(180deg, rgba(14,18,22,.55) 0%, rgba(8,10,12,.9) 55%, #000 100%);
-    border-top:1px solid rgba(255,255,255,0.14);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    box-shadow: 0 -8px 24px rgba(0,0,0,.28);
+    box-sizing:border-box;
+    width:var(--menu-w); height:var(--menu-h);
+    display:flex; align-items:center; justify-content:flex-start;
+    gap:4px;
+    padding:0 4px 0 6px;
+    background: rgba(255,255,255,0.10);
+    border:1px solid rgba(255,255,255,0.28);
+    border-radius:27px;
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    touch-action:none;
+    /* schowane: odsłonięty tylko uchwyt, przesunięty tuż za prędkościomierz */
+    transform: translateX(calc(16px + var(--speed-w) + 8px - 16px - (var(--menu-w) - var(--menu-hw) - 4px)));
+    clip-path: inset(0 0 0 calc(var(--menu-w) - var(--menu-hw) - 6px) round 14px);
+    transition: transform .3s cubic-bezier(.2,.85,.3,1), clip-path .3s cubic-bezier(.2,.85,.3,1), bottom .25s ease, background .3s;
+  }
+  body.menu-open #navIconRow{ transform:none; clip-path: inset(0 0 0 0 round 27px); }
+  body.night #navIconRow{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
+  #navIconRow .ctrl-btn{ width:42px; height:42px; flex:0 0 auto; }
+  body:not(.menu-open) #navIconRow .ctrl-btn{ pointer-events:none; }
+  /* uchwyt: szkło + strzałka (› schowane, ‹ wysunięte) */
+  #menuHandle{
+    flex:0 0 var(--menu-hw); width:var(--menu-hw); height:42px; margin-left:auto;
+    border-radius:13px; cursor:pointer; user-select:none; -webkit-user-select:none;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.12);
+    color:#14181c; font:700 20px/1 'Inter', system-ui, sans-serif;
+  }
+  #menuHandle::before{ content:"A"; }
+  body.menu-open #menuHandle::before{ content:"9"; }
+  body.night #menuHandle{ color: var(--text-main); }
+  /* prędkościomierz i "Centruj" skaczą nad wysunięte menu */
+  body.menu-open #speedCluster{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) - 4px + var(--menu-h) + 10px);
+  }
+  body.menu-open.locate-visible #speedCluster{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + 54px + var(--menu-h) + 10px);
+  }
+  body.menu-open #btnLocate{
+    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 6px) + 14px)) + var(--menu-h) + 10px);
   }
   .navIconWrap{ position:relative; display:flex; }
   .ctrl-btn{
@@ -299,7 +342,7 @@
     color: var(--text-main);
   }
   /* ---------- Nawigator: panel wyznaczania trasy ----------
-     Szklana karta zadokowana nad paskiem ikon (#navIconRow). Chowa się w dół (za pasek ikon)
+     Szklana karta zadokowana przy dolnej krawędzi ekranu. Chowa się w dół
      po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
      wtedy widoczny zostaje tylko pasek ikon. */
   #navPanel{
@@ -693,6 +736,10 @@
   #navPanel[data-navstate="picker"] #navTruckBtn,
   #navPanel[data-navstate="picker"] #navSettingsBtn{ display:none; }
   #navPanel[data-navstate="picker"] .navHeader{ justify-content:flex-end; min-height:0; margin:0; }
+  /* ✕ nie zajmuje osobnego wiersza nad czasem i dystansem: leży po prawej, na wysokości podsumowania
+     (pozycję pionową wylicza updateNavPanelPeek w --pick-x-top) — zyskujemy miejsce na panelu */
+  #navPanel[data-navstate="picker"] .navHeader{ position:absolute; right:14px; top:var(--pick-x-top, 24px); z-index:2; }
+  #navPanel[data-navstate="picker"] #pickSummary{ padding-right:44px; }
   #pickSummary{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); font-variant-numeric:tabular-nums; }
   #pickActions{ display:flex; gap:8px; }
   #pickActions button{ flex:1 1 auto; min-width:0; padding:12px 6px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; white-space:nowrap; cursor:pointer; border:1px solid var(--panel-border); background:rgba(128,128,128,.16); color:var(--text-main); }
@@ -1441,7 +1488,9 @@
   </div>
   <div class="ctrl-btn" id="btnNight" title="Tryb nocny">🌙</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
+  <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
 </div>
+<div id="navBottomProbe" aria-hidden="true"></div>
 
 <div id="debugConsole">
   <div id="debugConsoleHeader">
@@ -2096,8 +2145,18 @@
     const btn = document.getElementById("btnLocate");
     if(!btn) return;
     // pokaż przycisk tylko wtedy, gdy widok NIE podąża za użytkownikiem (wymaga wyśrodkowania)
-    btn.classList.toggle("visible", !followUser);
-    document.body.classList.toggle("locate-visible", !followUser); // prędkościomierz <-> "Centruj" zamiennie
+    // i nie trwa planowanie trasy (wtedy zasłaniałby zaplanowaną trasę na mapie)
+    const show = !followUser && !isRoutePlanningUi();
+    btn.classList.toggle("visible", show);
+    document.body.classList.toggle("locate-visible", show); // prędkościomierz <-> "Centruj" zamiennie
+  }
+  // true, gdy użytkownik jest na etapie planowania: wybrany cel (confirm), wybór trasy (picker)
+  // albo edycja zaplanowanej trasy przed ruszeniem. Po "Jedź" (stan nav, bez planning) przycisk wraca.
+  function isRoutePlanningUi(){
+    try{
+      if(navUiState === "confirm" || navUiState === "picker") return true;
+      return !!(navUiState === "nav" && activeRoute && activeRoute.planning);
+    }catch(e){ return false; }
   }
   let lastFetchPos = null;
   let lastFetchTime = 0;
@@ -7340,8 +7399,9 @@
   // ile miejsca u dołu ekranu realnie zasłania nasz interfejs: pasek ikon jest zawsze widoczny,
   // karta nawigatora dolicza się do tego w całości lub jako sam "peek" (patrz wyżej)
   function getNavBottomChromeHeight(){
-    const row = document.getElementById("navIconRow");
-    const rowH = row ? row.offsetHeight : 0;
+    // menu ikon jest teraz pływającą pigułką, więc dół ekranu zajmuje tylko wolny margines (sonda)
+    const probe = document.getElementById("navBottomProbe");
+    const rowH = probe ? probe.offsetHeight : 0;
     return rowH + getNavPanelVisibleHeight();
   }
 </script>
@@ -7517,6 +7577,7 @@
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
+    updateLocateBtnVisibility();   // podczas planowania trasy "Centruj" jest schowany, po przejściu dalej wraca
   }
 </script>
 <script>
@@ -8656,6 +8717,7 @@
     recordHistory(navSelectedDest);
     setTimeout(announceRouteRestrictions, 600);
     activeRoute.planning = false;
+    updateLocateBtnVisibility();   // koniec planowania: "Centruj" może wrócić
     routeEditMode = false;
     routeDragState = null;
     cancelPendingRouteDrag();
@@ -9842,6 +9904,11 @@
     const handle = document.getElementById("navDragHandle");
     const header = panel.querySelector(".navHeader");
     if(panel.classList.contains("compact")){ panel.style.setProperty("--nav-collapsed-shift", "0px"); return; }
+    // w oknie wyboru trasy ✕ leży na wysokości podsumowania (czas · dystans), po prawej
+    const ps = document.getElementById("pickSummary");
+    if(ps && panel.dataset.navstate === "picker" && ps.offsetHeight){
+      panel.style.setProperty("--pick-x-top", Math.max(0, ps.offsetTop + (ps.offsetHeight - 30) / 2) + "px");
+    }
     const panelH = panel.offsetHeight; // transform nie zmienia offsetHeight, więc to zawsze "pełna" wysokość
     const peekH = (handle ? handle.offsetHeight : 0) + (header ? header.offsetHeight : 0);
     panel.style.setProperty("--nav-collapsed-shift", Math.max(panelH - peekH, 40) + "px");
@@ -9930,8 +9997,7 @@
   // dokładnie nad nim (safe-area-inset-bottom bywa różny na różnych telefonach). Liczy też
   // --side-widgets-bottom: nad czym mają "pływać" przyciski Centrum / Cała trasa i prędkościomierz.
   function updateNavIconRowHeightVar(){
-    const row = document.getElementById("navIconRow");
-    if(row) document.documentElement.style.setProperty("--nav-icon-row-h", row.offsetHeight + "px");
+    // --nav-icon-row-h zostaje w CSS (:root, z uwzględnieniem safe-area) — menu ikon już nie leży na dole
     updateNavPanelPeek();
     document.documentElement.style.setProperty("--side-widgets-bottom", (getNavBottomChromeHeight() + 14) + "px");
   }
@@ -11412,6 +11478,31 @@
   setInterval(() => { if(themeMode === "auto") applyThemeMode(); }, 30000);
   document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "auto") applyThemeMode(); });
   applyThemeMode();
+
+  // Menu ikon (🔍 ⛶ 3D 🌙 🐞): szklana pigułka obok prędkościomierza. Schowana — widać tylko uchwyt;
+  // przesunięcie palcem w prawo (lub dotknięcie uchwytu) ją wysuwa, w lewo albo dotknięcie chowa.
+  safeInit("menu ikon", () => {
+    const row = document.getElementById("navIconRow"), handle = document.getElementById("menuHandle");
+    if(!row || !handle) return;
+    function setMenuOpen(on){
+      document.body.classList.toggle("menu-open", !!on);
+      handle.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    let sx = null, sy = null, swiped = false;
+    row.addEventListener("touchstart", e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; swiped = false; }, { passive:true });
+    row.addEventListener("touchmove", e => {
+      if(sx === null) return;
+      const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if(Math.abs(dx) < 22 || Math.abs(dx) < Math.abs(dy)) return;
+      swiped = true; sx = null;
+      setMenuOpen(dx > 0);
+    }, { passive:true });
+    row.addEventListener("touchend", () => { sx = null; });
+    handle.addEventListener("click", () => {
+      if(swiped){ swiped = false; return; }
+      setMenuOpen(!document.body.classList.contains("menu-open"));
+    });
+  });
 
   document.getElementById("btnLocate").addEventListener("click", () => {
     followUser = true;
