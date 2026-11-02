@@ -1589,7 +1589,7 @@
       <button id="bbTest" type="button" class="secondary">Pokaż przed autem</button>
       <button id="bbDelete" type="button" class="secondary">Usuń billboard</button>
     </div>
-    <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
+    <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz wyświetla się w całości (proporcje zachowane) i zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
   </div>
 
   <div id="navTruckBlock" class="units-imperial">
@@ -4121,22 +4121,31 @@
       <g>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="-7.9" y="${(8 + i * 5).toFixed(1)}" width=".9" height="2.5" fill="${i % 2 ? "#ff3b30" : "#ffffff"}" opacity=".85"/><rect x="7" y="${(8 + i * 5).toFixed(1)}" width=".9" height="2.5" fill="${i % 2 ? "#ff3b30" : "#ffffff"}" opacity=".85"/>`).join("")}</g>
       <rect x="-2" y="49.2" width="4" height=".9" rx=".3" fill="#f2c200"/>`;
     } },
-    car: { name:"Auto", m3d:true, t3d:80, t2d:44, H:20, lenU:26, lenM:4.5, len2d:30, ivb:"-16 -16 32 32", svg: (c, p) => `<defs>
-        ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(c,-.4)],[.3,shadeHex(c,.1)],[.5,shadeHex(c,.4)],[.7,shadeHex(c,.1)],[1,shadeHex(c,-.4)]])}
-        ${lgrad(p+"roof", 0,0,0,1, [[0,shadeHex(c,.5)],[1,shadeHex(c,.05)]])}
-        ${lgrad(p+"glass", 0,0,0,1, [[0,"#52728a"],[1,"#101a22"]])}
+    car: { name:"Auto", m3d:true, t3d:84, t2d:46, H:22, lenU:31, lenM:5.3, len2d:34, ivb:"-18 -19 36 38", svg: (c, p) => {
+      // czarny pickup z pałąkiem w skrzyni (widok z góry, nos do góry); kolor nadwozia = własny kolor avatara albo czarny
+      const body = customAvatarColor || "#1b1e22";
+      const ribs = []; for(let y = 7.4; y <= 13.4; y += 1.8) ribs.push(`M-5.4 ${y.toFixed(1)}H5.4`);
+      return `<defs>
+        ${lgrad(p+"body", 0,0,1,0, [[0,shadeHex(body,-.35)],[.5,shadeHex(body,.16)],[1,shadeHex(body,-.35)]])}
+        ${lgrad(p+"glass", 0,0,0,1, [[0,"#c4e4fa"],[1,"#5f88ab"]])}
       </defs>
-      <rect x="-7.4" y="-11" width="15" height="26" rx="6" fill="#000" opacity=".24" transform="translate(.8 1.2)"/>
-      <rect x="-8.3" y="-8.4" width="2" height="5" rx=".8" fill="#14171a"/><rect x="6.3" y="-8.4" width="2" height="5" rx=".8" fill="#14171a"/>
-      <rect x="-8.3" y="5" width="2" height="5" rx=".8" fill="#14171a"/><rect x="6.3" y="5" width="2" height="5" rx=".8" fill="#14171a"/>
-      <rect x="-9" y="-4.6" width="2" height="2.4" rx=".9" fill="${shadeHex(c,-.45)}"/><rect x="7" y="-4.6" width="2" height="2.4" rx=".9" fill="${shadeHex(c,-.45)}"/>
-      <path d="M-6.8 -8 Q-6.8 -13 0 -13 Q6.8 -13 6.8 -8 L7 9 Q7 13 0 13 Q-7 13 -7 9 Z" fill="url(#${p}body)" stroke="#0c0f12" stroke-width=".7"/>
-      <path d="M-4.6 -10.6 Q0 -12.6 4.6 -10.6 L4.1 -5.8 L-4.1 -5.8 Z" fill="#fff" opacity=".22"/>
-      <path d="M-5.2 -5.3 L5.2 -5.3 L4.4 -.4 L-4.4 -.4 Z" fill="url(#${p}glass)"/>
-      <rect x="-4.8" y="-.4" width="9.6" height="7" rx="1.8" fill="url(#${p}roof)" stroke="#000" stroke-opacity=".25" stroke-width=".35"/>
-      <path d="M-4.4 6.8 L4.4 6.8 L5.1 9.4 L-5.1 9.4 Z" fill="url(#${p}glass)"/>
-      <rect x="-6.1" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/><rect x="2.9" y="-12.3" width="3.2" height="1.2" rx=".6" fill="#fff6b8"/>
-      <rect x="-6.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/><rect x="3.1" y="11.2" width="3" height="1" rx=".5" fill="#ff3b30"/>` },
+      <rect x="-8" y="-15" width="16.6" height="31" rx="4" fill="#000" opacity=".26" transform="translate(.9 1.3)"/>
+      <rect x="-9.2" y="-11" width="2.8" height="6.4" rx="1.1" fill="#0b0c0d"/><rect x="6.4" y="-11" width="2.8" height="6.4" rx="1.1" fill="#0b0c0d"/>
+      <rect x="-9.2" y="6.4" width="2.8" height="6.4" rx="1.1" fill="#0b0c0d"/><rect x="6.4" y="6.4" width="2.8" height="6.4" rx="1.1" fill="#0b0c0d"/>
+      <rect x="-9.2" y="-9" width="1" height="2.4" rx=".4" fill="#8e969e"/><rect x="8.2" y="-9" width="1" height="2.4" rx=".4" fill="#8e969e"/>
+      <rect x="-9.2" y="8.4" width="1" height="2.4" rx=".4" fill="#8e969e"/><rect x="8.2" y="8.4" width="1" height="2.4" rx=".4" fill="#8e969e"/>
+      <path d="M-7.2 -12.4 Q-7.2 -15 -4 -15 L4 -15 Q7.2 -15 7.2 -12.4 L7.4 13 Q7.4 15.2 5 15.2 L-5 15.2 Q-7.4 15.2 -7.4 13 Z" fill="url(#${p}body)" stroke="#06080a" stroke-width=".7"/>
+      <path d="M-5.6 -13.6 Q0 -15 5.6 -13.6 L5.2 -7.4 L-5.2 -7.4 Z" fill="#fff" opacity=".12"/>
+      <path d="M-5.6 -6.4 L5.6 -6.4 L5 -2.2 L-5 -2.2 Z" fill="url(#${p}glass)"/>
+      <rect x="-5.1" y="-2.2" width="10.2" height="5.6" rx="1.4" fill="${shadeHex(body,.2)}" stroke="#000" stroke-opacity=".35" stroke-width=".4"/>
+      <rect x="-3.6" y="-1.7" width="7.2" height="1" rx=".5" fill="#eef4ff"/>
+      <path d="M-4.8 3.4 L4.8 3.4 L5.4 5 L-5.4 5 Z" fill="url(#${p}glass)" opacity=".9"/>
+      <rect x="-6.3" y="5.4" width="12.6" height="9.2" rx="1" fill="#0b0d0f" stroke="${shadeHex(body,.24)}" stroke-width="1"/>
+      <path d="${ribs.join("")}" stroke="#1d2125" stroke-width=".5"/>
+      <path d="M-5.8 6H5.8" stroke="#434a51" stroke-width="1.2" stroke-linecap="round"/><circle cx="-5.8" cy="6" r=".9" fill="#2a2f34"/><circle cx="5.8" cy="6" r=".9" fill="#2a2f34"/>
+      <rect x="-6.4" y="-15.1" width="3.4" height="1.2" rx=".6" fill="#fff6b8"/><rect x="3" y="-15.1" width="3.4" height="1.2" rx=".6" fill="#fff6b8"/>
+      <rect x="-6.6" y="14.4" width="3.6" height="1.3" rx=".6" fill="#ff2a20"/><rect x="3" y="14.4" width="3.6" height="1.3" rx=".6" fill="#ff2a20"/>
+      <rect x="-8.7" y="-5.4" width="1.7" height="2.2" rx=".7" fill="${shadeHex(body,-.1)}"/><rect x="7" y="-5.4" width="1.7" height="2.2" rx=".7" fill="${shadeHex(body,-.1)}"/>`; } },
     gator: { name:"Aligator", m3d:true, t3d:90, t2d:52, H:26, lenU:44, lenM:5.2, len2d:42, ivb:"-26 -25 52 52", svg: (c, p) => {
       const skin = customAvatarColor || "#6f9136";
       const scutes = []; for(let y = -9.5; y <= 11; y += 3.3){
@@ -4332,16 +4341,30 @@
     return { parts: P, shadow: sh, pivot: [0, -2.6] };
   }
   function a3Car(c){
-    const P = [], dark = "#16191c", glass = "#1d2c3a";
+    // czarny pickup (przód = -y, flip → przód w stronę jazdy): kabina z błękitnymi szybami, otwarta skrzynia z pałąkiem, czerwone tylne światła
+    const body = customAvatarColor || "#1b1e22", tyre = "#0b0c0d", rim = "#8e969e", glass = "#9cc4e4", dk = "#2b2f34", bed = "#0d0f11";
+    const P = [];
     const add = (p, b, h, col) => P.push({ p, b, h, c: col });
-    [-1.4, 1.4].forEach(y => { add(a3Box(-1.0, y - .38, -.78, y + .38), 0, .62, dark); add(a3Box(.78, y - .38, 1.0, y + .38), 0, .62, dark); });
-    add(a3Box(-.9, -2.2, .9, 2.2), .28, .85, c);
-    add(a3Box(-.8, -.95, .8, 1.35), .85, 1.45, glass);
-    add(a3Box(-.74, -.55, .74, .95), 1.45, 1.55, shadeHex(c, .25));
-    add(a3Box(-.7, -2.25, -.35, -2.2), .45, .62, "#fff6b8"); add(a3Box(.35, -2.25, .7, -2.2), .45, .62, "#fff6b8");
-    add(a3Box(-.7, 2.2, -.35, 2.25), .45, .62, "#ff3b30"); add(a3Box(.35, 2.2, .7, 2.25), .45, .62, "#ff3b30");
-    add(a3Box(-1.12, -.7, -.9, -.3), .75, .95, shadeHex(c, -.4)); add(a3Box(.9, -.7, 1.12, -.3), .75, .95, shadeHex(c, -.4));
-    return { parts: P, flip: true, shadow: [{ p: a3Box(-1.05, -2.3, 1.05, 2.3), sh: 1 }] };
+    [-1.65, 1.65].forEach(y => [-1, 1].forEach(sd => {
+      add(a3Box(sd > 0 ? .8 : -1.12, y - .46, sd > 0 ? 1.12 : -.8, y + .46), 0, .92, tyre);                 // opona
+      add(a3Box(sd > 0 ? 1.06 : -1.16, y - .27, sd > 0 ? 1.16 : -1.06, y + .27), .2, .72, rim);              // felga (szara)
+    }));
+    add(a3Box(-.95, -2.6, .95, .75), .3, .95, body);                       // maska i podwozie kabiny
+    add(a3Box(-.9, -2.55, .9, -1.0), .95, 1.08, body);                     // maska (lekko wyżej)
+    add(a3Box(-.92, -1.0, .92, .72), .95, 1.7, glass);                     // kabina: błękitne szyby
+    add(a3Box(-.8, -.65, .8, .5), 1.7, 1.84, shadeHex(body, .2));          // dach
+    add(a3Box(-.55, -.6, .55, -.46), 1.84, 1.95, "#eef4ff");               // belka świateł na dachu
+    add(a3Box(-.95, .75, .95, 2.65), .3, .78, bed);                        // podłoga skrzyni
+    add(a3Box(-.95, .75, -.75, 2.65), .78, 1.32, body); add(a3Box(.75, .75, .95, 2.65), .78, 1.32, body);   // burty
+    add(a3Box(-.95, 2.5, .95, 2.65), .78, 1.32, body);                     // klapa
+    add(a3Box(-.75, .75, .75, .9), .78, 1.32, body);                       // przednia ściana skrzyni
+    add(a3Box(-.8, .98, -.68, 1.1), 1.32, 2.0, dk); add(a3Box(.68, .98, .8, 1.1), 1.32, 2.0, dk);          // pałąk — słupki
+    add(a3Box(-.8, .98, .8, 1.1), 1.95, 2.07, dk);                         // pałąk — poprzeczka
+    add(a3Box(-.8, -2.66, -.35, -2.6), .62, .86, "#fff6b8"); add(a3Box(.35, -2.66, .8, -2.6), .62, .86, "#fff6b8");   // reflektory
+    add(a3Box(-.92, -2.78, .92, -2.6), .38, .58, dk);                      // zderzak
+    add(a3Box(-.85, 2.65, -.3, 2.72), .72, 1.12, "#ff2a20"); add(a3Box(.3, 2.65, .85, 2.72), .72, 1.12, "#ff2a20");   // tylne światła
+    add(a3Box(-1.12, -.85, -.92, -.55), 1.1, 1.3, shadeHex(body, -.1)); add(a3Box(.92, -.85, 1.12, -.55), 1.1, 1.3, shadeHex(body, -.1));   // lusterka
+    return { parts: P, flip: true, shadow: [{ p: a3Box(-1.15, -2.85, 1.15, 2.8), sh: 1 }] };
   }
   // aligator (przód = -y w modelu; flip → przód w stronę jazdy): segmentowany grzbiet, głowa z oczami i zębami, łapy z palcami
   function a3Gator(c, ph){
@@ -4608,9 +4631,10 @@
     });
     const rc = customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1");
     tiles.push(`<div class="avatarOpt routeOpt${colorCtx === "route" ? " active" : ""}" data-route="1" role="button" aria-label="Trasa" title="Trasa"><svg viewBox="0 0 52 52">` +
-      `<path d="M11 43 C11 26 41 30 41 10" fill="none" stroke="#0c0f12" stroke-width="9" stroke-linecap="round" opacity=".55"/>` +
-      `<path d="M11 43 C11 26 41 30 41 10" fill="none" stroke="${rc}" stroke-width="5.5" stroke-linecap="round"/>` +
-      `<circle cx="11" cy="43" r="3.4" fill="#fff" stroke="#0c0f12" stroke-width="1.2"/><circle cx="41" cy="10" r="3.4" fill="#fff" stroke="#0c0f12" stroke-width="1.2"/></svg></div>`);
+      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="#0c0f12" stroke-width="10" stroke-linecap="round" opacity=".6"/>` +
+      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="${rc}" stroke-width="6.4" stroke-linecap="round"/>` +
+      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1 5"/>` +
+      `<circle cx="10" cy="43" r="3.6" fill="#fff" stroke="#0c0f12" stroke-width="1.3"/><circle cx="42" cy="11" r="4" fill="${rc}" stroke="#fff" stroke-width="1.6"/><circle cx="42" cy="11" r="1.4" fill="#fff"/></svg></div>`);
     grid.innerHTML = tiles.join("");
   }
   safeInit("przełącznik dróg płatnych", () => {
@@ -12661,9 +12685,10 @@
 /* ===== js/42-nawigator-billboard.js — Billboardy przy autostradzie (3D) =====
    Duże znaki 3D (skalowane jak avatar) na dwóch nogach stoją po LEWEJ stronie autostrady, zwrócone do jadącego.
    Pojawiają się co 5 mil jazdy autostradą (pierwszy ~0,5 mili po wjeździe), kolejno wg listy billboardów.
-   Lista billboardów (tekst / obraz / wielkość / kolory) jest edytowana w panelu nawigatora (🪧, js/43) i zapisana w localStorage.
-   Tekst i obraz rysujemy na małej bitmapie (canvas) i zamieniamy na wytłoczone „piksele” (fill-extrusion nie ma tekstur).
-   Domyślny billboard „NawiGator” ma ręcznie zbudowany model z czcionką 5×7.
+   Lista (tekst / obraz / wielkość / kolory) jest edytowana w panelu 🪧 (js/43) i zapisana w localStorage.
+   Konstrukcję (nogi, ramę, płytę) rysuje warstwa fill-extrusion, a ZAWARTOŚĆ tablicy (tekst albo przesłany obraz) rysuje
+   własna warstwa WebGL jako teksturowany prostokąt o wysokiej rozdzielczości (1536 px, mipmapy, filtr anizotropowy) —
+   obraz wyświetla się więc w całości, z zachowaniem proporcji, a napisy są ostre.
    Zależności (wołane tylko w callbackach): map, avSm, AVATARS, vehicleAvatar, avatarScale (js/11), currentSpeedKmh (js/04),
    haversine, projectPointToSegment (js/05), ukMapRoadClasses (js/32), activeRoute (js/04). */
 (function(){
@@ -12672,7 +12697,7 @@
   const AHEAD_ROUTE_M = 450, AHEAD_FREE_M = 300;   // ile metrów przed pojazdem stawiamy znak
   const KEEP_M = 3000;                             // znaki dalej niż 3 km od pojazdu znikają
   const ROAD_EDGE_M = 9;                           // krawędź jezdni (pas + pobocze) licząc od osi, w metrach
-  const SRC = "nawisign", LAYER = "nawisign-body";
+  const SRC = "nawisign", LAYER = "nawisign-body", FACE_LAYER = "nawisign-face";
   const BB_KEY = "nawigator_billboards";
   const DEF_BG = "#0e3b2a", DEF_FG = "#ffb300";
   const BOARD_W = 24, BOARD_B = 6;                 // szerokość tablicy i wysokość jej dolnej krawędzi (m, przed skalowaniem)
@@ -12689,7 +12714,8 @@
     catch(e){ console.warn("Billboardy: nie zapisano (brak miejsca?)", e); return false; }
   }
 
-  /* ---------- rysowanie tablicy na canvasie (podgląd + źródło „pikseli”) ---------- */
+  /* ---------- rysowanie tablicy na canvasie (podgląd + tekstura) ---------- */
+  const FRAME_W = .3, TEX_W = 1536;
   function splitText(t){
     t = String(t || "").trim();
     if(t.length > 14 && t.indexOf(" ") > 0){
@@ -12699,27 +12725,45 @@
     }
     return [t];
   }
-  // wymiary tablicy w metrach i rozdzielczość bitmapy; img = załadowany obraz (albo null)
+  // wymiary tablicy w metrach; img = załadowany obraz (albo null). Wysokość obrazu wynika z jego proporcji (3,5–14 m)
   function boardDims(bb, img){
-    const W = BOARD_W;
+    const W = BOARD_W, iw = W - 2 * FRAME_W;
     if(bb.img){
-      const H = img ? Math.max(4, Math.min(12, W * img.naturalHeight / Math.max(1, img.naturalWidth))) : 5;
-      const cols = 64, cell = W / cols;
-      return { W, H, cols, rows: Math.max(4, Math.round(H / cell)), lines: [], image: true };
+      const H = img ? Math.max(3.5, Math.min(14, iw * img.naturalHeight / Math.max(1, img.naturalWidth) + 2 * FRAME_W)) : 5;
+      return { W, H, image: true };
     }
-    const lines = splitText(bb.text), H = lines.length > 1 ? 8 : 5;
-    const cols = 112, cell = W / cols;
-    return { W, H, cols, rows: Math.max(4, Math.round(H / cell)), lines, image: false };
+    return { W, H: splitText(bb.text).length > 1 ? 8 : 5, image: false };
+  }
+  // rozmiar tekstury / podglądu (część wewnątrz ramki) przy zadanej szerokości w pikselach
+  function faceSize(bb, img, w){
+    const d = boardDims(bb, img); w = w || TEX_W;
+    return { w, h: Math.max(2, Math.round(w * (d.H - 2 * FRAME_W) / (d.W - 2 * FRAME_W))) };
   }
   function drawBoard(ctx, w, h, bb, img){
     ctx.fillStyle = bb.bg || DEF_BG; ctx.fillRect(0, 0, w, h);
-    if(bb.img){ if(img) ctx.drawImage(img, 0, 0, w, h); return; }
+    if(bb.img){
+      if(img){
+        const k = Math.min(w / img.naturalWidth, h / img.naturalHeight), dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      }
+      return;
+    }
     const lines = splitText(bb.text); if(!lines.length || !lines[0]) return;
-    const fam = "'Space Grotesk','Inter',Arial,sans-serif";
-    let px = Math.floor(h / lines.length * 0.72);
-    for(; px > 4; px--){ ctx.font = "800 " + px + "px " + fam; if(lines.every(l => ctx.measureText(l).width <= w * 0.9)) break; }
+    const fam = "'Space Grotesk','Inter','Segoe UI',Arial,sans-serif";
+    const brand = bb.text === "NawiGator" && lines.length === 1;
+    let px = Math.floor(h / lines.length * 0.74);
+    for(; px > 6; px--){ ctx.font = "800 " + px + "px " + fam; if(lines.every(l => ctx.measureText(l).width <= w * 0.92)) break; }
     ctx.font = "800 " + px + "px " + fam;
-    ctx.fillStyle = bb.fg || DEF_FG; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    if(brand){   // „Nawi” białe, „Gator” w kolorze napisu
+      const w1 = ctx.measureText("Nawi").width, w2 = ctx.measureText("Gator").width, x0 = (w - w1 - w2) / 2, y = h / 2 + px * 0.04;
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#f4f7f2"; ctx.fillText("Nawi", x0, y);
+      ctx.fillStyle = bb.fg || DEF_FG; ctx.fillText("Gator", x0 + w1, y);
+      return;
+    }
+    ctx.fillStyle = bb.fg || DEF_FG;
     lines.forEach((l, i) => ctx.fillText(l, w / 2, h * (i + 0.5) / lines.length + px * 0.04));
   }
 
@@ -12729,86 +12773,35 @@
     let e = imgCache.get(src);
     if(e) return e.ok ? e.img : null;
     const im = new Image(); e = { img: im, ok: false }; imgCache.set(src, e);
-    im.onload = () => { e.ok = true; modelCache.clear(); render(); document.dispatchEvent(new Event("nawibb-image")); };
+    im.onload = () => { e.ok = true; modelCache.clear(); texDirty = true; render(); document.dispatchEvent(new Event("nawibb-image")); };
     im.onerror = () => { e.bad = true; };
     im.src = src;
     return null;
   }
 
-  /* ---------- modele 3D (lokalne metry: x w prawo od środka tablicy, y do przodu, wysokość b..h) ---------- */
+  /* ---------- konstrukcja 3D (lokalne metry: x w prawo od środka tablicy, y do przodu, wysokość b..h) ---------- */
   const box = (x0, y0, x1, y1, b, h, c) => ({ p:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]], b, h, c });
-  function frameParts(P, H, frameCol, legCol){
+  function buildFrame(bb, img){
+    const d = boardDims(bb, img), P = [], top = BOARD_B + d.H, fw = FRAME_W, frameCol = bb.fg || DEF_FG, legCol = "#9aa3a8";
     [-8, 8].forEach(cx => {
-      P.push(box(cx - .4, -.1, cx + .4, .7, 0, BOARD_B + .1, legCol));
-      P.push(box(cx - 1.0, -.5, cx + 1.0, 1.1, 0, .4, "#5b6368"));
+      P.push(box(cx - .4, -.1, cx + .4, .7, 0, BOARD_B + .1, legCol));          // noga
+      P.push(box(cx - 1.0, -.5, cx + 1.0, 1.1, 0, .4, "#5b6368"));              // stopa
     });
-    P.push(box(-8, .1, 8, .5, 2.5, 2.85, legCol));
-    const top = BOARD_B + H, fw = .3;
+    P.push(box(-8, .1, 8, .5, 2.5, 2.85, legCol));                              // poprzeczka między nogami
+    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, top, bb.bg || DEF_BG)); // płyta (pod teksturą)
     P.push(box(-BOARD_W / 2, -.2, -BOARD_W / 2 + fw, .6, BOARD_B, top, frameCol));
     P.push(box(BOARD_W / 2 - fw, -.2, BOARD_W / 2, .6, BOARD_B, top, frameCol));
     P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, top - fw, top, frameCol));
     P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_B + fw, frameCol));
-  }
-  // ręcznie zrobiony „NawiGator” (czcionka 5×7: „Nawi” białe, „Gator” bursztynowe)
-  const FONT = {
-    N:["10001","11001","10101","10011","10001","10001","10001"], a:["00000","00000","01110","00001","01111","10001","01111"],
-    w:["00000","00000","10001","10001","10101","10101","01010"], i:["00100","00000","01100","00100","00100","00100","01110"],
-    G:["01110","10001","10000","10111","10001","10001","01111"], t:["01000","01000","11100","01000","01000","01001","00110"],
-    o:["00000","00000","01110","10001","10001","10001","01110"], r:["00000","00000","10110","11001","10000","10000","10000"]
-  };
-  function buildBrand(){
-    const P = [], H = 5, CELL = .42, ADV = 6 * CELL, WORD = "NawiGator";
-    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_B + H, DEF_BG));
-    frameParts(P, H, DEF_FG, "#9aa3a8");
-    const textW = WORD.length * ADV - CELL, letB = BOARD_B + (H - 7 * CELL) / 2;
-    let x = -textW / 2;
-    for(let li = 0; li < WORD.length; li++){
-      const rows = FONT[WORD[li]], col = li < 4 ? "#f4f7f2" : DEF_FG;
-      for(let r = 0; r < 7; r++) for(let k = 0; k < 5; k++){
-        if(rows[r][k] !== "1") continue;
-        const b = letB + (6 - r) * CELL;
-        P.push(box(x + k * CELL, -.4, x + (k + 1) * CELL, 0, b, b + CELL, col));
-      }
-      x += ADV;
-    }
-    return { parts: P, W: BOARD_W };
-  }
-  const hex2 = v => (v < 16 ? "0" : "") + v.toString(16);
-  const rgb2hex = (r, g, b) => "#" + hex2(r) + hex2(g) + hex2(b);
-  function hexRgb(h){ const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-  function buildBitmap(bb, img){
-    const d = boardDims(bb, img), P = [];
-    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_B + d.H, bb.bg || DEF_BG));
-    frameParts(P, d.H, bb.fg || DEF_FG, "#9aa3a8");
-    if(bb.img && !img) return { parts: P, W: BOARD_W };          // obraz jeszcze się ładuje — na razie sama tablica
-    const cv = document.createElement("canvas"); cv.width = d.cols; cv.height = d.rows;
-    const ctx = cv.getContext("2d", { willReadFrequently: true });
-    drawBoard(ctx, d.cols, d.rows, bb, img);
-    const px = ctx.getImageData(0, 0, d.cols, d.rows).data, bg = hexRgb(bb.bg), fgHex = bb.fg || DEF_FG, cell = d.W / d.cols;
-    const depth = d.image ? .25 : .3, bgQ = rgb2hex(bg[0] & 240, bg[1] & 240, bg[2] & 240);
-    for(let r = 0; r < d.rows; r++){
-      let start = -1, cur = null;
-      const flush = end => { if(cur){ const b = BOARD_B + (d.rows - 1 - r) * cell; P.push(box(-d.W / 2 + start * cell, -depth, -d.W / 2 + end * cell, 0, b, b + cell, cur)); } cur = null; };
-      for(let c = 0; c < d.cols; c++){
-        const i = (r * d.cols + c) * 4, R = px[i], G = px[i + 1], B = px[i + 2];
-        let col = null;
-        if(d.image){ const q = rgb2hex(R & 240, G & 240, B & 240); col = q === bgQ ? null : q; }
-        else { const dist = Math.abs(R - bg[0]) + Math.abs(G - bg[1]) + Math.abs(B - bg[2]); col = dist > 150 ? fgHex : null; }
-        if(col !== cur){ flush(c); if(col){ cur = col; start = c; } }
-      }
-      flush(d.cols);
-    }
-    return { parts: P, W: d.W };
+    return { parts: P, W: BOARD_W, H: d.H };
   }
   const modelCache = new Map();
   function getModel(bb){
     const key = [bb.id, bb.text, bb.bg, bb.fg, bb.img ? bb.img.length + bb.img.slice(-16) : 0].join("|");
-    let m = modelCache.get(key);
-    if(m && !(bb.img && !imgCache.has(bb.img))) return m;
     const img = bb.img ? getImage(bb.img) : null;
-    const brand = !bb.img && bb.text === "NawiGator" && bb.bg === DEF_BG && bb.fg === DEF_FG;
-    m = brand ? buildBrand() : buildBitmap(bb, img);
-    if(!(bb.img && !img)) modelCache.set(key, m);
+    if(bb.img && !img) return buildFrame(bb, null);          // obraz jeszcze się ładuje
+    let m = modelCache.get(key);
+    if(!m){ m = buildFrame(bb, img); modelCache.set(key, m); }
     return m;
   }
 
@@ -12819,9 +12812,76 @@
       if(!map.getSource(SRC)) map.addSource(SRC, { type:"geojson", data:{ type:"FeatureCollection", features:[] }, maxzoom:22, tolerance:0, buffer:0 });
       if(!map.getLayer(LAYER)) map.addLayer({ id:LAYER, type:"fill-extrusion", source:SRC,
         paint:{ "fill-extrusion-color":["get","c"], "fill-extrusion-height":["get","h"], "fill-extrusion-base":["get","b"], "fill-extrusion-opacity":1, "fill-extrusion-vertical-gradient":true } });
+      if(!map.getLayer(FACE_LAYER)) map.addLayer(faceLayer);
       return true;
     }catch(e){ return false; }
   }
+
+  /* ---------- warstwa WebGL: tekstura (tekst / obraz) na froncie tablicy ---------- */
+  const VS = "attribute vec3 a_pos; attribute vec2 a_uv; uniform mat4 u_m; varying vec2 v_uv; void main(){ gl_Position = u_m * vec4(a_pos, 1.0); v_uv = a_uv; }";
+  const FS = "precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb, 1.0); }";
+  const texCache = new Map();          // klucz treści → WebGLTexture
+  let texDirty = false;
+  function mulM(a, b){ const o = new Array(16).fill(0); for(let c = 0; c < 4; c++) for(let r = 0; r < 4; r++){ let v = 0; for(let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = v; } return o; }
+  const faceLayer = {
+    id: FACE_LAYER, type: "custom", renderingMode: "3d",
+    onAdd(m, gl){
+      this.gl = gl; this.ok = false;
+      try{
+        const sh = (t, src) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); if(!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+        const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+        if(!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+        this.pr = pr; this.aPos = gl.getAttribLocation(pr, "a_pos"); this.aUv = gl.getAttribLocation(pr, "a_uv");
+        this.uM = gl.getUniformLocation(pr, "u_m"); this.uT = gl.getUniformLocation(pr, "u_tex");
+        this.buf = gl.createBuffer();
+        this.gl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext;
+        this.aniso = gl.getExtension("EXT_texture_filter_anisotropic") || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
+        this.ok = true;
+      }catch(e){ console.warn("Billboardy: warstwa WebGL nie wystartowała", e); }
+    },
+    texture(bb){
+      const gl = this.gl, img = bb.img ? getImage(bb.img) : null;
+      if(bb.img && !img) return null;                                  // obraz się ładuje
+      const key = [bb.id, bb.text, bb.bg, bb.fg, bb.img ? bb.img.length + bb.img.slice(-16) : 0].join("|");
+      let t = texCache.get(key); if(t) return t;
+      const fs = faceSize(bb, img), cv = document.createElement("canvas"); cv.width = fs.w; cv.height = fs.h;
+      drawBoard(cv.getContext("2d"), fs.w, fs.h, bb, img);
+      t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      if(this.gl2){ gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
+      else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      if(this.aniso) gl.texParameterf(gl.TEXTURE_2D, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(this.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1));
+      if(texCache.size >= 8){ const k0 = texCache.keys().next().value; gl.deleteTexture(texCache.get(k0)); texCache.delete(k0); }
+      texCache.set(key, t); return t;
+    },
+    render(gl, matrix){
+      if(!this.ok || !signs.length) return;
+      if(texDirty){ texCache.forEach(t => gl.deleteTexture(t)); texCache.clear(); texDirty = false; }
+      gl.useProgram(this.pr);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.enableVertexAttribArray(this.aPos); gl.vertexAttribPointer(this.aPos, 3, gl.FLOAT, false, 20, 0);
+      gl.enableVertexAttribArray(this.aUv); gl.vertexAttribPointer(this.aUv, 2, gl.FLOAT, false, 20, 12);
+      gl.activeTexture(gl.TEXTURE0); gl.uniform1i(this.uT, 0);
+      signs.forEach(sg => {
+        if(!sg.quad) return;
+        const bb = findBB(sg.bbId); if(!bb) return;
+        const tex = this.texture(bb); if(!tex) return;
+        // macierz = projekcja × przesunięcie do punktu znaku × skala metrów (liczona w double — bez drgań współrzędnych Merkatora)
+        const mc = maplibregl.MercatorCoordinate.fromLngLat([sg.lon, sg.lat], 0), k = mc.meterInMercatorCoordinateUnits();
+        const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, mc.x, mc.y, 0, 1], S = [k,0,0,0, 0,-k,0,0, 0,0,k,0, 0,0,0,1];
+        const M = mulM(mulM(Array.from(matrix), T), S);
+        gl.uniformMatrix4fv(this.uM, false, new Float32Array(M));
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.bufferData(gl.ARRAY_BUFFER, sg.quad, gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      });
+    },
+    onRemove(m, gl){ try{ texCache.forEach(t => gl.deleteTexture(t)); texCache.clear(); }catch(e){} }
+  };
 
   const signs = [];   // {lat, lon, hdg, bbId}
   // Skala znaku = skala avatara (avatarScale, js/11) × wielkość billboardu z panelu (30–250 %)
@@ -12849,8 +12909,13 @@
         ring.push(ring[0]);
         feats.push({ type:"Feature", properties:{ c:o.c, b:o.b * sc, h:o.h * sc }, geometry:{ type:"Polygon", coordinates:[ring] } });
       });
+      // front tablicy z teksturą (tuż przed płytą, wewnątrz ramki): wierzchołki w metrach ENU względem punktu znaku
+      const x0 = -model.W / 2 + FRAME_W, x1 = model.W / 2 - FRAME_W, zb = BOARD_B + FRAME_W, zt = BOARD_B + model.H - FRAME_W, y = -0.06;
+      const V = (x, z, u, v) => { const X = cx + x * sc, Y = y * sc; return [X * ch + Y * sh, -X * sh + Y * ch, z * sc, u, v]; };
+      s.quad = new Float32Array([].concat(V(x0, zt, 0, 0), V(x0, zb, 0, 1), V(x1, zt, 1, 0), V(x1, zb, 1, 1)));
     });
     src.setData({ type:"FeatureCollection", features: feats });
+    try{ map.triggerRepaint(); }catch(e){}
   }
   setInterval(() => {
     if(!signs.length || !map) return;
@@ -12939,9 +13004,9 @@
     all: () => BB,
     replace(list){ BB = list; },
     save: saveList,
-    changed(){ modelCache.clear(); render(); },
+    changed(){ modelCache.clear(); texDirty = true; render(); },
     spawn: spawnSign,
-    drawBoard, boardDims, getImage, defaultList,
+    drawBoard, boardDims, faceSize, getImage, defaultList,
     colors: { bg: DEF_BG, fg: DEF_FG }
   };
   window.nawiSignTest = () => spawnSign();   // test z konsoli debugowania
@@ -12980,8 +13045,8 @@
   }
   function preview(){
     const b = cur(), cv = $("bbPreview"); if(!b) return;
-    const img = b.img ? API.getImage(b.img) : null, d = API.boardDims(b, img);
-    cv.width = 480; cv.height = Math.round(480 * d.H / d.W);
+    const img = b.img ? API.getImage(b.img) : null, fs = API.faceSize(b, img, 720);   // ten sam kadr i proporcje co tekstura na mapie
+    cv.width = fs.w; cv.height = fs.h;
     drawPreview(cv, b, img);
   }
   function drawPreview(cv, b, img){ API.drawBoard(cv.getContext("2d"), cv.width, cv.height, b, img); }
@@ -13009,11 +13074,17 @@
     rd.onload = () => {
       const im = new Image();
       im.onload = () => {
-        // zmniejszamy do 400 px szerokości (JPEG) — mała objętość w localStorage; i tak rysujemy ją z rozdzielczością ok. 64 px
-        const w = Math.min(400, im.naturalWidth), h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth));
-        const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-        const ctx = cv.getContext("2d"); ctx.fillStyle = cur().bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
-        cur().img = cv.toDataURL("image/jpeg", 0.8); commit(); fill();
+        // obraz zapisujemy w dużej rozdzielczości (do 1280 px szerokości, JPEG); gdy jest za duży na zapis — zmniejszamy stopniowo
+        let w = Math.min(1280, im.naturalWidth), q = 0.88, data = null;
+        for(let i = 0; i < 6; i++){
+          const h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth));
+          const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+          const ctx = cv.getContext("2d"); ctx.imageSmoothingQuality = "high"; ctx.fillStyle = cur().bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
+          data = cv.toDataURL("image/jpeg", q);
+          if(data.length < 900000) break;
+          w = Math.round(w * 0.8); q = Math.max(0.7, q - 0.04);
+        }
+        cur().img = data; commit(); fill();
       };
       im.src = rd.result;
     };
