@@ -1115,6 +1115,12 @@
     text-shadow: 0 1px 6px rgba(0,0,0,.9);
   }
 
+  /* stoper 57 mph → 0:00 (zamiast napisu MPH): niewielki; ostatnie 20 s żółty, ostatnie 10 s czerwony i miga */
+  #speedUnit.ovTimer{ font-size:15px; font-weight:800; letter-spacing:.04em; font-variant-numeric: tabular-nums; color: var(--text-main); }
+  #speedUnit.ovWarn{ color:#ffd400; }
+  #speedUnit.ovCrit{ color:#ff3b30; animation: ovBlink .5s steps(1) infinite; }
+  @keyframes ovBlink{ 0%{ opacity:1; } 50%{ opacity:.15; } 100%{ opacity:1; } }
+
   #limitSign{
     width:74px; height:74px;
     border-radius:50%;
@@ -3729,8 +3735,8 @@
      • tylko okno wokół pojazdu: MW.ahead m do przodu, MW.behind m do tyłu (wg kierunku jazdy), ±MW.side m na boki
      • tekstura = powtarzalny wzór generowany raz w pamięci (dzień/noc), bez pobierania z serwera
      ============================================================ */
-  const MW = { minZoom: 15.5, minPitch: 40, ahead: 3000, behind: 100, side: 300, reanchorM: 250, reanchorDeg: 20,
-               lanes: 3, laneW: 3.65, shoulder: 0.6, latRef: 53,
+  const MW = { minZoom: 15.5, minPitch: 40, ahead: 5000, behind: 100, side: 300, reanchorM: 250, reanchorDeg: 20,
+               lanes: 3, laneW: 3.65, shoulder: 1.5, latRef: 53,
                asphalt: { day: "#6f7378", night: "#3f4a4d" }, marking: { day: "#ffffff", night: "#b8c4c5" } };
   const MW_SRC = "mw-asphalt-src", MW_TEX = "mw-asphalt";
   const MW_FILTER = ["all", ["==", ["get", "class"], "motorway"], ["!=", ["get", "brunnel"], "tunnel"]];   // autostrada + jej zjazdy/dojazdy (ramp=1)
@@ -7178,10 +7184,36 @@
     }
     btns.forEach(b => b.disabled = false);
   }
+  // Znak ❓ bez dopasowanego odcinka (np. maxspeed="national", droga spoza listy typów, GPS „obok” drogi):
+  // szukamy najbliższej drogi OSM w ostatnio pobranych danych Overpass (do 80 m od pojazdu), żeby i tak dało się wpisać limit
+  function findNearestOsmWayForLimit(){
+    try{
+      const pos = lastPos || (typeof avSm !== "undefined" && avSm.init ? { lat: avSm.lat, lon: avSm.lon } : null);
+      if(!pos || !lastOverpassData || !lastOverpassData.elements) return null;
+      let best = null, bd = Infinity;
+      for(const el of lastOverpassData.elements){
+        if(el.type !== "way" || !el.geometry || el.geometry.length < 2 || !el.tags || !el.tags.highway) continue;
+        if(!/^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service)/.test(el.tags.highway)) continue;
+        for(let i = 0; i < el.geometry.length - 1; i++){
+          const a = [el.geometry[i].lon, el.geometry[i].lat], b = [el.geometry[i + 1].lon, el.geometry[i + 1].lat];
+          const d = pointToSegmentMeters(pos.lat, pos.lon, a, b);
+          if(d < bd){ bd = d; best = el; }
+        }
+      }
+      if(!best || bd > 80) return null;
+      return { wayId: best.id, highway: best.tags.highway, lat: pos.lat, lon: pos.lon, known: false };
+    }catch(e){ return null; }
+  }
   document.getElementById("limitSign").addEventListener("click", () => {
-    if(!tapLimitWay) return;
-    if(tapLimitWay.known && !isAdmin()) return;      // gotowy limit zmienia tylko administrator
-    openLimitEdit(tapLimitWay);
+    let w = tapLimitWay;
+    if(!w && document.getElementById("limitSign").classList.contains("unknown")) w = findNearestOsmWayForLimit();
+    if(!w){
+      // zawsze dajemy znak życia — wcześniej dotknięcie ❓ bez dopasowanej drogi nie robiło nic
+      showBanner("BRAK DANYCH DROGI", "Nie rozpoznano drogi w tym miejscu — poczekaj chwilę na dane drogowe i dotknij ❓ jeszcze raz", false);
+      return;
+    }
+    if(w.known && !isAdmin()) return;      // gotowy limit zmienia tylko administrator
+    openLimitEdit(w);
   });
   document.getElementById("limitEditSigns").addEventListener("click", e => {
     const b = e.target.closest(".limSignBtn"); if(b) submitLimitMph(parseInt(b.dataset.mph, 10));
@@ -7334,9 +7366,33 @@
     document.getElementById("startBtn").textContent = "Spróbuj ponownie";
   }
 
+  /* ---------- Stoper pod prędkościomierzem (zamiast napisu MPH) ----------
+     Od 57 mph zaczyna odliczać minutę do zera; gdy prędkość spadnie do 56 mph, wraca napis jednostki.
+     Ostatnie 20 s świeci na żółto, ostatnie 10 s na czerwono i miga. Prędkość liczona zawsze w mph. */
+  const OV_START_MPH = 57, OV_SECONDS = 60;
+  const ovTimer = { active:false, t0:0 };
+  function updateOverspeedTimer(){
+    const el = document.getElementById("speedUnit"); if(!el) return;
+    const mph = Math.round((currentSpeedKmh || 0) * 0.621371);
+    if(mph >= OV_START_MPH){
+      const now = performance.now();
+      if(!ovTimer.active){ ovTimer.active = true; ovTimer.t0 = now; }
+      const sec = Math.ceil(Math.max(0, OV_SECONDS - (now - ovTimer.t0) / 1000));
+      el.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+      el.classList.add("ovTimer");
+      el.classList.toggle("ovWarn", sec <= 20 && sec > 10);
+      el.classList.toggle("ovCrit", sec <= 10);
+    } else if(ovTimer.active){
+      ovTimer.active = false;
+      el.classList.remove("ovTimer", "ovWarn", "ovCrit");
+      el.textContent = unitSystem === "mph" ? "MPH" : "KM/H";
+    }
+  }
+  setInterval(updateOverspeedTimer, 200);
+
   function renderSpeedUI(){
     document.getElementById("speedValue").textContent = kmhToDisplay(currentSpeedKmh);
-    document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
+    if(!ovTimer.active) document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
     if(currentLimit){
       document.getElementById("limitValue").textContent = kmhToDisplay(currentLimit);
       const sign = document.getElementById("limitSign");
@@ -7754,10 +7810,19 @@
       if(opts.onTyping) opts.onTyping();
       const q = e.target.value.trim();
       if(timer) clearTimeout(timer);
+      // podpowiedzi lokalne (np. firmy z wpisanego kodu pocztowego pasujące do pierwszych liter)
+      if(opts.localSuggest){
+        const loc = opts.localSuggest(q);
+        if(loc){ if(abort) abort.abort(); suggestionsFor = q; render(loc.list, loc.head); return; }
+      }
       if(q.length < NAV_SUGGEST_MIN_CHARS){ if(q.length === 0) renderSaved(); else clear(); return; }
       timer = setTimeout(() => fetchSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
     });
     input.addEventListener("focus", () => {
+      if(opts.localSuggest && !(opts.hasSelection && opts.hasSelection())){
+        const loc = opts.localSuggest(input.value.trim());
+        if(loc){ suggestionsFor = input.value.trim(); render(loc.list, loc.head); return; }
+      }
       if(input.value.trim().length < NAV_SUGGEST_MIN_CHARS && !(opts.hasSelection && opts.hasSelection())) renderSaved();
     });
 
@@ -7786,6 +7851,27 @@
     box.classList.remove("open");
   }
 
+  // firmy z ostatnio wpisanego kodu pocztowego — pole celu podpowiada z nich po pierwszych literach nazwy
+  let pcCompanies = null;   // { pc, list } albo null (brak kodu / lista jeszcze niepobrana)
+  const normCompanyName = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  function pcLocalSuggest(q){
+    if(!pcCompanies || !pcCompanies.list.length) return null;
+    const n = normCompanyName(q);
+    if(!n) return { list: pcCompanies.list.slice(0, 30), head: "Firmy w okolicy " + pcCompanies.pc };
+    const scored = [];
+    pcCompanies.list.forEach((r, i) => {
+      const nm = normCompanyName(r.poi && r.poi.name); if(!nm) return;
+      let sc = -1;
+      if(nm.startsWith(n)) sc = 0;
+      else if((" " + nm).includes(" " + n)) sc = 1;          // początek dowolnego słowa
+      else if(n.length >= 3 && nm.includes(n)) sc = 2;
+      if(sc >= 0) scored.push([sc, i, r]);
+    });
+    if(!scored.length) return n.length >= 3 ? null : { list: [], head: "Brak firmy „" + q + "” w okolicy " + pcCompanies.pc };   // 3+ znaków i brak trafień → zwykłe wyszukiwanie
+    scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    return { list: scored.slice(0, 30).map(x => x[2]), head: "Firmy w okolicy " + pcCompanies.pc + " · „" + q + "”" };
+  }
+
   // ---------- pole celu podróży (jak dotychczas: wybór pokazuje pinezkę do potwierdzenia) ----------
   const destSearch = createStopSearch(
     document.getElementById("navDestWrap"),
@@ -7793,6 +7879,7 @@
     document.getElementById("navSuggestions"),
     {
       onTyping: () => { navSelectedDest = null; removeDestPin(); updateAddWaypointVisibility(); },
+      localSuggest: pcLocalSuggest,
       hasSelection: () => !!navSelectedDest,
       onEnterConfirm: () => confirmDestination(),
       // Wybór wyniku: pinezka staje tam, dokąd GPS faktycznie ma doprowadzić — jeśli TomTom
@@ -7861,7 +7948,12 @@
           r._sub = distLabel(r._d) + " · " + (r._fromDb ? "baza kierowców" : ((r.address && r.address.freeformAddress) || "")); });
         list.sort((a, b) => b._pop - a._pop || a._d - b._d);
         if(token !== pcToken) return;
-        destSearch.render(list.slice(0, 30), "Firmy w okolicy " + pc);
+        pcCompanies = { pc, list: list.slice(0, 60) };
+        // jeśli w polu celu są już litery — pokaż tylko pasujące firmy
+        const typed = document.getElementById("navDest").value.trim();
+        const loc = typed ? pcLocalSuggest(typed) : null;
+        if(loc && loc.list.length) destSearch.render(loc.list, loc.head);
+        else destSearch.render(list.slice(0, 30), "Firmy w okolicy " + pc);
       }catch(err){
         if(err.name === "AbortError") return;
         console.warn("Kod pocztowy — błąd:", err);
@@ -7873,7 +7965,7 @@
       pcInput.value = pcInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
       if(pcTimer) clearTimeout(pcTimer);
       const v = fmt(pcInput.value);
-      if(!UK_POSTCODE_RE.test(v)){ pcToken++; if(pcAbort) pcAbort.abort(); if(v.length === 0) destSearch.clear(); return; }
+      if(!UK_POSTCODE_RE.test(v)){ pcToken++; pcCompanies = null; if(pcAbort) pcAbort.abort(); if(v.length === 0) destSearch.clear(); return; }
       pcInput.value = v;
       pcTimer = setTimeout(() => findCompanies(v), 300);
     });
@@ -12446,7 +12538,7 @@
 </script>
 <script>
 /* ===== js/42-nawigator-billboard.js — Billboard „NawiGator” przy autostradzie =====
-   Duży znak 3D na dwóch nogach stoi po LEWEJ stronie autostrady (zewnętrzna strona jezdni, patrząc
+   Duży znak 3D (skalowany jak avatar) na dwóch nogach stoi po LEWEJ stronie autostrady (zewnętrzna strona jezdni, patrząc
    w kierunku jazdy) i jest zwrócony do jadącego. Pojawia się co 5 mil jazdy autostradą
    (pierwszy ~0,5 mili po wjeździe). Napis składa się z wytłoczonych „pikseli” (czcionka 5×7),
    bo warstwy fill-extrusion nie rysują tekstu.
@@ -12457,7 +12549,7 @@
   const SIGN_FIRST_M = 0.5 * 1609.344; // pierwszy znak krótko po wjeździe na autostradę
   const AHEAD_ROUTE_M = 450, AHEAD_FREE_M = 300;   // ile metrów przed pojazdem stawiamy znak
   const KEEP_M = 3000;                             // znaki dalej niż 3 km od pojazdu znikają
-  const LEFT_CENTER_M = 22;                        // środek tablicy: tyle metrów na lewo od osi jezdni
+  const ROAD_EDGE_M = 9;                           // krawędź jezdni (pas + pobocze) licząc od osi, w metrach
   const SRC = "nawisign", LAYER = "nawisign-body";
 
   const C = { board:"#0e3b2a", frame:"#ffb300", white:"#f4f7f2", amber:"#ffb300", leg:"#9aa3a8", foot:"#5b6368" };
@@ -12521,21 +12613,39 @@
   }
 
   const signs = [];   // {lat, lon, hdg}
+  // Skala znaku = skala avatara (avatarScale, js/11): avatar jest rysowany powiększony, więc znak powiększamy tak samo —
+  // dzięki temu przy każdym zoomie wygląda proporcjonalnie do ciężarówki i jest dobrze widoczny.
+  let curScale = 1;
+  function signScale(){
+    try{
+      let a = AVATARS[vehicleAvatar]; if(!a || !isFinite(a.lenM)) a = AVATARS.truck;
+      const v = avatarScale(a);
+      return isFinite(v) && v > 0 ? v : 1;
+    }catch(e){ return 1; }
+  }
   function render(){
     if(!ensureLayer()) return;
     const src = map.getSource(SRC); if(!src) return;
-    const model = buildModel(), feats = [];
+    const model = buildModel(), feats = [], sc = curScale;
+    // środek tablicy: krawędź jezdni + połowa szerokości avatara (skalowana) + połowa tablicy (skalowana)
+    const cx = -(ROAD_EDGE_M + 1.5 * sc + (BOARD_W / 2) * sc);
     signs.forEach(s => {
       const hr = s.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
       const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(s.lat * Math.PI / 180)));
       model.forEach(o => {
-        const ring = o.p.map(p => { const x = p[0] - LEFT_CENTER_M, y = p[1]; return [s.lon + (x * ch + y * sh) * kLon, s.lat + (-x * sh + y * ch) * kLat]; });
+        const ring = o.p.map(p => { const x = cx + p[0] * sc, y = p[1] * sc; return [s.lon + (x * ch + y * sh) * kLon, s.lat + (-x * sh + y * ch) * kLat]; });
         ring.push(ring[0]);
-        feats.push({ type:"Feature", properties:{ c:o.c, b:o.b, h:o.h }, geometry:{ type:"Polygon", coordinates:[ring] } });
+        feats.push({ type:"Feature", properties:{ c:o.c, b:o.b * sc, h:o.h * sc }, geometry:{ type:"Polygon", coordinates:[ring] } });
       });
     });
     src.setData({ type:"FeatureCollection", features: feats });
   }
+  // przy zmianie zoomu / avatara przeskaluj znaki (z progiem, żeby nie przebudowywać co klatkę)
+  setInterval(() => {
+    if(!signs.length || !map) return;
+    const sc = signScale();
+    if(Math.abs(sc / curScale - 1) > 0.06){ curScale = sc; render(); }
+  }, 400);
 
   /* ---------- gdzie postawić znak ---------- */
   function bearing(lat1, lon1, lat2, lon2){
@@ -12574,6 +12684,7 @@
       s = { lat: avSm.lat + d * Math.cos(hr) / 111320, lon: avSm.lon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180))), hdg: avSm.hdg };
     }
     signs.push(s);
+    curScale = signScale();
     render();
   }
 
