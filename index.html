@@ -710,6 +710,19 @@
   #navRerouteBtn:active{ transform: scale(0.98); }
   #navRerouteBtn:disabled{ opacity:.6; cursor:default; }
   #navPanel[data-navstate="picker"] #navRouteInfo{ display:none; }
+
+  /* pole celu = jedno pole z dwiema częściami: cel podróży | kod pocztowy (subtelna kreska między nimi) */
+  #navDestCombo{ display:flex; align-items:stretch; width:100%; box-sizing:border-box; border-radius:10px; overflow:hidden;
+    background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
+  #navDestCombo:focus-within{ border-color: var(--accent); }
+  body.night #navDestCombo{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
+  #navDestCombo input{ background:transparent !important; border:none !important; border-radius:0; outline:none; min-width:0; box-sizing:border-box; }
+  #navDestCombo #navDest{ flex:1 1 auto; width:auto; padding-right:6px; }
+  #navDestCombo #navDestFav{ position:static; flex:0 0 36px; align-self:center; height:36px; }
+  #navDestCombo .navComboSep{ flex:0 0 1px; align-self:center; height:24px; background: rgba(0,0,0,0.18); }
+  body.night #navDestCombo .navComboSep{ background: rgba(255,176,32,0.22); }
+  #navDestCombo #navPostcode{ flex:0 0 102px; width:102px; padding:10px 10px; text-transform:uppercase; text-align:center; font-weight:600; letter-spacing:.03em; }
+  #navDestCombo #navPostcode::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1467,8 +1480,12 @@
     </div>
     <div id="navWaypointsList"></div>
     <div id="navDestWrap" class="navStopWrap">
-      <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
-      <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
+      <div id="navDestCombo">
+        <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+        <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
+        <span class="navComboSep" aria-hidden="true"></span>
+        <input type="text" id="navPostcode" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy — pokaż firmy w okolicy">
+      </div>
       <div id="navSuggestions" class="navSuggestions"></div>
     </div>
     <div id="navAddWaypointBtn" role="button">+ Dodaj punkt pośredni</div>
@@ -1545,32 +1562,34 @@
         <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 120 68" aria-hidden="true">
-<defs><linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22364f"/><stop offset="1" stop-color="#0f1a2b"/></linearGradient>
-<linearGradient id="trCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b5a8a"/><stop offset="1" stop-color="#25406a"/></linearGradient>
-<filter id="trGlow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.6"/></filter>
-<clipPath id="trClip"><rect width="120" height="68" rx="13"/></clipPath></defs>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 120 76" aria-hidden="true">
+<defs><linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26405c"/><stop offset="1" stop-color="#0e1a2c"/></linearGradient>
+<linearGradient id="trCab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#46679b"/><stop offset="1" stop-color="#27426e"/></linearGradient>
+<linearGradient id="trTrl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2d4a74"/><stop offset="1" stop-color="#1c3050"/></linearGradient>
+<filter id="trGlow" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
+<clipPath id="trClip"><rect width="120" height="76" rx="14"/></clipPath></defs>
 <g clip-path="url(#trClip)">
-<rect width="120" height="68" fill="url(#trBg)"/>
-<path d="M-6 60 C30 50 72 62 126 34" fill="none" stroke="#22e66a" stroke-width="7" opacity=".55" filter="url(#trGlow)"/>
-<path d="M-6 60 C30 50 72 62 126 34" fill="none" stroke="#5dff95" stroke-width="2.6" stroke-linecap="round"/>
-<polygon points="48,15 112,8 112,43 48,47" fill="#243a5e"/>
-<polygon points="48,15 56,11 114,5 112,8" fill="#3a5686"/>
-<g stroke="#34507c" stroke-width=".8"><path d="M58 14V46M68 13V45M78 12V44M88 11V43M98 10V42M108 9V41"/></g>
-<rect x="60" y="45" width="36" height="3" fill="#18263b" transform="skewY(-3)"/>
-<g fill="#0c121b"><ellipse cx="86" cy="45" rx="4" ry="6"/><ellipse cx="95" cy="44" rx="4" ry="6"/><ellipse cx="104" cy="43" rx="4" ry="6"/></g>
-<g fill="#7d8b9a"><ellipse cx="86" cy="45" rx="1.5" ry="2.4"/><ellipse cx="95" cy="44" rx="1.5" ry="2.4"/><ellipse cx="104" cy="43" rx="1.5" ry="2.4"/></g>
-<polygon points="38,19 52,17 52,50 38,52" fill="#1f3558"/>
-<polygon points="40,23 49,22 49,34 40,35" fill="#0d1624"/>
-<polygon points="8,24 38,19 38,52 8,54" fill="url(#trCab)"/>
-<polygon points="8,24 38,19 44,12 14,16" fill="#4b6ea3" opacity="0"/>
-<polygon points="11,27 35,23 35,35 11,38" fill="#0d1624"/>
-<polygon points="11,27 35,23 35,25 11,29" fill="#6f8fc0" opacity=".45"/>
-<polygon points="10,41 36,38 36,49 10,52" fill="#1b2d4b"/>
-<g stroke="#b9c6d6" stroke-width="1.1"><path d="M10 43.6L36 40.6M10 46.4L36 43.6M10 49.2L36 46.6"/></g>
-<polygon points="9,39 15,38.4 15,41 9,41.6" fill="#dff3ff"/><polygon points="31,36.6 36,36 36,38.4 31,39" fill="#dff3ff"/>
-<rect x="17" y="33" width="12" height="3" rx="1" fill="#9fb2c8" transform="skewY(-4)"/>
-<ellipse cx="40" cy="54" rx="8" ry="9" fill="#0c121b"/><ellipse cx="40" cy="54" rx="3.6" ry="4.6" fill="#8d9aa8"/>
+<rect width="120" height="76" fill="url(#trBg)"/>
+<path d="M-8 68 C22 60 54 72 84 60 S116 48 130 44" fill="none" stroke="#1fe063" stroke-width="9" opacity=".6" filter="url(#trGlow)"/>
+<path d="M-8 68 C22 60 54 72 84 60 S116 48 130 44" fill="none" stroke="#63ff9a" stroke-width="3" stroke-linecap="round"/>
+<polygon points="48,12 116,19 116,47 48,56" fill="url(#trTrl)"/>
+<polygon points="48,12 116,19 118,17 52,9" fill="#4a6ea6"/>
+<g stroke="#3a5a8a" stroke-width=".9"><path d="M60 13.2V54.4M72 14.4V52.8M84 15.6V51.4M96 16.8V50M108 18V48.5"/></g>
+<polygon points="52,52 116,45 116,48 52,56" fill="#121c2c"/>
+<g fill="#0a0f17"><ellipse cx="92" cy="51" rx="4.4" ry="7"/><ellipse cx="102" cy="49.6" rx="4" ry="6.4"/><ellipse cx="111" cy="48.4" rx="3.6" ry="5.8"/></g>
+<g fill="#8a98a8"><ellipse cx="92" cy="51" rx="1.7" ry="2.8"/><ellipse cx="102" cy="49.6" rx="1.5" ry="2.6"/><ellipse cx="111" cy="48.4" rx="1.4" ry="2.3"/></g>
+<polygon points="40,17 58,19 58,57 40,59" fill="#203760"/>
+<polygon points="43,22 54,23 54,35 43,35" fill="#0c1522"/>
+<polygon points="5,24 40,17 40,59 5,63" fill="url(#trCab)"/>
+<polygon points="5,24 40,17 46,13 12,19" fill="#5d82bb" opacity=".9"/>
+<polygon points="9,28 37,22 37,37 9,42" fill="#0c1522"/>
+<polygon points="9,28 37,22 37,25 9,31" fill="#8fb0dc" opacity=".35"/>
+<polygon points="8,45 38,40 38,54 8,59" fill="#1a2c4a"/>
+<g stroke="#c4d0de" stroke-width="1.3"><path d="M8 47.6L38 42.6M8 51.2L38 46.4M8 54.8L38 50.2"/></g>
+<polygon points="6,43 14,42 14,46 6,47" fill="#e6f6ff"/><polygon points="31,38.4 38,37.2 38,41 31,42.2" fill="#e6f6ff"/>
+<polygon points="14,36 31,33 31,37 14,40" fill="#9fb2c8" opacity=".85"/>
+<polygon points="4,58 40,52 40,63 4,67" fill="#101a2a"/>
+<ellipse cx="46" cy="62" rx="9" ry="11" fill="#0a0f17"/><ellipse cx="46" cy="62" rx="4.2" ry="5.4" fill="#9aa7b5"/>
 </g>
 </svg></button>
       </div>
@@ -2951,7 +2970,7 @@
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
        • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
-       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), od zoomu 8 dwie linie (mwtwin-*), drogi A zielone (jak tablice),
+       • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
        • drogi A widoczne na każdym zoomie tak samo jak w dzień (bez zanikania przy oddaleniu);
@@ -2977,7 +2996,6 @@
   const NIGHT_ROADS = {
     motorway: { fillFar: "#4a86bd", casingFar: "#0e2a45",    // z daleka: stonowany niebieski (jak tablice autostrad UK)
                 fillNear: "#5b9bd5", casingNear: "#0f2f4f" },  // po przybliżeniu: wyraźny niebieski #5b9bd5
-    motorwayGap: "#0b2236",                               // ciemny „rów środkowy” między dwiema jezdniami (zoom 8+)
     major:    {
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
@@ -3214,7 +3232,6 @@
     });
     applyNightDetail(night);
     applyNightZones(night);
-    applyMotorwayTwin(night);
     applyMinorRoadZoom(night);
     try{ applySatBrightness(); }catch(e){}
   }
@@ -3260,33 +3277,29 @@
       console.warn("Nie udało się dodać warstwy stref przemysłowych:", e);
     }
   }
-  // Autostrady jako DWIE LINIE (dwie jezdnie): od zoomu 8 cienka ciemna kreska pośrodku autostrady (tylko noc).
-  // Dla każdej warstwy wypełnienia autostrady ze stylu powstaje bliźniacza warstwa "mwtwin-<id>".
-  function setupMotorwayTwin(){
+  // Autostrady w DWÓCH KIERUNKACH: w OSM każda jezdnia autostrady to osobna linia (rysowana zgodnie z kierunkiem jazdy),
+  // ale na małym zoomie obie jezdnie zlewają się w jedną kreskę. Przesuwamy każdą jezdnię w lewo (w UK jezdnia leży po lewej
+  // stronie osi, patrząc w kierunku jazdy), więc od zoomu 8 widać dwie linie; przesunięcie zanika przy dużym zoomie,
+  // gdzie jezdnie i tak są od siebie oddalone. Dotyczy dnia i nocy.
+  function setupMotorwayDirections(){
     if(!map) return;
     try{
-      const layers = map.getStyle().layers || [];
+      const layers = (map.getStyle().layers || []).filter(l => l.type === "line" && l["source-layer"] === "transportation" && /motorway/.test(l.id) && !/link|ramp/.test(l.id));
+      const fillOf = id => id.replace(/_?casing/, "");
       layers.forEach(l => {
-        if(l.type !== "line" || l["source-layer"] !== "transportation") return;
-        if(!/^(road|bridge)_motorway/.test(l.id) || /casing|link|ramp/.test(l.id)) return;
-        const tid = "mwtwin-" + l.id;
-        if(map.getLayer(tid)) return;
-        const w = map.getPaintProperty(l.id, "line-width");
-        if(w === undefined || w === null) return;
-        map.addLayer({
-          id: tid, type: "line", source: l.source, "source-layer": "transportation",
-          minzoom: 8, filter: l.filter,
-          layout: { "line-cap": "butt", "line-join": "round", visibility: "none" },
-          paint: { "line-color": NIGHT_ROADS.motorwayGap, "line-width": scaleWidthExpression(w, 0.2) }
-        }, (layers[layers.findIndex(x => x.id === l.id) + 1] || {}).id);
+        const fill = layers.find(x => x.id === fillOf(l.id) && !/casing/.test(x.id));
+        const w = fill ? map.getPaintProperty(fill.id, "line-width") : null;
+        if(!Array.isArray(w) || w[0] !== "interpolate" || !Array.isArray(w[2]) || w[2][0] !== "zoom") return;
+        const out = [w[0], w[1], w[2]];
+        for(let i = 3; i < w.length; i += 2){
+          const z = w[i], v = w[i + 1];
+          if(typeof z !== "number" || typeof v !== "number") return;
+          const f = z < 8 ? 0 : z <= 12 ? 0.6 : z >= 16 ? 0 : 0.6 * (16 - z) / 4;
+          out.push(z, -v * f);
+        }
+        map.setPaintProperty(l.id, "line-offset", out);
       });
-    }catch(e){ console.warn("Nie udało się dodać drugiej linii autostrad:", e); }
-  }
-  function applyMotorwayTwin(night){
-    if(!map) return;
-    (map.getStyle().layers || []).forEach(l => {
-      if(/^mwtwin-/.test(l.id)){ try{ map.setLayoutProperty(l.id, "visibility", night ? "visible" : "none"); }catch(e){} }
-    });
+    }catch(e){ console.warn("Nie udało się rozdzielić jezdni autostrad:", e); }
   }
   function applyNightZones(night){
     if(!map || !map.getLayer("night-industrial")) return;
@@ -3370,7 +3383,7 @@
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
-      setupMotorwayTwin(); applyMotorwayTwin(document.body.classList.contains("night"));
+      setupMotorwayDirections();
       try{
         setupUkRoadShields();
         applyShieldMode();
@@ -3770,6 +3783,7 @@
     const before = anchors[0];
     const th = mwTheme(), W = MW.laneW, N = MW.lanes;
     const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
+    const layoutTex = { visibility:"none", "line-join":"round", "line-cap":"round" };   // asfalt: zaokrąglone końce = płynne łączenia kawałków
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
     // wiadukty i mosty: asfalt rysowany NAD linią trasy (żeby trasa dołem nie zasłaniała jezdni nad nią)
     let topRoute = -1; styleLayers.forEach((l, i) => { if(/^route-/.test(l.id)) topRoute = i; });
@@ -3782,7 +3796,7 @@
       const filter = ["all", bf, ["==", ["get", "ramp"], ramp]];
       const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom, filter };
       const tex = MW_TEX + sfx;
-      map.addLayer(Object.assign({ id: tex, layout, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(LN * W + 2 * MW.shoulder) } }, base), bef);
+      map.addLayer(Object.assign({ id: tex, layout: layoutTex, paint: { "line-pattern": "mw-asphalt-" + th, "line-width": mwPx(LN * W + 2 * MW.shoulder) } }, base), bef);
       mwLayerIds.push(tex); mwTexIds.push(tex);
       [-1, 1].forEach(side => {                       // krawędzie jezdni
         const id = "mw-edge-" + (side < 0 ? "l" : "r") + sfx;
@@ -3835,6 +3849,21 @@
     return out;
   }
 
+  // Wygładzanie łamanych linii z kafelków (Chaikin: obcinanie rogów). Końce zostają w miejscu, więc kawałki z sąsiednich
+  // kafelków nadal się łączą. Ostre załamania (zjazdy, łuki) stają się płynnymi krzywymi.
+  function mwSmooth(pts, iters){
+    for(let it = 0; it < iters && pts.length > 2 && pts.length < 4000; it++){
+      const out = [pts[0]];
+      for(let i = 0; i < pts.length - 1; i++){
+        const a = pts[i], b = pts[i + 1];
+        out.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25]);
+        out.push([a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]);
+      }
+      out.push(pts[pts.length - 1]);
+      pts = out;
+    }
+    return pts;
+  }
   function mwRefresh(lat, lon, hdg){
     mwRefreshAt = Date.now();
     const src = map.getSource(MW_SRC); if(!src) return;
@@ -3850,7 +3879,7 @@
       if(g.type === "LineString") dst.push(g.coordinates);
       else if(g.type === "MultiLineString") g.coordinates.forEach(c => dst.push(c));
     });
-    const mk = (ls, br, rp) => mwClipToWindow(ls, lat, lon, hdg).map(c => ({ type:"Feature", properties:{ bridge: br, ramp: rp }, geometry:{ type:"LineString", coordinates: c } }));
+    const mk = (ls, br, rp) => mwClipToWindow(ls, lat, lon, hdg).map(c => ({ type:"Feature", properties:{ bridge: br, ramp: rp }, geometry:{ type:"LineString", coordinates: mwSmooth(c, rp ? 3 : 2) } }));
     const out = mk(lines, 0, 0).concat(mk(bridges, 1, 0), mk(rLines, 0, 1), mk(rBridges, 1, 1));
     src.setData({ type:"FeatureCollection", features: out });
   }
@@ -7006,8 +7035,7 @@
     // żeby nie trzeba było wykonywać dodatkowych zapytań o limity wzdłuż wyznaczonej trasy
     const allSegments = roadSegments.length ? roadSegments.concat(routeSpeedSegments) : routeSpeedSegments;
     if(allSegments.length === 0 && noLimitSegments.length === 0){
-      currentLimit = null; tapLimitWay = null;
-      hideLimitSign();
+      keepOrUnknownLimitSign();
       return;
     }
     let best = null, bestDist = Infinity, bestNo = null, bestNoDist = Infinity;
@@ -7037,9 +7065,18 @@
                       lat: (bestNo.a[1] + bestNo.b[1]) / 2, lon: (bestNo.a[0] + bestNo.b[0]) / 2 };
       showUnknownLimitSign();
     } else {
-      currentLimit = null; tapLimitWay = null;
-      hideLimitSign();
+      keepOrUnknownLimitSign();
     }
+  }
+
+  // Znak limitu jest widoczny cały czas (gdy włączony w ustawieniach): bez dopasowanej drogi zostaje ostatni znany limit,
+  // a gdy go nie ma — pokazuje ❓ (bez możliwości edycji, bo nie wiadomo, której drogi dotyczy).
+  function keepOrUnknownLimitSign(){
+    tapLimitWay = null;
+    if(!prefShowLimitSign){ hideLimitSign(); return; }
+    if(currentLimit) showLimitSign(currentLimit);
+    else showUnknownLimitSign();
+    document.getElementById("limitSign").classList.remove("editable");
   }
 
   function showLimitSign(limit){
@@ -7161,6 +7198,7 @@
   function applyDisplayPrefs(){
     document.getElementById("speedPanel").style.display = prefShowSpeedometer ? "" : "none";
     if(!prefShowLimitSign) hideLimitSign();
+    else if(document.getElementById("limitSign").classList.contains("hidden")) keepOrUnknownLimitSign();
   }
 </script>
 <script>
@@ -7615,10 +7653,19 @@
       }
       box.classList.add("open", "saved");
     }
-    function render(results){
+    function render(results, head){
       box.classList.remove("saved");
       box.innerHTML = "";
-      if(!results || results.length === 0){ box.classList.remove("open"); return; }
+      if(head){
+        const h = document.createElement("div"); h.className = "navSavedHead"; h.textContent = head; box.appendChild(h);
+      }
+      if(!results || results.length === 0){
+        if(head){
+          const e = document.createElement("div"); e.className = "navSavedEmpty"; e.textContent = "Nie znaleziono firm w pobliżu tego kodu.";
+          box.appendChild(e); box.classList.add("open");
+        } else box.classList.remove("open");
+        return;
+      }
       results.forEach(r => {
         const addr = r.address || {};
         const label = navResultLabel(r);
@@ -7627,7 +7674,7 @@
         item.className = "navSuggestion navSaved";
         item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
         item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
-        item.querySelector(".addr2").textContent = r.local ? localSubLabel(r) : ((r.poi && r.poi.name) ? label : sub);
+        item.querySelector(".addr2").textContent = r._sub || (r.local ? localSubLabel(r) : ((r.poi && r.poi.name) ? label : sub));
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
         const star = document.createElement("button");
@@ -7730,7 +7777,7 @@
       if(!wrapEl.contains(e.target)) clear();
     });
 
-    return { clear };
+    return { clear, render };
   }
 
   function clearNavSuggestions(){
@@ -7740,7 +7787,7 @@
   }
 
   // ---------- pole celu podróży (jak dotychczas: wybór pokazuje pinezkę do potwierdzenia) ----------
-  createStopSearch(
+  const destSearch = createStopSearch(
     document.getElementById("navDestWrap"),
     document.getElementById("navDest"),
     document.getElementById("navSuggestions"),
@@ -7761,6 +7808,84 @@
       }
     }
   );
+
+  // ---------- kod pocztowy obok celu: wpisz kod → poniżej lista firm w okolicy (najpopularniejsze na górze) ----------
+  // TomTom nie podaje liczby odwiedzin, więc "popularność" to przybliżenie: sieci/marki, strona www i telefon w wizytówce,
+  // wpis w bazie kierowców/HGV oraz trafność z TomTom; przy remisie wygrywa bliższa firma.
+  const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/;
+  const POSTCODE_RADIUS_M = 1500;
+  (function(){
+    const pcInput = document.getElementById("navPostcode");
+    let pcTimer = null, pcAbort = null, pcToken = 0;
+    const fmt = v => { const t = v.toUpperCase().replace(/[^A-Z0-9]/g, ""); return t.length > 3 ? t.slice(0, -3) + " " + t.slice(-3) : t; };
+    const distLabel = m => m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1609.344).toFixed(1) + " mi";
+    function popularity(r){
+      let sc = (r.score || 0);
+      const poi = r.poi || {};
+      if(poi.brands && poi.brands.length) sc += 3;
+      if(poi.url) sc += 1;
+      if(poi.phone) sc += 1;
+      if(r._hgv) sc += 2;
+      return sc;
+    }
+    async function findCompanies(pc){
+      const token = ++pcToken;
+      if(!tomtomApiKey){ showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy."); setNavKeyRowOpen(true); return; }
+      showNavError("");
+      if(pcAbort) pcAbort.abort();
+      pcAbort = new AbortController();
+      const signal = pcAbort.signal;
+      try{
+        const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal });
+        if(g.status === 403) throw new Error("UNAUTHORIZED");
+        const gd = await g.json();
+        const hit = (gd.results || [])[0];
+        if(!hit || !hit.position){ if(token === pcToken) showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
+        const c = hit.position;
+        const n = await fetch("https://api.tomtom.com/search/2/nearbySearch/.json?" + new URLSearchParams({
+          key: tomtomApiKey, lat: String(c.lat), lon: String(c.lon), radius: String(POSTCODE_RADIUS_M), limit: "50", countrySet: NAV_DEFAULT_COUNTRY }), { signal });
+        const nd = n.ok ? await n.json() : { results: [] };
+        const list = (nd.results || []).filter(r => r.poi && r.poi.name && r.position);
+        // firmy z bazy kierowców i HGV w promieniu
+        const addLocal = (name, lat, lon) => {
+          if(!name || typeof lat !== "number" || typeof lon !== "number") return;
+          const d = _dM(c.lat, c.lon, lat, lon);
+          if(d > POSTCODE_RADIUS_M) return;
+          const same = list.find(r => r.poi && namesMatch(r.poi.name, name) && _dM(r.position.lat, r.position.lon, lat, lon) < 150);
+          if(same){ same._hgv = true; return; }
+          list.push({ poi: { name }, address: { freeformAddress: name }, position: { lat, lon }, _hgv: true, _fromDb: true });
+        };
+        placeNames.forEach(p => addLocal(p.name, p.lat, p.lon));
+        hgvCompaniesCache.forEach(f => { const q = f.geometry && f.geometry.coordinates; if(q) addLocal(f.properties && f.properties.name, q[1], q[0]); });
+        list.forEach(r => { r._d = _dM(c.lat, c.lon, r.position.lat, r.position.lon); r._pop = popularity(r);
+          r._sub = distLabel(r._d) + " · " + (r._fromDb ? "baza kierowców" : ((r.address && r.address.freeformAddress) || "")); });
+        list.sort((a, b) => b._pop - a._pop || a._d - b._d);
+        if(token !== pcToken) return;
+        destSearch.render(list.slice(0, 30), "Firmy w okolicy " + pc);
+      }catch(err){
+        if(err.name === "AbortError") return;
+        console.warn("Kod pocztowy — błąd:", err);
+        showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się pobrać firm dla kodu pocztowego.");
+      }
+    }
+    pcInput.addEventListener("input", () => {
+      const pos = pcInput.selectionStart;
+      pcInput.value = pcInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+      if(pcTimer) clearTimeout(pcTimer);
+      const v = fmt(pcInput.value);
+      if(!UK_POSTCODE_RE.test(v)){ pcToken++; if(pcAbort) pcAbort.abort(); if(v.length === 0) destSearch.clear(); return; }
+      pcInput.value = v;
+      pcTimer = setTimeout(() => findCompanies(v), 300);
+    });
+    pcInput.addEventListener("keydown", e => {
+      if(e.key !== "Enter") return;
+      e.preventDefault();
+      const v = fmt(pcInput.value);
+      if(UK_POSTCODE_RE.test(v)){ if(pcTimer) clearTimeout(pcTimer); findCompanies(v); pcInput.blur(); }
+      else showNavError("Wpisz pełny kod pocztowy UK, np. M1 1AE.");
+    });
+    pcInput.addEventListener("focus", () => { try{ pcInput.select(); }catch(e){} });
+  })();
 
   // ---------- pole miejsca początkowego (opcjonalne — puste = użyj bieżącej pozycji GPS) ----------
   let navSelectedOrigin = null; // null = start od aktualnej pozycji GPS
@@ -12318,6 +12443,170 @@
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "visible" && started) requestWakeLock();
   });
+</script>
+<script>
+/* ===== js/42-nawigator-billboard.js — Billboard „NawiGator” przy autostradzie =====
+   Duży znak 3D na dwóch nogach stoi po LEWEJ stronie autostrady (zewnętrzna strona jezdni, patrząc
+   w kierunku jazdy) i jest zwrócony do jadącego. Pojawia się co 5 mil jazdy autostradą
+   (pierwszy ~0,5 mili po wjeździe). Napis składa się z wytłoczonych „pikseli” (czcionka 5×7),
+   bo warstwy fill-extrusion nie rysują tekstu.
+   Zależności (wołane tylko w callbackach): map, avSm (js/11), currentSpeedKmh (js/04),
+   haversine, projectPointToSegment (js/05), ukMapRoadClasses (js/32), activeRoute (js/04). */
+(function(){
+  const SIGN_EVERY_M = 5 * 1609.344;   // co 5 mil
+  const SIGN_FIRST_M = 0.5 * 1609.344; // pierwszy znak krótko po wjeździe na autostradę
+  const AHEAD_ROUTE_M = 450, AHEAD_FREE_M = 300;   // ile metrów przed pojazdem stawiamy znak
+  const KEEP_M = 3000;                             // znaki dalej niż 3 km od pojazdu znikają
+  const LEFT_CENTER_M = 22;                        // środek tablicy: tyle metrów na lewo od osi jezdni
+  const SRC = "nawisign", LAYER = "nawisign-body";
+
+  const C = { board:"#0e3b2a", frame:"#ffb300", white:"#f4f7f2", amber:"#ffb300", leg:"#9aa3a8", foot:"#5b6368" };
+  const FONT = {
+    N:["10001","11001","10101","10011","10001","10001","10001"],
+    a:["00000","00000","01110","00001","01111","10001","01111"],
+    w:["00000","00000","10001","10001","10101","10101","01010"],
+    i:["00100","00000","01100","00100","00100","00100","01110"],
+    G:["01110","10001","10000","10111","10001","10001","01111"],
+    t:["01000","01000","11100","01000","01000","01001","00110"],
+    o:["00000","00000","01110","10001","10001","10001","01110"],
+    r:["00000","00000","10110","11001","10000","10000","10000"]
+  };
+  const WORD = "NawiGator", CELL = 0.42, LET_W = 5 * CELL, ADV = 6 * CELL;
+  const BOARD_W = 24, BOARD_B = 6, BOARD_H = 11;
+
+  /* ---------- model znaku w lokalnych metrach: x = w prawo, y = do przodu (kierunek jazdy), z = wysokość ---------- */
+  function box(x0, y0, x1, y1, b, h, c){ return { p:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]], b, h, c }; }
+  let MODEL = null;
+  function buildModel(){
+    if(MODEL) return MODEL;
+    const P = [];
+    // nogi i stopy
+    [-8, 8].forEach(cx => {
+      P.push(box(cx - .4, -.1, cx + .4, .7, 0, BOARD_B + .1, C.leg));
+      P.push(box(cx - 1.0, -.5, cx + 1.0, 1.1, 0, .4, C.foot));
+    });
+    P.push(box(-8, .1, 8, .5, 2.5, 2.85, C.leg));                    // poprzeczka między nogami
+    // tablica + ramka (przód tablicy = y 0, kierowca patrzy od strony ujemnego y)
+    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_H, C.board));
+    const fw = .3;
+    P.push(box(-BOARD_W / 2, -.2, -BOARD_W / 2 + fw, .6, BOARD_B, BOARD_H, C.frame));
+    P.push(box(BOARD_W / 2 - fw, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_H, C.frame));
+    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_H - fw, BOARD_H, C.frame));
+    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_B + fw, C.frame));
+    // napis: „Nawi” białe, „Gator” bursztynowe
+    const textW = WORD.length * ADV - CELL;
+    const letB = BOARD_B + (BOARD_H - BOARD_B - 7 * CELL) / 2;
+    let x = -textW / 2;
+    for(let li = 0; li < WORD.length; li++){
+      const rows = FONT[WORD[li]], col = li < 4 ? C.white : C.amber;
+      for(let r = 0; r < 7; r++) for(let k = 0; k < 5; k++){
+        if(rows[r][k] !== "1") continue;
+        const b = letB + (6 - r) * CELL;
+        P.push(box(x + k * CELL, -.4, x + (k + 1) * CELL, 0, b, b + CELL, col));
+      }
+      x += ADV;
+    }
+    MODEL = P; return P;
+  }
+
+  /* ---------- warstwa na mapie ---------- */
+  function ensureLayer(){
+    if(!map) return false;
+    try{
+      if(!map.getSource(SRC)) map.addSource(SRC, { type:"geojson", data:{ type:"FeatureCollection", features:[] }, maxzoom:22, tolerance:0, buffer:0 });
+      if(!map.getLayer(LAYER)) map.addLayer({ id:LAYER, type:"fill-extrusion", source:SRC,
+        paint:{ "fill-extrusion-color":["get","c"], "fill-extrusion-height":["get","h"], "fill-extrusion-base":["get","b"], "fill-extrusion-opacity":1, "fill-extrusion-vertical-gradient":true } });
+      return true;
+    }catch(e){ return false; }
+  }
+
+  const signs = [];   // {lat, lon, hdg}
+  function render(){
+    if(!ensureLayer()) return;
+    const src = map.getSource(SRC); if(!src) return;
+    const model = buildModel(), feats = [];
+    signs.forEach(s => {
+      const hr = s.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
+      const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(s.lat * Math.PI / 180)));
+      model.forEach(o => {
+        const ring = o.p.map(p => { const x = p[0] - LEFT_CENTER_M, y = p[1]; return [s.lon + (x * ch + y * sh) * kLon, s.lat + (-x * sh + y * ch) * kLat]; });
+        ring.push(ring[0]);
+        feats.push({ type:"Feature", properties:{ c:o.c, b:o.b, h:o.h }, geometry:{ type:"Polygon", coordinates:[ring] } });
+      });
+    });
+    src.setData({ type:"FeatureCollection", features: feats });
+  }
+
+  /* ---------- gdzie postawić znak ---------- */
+  function bearing(lat1, lon1, lat2, lon2){
+    const r = Math.PI / 180, dl = (lon2 - lon1) * r;
+    const y = Math.sin(dl) * Math.cos(lat2 * r), x = Math.cos(lat1 * r) * Math.sin(lat2 * r) - Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dl);
+    return (Math.atan2(y, x) / r + 360) % 360;
+  }
+  // punkt na aktywnej trasie `distM` metrów przed pojazdem (null, gdy brak trasy / pojazd poza nią)
+  function aheadOnRoute(lat, lon, distM){
+    const c = activeRoute && activeRoute.coords;
+    if(!c || c.length < 2) return null;
+    let best = null;
+    for(let i = 0; i < c.length - 1; i++){
+      const p = projectPointToSegment(lat, lon, c[i], c[i + 1]);
+      if(!best || p.distM < best.distM){ best = p; best.i = i; }
+    }
+    if(!best || best.distM > 60) return null;
+    let cl = best.lat, cn = best.lon, rem = distM;
+    for(let j = best.i + 1; j < c.length; j++){
+      const d = haversine(cl, cn, c[j][1], c[j][0]);
+      if(d >= rem){
+        const f = d > 0 ? rem / d : 0, la = cl + (c[j][1] - cl) * f, lo = cn + (c[j][0] - cn) * f;
+        return { lat: la, lon: lo, hdg: bearing(cl, cn, c[j][1], c[j][0]) };
+      }
+      rem -= d; cl = c[j][1]; cn = c[j][0];
+    }
+    return null;
+  }
+  function spawnSign(){
+    if(!map || !avSm || !avSm.init) return;
+    const r = aheadOnRoute(avSm.lat, avSm.lon, AHEAD_ROUTE_M);
+    let s;
+    if(r) s = r;
+    else {
+      const hr = avSm.hdg * Math.PI / 180, d = AHEAD_FREE_M;
+      s = { lat: avSm.lat + d * Math.cos(hr) / 111320, lon: avSm.lon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180))), hdg: avSm.hdg };
+    }
+    signs.push(s);
+    render();
+  }
+
+  /* ---------- zliczanie dystansu na autostradzie ---------- */
+  const st = { lat:null, lon:null, acc:0, target:SIGN_FIRST_M, onMw:false, offDist:0 };
+  function tick(){
+    try{
+      if(!map || !avSm || !avSm.init || !avSm.running) return;
+      const lat = avSm.lat, lon = avSm.lon;
+      let step = 0;
+      if(st.lat !== null){ step = haversine(st.lat, st.lon, lat, lon); if(step > 300) step = 0; }   // skok GPS — ignoruj
+      st.lat = lat; st.lon = lon;
+      if(currentSpeedKmh < 15 || step <= 0) return;
+      const set = ukMapRoadClasses({ pos:[lat, lon] });
+      if(set && set.size) st.onMw = set.has("motorway");    // brak danych z mapy = zostaje poprzedni stan
+      if(st.onMw){
+        st.offDist = 0; st.acc += step;
+        if(st.acc >= st.target){ st.acc = 0; st.target = SIGN_EVERY_M; spawnSign(); }
+      } else {
+        st.offDist += step;
+        if(st.offDist > 2000){ st.acc = 0; st.target = SIGN_FIRST_M; st.offDist = 0; }   // zjechał z autostrady — liczymy od nowa
+      }
+      // sprzątanie znaków, które zostały daleko z tyłu
+      const n0 = signs.length;
+      for(let i = signs.length - 1; i >= 0; i--) if(haversine(lat, lon, signs[i].lat, signs[i].lon) > KEEP_M) signs.splice(i, 1);
+      if(signs.length !== n0) render();
+    }catch(e){}
+  }
+  setInterval(tick, 1000);
+
+  // test z konsoli debugowania: nawiSignTest() stawia znak 300–450 m przed pojazdem
+  window.nawiSignTest = spawnSign;
+})();
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
