@@ -392,20 +392,38 @@
     font-size:12px; font-weight:700; letter-spacing:.04em;
     color: var(--text-dim); text-transform:uppercase;
   }
-  #navTruckBtn{
+  #navTruckBtn, #navBillboardBtn{
     width:30px; height:30px; border-radius:9px;
     display:flex; align-items:center; justify-content:center;
     font-size:15px; cursor:pointer; background: rgba(255,255,255,0.06);
   }
-  #navTruckBtn.active{ background: var(--gator-dark); box-shadow: 0 0 0 1px var(--gator); }
-  body:not(.night) #navTruckBtn{ background: rgba(0,0,0,0.08); }
-  body:not(.night) #navTruckBtn.active{ background: var(--gator-dark); }
+  #navTruckBtn.active, #navBillboardBtn.active{ background: var(--gator-dark); box-shadow: 0 0 0 1px var(--gator); }
+  body:not(.night) #navTruckBtn, body:not(.night) #navBillboardBtn{ background: rgba(0,0,0,0.08); }
+  body:not(.night) #navTruckBtn.active, body:not(.night) #navBillboardBtn.active{ background: var(--gator-dark); }
   /* zakładka z parametrami ciężarówki zajmuje miejsce szczegółów trasy */
   #navTruckBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; }
   body:not(.night) #navTruckBlock{ background: rgba(255,255,255,0.55); }
   #navPanel.truck-open #navTruckBlock{ display:flex; }
   /* zakładka ciężarówki rozwija się pod nagłówkiem zamiast celu podróży i szczegółów trasy */
   #navPanel.truck-open > :not(#navDragHandle):not(.navHeader):not(#navTruckBlock){ display:none !important; }
+  /* zakładka billboardów (🪧) — jak zakładka ciężarówki zastępuje cel podróży */
+  #navBillboardBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; max-height:min(62vh, 520px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  body:not(.night) #navBillboardBlock{ background: rgba(255,255,255,0.55); }
+  #navPanel.billboard-open #navBillboardBlock{ display:flex; }
+  #navPanel.billboard-open > :not(#navDragHandle):not(.navHeader):not(#navBillboardBlock){ display:none !important; }
+  #bbChips{ display:flex; gap:6px; flex-wrap:wrap; }
+  #bbChips button{ border:1px solid var(--panel-border); background:transparent; color: var(--text-main); border-radius:999px; padding:7px 12px; font:700 12px 'Inter',system-ui,sans-serif; cursor:pointer; max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #bbChips button.active{ background: var(--gator-dark); border-color: var(--gator-dark); color: var(--gator-on); }
+  #bbChips button.off{ opacity:.55; }
+  #bbPreview{ width:100%; height:auto; border-radius:8px; border:1px solid var(--panel-border); background:#000; }
+  .bbRow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .bbRow .bbLbl{ font-size:12px; font-weight:700; color: var(--text-dim); }
+  .bbRow .bbLbl b{ color: var(--text-main); font-variant-numeric:tabular-nums; }
+  .bbRow input[type=text]{ flex:1; min-width:0; padding:10px 12px; border-radius:10px; border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); font:600 15px 'Inter',system-ui,sans-serif; }
+  .bbRow input[type=range]{ flex:1; min-width:120px; }
+  .bbRow button{ flex:1 1 auto; min-height:42px; border-radius:10px; border:1px solid var(--panel-border); background:transparent; color: var(--text-main); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  .bbColors label{ display:flex; align-items:center; gap:6px; }
+  .bbColors input[type=color]{ width:42px; height:34px; padding:0; border:1px solid var(--panel-border); border-radius:8px; background:transparent; }
   .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .unitSeg{ display:flex; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; }
   .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
@@ -473,7 +491,7 @@
   .navHeaderActions{ display:flex; align-items:center; gap:16px; }   /* większy odstęp między 🚛, ⋮ i ✕ */
   /* "Nawigator" jest zakładką: podkreślona, gdy otwarta jest część z celem i trasą */
   #navTabNav{ cursor:pointer; padding:5px 2px; border-bottom:2px solid transparent; -webkit-tap-highlight-color: transparent; }
-  #navPanel:not(.truck-open) #navTabNav{ color: var(--text-main); border-bottom-color: var(--gator); }
+  #navPanel:not(.truck-open):not(.billboard-open) #navTabNav{ color: var(--text-main); border-bottom-color: var(--gator); }
   #navCloseBtn{
     width:30px; height:30px; border-radius:9px;
     display:none; align-items:center; justify-content:center;
@@ -767,6 +785,7 @@
   #navRouteInfo.planning #navRouteMain{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
   #navPanel.planning-mode .navTitle,
   #navPanel.planning-mode #navTruckBtn,
+  #navPanel.planning-mode #navBillboardBtn,
   #navPanel.planning-mode #navSettingsBtn{ display:none; }
   #navPanel.planning-mode .navHeader{ justify-content:flex-end; min-height:0; margin:0; }
 
@@ -778,6 +797,7 @@
   #navPanel[data-navstate="picker"] #navConfirmLabel,
   #navPanel[data-navstate="picker"] .navTitle,
   #navPanel[data-navstate="picker"] #navTruckBtn,
+  #navPanel[data-navstate="picker"] #navBillboardBtn,
   #navPanel[data-navstate="picker"] #navSettingsBtn{ display:none; }
   #navPanel[data-navstate="picker"] .navHeader{ justify-content:flex-end; min-height:0; margin:0; }
   /* ✕ nie zajmuje osobnego wiersza nad czasem i dystansem: leży po prawej, na wysokości podsumowania
@@ -1473,6 +1493,7 @@
   <div class="navHeader">
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
     <div class="navHeaderActions">
+      <div id="navBillboardBtn" title="Billboardy przy autostradzie" role="button" aria-label="Billboardy przy autostradzie" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5V21M17 12.5V21M5 21h4M15 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
       <div id="navTruckBtn" title="Parametry ciężarówki" role="button" aria-label="Parametry ciężarówki" aria-pressed="false">🚛</div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
@@ -1546,6 +1567,29 @@
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
       <button id="navStartBtn">Jedziemy</button>
     </div>
+  </div>
+
+  <div id="navBillboardBlock">
+    <div class="truckHead"><span>🪧 Billboardy przy autostradzie</span></div>
+    <div id="bbChips"></div>
+    <canvas id="bbPreview" width="480" height="120"></canvas>
+    <div class="bbRow"><span class="bbLbl">Tekst</span><input id="bbText" type="text" maxlength="40" placeholder="Tekst na billboardzie…" autocomplete="off"></div>
+    <div class="bbRow">
+      <button id="bbPickImg" type="button" class="secondary">🖼 Dodaj obraz</button>
+      <button id="bbClearImg" type="button" class="secondary">Usuń obraz</button>
+      <input id="bbFile" type="file" accept="image/*" hidden>
+    </div>
+    <div class="bbRow"><span class="bbLbl">Wielkość <b id="bbScaleVal">100%</b></span><input id="bbScale" type="range" min="30" max="250" step="5" value="100"></div>
+    <div class="bbRow bbColors">
+      <label><span class="bbLbl">Tło</span><input id="bbBg" type="color" value="#0e3b2a"></label>
+      <label><span class="bbLbl">Napis</span><input id="bbFg" type="color" value="#ffb300"></label>
+      <label class="bbCheck"><input id="bbEnabled" type="checkbox" checked><span class="bbLbl">Pokazuj</span></label>
+    </div>
+    <div class="bbRow">
+      <button id="bbTest" type="button" class="secondary">Pokaż przed autem</button>
+      <button id="bbDelete" type="button" class="secondary">Usuń billboard</button>
+    </div>
+    <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
   </div>
 
   <div id="navTruckBlock" class="units-imperial">
@@ -1945,8 +1989,9 @@
   const OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.openstreetmap.ru/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter"
+    "https://overpass.openstreetmap.fr/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter"
   ];
   const OVERPASS_ATTEMPT_TIMEOUT_MS = 18000; // maks. czas na jedną próbę zanim przejdziemy do kolejnego serwera
   const OVERPASS_RETRY_AFTER_FAIL_MS = 15000; // po całkowitym niepowodzeniu, ponów próbę po tym czasie
@@ -3791,13 +3836,13 @@
     const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
     const layoutTex = { visibility:"none", "line-join":"round", "line-cap":"round" };   // asfalt: zaokrąglone końce = płynne łączenia kawałków
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    // wiadukty i mosty: asfalt rysowany NAD linią trasy (żeby trasa dołem nie zasłaniała jezdni nad nią)
+    // wiadukty i mosty: asfalt rysowany POD linią trasy — trasa zawsze na wierzchu, nie znika pod mostami i wiaduktami
     let topRoute = -1; styleLayers.forEach((l, i) => { if(/^route-/.test(l.id)) topRoute = i; });
     const aboveRoute = topRoute >= 0 && styleLayers[topRoute + 1] ? styleLayers[topRoute + 1].id : undefined;
     mwLayerIds = []; mwMarkIds = []; mwTexIds = [];
     // jezdnia główna (3 pasy) oraz zjazdy/dojazdy (ramp=1, 1 pas) — oba z asfaltem
     [["", 0, N], ["-rp", 1, 1]].forEach(([rsfx, ramp, LN]) => {
-    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", aboveRoute || before, ["==", ["get", "bridge"], 1]]].forEach(([sfx0, bef, bf]) => {
+    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", before, ["==", ["get", "bridge"], 1]]].forEach(([sfx0, bef, bf]) => {
       const sfx = sfx0 + rsfx;
       const filter = ["all", bf, ["==", ["get", "ramp"], ramp]];
       const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom, filter };
@@ -5848,31 +5893,31 @@
     fetching = true;
     roadDataState = "searching";
 
+    // Zapytanie LEKKIE (fotoradary + drogi z/bez limitu) — od niego zależy znak limitu prędkości, więc musi przejść szybko.
+    // Parkingi/MOP-y (promień 20 km, ciężkie) pobieramy OSOBNO w tle (maybeFetchParking) — wcześniej jedno wspólne zapytanie
+    // przekraczało limit czasu na wszystkich serwerach Overpass i znak zostawał na ❓ bez żadnych danych dróg.
     const query = `
-      [out:json][timeout:25];
+      [out:json][timeout:20];
       (
         node["highway"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         node["hazard"="speed_camera"](around:${CAMERA_RADIUS_M},${lat},${lon});
         way["maxspeed"](around:${ROAD_RADIUS_M},${lat},${lon});
         way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$"][!"maxspeed"](around:${NOLIMIT_RADIUS_M},${lat},${lon});
-        node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
-        way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
       );
       out geom;
     `;
 
     Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon), fetchRoadLimits(lat, lon)])
-      .then(([data, supaReports]) => {
+      .then(([roads, supaReports]) => {
+        lastRoadsElements = roads.elements || [];
+        const data = { elements: lastRoadsElements.concat(parkCache ? parkCache.elements : []) };
         applyOverpassResult(data, supaReports);
         lastOverpassData = data; lastOverpassPos = { lat, lon };
         lastFetchPos = { lat, lon };
         lastFetchTime = Date.now();
         roadDataState = "ok";
         overpassFetchFailStreak = 0; // udało się — resetujemy narastające opóźnienie
+        maybeFetchParking(lat, lon);
       })
       .catch(err => {
         console.warn("Overpass — wszystkie serwery zawiodły:", err);
@@ -5896,6 +5941,37 @@
       });
   }
 
+  // Parkingi HGV / MOP-y: ciężkie zapytanie, więc osobno, w tle, rzadko (dopiero po przejechaniu ~8 km albo po 5 min od porażki)
+  // i „miękko” — porażka nie wydłuża przerwy dla zapytań o drogi (soft = bez kary overpassDownUntil).
+  let parkCache = null, parkFetching = false, parkFailAt = 0, lastRoadsElements = [];
+  function maybeFetchParking(lat, lon){
+    if(parkFetching) return;
+    if(parkCache && haversine(lat, lon, parkCache.lat, parkCache.lon) < 8000) return;
+    if(!parkCache && Date.now() - parkFailAt < 300000) return;
+    parkFetching = true;
+    const q = `
+      [out:json][timeout:60];
+      (
+        node["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["amenity"="parking"]["hgv"~"^(yes|designated)$"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        node["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="rest_area"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        node["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+        way["highway"="services"](around:${HGV_PARKING_RADIUS_M},${lat},${lon});
+      );
+      out center;
+    `;
+    tryEndpoints(q, 0, 45000, true).then(pd => {
+      parkCache = { lat, lon, elements: pd.elements || [] };
+      const data = { elements: lastRoadsElements.concat(parkCache.elements) };
+      applyOverpassResult(data, supaRepInBox(lat, lon));
+      lastOverpassData = data;
+    }).catch(err => {
+      parkFailAt = Date.now();
+      console.warn("Overpass — parkingi/MOP-y nie pobrane (ponowię za kilka minut):", err && err.message || err);
+    }).finally(() => { parkFetching = false; });
+  }
+
   // Globalna kolejka dla WSZYSTKICH zapytań do Overpass (zjazdy, fotoradary, dane przy GPS,
   // znaki wysokości itd.) — bez niej różne funkcje strzelały do tych samych 4 darmowych
   // serwerów RÓWNOLEGLE (np. przy starcie aplikacji naraz), co serwery odbierały jako
@@ -5913,17 +5989,17 @@
   }
 
   // próbuje kolejnych serwerów Overpass po kolei, zaczynając od tego, który ostatnio zadziałał
-  function tryEndpoints(query, attemptCount, timeoutMs){
-    return queueOverpassRequest(() => tryEndpointsNow(query, attemptCount, timeoutMs));
+  function tryEndpoints(query, attemptCount, timeoutMs, soft){
+    return queueOverpassRequest(() => tryEndpointsNow(query, attemptCount, timeoutMs, soft));
   }
 
   // Po porażce wszystkich serwerów dajemy im odpocząć (30 s, potem 1, 2, 4 min… maks. 5 min). Kolejne zapytania
   // CZEKAJĄ do końca przerwy zamiast być odrzucane — dzięki temu fragmenty nie są pomijane lawinowo, tylko
   // wracają do kolejki i dostają prawdziwą szansę. Po pierwszym sukcesie przerwa wraca do zera.
   let overpassDownUntil = 0, overpassDownStreak = 0;
-  function tryEndpointsNow(query, attemptCount, timeoutMs){
+  function tryEndpointsNow(query, attemptCount, timeoutMs, soft){
     const wait = overpassDownUntil - Date.now();
-    if(wait > 0) return new Promise(res => setTimeout(res, wait)).then(() => tryEndpointsNow(query, attemptCount, timeoutMs));
+    if(wait > 0) return new Promise(res => setTimeout(res, wait)).then(() => tryEndpointsNow(query, attemptCount, timeoutMs, soft));
     const order = [];
     for(let i=0;i<OVERPASS_ENDPOINTS.length;i++){
       order.push(OVERPASS_ENDPOINTS[(preferredEndpointIdx + i) % OVERPASS_ENDPOINTS.length]);
@@ -5931,8 +6007,7 @@
 
     function attempt(i){
       if(i >= order.length){
-        overpassDownUntil = Date.now() + Math.min(30000 * Math.pow(2, overpassDownStreak), 300000);
-        overpassDownStreak++;
+        if(!soft){ overpassDownUntil = Date.now() + Math.min(30000 * Math.pow(2, overpassDownStreak), 300000); overpassDownStreak++; }
         return Promise.reject(new Error("Wszystkie serwery Overpass niedostępne"));
       }
       const url = order[i];
@@ -6873,6 +6948,21 @@
     return { lat: sumLat / geometry.length, lon: sumLon / geometry.length };
   }
 
+  // Domyślny limit UK dla HGV (>7,5 t) tam, gdzie OSM mówi tylko „limit krajowy”: autostrada 60 mph, droga dwujezdniowa 60 mph,
+  // jednojezdniowa 50 mph. Zwraca { mph, source:"default" } albo null. Admin może go zmienić długim przytrzymaniem znaku.
+  function ukHgvDefaultInfo(tags){
+    if(!tags) return null;
+    const ms = tags.maxspeed ? String(tags.maxspeed).trim().toLowerCase() : "";
+    const hw = tags.highway || "";
+    if(!ms){ return hw === "motorway" ? { mph: 60, source: "default" } : null; }   // autostrada bez tagu = limit krajowy
+    if(/^(uk|gb):nsl_single$|^nsl_single$/.test(ms)) return { mph: 50, source: "default" };
+    if(/^(uk|gb):(nsl_dual|motorway)$|^nsl_dual$/.test(ms)) return { mph: 60, source: "default" };
+    if(ms === "national"){
+      if(hw === "motorway") return { mph: 60, source: "default" };
+      return { mph: tags.oneway === "yes" ? 60 : 50, source: "default" };           // oneway = jedna z jezdni drogi dwujezdniowej
+    }
+    return null;
+  }
   function isHgvParkingElement(el){
     if(!el.tags) return false;
     if(el.tags.amenity === "parking" && (el.tags.hgv === "yes" || el.tags.hgv === "designated")) return true;
@@ -6904,6 +6994,7 @@
         else if(el.type === "way" && el.geometry && el.geometry.length){
           const c = wayCentroid(el.geometry); lat = c.lat; lon = c.lon;
         }
+        else if(el.type === "way" && el.center){ lat = el.center.lat; lon = el.center.lon; }   // zapytanie parkingów używa "out center"
         if(lat !== undefined && lon !== undefined){
           hgvParkingFeatures.push({
             type:"Feature",
@@ -6924,7 +7015,7 @@
       } else if(el.type === "way" && el.geometry && el.tags && !el.tags.maxspeed && NOLIMIT_HIGHWAY_RE.test(el.tags.highway || "")){
         // droga bez limitu w OSM: jeśli ma limit od administratora albo z głosowania — traktujemy jak zwykły;
         // inaczej znak pokaże ❓, a administrator zobaczy ją na mapie (podgląd)
-        const info = roadLimitInfo(el.id);
+        const info = roadLimitInfo(el.id) || ukHgvDefaultInfo(el.tags);
         const coords = el.geometry.map(g => [g.lon, g.lat]);
         if(info){
           const kmh = Math.round(info.mph * 1.60934);
@@ -6936,7 +7027,19 @@
         }
       } else if(el.type === "way" && el.geometry && el.tags && el.tags.maxspeed){
         const ms = parseMaxspeed(el.tags.maxspeed);
-        if(ms){
+        if(!ms && NOLIMIT_HIGHWAY_RE.test(el.tags.highway || "")){
+          // maxspeed bez liczby (np. "national", "signals", "none") — traktujemy jak brak limitu: znak ❓, można wpisać/zagłosować
+          const info = roadLimitInfo(el.id) || ukHgvDefaultInfo(el.tags);
+          const coords = el.geometry.map(g => [g.lon, g.lat]);
+          if(info){
+            const kmh = Math.round(info.mph * 1.60934);
+            for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source });
+            roadFeatures.push({ type:"Feature", properties:{ maxspeed: kmh }, geometry:{ type:"LineString", coordinates: coords } });
+          } else {
+            for(let i=0;i<coords.length-1;i++) newNoLimit.push({ a: coords[i], b: coords[i+1], wayId: el.id, highway: el.tags.highway });
+            noLimitFeatures.push({ type:"Feature", properties:{ wayId: el.id, highway: el.tags.highway }, geometry:{ type:"LineString", coordinates: coords } });
+          }
+        } else if(ms){
           const coords = el.geometry.map(g => [g.lon, g.lat]);
           for(let i=0;i<coords.length-1;i++){
             newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: ms });
@@ -7125,7 +7228,7 @@
   function renderLimitEdit(){
     const w = limitEditTarget; if(!w) return;
     const admin = isAdmin();
-    document.getElementById("limitEditTitle").textContent = w.known ? "Limit na tej drodze: " + w.curMph + " mph" : "Brak limitu prędkości na tej drodze";
+    document.getElementById("limitEditTitle").textContent = w.known ? "Limit na tej drodze: " + w.curMph + " mph" + (w.src === "default" ? " (domyślny UK dla HGV)" : "") : "Brak limitu prędkości na tej drodze";
     document.getElementById("limitEditInfo").textContent = admin
       ? "Wybierz znak — limit zapisze się dla wszystkich kierowców" + (w.known ? " (zastąpi obecny)." : ".")
       : "Wybierz znak z limitem. Gdy " + SPEED_VOTE_MIN + " kierowców wskaże ten sam limit, pojawi się na znaku.";
@@ -7209,12 +7312,30 @@
     if(!w && document.getElementById("limitSign").classList.contains("unknown")) w = findNearestOsmWayForLimit();
     if(!w){
       // zawsze dajemy znak życia — wcześniej dotknięcie ❓ bez dopasowanej drogi nie robiło nic
-      showBanner("BRAK DANYCH DROGI", "Nie rozpoznano drogi w tym miejscu — poczekaj chwilę na dane drogowe i dotknij ❓ jeszcze raz", false);
+      const down = (typeof roadDataState !== "undefined") && roadDataState !== "ok";
+      showBanner("BRAK DANYCH DROGI", down
+        ? "Serwery danych drogowych (Overpass) nie odpowiadają — aplikacja ponawia próbę w tle. Dotknij ❓ za chwilę."
+        : "Nie rozpoznano drogi w tym miejscu (do 80 m od pojazdu). Podjedź na drogę i dotknij ❓ jeszcze raz.", false);
       return;
     }
-    if(w.known && !isAdmin()) return;      // gotowy limit zmienia tylko administrator
+    if(w.known) return;      // gotowy (też domyślny) limit zmienia administrator DŁUGIM przytrzymaniem znaku — patrz niżej
     openLimitEdit(w);
   });
+  // długie przytrzymanie znaku z limitem (administrator): zmiana limitu, np. domyślnego UK dla HGV
+  (function(){
+    const sign = document.getElementById("limitSign");
+    let t = null;
+    const cancel = () => { if(t){ clearTimeout(t); t = null; } };
+    sign.addEventListener("pointerdown", () => {
+      cancel();
+      t = setTimeout(() => {
+        t = null;
+        if(tapLimitWay && tapLimitWay.known && isAdmin()){ if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){} openLimitEdit(tapLimitWay); }
+      }, 650);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => sign.addEventListener(ev, cancel));
+    sign.addEventListener("contextmenu", e => e.preventDefault());
+  })();
   document.getElementById("limitEditSigns").addEventListener("click", e => {
     const b = e.target.closest(".limSignBtn"); if(b) submitLimitMph(parseInt(b.dataset.mph, 10));
   });
@@ -12537,12 +12658,13 @@
   });
 </script>
 <script>
-/* ===== js/42-nawigator-billboard.js — Billboard „NawiGator” przy autostradzie =====
-   Duży znak 3D (skalowany jak avatar) na dwóch nogach stoi po LEWEJ stronie autostrady (zewnętrzna strona jezdni, patrząc
-   w kierunku jazdy) i jest zwrócony do jadącego. Pojawia się co 5 mil jazdy autostradą
-   (pierwszy ~0,5 mili po wjeździe). Napis składa się z wytłoczonych „pikseli” (czcionka 5×7),
-   bo warstwy fill-extrusion nie rysują tekstu.
-   Zależności (wołane tylko w callbackach): map, avSm (js/11), currentSpeedKmh (js/04),
+/* ===== js/42-nawigator-billboard.js — Billboardy przy autostradzie (3D) =====
+   Duże znaki 3D (skalowane jak avatar) na dwóch nogach stoją po LEWEJ stronie autostrady, zwrócone do jadącego.
+   Pojawiają się co 5 mil jazdy autostradą (pierwszy ~0,5 mili po wjeździe), kolejno wg listy billboardów.
+   Lista billboardów (tekst / obraz / wielkość / kolory) jest edytowana w panelu nawigatora (🪧, js/43) i zapisana w localStorage.
+   Tekst i obraz rysujemy na małej bitmapie (canvas) i zamieniamy na wytłoczone „piksele” (fill-extrusion nie ma tekstur).
+   Domyślny billboard „NawiGator” ma ręcznie zbudowany model z czcionką 5×7.
+   Zależności (wołane tylko w callbackach): map, avSm, AVATARS, vehicleAvatar, avatarScale (js/11), currentSpeedKmh (js/04),
    haversine, projectPointToSegment (js/05), ukMapRoadClasses (js/32), activeRoute (js/04). */
 (function(){
   const SIGN_EVERY_M = 5 * 1609.344;   // co 5 mil
@@ -12551,46 +12673,97 @@
   const KEEP_M = 3000;                             // znaki dalej niż 3 km od pojazdu znikają
   const ROAD_EDGE_M = 9;                           // krawędź jezdni (pas + pobocze) licząc od osi, w metrach
   const SRC = "nawisign", LAYER = "nawisign-body";
+  const BB_KEY = "nawigator_billboards";
+  const DEF_BG = "#0e3b2a", DEF_FG = "#ffb300";
+  const BOARD_W = 24, BOARD_B = 6;                 // szerokość tablicy i wysokość jej dolnej krawędzi (m, przed skalowaniem)
 
-  const C = { board:"#0e3b2a", frame:"#ffb300", white:"#f4f7f2", amber:"#ffb300", leg:"#9aa3a8", foot:"#5b6368" };
-  const FONT = {
-    N:["10001","11001","10101","10011","10001","10001","10001"],
-    a:["00000","00000","01110","00001","01111","10001","01111"],
-    w:["00000","00000","10001","10001","10101","10101","01010"],
-    i:["00100","00000","01100","00100","00100","00100","01110"],
-    G:["01110","10001","10000","10111","10001","10001","01111"],
-    t:["01000","01000","11100","01000","01000","01001","00110"],
-    o:["00000","00000","01110","10001","10001","10001","01110"],
-    r:["00000","00000","10110","11001","10000","10000","10000"]
-  };
-  const WORD = "NawiGator", CELL = 0.42, LET_W = 5 * CELL, ADV = 6 * CELL;
-  const BOARD_W = 24, BOARD_B = 6, BOARD_H = 11;
+  /* ---------- lista billboardów (zapis lokalny) ---------- */
+  const defaultList = () => [{ id:"bb-brand", text:"NawiGator", scale:100, bg:DEF_BG, fg:DEF_FG, img:null, enabled:true }];
+  function loadList(){
+    try{ const j = JSON.parse(localStorage.getItem(BB_KEY) || "null"); if(Array.isArray(j) && j.length) return j; }catch(e){}
+    return defaultList();
+  }
+  let BB = loadList();
+  function saveList(){
+    try{ localStorage.setItem(BB_KEY, JSON.stringify(BB)); return true; }
+    catch(e){ console.warn("Billboardy: nie zapisano (brak miejsca?)", e); return false; }
+  }
 
-  /* ---------- model znaku w lokalnych metrach: x = w prawo, y = do przodu (kierunek jazdy), z = wysokość ---------- */
-  function box(x0, y0, x1, y1, b, h, c){ return { p:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]], b, h, c }; }
-  let MODEL = null;
-  function buildModel(){
-    if(MODEL) return MODEL;
-    const P = [];
-    // nogi i stopy
+  /* ---------- rysowanie tablicy na canvasie (podgląd + źródło „pikseli”) ---------- */
+  function splitText(t){
+    t = String(t || "").trim();
+    if(t.length > 14 && t.indexOf(" ") > 0){
+      const mid = t.length / 2; let best = -1;
+      for(let i = 0; i < t.length; i++) if(t[i] === " " && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+      return [t.slice(0, best).trim(), t.slice(best + 1).trim()];
+    }
+    return [t];
+  }
+  // wymiary tablicy w metrach i rozdzielczość bitmapy; img = załadowany obraz (albo null)
+  function boardDims(bb, img){
+    const W = BOARD_W;
+    if(bb.img){
+      const H = img ? Math.max(4, Math.min(12, W * img.naturalHeight / Math.max(1, img.naturalWidth))) : 5;
+      const cols = 64, cell = W / cols;
+      return { W, H, cols, rows: Math.max(4, Math.round(H / cell)), lines: [], image: true };
+    }
+    const lines = splitText(bb.text), H = lines.length > 1 ? 8 : 5;
+    const cols = 112, cell = W / cols;
+    return { W, H, cols, rows: Math.max(4, Math.round(H / cell)), lines, image: false };
+  }
+  function drawBoard(ctx, w, h, bb, img){
+    ctx.fillStyle = bb.bg || DEF_BG; ctx.fillRect(0, 0, w, h);
+    if(bb.img){ if(img) ctx.drawImage(img, 0, 0, w, h); return; }
+    const lines = splitText(bb.text); if(!lines.length || !lines[0]) return;
+    const fam = "'Space Grotesk','Inter',Arial,sans-serif";
+    let px = Math.floor(h / lines.length * 0.72);
+    for(; px > 4; px--){ ctx.font = "800 " + px + "px " + fam; if(lines.every(l => ctx.measureText(l).width <= w * 0.9)) break; }
+    ctx.font = "800 " + px + "px " + fam;
+    ctx.fillStyle = bb.fg || DEF_FG; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    lines.forEach((l, i) => ctx.fillText(l, w / 2, h * (i + 0.5) / lines.length + px * 0.04));
+  }
+
+  /* ---------- obrazy ---------- */
+  const imgCache = new Map();
+  function getImage(src){
+    let e = imgCache.get(src);
+    if(e) return e.ok ? e.img : null;
+    const im = new Image(); e = { img: im, ok: false }; imgCache.set(src, e);
+    im.onload = () => { e.ok = true; modelCache.clear(); render(); document.dispatchEvent(new Event("nawibb-image")); };
+    im.onerror = () => { e.bad = true; };
+    im.src = src;
+    return null;
+  }
+
+  /* ---------- modele 3D (lokalne metry: x w prawo od środka tablicy, y do przodu, wysokość b..h) ---------- */
+  const box = (x0, y0, x1, y1, b, h, c) => ({ p:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]], b, h, c });
+  function frameParts(P, H, frameCol, legCol){
     [-8, 8].forEach(cx => {
-      P.push(box(cx - .4, -.1, cx + .4, .7, 0, BOARD_B + .1, C.leg));
-      P.push(box(cx - 1.0, -.5, cx + 1.0, 1.1, 0, .4, C.foot));
+      P.push(box(cx - .4, -.1, cx + .4, .7, 0, BOARD_B + .1, legCol));
+      P.push(box(cx - 1.0, -.5, cx + 1.0, 1.1, 0, .4, "#5b6368"));
     });
-    P.push(box(-8, .1, 8, .5, 2.5, 2.85, C.leg));                    // poprzeczka między nogami
-    // tablica + ramka (przód tablicy = y 0, kierowca patrzy od strony ujemnego y)
-    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_H, C.board));
-    const fw = .3;
-    P.push(box(-BOARD_W / 2, -.2, -BOARD_W / 2 + fw, .6, BOARD_B, BOARD_H, C.frame));
-    P.push(box(BOARD_W / 2 - fw, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_H, C.frame));
-    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_H - fw, BOARD_H, C.frame));
-    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_B + fw, C.frame));
-    // napis: „Nawi” białe, „Gator” bursztynowe
-    const textW = WORD.length * ADV - CELL;
-    const letB = BOARD_B + (BOARD_H - BOARD_B - 7 * CELL) / 2;
+    P.push(box(-8, .1, 8, .5, 2.5, 2.85, legCol));
+    const top = BOARD_B + H, fw = .3;
+    P.push(box(-BOARD_W / 2, -.2, -BOARD_W / 2 + fw, .6, BOARD_B, top, frameCol));
+    P.push(box(BOARD_W / 2 - fw, -.2, BOARD_W / 2, .6, BOARD_B, top, frameCol));
+    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, top - fw, top, frameCol));
+    P.push(box(-BOARD_W / 2, -.2, BOARD_W / 2, .6, BOARD_B, BOARD_B + fw, frameCol));
+  }
+  // ręcznie zrobiony „NawiGator” (czcionka 5×7: „Nawi” białe, „Gator” bursztynowe)
+  const FONT = {
+    N:["10001","11001","10101","10011","10001","10001","10001"], a:["00000","00000","01110","00001","01111","10001","01111"],
+    w:["00000","00000","10001","10001","10101","10101","01010"], i:["00100","00000","01100","00100","00100","00100","01110"],
+    G:["01110","10001","10000","10111","10001","10001","01111"], t:["01000","01000","11100","01000","01000","01001","00110"],
+    o:["00000","00000","01110","10001","10001","10001","01110"], r:["00000","00000","10110","11001","10000","10000","10000"]
+  };
+  function buildBrand(){
+    const P = [], H = 5, CELL = .42, ADV = 6 * CELL, WORD = "NawiGator";
+    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_B + H, DEF_BG));
+    frameParts(P, H, DEF_FG, "#9aa3a8");
+    const textW = WORD.length * ADV - CELL, letB = BOARD_B + (H - 7 * CELL) / 2;
     let x = -textW / 2;
     for(let li = 0; li < WORD.length; li++){
-      const rows = FONT[WORD[li]], col = li < 4 ? C.white : C.amber;
+      const rows = FONT[WORD[li]], col = li < 4 ? "#f4f7f2" : DEF_FG;
       for(let r = 0; r < 7; r++) for(let k = 0; k < 5; k++){
         if(rows[r][k] !== "1") continue;
         const b = letB + (6 - r) * CELL;
@@ -12598,7 +12771,45 @@
       }
       x += ADV;
     }
-    MODEL = P; return P;
+    return { parts: P, W: BOARD_W };
+  }
+  const hex2 = v => (v < 16 ? "0" : "") + v.toString(16);
+  const rgb2hex = (r, g, b) => "#" + hex2(r) + hex2(g) + hex2(b);
+  function hexRgb(h){ const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function buildBitmap(bb, img){
+    const d = boardDims(bb, img), P = [];
+    P.push(box(-BOARD_W / 2, 0, BOARD_W / 2, .6, BOARD_B, BOARD_B + d.H, bb.bg || DEF_BG));
+    frameParts(P, d.H, bb.fg || DEF_FG, "#9aa3a8");
+    if(bb.img && !img) return { parts: P, W: BOARD_W };          // obraz jeszcze się ładuje — na razie sama tablica
+    const cv = document.createElement("canvas"); cv.width = d.cols; cv.height = d.rows;
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    drawBoard(ctx, d.cols, d.rows, bb, img);
+    const px = ctx.getImageData(0, 0, d.cols, d.rows).data, bg = hexRgb(bb.bg), fgHex = bb.fg || DEF_FG, cell = d.W / d.cols;
+    const depth = d.image ? .25 : .3, bgQ = rgb2hex(bg[0] & 240, bg[1] & 240, bg[2] & 240);
+    for(let r = 0; r < d.rows; r++){
+      let start = -1, cur = null;
+      const flush = end => { if(cur){ const b = BOARD_B + (d.rows - 1 - r) * cell; P.push(box(-d.W / 2 + start * cell, -depth, -d.W / 2 + end * cell, 0, b, b + cell, cur)); } cur = null; };
+      for(let c = 0; c < d.cols; c++){
+        const i = (r * d.cols + c) * 4, R = px[i], G = px[i + 1], B = px[i + 2];
+        let col = null;
+        if(d.image){ const q = rgb2hex(R & 240, G & 240, B & 240); col = q === bgQ ? null : q; }
+        else { const dist = Math.abs(R - bg[0]) + Math.abs(G - bg[1]) + Math.abs(B - bg[2]); col = dist > 150 ? fgHex : null; }
+        if(col !== cur){ flush(c); if(col){ cur = col; start = c; } }
+      }
+      flush(d.cols);
+    }
+    return { parts: P, W: d.W };
+  }
+  const modelCache = new Map();
+  function getModel(bb){
+    const key = [bb.id, bb.text, bb.bg, bb.fg, bb.img ? bb.img.length + bb.img.slice(-16) : 0].join("|");
+    let m = modelCache.get(key);
+    if(m && !(bb.img && !imgCache.has(bb.img))) return m;
+    const img = bb.img ? getImage(bb.img) : null;
+    const brand = !bb.img && bb.text === "NawiGator" && bb.bg === DEF_BG && bb.fg === DEF_FG;
+    m = brand ? buildBrand() : buildBitmap(bb, img);
+    if(!(bb.img && !img)) modelCache.set(key, m);
+    return m;
   }
 
   /* ---------- warstwa na mapie ---------- */
@@ -12612,9 +12823,8 @@
     }catch(e){ return false; }
   }
 
-  const signs = [];   // {lat, lon, hdg}
-  // Skala znaku = skala avatara (avatarScale, js/11): avatar jest rysowany powiększony, więc znak powiększamy tak samo —
-  // dzięki temu przy każdym zoomie wygląda proporcjonalnie do ciężarówki i jest dobrze widoczny.
+  const signs = [];   // {lat, lon, hdg, bbId}
+  // Skala znaku = skala avatara (avatarScale, js/11) × wielkość billboardu z panelu (30–250 %)
   let curScale = 1;
   function signScale(){
     try{
@@ -12623,16 +12833,18 @@
       return isFinite(v) && v > 0 ? v : 1;
     }catch(e){ return 1; }
   }
+  const findBB = id => BB.find(b => b.id === id);
   function render(){
     if(!ensureLayer()) return;
     const src = map.getSource(SRC); if(!src) return;
-    const model = buildModel(), feats = [], sc = curScale;
-    // środek tablicy: krawędź jezdni + połowa szerokości avatara (skalowana) + połowa tablicy (skalowana)
-    const cx = -(ROAD_EDGE_M + 1.5 * sc + (BOARD_W / 2) * sc);
+    const feats = [];
     signs.forEach(s => {
+      const bb = findBB(s.bbId); if(!bb) return;
+      const model = getModel(bb), sc = curScale * Math.max(0.3, Math.min(2.5, (bb.scale || 100) / 100));
+      const cx = -(ROAD_EDGE_M + 1.5 * curScale + (model.W / 2) * sc);
       const hr = s.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
       const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(s.lat * Math.PI / 180)));
-      model.forEach(o => {
+      model.parts.forEach(o => {
         const ring = o.p.map(p => { const x = cx + p[0] * sc, y = p[1] * sc; return [s.lon + (x * ch + y * sh) * kLon, s.lat + (-x * sh + y * ch) * kLat]; });
         ring.push(ring[0]);
         feats.push({ type:"Feature", properties:{ c:o.c, b:o.b * sc, h:o.h * sc }, geometry:{ type:"Polygon", coordinates:[ring] } });
@@ -12640,7 +12852,6 @@
     });
     src.setData({ type:"FeatureCollection", features: feats });
   }
-  // przy zmianie zoomu / avatara przeskaluj znaki (z progiem, żeby nie przebudowywać co klatkę)
   setInterval(() => {
     if(!signs.length || !map) return;
     const sc = signScale();
@@ -12674,8 +12885,15 @@
     }
     return null;
   }
-  function spawnSign(){
-    if(!map || !avSm || !avSm.init) return;
+  let rot = 0;
+  function nextBB(){
+    const on = BB.filter(b => b.enabled !== false);
+    return on.length ? on[rot++ % on.length] : null;
+  }
+  function spawnSign(bbId){
+    if(!map || !avSm || !avSm.init) return false;
+    const bb = (typeof bbId === "string" && findBB(bbId)) || nextBB();
+    if(!bb) return false;                                   // wszystkie billboardy wyłączone
     const r = aheadOnRoute(avSm.lat, avSm.lon, AHEAD_ROUTE_M);
     let s;
     if(r) s = r;
@@ -12683,9 +12901,11 @@
       const hr = avSm.hdg * Math.PI / 180, d = AHEAD_FREE_M;
       s = { lat: avSm.lat + d * Math.cos(hr) / 111320, lon: avSm.lon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180))), hdg: avSm.hdg };
     }
+    s.bbId = bb.id;
     signs.push(s);
     curScale = signScale();
     render();
+    return true;
   }
 
   /* ---------- zliczanie dystansu na autostradzie ---------- */
@@ -12707,7 +12927,6 @@
         st.offDist += step;
         if(st.offDist > 2000){ st.acc = 0; st.target = SIGN_FIRST_M; st.offDist = 0; }   // zjechał z autostrady — liczymy od nowa
       }
-      // sprzątanie znaków, które zostały daleko z tyłu
       const n0 = signs.length;
       for(let i = signs.length - 1; i >= 0; i--) if(haversine(lat, lon, signs[i].lat, signs[i].lon) > KEEP_M) signs.splice(i, 1);
       if(signs.length !== n0) render();
@@ -12715,8 +12934,115 @@
   }
   setInterval(tick, 1000);
 
-  // test z konsoli debugowania: nawiSignTest() stawia znak 300–450 m przed pojazdem
-  window.nawiSignTest = spawnSign;
+  /* ---------- API dla edytora (js/43) ---------- */
+  window.nawiBillboards = {
+    all: () => BB,
+    replace(list){ BB = list; },
+    save: saveList,
+    changed(){ modelCache.clear(); render(); },
+    spawn: spawnSign,
+    drawBoard, boardDims, getImage, defaultList,
+    colors: { bg: DEF_BG, fg: DEF_FG }
+  };
+  window.nawiSignTest = () => spawnSign();   // test z konsoli debugowania
+})();
+</script>
+<script>
+/* ===== js/43-billboard-editor.js — zakładka 🪧 w panelu nawigatora: lista billboardów, tekst, obraz, wielkość =====
+   Dane i rysowanie 3D: js/42 (window.nawiBillboards). Tu tylko interfejs. Zapis: localStorage (nawigator_billboards). */
+(function(){
+  const $ = id => document.getElementById(id);
+  const panel = $("navPanel"), btn = $("navBillboardBtn"), truckBtn = $("navTruckBtn");
+  if(!panel || !btn || !window.nawiBillboards) return;
+  const API = window.nawiBillboards;
+  let sel = 0;
+  const cur = () => API.all()[Math.min(sel, API.all().length - 1)];
+  const label = b => (b.img ? "🖼 " : "") + (b.text || "Bez tekstu");
+
+  function commit(){
+    if(!API.save()) { try{ showBanner("BRAK MIEJSCA", "Nie udało się zapisać billboardu — obraz jest za duży. Wybierz mniejszy.", false); }catch(e){} }
+    API.changed(); preview(); chips();
+  }
+  function chips(){
+    const box = $("bbChips"); box.textContent = "";
+    API.all().forEach((b, i) => {
+      const el = document.createElement("button"); el.type = "button"; el.textContent = label(b);
+      el.className = (i === sel ? "active " : "") + (b.enabled === false ? "off" : "");
+      el.addEventListener("click", () => { sel = i; fill(); });
+      box.appendChild(el);
+    });
+    const add = document.createElement("button"); add.type = "button"; add.textContent = "＋ Dodaj";
+    add.addEventListener("click", () => {
+      API.all().push({ id: "bb-" + Date.now().toString(36), text: "Mój billboard", scale: 100, bg: API.colors.bg, fg: API.colors.fg, img: null, enabled: true });
+      sel = API.all().length - 1; commit(); fill();
+    });
+    box.appendChild(add);
+  }
+  function preview(){
+    const b = cur(), cv = $("bbPreview"); if(!b) return;
+    const img = b.img ? API.getImage(b.img) : null, d = API.boardDims(b, img);
+    cv.width = 480; cv.height = Math.round(480 * d.H / d.W);
+    drawPreview(cv, b, img);
+  }
+  function drawPreview(cv, b, img){ API.drawBoard(cv.getContext("2d"), cv.width, cv.height, b, img); }
+  function fill(){
+    const b = cur(); if(!b) return;
+    $("bbText").value = b.text || ""; $("bbText").disabled = !!b.img;
+    $("bbScale").value = b.scale || 100; $("bbScaleVal").textContent = (b.scale || 100) + "%";
+    $("bbBg").value = b.bg; $("bbFg").value = b.fg; $("bbEnabled").checked = b.enabled !== false;
+    $("bbClearImg").style.display = b.img ? "" : "none";
+    $("bbPickImg").textContent = b.img ? "🖼 Zmień obraz" : "🖼 Dodaj obraz";
+    chips(); preview();
+  }
+
+  $("bbText").addEventListener("input", e => { cur().text = e.target.value; commit(); });
+  $("bbScale").addEventListener("input", e => { cur().scale = +e.target.value; $("bbScaleVal").textContent = e.target.value + "%"; });
+  $("bbScale").addEventListener("change", commit);
+  $("bbBg").addEventListener("input", e => { cur().bg = e.target.value; commit(); });
+  $("bbFg").addEventListener("input", e => { cur().fg = e.target.value; commit(); });
+  $("bbEnabled").addEventListener("change", e => { cur().enabled = e.target.checked; commit(); });
+  $("bbPickImg").addEventListener("click", () => $("bbFile").click());
+  $("bbClearImg").addEventListener("click", () => { cur().img = null; commit(); fill(); });
+  $("bbFile").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        // zmniejszamy do 400 px szerokości (JPEG) — mała objętość w localStorage; i tak rysujemy ją z rozdzielczością ok. 64 px
+        const w = Math.min(400, im.naturalWidth), h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth));
+        const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d"); ctx.fillStyle = cur().bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
+        cur().img = cv.toDataURL("image/jpeg", 0.8); commit(); fill();
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+  $("bbTest").addEventListener("click", () => {
+    if(!API.spawn(cur().id)){ try{ showBanner("BILLBOARD", "Najpierw uruchom jazdę (GPS lub symulator) — znak stanie kilkaset metrów przed pojazdem.", false); }catch(e){} }
+  });
+  $("bbDelete").addEventListener("click", () => {
+    const list = API.all(); list.splice(sel, 1);
+    if(!list.length) API.replace(API.defaultList());
+    sel = Math.max(0, Math.min(sel, API.all().length - 1)); commit(); fill();
+  });
+  document.addEventListener("nawibb-image", () => { if(panel.classList.contains("billboard-open")) preview(); });
+
+  function setOpen(on){
+    panel.classList.toggle("billboard-open", on);
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    if(on){
+      panel.classList.remove("truck-open"); if(truckBtn){ truckBtn.classList.remove("active"); truckBtn.setAttribute("aria-pressed", "false"); }
+      fill();
+      if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false);
+    }
+  }
+  btn.addEventListener("click", () => setOpen(!panel.classList.contains("billboard-open")));
+  if(truckBtn) truckBtn.addEventListener("click", () => { if(panel.classList.contains("billboard-open")) setOpen(false); });
+  const tabNav = $("navTabNav");
+  if(tabNav){ tabNav.addEventListener("click", () => setOpen(false)); tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); }); }
 })();
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
