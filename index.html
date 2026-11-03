@@ -433,9 +433,11 @@
   body.night .truckInputWrap.impPair{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
   .truckInputWrap.impPair:focus-within{ border-color: var(--accent); }
   .truckInputWrap.impPair:has(input.bad){ border-color:#ff4d4d; }
-  .truckInputWrap.impPair input{ flex:0 0 auto; min-width:0; width:2.3em; border:none !important; background:transparent !important; border-radius:0; padding:9px 2px 9px 0; text-align:right; box-sizing:content-box; }
-  .truckInputWrap.impPair input:last-of-type{ padding-left:0; }
-  .truckInputWrap.impPair em{ position:static; transform:none; padding:0 8px 0 2px; flex:0 0 auto; }
+  /* szerokość pól dopasowuje się do liczby znaków (js/35: fitImp) — liczba stoi tuż przy jednostce: „16 ft  3 in” */
+  .truckInputWrap.impPair{ gap:0; padding:0 6px; }
+  .truckInputWrap.impPair input{ flex:0 0 auto; min-width:1ch; width:2ch; border:none !important; background:transparent !important; border-radius:0; padding:9px 0; text-align:right; box-sizing:content-box; font-variant-numeric:tabular-nums; }
+  .truckInputWrap.impPair em{ position:static; transform:none; padding:0 0 0 4px; flex:0 0 auto; }
+  .truckInputWrap.impPair em:first-of-type{ margin-right:16px; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
@@ -558,6 +560,10 @@
   .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
   #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
   #poiVoteRow button{ padding:7px 10px; font-size:12px; font-weight:600; }
+  #poiAdminRow button, #poiEditBox button{ padding:8px 10px; font-size:13px; font-weight:700; }
+  #poiEditBox{ flex-direction:column; gap:8px; }
+  #poiEditInput{ padding:11px 12px; border-radius:10px; border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); font:600 15px 'Inter',system-ui,sans-serif; width:100%; box-sizing:border-box; }
+  #poiEditBox button#poiEditSave{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
   .poiCard button:disabled{ opacity:.5; }
   .poiCard input{
     width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font-size:16px;
@@ -1439,6 +1445,21 @@
     <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
     <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
   </div>
+  <div class="poiBtns" id="poiAdminRow" style="display:none">
+    <button id="poiAdminEdit" type="button">✏️ Zmień nazwę (administrator)</button>
+  </div>
+  <div id="poiEditBox" style="display:none">
+    <input id="poiEditInput" type="text" maxlength="80" autocomplete="off" placeholder="Aktualna nazwa firmy / budynku">
+    <div class="poiBtns">
+      <button id="poiEditCancel" type="button">Anuluj</button>
+      <button id="poiEditSave" type="button">Zapisz</button>
+    </div>
+    <div class="poiBtns">
+      <button id="poiEditRestore" type="button" style="display:none">↩ Nazwa z OSM</button>
+      <button id="poiEditHide" type="button">🚫 Ukryj firmę</button>
+    </div>
+    <div class="poiAddr" id="poiEditMsg"></div>
+  </div>
 </div>
 
 <div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
@@ -1613,34 +1634,63 @@
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
         <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 120 76" aria-hidden="true">
-<defs><linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26405c"/><stop offset="1" stop-color="#0e1a2c"/></linearGradient>
-<linearGradient id="trCab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#46679b"/><stop offset="1" stop-color="#27426e"/></linearGradient>
-<linearGradient id="trTrl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2d4a74"/><stop offset="1" stop-color="#1c3050"/></linearGradient>
-<filter id="trGlow" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
-<clipPath id="trClip"><rect width="120" height="76" rx="14"/></clipPath></defs>
+<defs>
+<linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b4f78"/><stop offset=".62" stop-color="#14283f"/><stop offset="1" stop-color="#0a1422"/></linearGradient>
+<radialGradient id="trHalo" cx=".62" cy=".42" r=".55"><stop offset="0" stop-color="#5fd0ff" stop-opacity=".32"/><stop offset="1" stop-color="#5fd0ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="trCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b86c8"/><stop offset=".55" stop-color="#2f5499"/><stop offset="1" stop-color="#1d3566"/></linearGradient>
+<linearGradient id="trDef" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ea3dc"/><stop offset="1" stop-color="#3d62a6"/></linearGradient>
+<linearGradient id="trTrl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfdff"/><stop offset=".6" stop-color="#d3deea"/><stop offset="1" stop-color="#9fb1c7"/></linearGradient>
+<linearGradient id="trGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16294a"/><stop offset="1" stop-color="#070d19"/></linearGradient>
+<linearGradient id="trBeam" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff6c8" stop-opacity=".55"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/></linearGradient>
+<linearGradient id="trRoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a3f"/><stop offset="1" stop-color="#0a121e"/></linearGradient>
+<filter id="trGlow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="2.4"/></filter>
+<filter id="trSoft" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="1.1"/></filter>
+<clipPath id="trClip"><rect width="120" height="76" rx="14"/></clipPath>
+<g id="trWheel"><circle r="6.3" fill="#080b10"/><circle r="6.3" fill="none" stroke="#2a3340" stroke-width=".8"/><circle r="3.4" fill="#aab6c4"/><circle r="3.4" fill="none" stroke="#6d7b8c" stroke-width=".6"/><circle r="1.3" fill="#445063"/></g>
+</defs>
 <g clip-path="url(#trClip)">
 <rect width="120" height="76" fill="url(#trBg)"/>
-<path d="M-8 68 C22 60 54 72 84 60 S116 48 130 44" fill="none" stroke="#1fe063" stroke-width="9" opacity=".6" filter="url(#trGlow)"/>
-<path d="M-8 68 C22 60 54 72 84 60 S116 48 130 44" fill="none" stroke="#63ff9a" stroke-width="3" stroke-linecap="round"/>
-<polygon points="48,12 116,19 116,47 48,56" fill="url(#trTrl)"/>
-<polygon points="48,12 116,19 118,17 52,9" fill="#4a6ea6"/>
-<g stroke="#3a5a8a" stroke-width=".9"><path d="M60 13.2V54.4M72 14.4V52.8M84 15.6V51.4M96 16.8V50M108 18V48.5"/></g>
-<polygon points="52,52 116,45 116,48 52,56" fill="#121c2c"/>
-<g fill="#0a0f17"><ellipse cx="92" cy="51" rx="4.4" ry="7"/><ellipse cx="102" cy="49.6" rx="4" ry="6.4"/><ellipse cx="111" cy="48.4" rx="3.6" ry="5.8"/></g>
-<g fill="#8a98a8"><ellipse cx="92" cy="51" rx="1.7" ry="2.8"/><ellipse cx="102" cy="49.6" rx="1.5" ry="2.6"/><ellipse cx="111" cy="48.4" rx="1.4" ry="2.3"/></g>
-<polygon points="40,17 58,19 58,57 40,59" fill="#203760"/>
-<polygon points="43,22 54,23 54,35 43,35" fill="#0c1522"/>
-<polygon points="5,24 40,17 40,59 5,63" fill="url(#trCab)"/>
-<polygon points="5,24 40,17 46,13 12,19" fill="#5d82bb" opacity=".9"/>
-<polygon points="9,28 37,22 37,37 9,42" fill="#0c1522"/>
-<polygon points="9,28 37,22 37,25 9,31" fill="#8fb0dc" opacity=".35"/>
-<polygon points="8,45 38,40 38,54 8,59" fill="#1a2c4a"/>
-<g stroke="#c4d0de" stroke-width="1.3"><path d="M8 47.6L38 42.6M8 51.2L38 46.4M8 54.8L38 50.2"/></g>
-<polygon points="6,43 14,42 14,46 6,47" fill="#e6f6ff"/><polygon points="31,38.4 38,37.2 38,41 31,42.2" fill="#e6f6ff"/>
-<polygon points="14,36 31,33 31,37 14,40" fill="#9fb2c8" opacity=".85"/>
-<polygon points="4,58 40,52 40,63 4,67" fill="#101a2a"/>
-<ellipse cx="46" cy="62" rx="9" ry="11" fill="#0a0f17"/><ellipse cx="46" cy="62" rx="4.2" ry="5.4" fill="#9aa7b5"/>
+<rect width="120" height="76" fill="url(#trHalo)"/>
+<g fill="#cfe6ff" opacity=".55"><circle cx="12" cy="8" r=".55"/><circle cx="30" cy="5" r=".45"/><circle cx="104" cy="6" r=".5"/><circle cx="116" cy="14" r=".4"/><circle cx="6" cy="19" r=".4"/></g>
+<!-- droga -->
+<path d="M0 62.5 H120 V76 H0Z" fill="url(#trRoad)"/>
+<path d="M0 62.5 H120" stroke="#3b5675" stroke-width=".7" opacity=".7"/>
+<!-- trasa: poświata, linia, przerywana oś, start i cel -->
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#19e07a" stroke-width="7" opacity=".75" filter="url(#trGlow)"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#0c5a36" stroke-width="5.6" stroke-linecap="round"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#3dff8f" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#eafff2" stroke-width=".9" stroke-linecap="round" stroke-dasharray="1.6 3.4"/>
+<!-- cień pod pojazdem -->
+<ellipse cx="62" cy="63.6" rx="54" ry="2.6" fill="#000" opacity=".5" filter="url(#trSoft)"/>
+<!-- światło reflektora -->
+<path d="M7 45.2 L-6 40 V56 L7 50.4Z" fill="url(#trBeam)"/>
+<!-- naczepa -->
+<rect x="44" y="9" width="71" height="43.5" rx="1.8" fill="url(#trTrl)"/>
+<rect x="44" y="9" width="71" height="2.6" rx="1.2" fill="#fff" opacity=".85"/>
+<g stroke="#b3c2d4" stroke-width=".55" opacity=".9"><path d="M52 12V51M60 12V51M68 12V51M76 12V51M84 12V51M92 12V51M100 12V51M108 12V51"/></g>
+<rect x="44" y="42.2" width="71" height="3.6" fill="#19c46c"/><rect x="44" y="45.8" width="71" height="1" fill="#0c7a43"/>
+<text x="79.5" y="31" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="8.2" fill="#16325c" letter-spacing=".2">Nawi<tspan fill="#0fa65a">Gator</tspan></text>
+<rect x="44" y="49.2" width="71" height="3.4" fill="#2a3442"/>
+<rect x="112.6" y="38" width="2.4" height="9" rx=".8" fill="#ff3a2e"/><rect x="112.6" y="30" width="2.4" height="3" rx=".8" fill="#ffb02e"/>
+<!-- podwozie -->
+<rect x="9" y="53.5" width="104" height="3.4" rx="1" fill="#111925"/>
+<rect x="41" y="48" width="16" height="7" rx="3.5" fill="#aeb9c6"/><rect x="41" y="48" width="16" height="2.4" rx="1.2" fill="#e8eef5" opacity=".8"/>
+<!-- kabina -->
+<path d="M22 15.4 L27 8.6 Q28 7.4 30 7.4 H41.4 V15.4Z" fill="url(#trDef)"/>
+<path d="M7.4 56 V27 Q7.4 22 11.4 19 L16.4 15.8 Q18.6 14.6 21.4 14.6 H41.4 V56Z" fill="url(#trCab)"/>
+<path d="M7.4 27 Q7.4 22 11.4 19 L16.4 15.8 Q18.6 14.6 21.4 14.6 H41.4" fill="none" stroke="#9bbcf0" stroke-width=".9" opacity=".8"/>
+<path d="M10.4 31.4 V26.6 Q10.4 24.4 12.2 23.2 L16.6 20.2 Q17.8 19.4 19.2 19.4 H38.6 Q39.6 19.4 39.6 20.4 V31.4Z" fill="url(#trGlass)"/>
+<path d="M13 31.4 L22 19.4 H27.6 L18.6 31.4Z" fill="#9fc3ee" opacity=".22"/><path d="M26 31.4 L33.6 19.4 H36 L28.4 31.4Z" fill="#9fc3ee" opacity=".16"/>
+<path d="M24 32.6 V54.4" stroke="#14264a" stroke-width=".8"/><rect x="25.6" y="38" width="4" height="1.6" rx=".8" fill="#c7d6ec"/>
+<path d="M7.4 36 H24" stroke="#7da2de" stroke-width=".6" opacity=".6"/>
+<rect x="7.4" y="43.6" width="2.4" height="5.4" rx="1" fill="#fff8d0"/><rect x="7.4" y="43.6" width="2.4" height="5.4" rx="1" fill="none" stroke="#ffe27a" stroke-width=".5"/>
+<rect x="5.6" y="53.2" width="36" height="4.2" rx="1.6" fill="#161f2d"/><rect x="5.6" y="53.2" width="36" height="1.2" rx=".6" fill="#46566c"/>
+<rect x="33" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/><rect x="26" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/>
+<!-- koła -->
+<g fill="#05080c"><circle cx="21" cy="57.4" r="7.6"/><circle cx="53" cy="57.4" r="7.6"/><circle cx="63" cy="57.4" r="7.6"/><circle cx="95" cy="57.4" r="7.6"/><circle cx="105" cy="57.4" r="7.6"/></g>
+<use href="#trWheel" x="21" y="57.4"/><use href="#trWheel" x="53" y="57.4"/><use href="#trWheel" x="63" y="57.4"/><use href="#trWheel" x="95" y="57.4"/><use href="#trWheel" x="105" y="57.4"/>
 </g>
+<rect x=".5" y=".5" width="119" height="75" rx="13.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
 </svg></button>
       </div>
     </div>
@@ -3329,26 +3379,51 @@
     }
   }
   // Autostrady w DWÓCH KIERUNKACH: w OSM każda jezdnia autostrady to osobna linia (rysowana zgodnie z kierunkiem jazdy),
-  // ale na małym zoomie obie jezdnie zlewają się w jedną kreskę. Przesuwamy każdą jezdnię w lewo (w UK jezdnia leży po lewej
-  // stronie osi, patrząc w kierunku jazdy), więc od zoomu 8 widać dwie linie; przesunięcie zanika przy dużym zoomie,
-  // gdzie jezdnie i tak są od siebie oddalone. Dotyczy dnia i nocy.
+  // ale na małym zoomie obie jezdnie zlewają się w jedną kreskę. Dlatego od zoomu 8 do 16:
+  //  1) odsuwamy każdą jezdnię na zewnątrz (w UK jezdnia leży po lewej stronie osi, patrząc w kierunku jazdy → przesunięcie w lewo),
+  //  2) zwężamy linie, żeby między jezdniami zostawał widoczny odstęp — czytelny już od zoomu 11 (zoom ≥ 16 = oryginalne szerokości).
+  // Dotyczy dnia i nocy (zmieniamy tylko geometrię linii, nie kolory).
   function setupMotorwayDirections(){
     if(!map) return;
     try{
-      const layers = (map.getStyle().layers || []).filter(l => l.type === "line" && l["source-layer"] === "transportation" && /motorway/.test(l.id) && !/link|ramp/.test(l.id));
-      const fillOf = id => id.replace(/_?casing/, "");
-      layers.forEach(l => {
-        const fill = layers.find(x => x.id === fillOf(l.id) && !/casing/.test(x.id));
-        const w = fill ? map.getPaintProperty(fill.id, "line-width") : null;
-        if(!Array.isArray(w) || w[0] !== "interpolate" || !Array.isArray(w[2]) || w[2][0] !== "zoom") return;
-        const out = [w[0], w[1], w[2]];
-        for(let i = 3; i < w.length; i += 2){
-          const z = w[i], v = w[i + 1];
-          if(typeof z !== "number" || typeof v !== "number") return;
-          const f = z < 8 ? 0 : z <= 12 ? 0.6 : z >= 16 ? 0 : 0.6 * (16 - z) / 4;
-          out.push(z, -v * f);
+      const Z    = [8,   9,   10,  11,  12,  13,  14,  15];
+      const FILL = [.5,  .7,  .9,  1.1, 1.5, 2.2, 3.2, 4.6];     // szerokość wypełnienia (px)
+      const CASE = [1.4, 1.6, 1.9, 2.3, 2.9, 3.8, 5.0, 6.8];     // szerokość obrysu (px)
+      const OFF  = [.6,  1,   1.4, 2,   2.4, 2.4, 1.8, .9];      // odsunięcie każdej jezdni od osi (px)
+      const asExpr = w => {                                       // zapis „stops” → wyrażenie interpolate
+        if(w && !Array.isArray(w) && Array.isArray(w.stops)){
+          const out = ["interpolate", ["exponential", w.base || 1], ["zoom"]];
+          w.stops.forEach(st => out.push(st[0], st[1])); return out;
         }
-        map.setPaintProperty(l.id, "line-offset", out);
+        return w;
+      };
+      const valueAt = (w, z) => {                                 // wartość oryginalnego wyrażenia przy danym zoomie
+        if(!Array.isArray(w) || w[0] !== "interpolate" || !Array.isArray(w[2]) || w[2][0] !== "zoom") return null;
+        const base = w[1][0] === "exponential" ? w[1][1] : 1;
+        let lo = null, hi = null;
+        for(let i = 3; i < w.length; i += 2){
+          const zz = w[i], v = w[i + 1]; if(typeof zz !== "number" || typeof v !== "number") return null;
+          if(zz <= z) lo = [zz, v];
+          if(zz >= z && !hi) hi = [zz, v];
+        }
+        if(!lo) return w[4]; if(!hi || hi[0] === lo[0]) return lo[1];
+        const t = base === 1 ? (z - lo[0]) / (hi[0] - lo[0]) : (Math.pow(base, z - lo[0]) - 1) / (Math.pow(base, hi[0] - lo[0]) - 1);
+        return lo[1] + (hi[1] - lo[1]) * t;
+      };
+      const layers = (map.getStyle().layers || []).filter(l => l.type === "line" && l["source-layer"] === "transportation" && /motorway/.test(l.id) && !/link|ramp/.test(l.id));
+      layers.forEach(l => {
+        const isCase = /casing/.test(l.id), w = asExpr(map.getPaintProperty(l.id, "line-width")), v16 = valueAt(w, 16);
+        if(v16 !== null){
+          const out = ["interpolate", w[1], ["zoom"]], mine = isCase ? CASE : FILL;
+          Z.forEach((z, i) => out.push(z, mine[i]));
+          out.push(16, Math.max(v16, mine[mine.length - 1]));
+          for(let i = 3; i < w.length; i += 2) if(w[i] > 16) out.push(w[i], w[i + 1]);
+          map.setPaintProperty(l.id, "line-width", out);
+        }
+        const off = ["interpolate", ["linear"], ["zoom"], 7, 0];
+        Z.forEach((z, i) => off.push(z, -OFF[i]));
+        off.push(16, 0);
+        map.setPaintProperty(l.id, "line-offset", off);
       });
     }catch(e){ console.warn("Nie udało się rozdzielić jezdni autostrad:", e); }
   }
@@ -5326,9 +5401,14 @@
 
   let hgvCompaniesLoaded = false;   // true, gdy firmy/operatorzy HGV są już na mapie (z Overpass, cache lub Supabase)
   let hgvCompaniesCache = [];
+  let hgvCompaniesRaw = [];         // firmy dokładnie jak z OSM/cache (bez poprawek administratora, js/44)
   function setHgvCompaniesData(features){
-    if(features && features.length){ hgvCompaniesLoaded = true; hgvCompaniesCache = features; }
-    if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features });
+    const has = !!(features && features.length);
+    if(has) hgvCompaniesRaw = features;
+    // poprawki nazw (nadpisanie/ukrycie przez administratora) nakładamy zawsze na świeżą kopię — cache i baza zostają „czyste”
+    const eff = has && typeof applyCompanyOverrides === "function" ? applyCompanyOverrides(features) : features;
+    if(has){ hgvCompaniesLoaded = true; hgvCompaniesCache = eff; }
+    if(map.getSource("hgv-companies")) map.getSource("hgv-companies").setData({ type:"FeatureCollection", features: eff });
   }
 
   function fetchHgvCompaniesBand(box){
@@ -8724,7 +8804,7 @@
     hgvCompaniesCache.forEach(f => {
       const n = f.properties && f.properties.name; const c = f.geometry && f.geometry.coordinates;
       if(!n || !c) return;
-      const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, lat:c[1], lon:c[0] }; }
+      const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, lat:c[1], lon:c[0], companyId: f.properties.osm_id, osmName: f.properties.osm_name || n, edited: !!f.properties.osm_name }; }
     });
     placeNames.forEach(p => { const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, lat:p.lat, lon:p.lon, placeId:p.id }; } });
     return best;
@@ -8848,10 +8928,11 @@
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId){
+  function showPoiAsk(name, lat, lon, placeId, ref){
     const seq = ++poiAskSeq;
     hideVoteCard();
-    poiAskTarget = { lat, lon, name, address: "", placeId };
+    poiAskTarget = { lat, lon, name, address: "", placeId, ref: ref || null };
+    if(typeof poiAdminRefresh === "function") poiAdminRefresh();   // administrator: „✏️ Zmień nazwę” (js/44)
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
@@ -8909,9 +8990,10 @@
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
         if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined }; }
+          placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
+          ref: (f.layer && f.layer.id === "hgv-companies-icon" && p.osm_id != null) ? { companyId: p.osm_id, osmName: p.osm_name || String(name), edited: !!p.osm_name } : null }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId); return; }
+      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.ref); return; }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
       if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
         const bLayers = map.getStyle().layers
@@ -8922,7 +9004,7 @@
           const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
           // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
           const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId); return; }
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, known.companyId != null ? { companyId: known.companyId, osmName: known.osmName, edited: known.edited } : null); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
@@ -10896,7 +10978,11 @@
       const d = DIMS[k], m = HGV_PROFILE[k], x = mToFtIn(m);
       $(d.m).value = comma(Math.round(m * 100) / 100);
       $(d.ft).value = x.ft; $(d.inch).value = comma(x.inch);
+      fitImp($(d.ft)); fitImp($(d.inch));
     }
+    // pola ft / in: szerokość = liczba znaków (min. 1), żeby między liczbą a jednostką nie było pustego miejsca
+    function fitImp(inp){ inp.style.width = Math.max(1, String(inp.value).length) + "ch"; }
+    Object.keys(DIMS).forEach(k => [DIMS[k].ft, DIMS[k].inch].forEach(id => $(id).addEventListener("input", e => fitImp(e.target))));
     function fillWt(k){
       const w = WTS[k], t = HGV_PROFILE[k];
       $(w.t).value = comma(Math.round(t * 100) / 100);
@@ -13115,6 +13201,136 @@
   const tabNav = $("navTabNav");
   if(tabNav){ tabNav.addEventListener("click", () => setOpen(false)); tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); }); }
 })();
+</script>
+<script>
+/* ===== js/44-company-name-edit.js — Administrator: poprawianie nieaktualnych nazw firm / budynków =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   • Firma z OSM (warstwa hgv-companies): poprawka trafia do osobnej tabeli hgv_company_overrides (nadpisuje nazwę z OSM, także
+     po ponownym pobraniu danych z Overpass); można też przywrócić nazwę z OSM albo ukryć firmę (np. już nie istnieje).
+   • Nazwa budynku dodana przez kierowców (place_names): administrator zmienia nazwę lub usuwa wpis.
+   Dotknij firmy / budynku na mapie → karta → „✏️ Zmień nazwę”. SQL: sql/company_name_edits.sql. */
+"use strict";
+
+  const COMPANY_OVERRIDES_KEY = "nawigator_company_overrides";
+  const companyOverrides = new Map();   // osm_id → { name, hidden }
+  (function loadLocal(){
+    try{ const o = JSON.parse(localStorage.getItem(COMPANY_OVERRIDES_KEY) || "{}"); Object.keys(o).forEach(k => companyOverrides.set(Number(k), o[k])); }catch(e){}
+  })();
+  function saveCompanyOverridesLocal(){
+    try{ const o = {}; companyOverrides.forEach((v, k) => { o[k] = v; }); localStorage.setItem(COMPANY_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+  }
+  // zwraca nową listę firm z poprawionymi nazwami (ukryte pomija); oryginalna nazwa z OSM zostaje w properties.osm_name
+  function applyCompanyOverrides(features){
+    if(!companyOverrides.size || !features || !features.length) return features;
+    const out = [];
+    for(const f of features){
+      const id = f.properties && f.properties.osm_id, ov = id != null ? companyOverrides.get(Number(id)) : null;
+      if(!ov){ out.push(f); continue; }
+      if(ov.hidden) continue;
+      out.push({ type:"Feature", geometry: f.geometry, properties: Object.assign({}, f.properties, { name: ov.name || f.properties.name, osm_name: f.properties.osm_name || f.properties.name }) });
+    }
+    return out;
+  }
+  function reapplyCompanyOverrides(){ if(hgvCompaniesRaw && hgvCompaniesRaw.length) setHgvCompaniesData(hgvCompaniesRaw); }
+  function loadCompanyOverridesRemote(){
+    fetchTableFromSupabase("hgv_company_overrides", "osm_id,name,hidden").then(rows => {
+      if(!rows) return;                                       // brak tabeli / błąd → zostają poprawki lokalne
+      companyOverrides.clear();
+      rows.forEach(r => companyOverrides.set(Number(r.osm_id), { name: r.name || "", hidden: !!r.hidden }));
+      saveCompanyOverridesLocal(); reapplyCompanyOverrides();
+    });
+  }
+  setTimeout(loadCompanyOverridesRemote, 2500);
+
+  /* ---------- zapis do Supabase (token administratora) ---------- */
+  async function supaAdminRequest(method, path, body, prefer){
+    if(!supaConfigured()) throw new Error("Brak konfiguracji Supabase");
+    const token = await supaAdminToken();
+    if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+    const headers = { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + token };
+    if(prefer) headers.Prefer = prefer;
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if(!r.ok){ let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){} throw new Error("HTTP " + r.status + (t ? " — " + t : "")); }
+  }
+  const adminEmail = () => { const s = adminSessionLoad(); return (s && s.email) || null; };
+
+  /* ---------- karta POI: wiersz administratora + edytor ---------- */
+  const $e = id => document.getElementById(id);
+  function poiAdminRefresh(){
+    const t = poiAskTarget, can = !!(t && isAdmin() && ((t.ref && t.ref.companyId != null) || t.placeId != null));
+    $e("poiAdminRow").style.display = can ? "flex" : "none";
+    $e("poiEditBox").style.display = "none";
+  }
+  function openEdit(){
+    const t = poiAskTarget; if(!t) return;
+    const isCompany = t.ref && t.ref.companyId != null;
+    $e("poiEditInput").value = t.name;
+    $e("poiEditRestore").style.display = isCompany && t.ref.edited ? "" : "none";
+    $e("poiEditHide").textContent = isCompany ? "🚫 Ukryj firmę" : "🗑 Usuń nazwę";
+    $e("poiEditMsg").textContent = isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
+    $e("poiEditBox").style.display = "flex"; $e("poiAdminRow").style.display = "none";
+    $e("poiEditInput").focus();
+  }
+  function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
+  function editMsg(t, ok){ const m = $e("poiEditMsg"); m.textContent = t; m.style.color = ok === false ? "#ff8a80" : ""; }
+  function renamePlaceLocal(oldName, lat, lon, newName){   // newName === null → usuń
+    try{
+      const arr = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
+      const out = [];
+      arr.forEach(p => {
+        if(p && p.name === oldName && _dM(p.lat, p.lon, lat, lon) < 10){ if(newName !== null) out.push(Object.assign({}, p, { name: newName })); }
+        else out.push(p);
+      });
+      localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(out));
+    }catch(e){}
+  }
+  async function saveEdit(mode){      // mode: "save" | "restore" | "hide"
+    const t = poiAskTarget; if(!t || !isAdmin()) return;
+    const isCompany = t.ref && t.ref.companyId != null;
+    const newName = $e("poiEditInput").value.trim().replace(/\s+/g, " ");
+    if(mode === "save" && newName.length < 2){ editMsg("Nazwa musi mieć co najmniej 2 znaki.", false); return; }
+    const btns = ["poiEditSave", "poiEditCancel", "poiEditRestore", "poiEditHide"].map($e); btns.forEach(b => { b.disabled = true; });
+    let warn = "";
+    try{
+      if(isCompany){
+        const id = Number(t.ref.companyId), osmName = t.ref.osmName || t.name;
+        try{
+          if(mode === "restore") await supaAdminRequest("DELETE", "hgv_company_overrides?osm_id=eq." + id);
+          else await supaAdminRequest("POST", "hgv_company_overrides?on_conflict=osm_id",
+            [{ osm_id: id, name: mode === "hide" ? osmName : newName, hidden: mode === "hide", set_by: adminEmail(), updated_at: new Date().toISOString() }],
+            "resolution=merge-duplicates,return=minimal");
+        }catch(err){ warn = " (tylko na tym urządzeniu — baza: " + (err.message || err) + ")"; }
+        if(mode === "restore") companyOverrides.delete(id);
+        else companyOverrides.set(id, { name: mode === "hide" ? osmName : newName, hidden: mode === "hide" });
+        saveCompanyOverridesLocal(); reapplyCompanyOverrides();
+        if(mode === "hide"){ hidePoiAsk(); showBanner("FIRMA UKRYTA", osmName + warn, false); return; }
+        const shown = mode === "restore" ? osmName : newName;
+        t.name = shown; t.ref.edited = mode === "save"; $e("poiAskName").textContent = shown;
+      } else {
+        const idx = placeNames.findIndex(p => p.id === t.placeId && t.placeId != null && _dM(p.lat, p.lon, t.lat, t.lon) < 5);
+        const item = idx >= 0 ? placeNames[idx] : placeNames.find(p => p.name === t.name && _dM(p.lat, p.lon, t.lat, t.lon) < 5);
+        if(t.placeId != null){
+          try{
+            if(mode === "hide") await supaAdminRequest("DELETE", "place_names?id=eq." + t.placeId);
+            else await supaAdminRequest("PATCH", "place_names?id=eq." + t.placeId, { name: newName }, "return=minimal");
+          }catch(err){ warn = " (tylko na tym urządzeniu — baza: " + (err.message || err) + ")"; }
+        } else warn = " (wpis nie jest jeszcze w bazie wspólnej — zmiana tylko na tym urządzeniu)";
+        renamePlaceLocal(t.name, t.lat, t.lon, mode === "hide" ? null : newName);
+        if(item){ if(mode === "hide") placeNames.splice(placeNames.indexOf(item), 1); else item.name = newName; renderPlaceNames(); }
+        if(mode === "hide"){ hidePoiAsk(); showBanner("NAZWA USUNIĘTA", t.name + warn, false); return; }
+        t.name = newName; $e("poiAskName").textContent = newName;
+      }
+      showBanner("NAZWA ZAPISANA", t.name + warn, false);
+      closeEdit();
+    }catch(err){ editMsg("Nie zapisano: " + (err.message || err), false); }
+    finally{ btns.forEach(b => { b.disabled = false; }); }
+  }
+  $e("poiAdminEdit").addEventListener("click", openEdit);
+  $e("poiEditCancel").addEventListener("click", closeEdit);
+  $e("poiEditSave").addEventListener("click", () => saveEdit("save"));
+  $e("poiEditRestore").addEventListener("click", () => saveEdit("restore"));
+  $e("poiEditHide").addEventListener("click", () => saveEdit("hide"));
+  $e("poiEditInput").addEventListener("keydown", e => { if(e.key === "Enter") saveEdit("save"); });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
