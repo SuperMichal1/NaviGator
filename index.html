@@ -1193,6 +1193,9 @@
 
   /* ---------- Znak ❓: droga bez podanego limitu (dotknięcie: admin wpisuje limit, kierowca głosuje) ---------- */
   #limitSign{ touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  #limitSign{ position:relative; }
+  #limitSign.hgv::after{ content:"HGV"; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%); padding:1px 6px; border-radius:7px; background:#1b2a3f; color:#fff; font:800 9px 'Inter',system-ui,sans-serif; letter-spacing:.06em; border:1px solid rgba(255,255,255,.35); }
+  #limitSign.hgv.unknown::after{ display:none; }
   #limitSign.unknown{ background: rgba(255,255,255,.22); border-color: var(--accent); cursor:pointer;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   #limitSign.unknown #limitValue{ font-size:30px; line-height:1; }
@@ -1749,6 +1752,7 @@
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefHgvLimits"> Limity dla ciężarówek (HGV, UK) — wg masy pojazdu</label>
       <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
       <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
       <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
@@ -1818,6 +1822,14 @@
         <button type="button" id="adminLoginBtn" class="navPrefBtn" style="margin:0;">Zaloguj</button>
       </div>
       <button type="button" id="adminLogoutBtn" class="navPrefBtn" style="margin:0; display:none;">Wyloguj</button>
+    </div>
+    <div id="roadBufBlock" style="margin:2px 0 12px;">
+      <div style="font-weight:700; margin-bottom:4px;">🛣 Dane dróg (offline)</div>
+      <div id="roadBufInfo" style="font-size:12px; line-height:1.4; color:var(--text-dim);"></div>
+      <button type="button" id="roadBufRoute" class="navPrefBtn" style="margin-top:6px;">📥 Pobierz drogi na trasie</button>
+      <button type="button" id="roadBufView" class="navPrefBtn adminOnly" style="margin-top:6px;">🧱 Zbuduj bufor dróg dla widoku mapy (admin)</button>
+      <button type="button" id="roadBufCancel" class="navPrefBtn" style="margin-top:6px; display:none;">Przerwij</button>
+      <div id="roadBufStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px; white-space:pre-line;"></div>
     </div>
     <div id="navKeyToggle" class="adminOnly">
       <span>🔑 Klucz API TomTom</span>
@@ -2426,6 +2438,7 @@
   let supaLastError = "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
+  let prefHgvLimits = localStorage.getItem("nawigator_pref_hgv_limits") !== "0";   // limity dla ciężarówek (UK), domyślnie włączone
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
   const PREF_VOICE_VOL = "nawigator_pref_voice_vol", PREF_VOICE_FREQ = "nawigator_pref_voice_freq";
@@ -2525,6 +2538,38 @@
     let v = parseInt(m[1], 10);
     if(/mph/i.test(tag)) v = Math.round(v * 1.60934);
     return v;
+  }
+
+  /* ---------- Limity prędkości dla ciężarówek (UK) ----------
+     Limit z OSM to zwykle limit dla samochodów osobowych. Dla pojazdów towarowych (gross > 3,5 t) obowiązują niższe maksima:
+       > 7,5 t:      autostrada 60, droga dwujezdniowa 60, jednojezdniowa 50 mph
+       3,5 – 7,5 t:  autostrada 70, droga dwujezdniowa 60, jednojezdniowa 50 mph
+     Wyższy limit „krajowy” (70 / 60) obcinamy więc do maksimum dla pojazdu; limity niższe (30, 40, 50…) zostają bez zmian.
+     Tag maxspeed:hgv z OSM ma pierwszeństwo. Masa = HGV_PROFILE.weight (panel ciężarówki); wyłączenie: Ustawienia → „Limity dla ciężarówek”. */
+  const HGV_CAPS = { heavy: { motorway: 60, dual: 60, single: 50 }, medium: { motorway: 70, dual: 60, single: 50 } };
+  function hgvTier(){
+    if(typeof prefHgvLimits !== "undefined" && !prefHgvLimits) return null;
+    const t = (typeof HGV_PROFILE !== "undefined" && HGV_PROFILE.weight) || 0;
+    return t > 7.5 ? "heavy" : t > 3.5 ? "medium" : null;
+  }
+  function roadKindForLimits(tags){
+    if(/^motorway/.test((tags && tags.highway) || "")) return "motorway";
+    return tags && (tags.oneway === "yes" || tags.oneway === "1") ? "dual" : "single";   // oneway = jedna jezdnia drogi dwujezdniowej
+  }
+  // kmh z OSM (limit „samochodowy”) → { kmh, adj } dla ciężarówki użytkownika; useExplicit=false pomija tag maxspeed:hgv
+  function hgvAdjustKmh(kmh, tags, useExplicit){
+    const tier = hgvTier(); if(!tier) return { kmh, adj: false };
+    if(useExplicit !== false && tags && tags["maxspeed:hgv"]){
+      const e = parseMaxspeed(tags["maxspeed:hgv"]);
+      if(e) return { kmh: e, adj: true };
+    }
+    const cap = HGV_CAPS[tier][roadKindForLimits(tags || {})], mph = kmh / 1.60934;
+    return mph > cap + 0.5 ? { kmh: Math.round(cap * 1.60934), adj: true } : { kmh, adj: false };
+  }
+  // odcinki z trasy (TomTom) nie mają klasy drogi — obcinamy tylko to, co na pewno za wysokie dla ciężarówki (70 → 60 mph)
+  function hgvAdjustRouteKmh(kmh){
+    const tier = hgvTier(); if(tier !== "heavy") return kmh;
+    return kmh / 1.60934 > 60.5 ? Math.round(60 * 1.60934) : kmh;
   }
 
   /* ---------- Znaki wysokości (wiadukty/przejazdy) ----------
@@ -6011,7 +6056,9 @@
       out geom;
     `;
 
-    Promise.all([tryEndpoints(query, 0), fetchSupaReports(lat, lon), fetchRoadLimits(lat, lon)])
+    // Drogi/fotoradary: najpierw własny bufor kafelków (telefon → Supabase → Overpass po prostokącie, js/45); stare zapytanie „around” tylko gdy bufor wyłączony
+    const roadsP = (typeof rtElementsAround === "function" && rtEnabled()) ? rtElementsAround(lat, lon).then(elements => ({ elements })) : tryEndpoints(query, 0);
+    Promise.all([roadsP, fetchSupaReports(lat, lon), fetchRoadLimits(lat, lon)])
       .then(([roads, supaReports]) => {
         lastRoadsElements = roads.elements || [];
         const data = { elements: lastRoadsElements.concat(parkCache ? parkCache.elements : []) };
@@ -7052,18 +7099,18 @@
     return { lat: sumLat / geometry.length, lon: sumLon / geometry.length };
   }
 
-  // Domyślny limit UK dla HGV (>7,5 t) tam, gdzie OSM mówi tylko „limit krajowy”: autostrada 60 mph, droga dwujezdniowa 60 mph,
-  // jednojezdniowa 50 mph. Zwraca { mph, source:"default" } albo null. Admin może go zmienić długim przytrzymaniem znaku.
-  function ukHgvDefaultInfo(tags){
+  // Limit „krajowy” (OSM: maxspeed=national / uk:nsl_* albo autostrada bez tagu) — wartość dla SAMOCHODU osobowego;
+  // zawężenie do limitu ciężarówki robi hgvAdjustKmh (js/05). Zwraca { mph, source:"default" } albo null.
+  function ukNationalInfo(tags){
     if(!tags) return null;
     const ms = tags.maxspeed ? String(tags.maxspeed).trim().toLowerCase() : "";
     const hw = tags.highway || "";
-    if(!ms){ return hw === "motorway" ? { mph: 60, source: "default" } : null; }   // autostrada bez tagu = limit krajowy
-    if(/^(uk|gb):nsl_single$|^nsl_single$/.test(ms)) return { mph: 50, source: "default" };
-    if(/^(uk|gb):(nsl_dual|motorway)$|^nsl_dual$/.test(ms)) return { mph: 60, source: "default" };
+    if(!ms){ return hw === "motorway" ? { mph: 70, source: "default" } : null; }   // autostrada bez tagu = limit krajowy
+    if(/^(uk|gb):nsl_single$|^nsl_single$/.test(ms)) return { mph: 60, source: "default" };
+    if(/^(uk|gb):(nsl_dual|motorway)$|^nsl_dual$/.test(ms)) return { mph: 70, source: "default" };
     if(ms === "national"){
-      if(hw === "motorway") return { mph: 60, source: "default" };
-      return { mph: tags.oneway === "yes" ? 60 : 50, source: "default" };           // oneway = jedna z jezdni drogi dwujezdniowej
+      if(hw === "motorway") return { mph: 70, source: "default" };
+      return { mph: tags.oneway === "yes" ? 70 : 60, source: "default" };
     }
     return null;
   }
@@ -7119,11 +7166,11 @@
       } else if(el.type === "way" && el.geometry && el.tags && !el.tags.maxspeed && NOLIMIT_HIGHWAY_RE.test(el.tags.highway || "")){
         // droga bez limitu w OSM: jeśli ma limit od administratora albo z głosowania — traktujemy jak zwykły;
         // inaczej znak pokaże ❓, a administrator zobaczy ją na mapie (podgląd)
-        const info = roadLimitInfo(el.id) || ukHgvDefaultInfo(el.tags);
+        const info = roadLimitInfo(el.id) || ukNationalInfo(el.tags);
         const coords = el.geometry.map(g => [g.lon, g.lat]);
         if(info){
-          const kmh = Math.round(info.mph * 1.60934);
-          for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source });
+          const adj = hgvAdjustKmh(Math.round(info.mph * 1.60934), el.tags, info.source === "default"), kmh = adj.kmh;
+          for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source, hgv: adj.adj, hgvDone: true });
           roadFeatures.push({ type:"Feature", properties:{ maxspeed: kmh }, geometry:{ type:"LineString", coordinates: coords } });
         } else {
           for(let i=0;i<coords.length-1;i++) newNoLimit.push({ a: coords[i], b: coords[i+1], wayId: el.id, highway: el.tags.highway });
@@ -7133,11 +7180,11 @@
         const ms = parseMaxspeed(el.tags.maxspeed);
         if(!ms && NOLIMIT_HIGHWAY_RE.test(el.tags.highway || "")){
           // maxspeed bez liczby (np. "national", "signals", "none") — traktujemy jak brak limitu: znak ❓, można wpisać/zagłosować
-          const info = roadLimitInfo(el.id) || ukHgvDefaultInfo(el.tags);
+          const info = roadLimitInfo(el.id) || ukNationalInfo(el.tags);
           const coords = el.geometry.map(g => [g.lon, g.lat]);
           if(info){
-            const kmh = Math.round(info.mph * 1.60934);
-            for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source });
+            const adj = hgvAdjustKmh(Math.round(info.mph * 1.60934), el.tags, info.source === "default"), kmh = adj.kmh;
+            for(let i=0;i<coords.length-1;i++) newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: kmh, wayId: el.id, limSrc: info.source, hgv: adj.adj, hgvDone: true });
             roadFeatures.push({ type:"Feature", properties:{ maxspeed: kmh }, geometry:{ type:"LineString", coordinates: coords } });
           } else {
             for(let i=0;i<coords.length-1;i++) newNoLimit.push({ a: coords[i], b: coords[i+1], wayId: el.id, highway: el.tags.highway });
@@ -7145,12 +7192,13 @@
           }
         } else if(ms){
           const coords = el.geometry.map(g => [g.lon, g.lat]);
+          const adj = hgvAdjustKmh(ms, el.tags), msH = adj.kmh;   // limit dla ciężarówki (js/05); bez zmian dla pojazdów ≤ 3,5 t
           for(let i=0;i<coords.length-1;i++){
-            newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: ms });
+            newRoads.push({ a: coords[i], b: coords[i+1], maxspeed: msH, hgv: adj.adj, hgvDone: true });
           }
           roadFeatures.push({
             type:"Feature",
-            properties:{ maxspeed: ms },
+            properties:{ maxspeed: msH },
             geometry:{ type:"LineString", coordinates: coords }
           });
         }
@@ -7265,10 +7313,10 @@
     const noOk = bestNo && bestNoDist <= 40;
     const sign = document.getElementById("limitSign");
     if(limOk && (!noOk || bestDist <= bestNoDist + 5)){
-      currentLimit = best.maxspeed;
-      // limit ustalony przez administratora / głosowanie: admin może go zmienić dotknięciem znaku
-      tapLimitWay = best.wayId ? { wayId: best.wayId, highway: null, lat, lon, known: true, src: best.limSrc,
-                                   curMph: Math.round(best.maxspeed * 0.621371) } : null;
+      currentLimit = best.hgvDone ? best.maxspeed : hgvAdjustRouteKmh(best.maxspeed);   // odcinki z trasy nie mają klasy drogi
+      // limit ustalony przez administratora / głosowanie / domyślny: administrator zmienia go długim przytrzymaniem znaku
+      tapLimitWay = best.wayId ? { wayId: best.wayId, highway: null, lat, lon, known: true, src: best.limSrc, hgv: !!best.hgv,
+                                   curMph: Math.round(currentLimit * 0.621371) } : null;
       showLimitSign(currentLimit);
       sign.classList.toggle("editable", !!(tapLimitWay && isAdmin()));
     } else if(noOk){
@@ -7280,6 +7328,18 @@
     } else {
       keepOrUnknownLimitSign();
     }
+  }
+
+  // po zmianie masy pojazdu / przełącznika „Limity dla ciężarówek”: przelicz limity z już pobranych danych dróg
+  let limRefreshTimer = null;
+  function refreshRoadLimitsForTruck(){
+    clearTimeout(limRefreshTimer);
+    limRefreshTimer = setTimeout(() => {
+      try{
+        if(lastOverpassData && lastOverpassPos) applyOverpassResult(lastOverpassData, supaRepInBox(lastOverpassPos.lat, lastOverpassPos.lon));
+        if(lastPos) updateSpeedLimit(lastPos.lat, lastPos.lon);
+      }catch(e){}
+    }, 400);
   }
 
   // Znak limitu jest widoczny cały czas (gdy włączony w ustawieniach): bez dopasowanej drogi zostaje ostatni znany limit,
@@ -7296,6 +7356,7 @@
     if(!prefShowLimitSign){ hideLimitSign(); return; }
     const sign = document.getElementById("limitSign");
     sign.classList.remove("hidden", "unknown");
+    sign.classList.toggle("hgv", !!hgvTier());   // plakietka „HGV” — limit liczony dla ciężarówki
     document.getElementById("limitValue").textContent = kmhToDisplay(limit);
     const speeding = currentSpeedKmh > limit + 3; // mały margines tolerancji (porównanie zawsze w km/h wewnętrznie)
     sign.classList.toggle("blink", speeding);
@@ -7332,7 +7393,7 @@
   function renderLimitEdit(){
     const w = limitEditTarget; if(!w) return;
     const admin = isAdmin();
-    document.getElementById("limitEditTitle").textContent = w.known ? "Limit na tej drodze: " + w.curMph + " mph" + (w.src === "default" ? " (domyślny UK dla HGV)" : "") : "Brak limitu prędkości na tej drodze";
+    document.getElementById("limitEditTitle").textContent = w.known ? "Limit na tej drodze: " + w.curMph + " mph" + (w.src === "default" ? " (limit krajowy UK)" : "") + (w.hgv ? " — dla ciężarówki" : "") : "Brak limitu prędkości na tej drodze";
     document.getElementById("limitEditInfo").textContent = admin
       ? "Wybierz znak — limit zapisze się dla wszystkich kierowców" + (w.known ? " (zastąpi obecny)." : ".")
       : "Wybierz znak z limitem. Gdy " + SPEED_VOTE_MIN + " kierowców wskaże ten sam limit, pojawi się na znaku.";
@@ -11000,7 +11061,7 @@
     function accept(k, v, els){
       const ok = inRange(k, v);
       els.forEach(el => el.classList.toggle("bad", !ok && el.value.trim() !== ""));
-      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); }
+      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); if(k === "weight" && typeof refreshRoadLimitsForTruck === "function") refreshRoadLimitsForTruck(); }
     }
     function refillWhenLeft(wrapIds, refill){
       wrapIds.forEach(id => {
@@ -11230,6 +11291,13 @@
     prefShowSpeedometer = e.target.checked;
     try{ localStorage.setItem(PREF_SHOW_SPEEDOMETER, prefShowSpeedometer ? "1" : "0"); }catch(err){}
     applyDisplayPrefs();
+  });
+  const navPrefHgvLimitsInput = document.getElementById("navPrefHgvLimits");
+  navPrefHgvLimitsInput.checked = prefHgvLimits;
+  navPrefHgvLimitsInput.addEventListener("change", (e) => {
+    prefHgvLimits = e.target.checked;
+    try{ localStorage.setItem("nawigator_pref_hgv_limits", prefHgvLimits ? "1" : "0"); }catch(err){}
+    refreshRoadLimitsForTruck();
   });
   navPrefLimitSignInput.addEventListener("change", (e) => {
     prefShowLimitSign = e.target.checked;
@@ -13331,6 +13399,212 @@
   $e("poiEditRestore").addEventListener("click", () => saveEdit("restore"));
   $e("poiEditHide").addEventListener("click", () => saveEdit("hide"));
   $e("poiEditInput").addEventListener("keydown", e => { if(e.key === "Enter") saveEdit("save"); });
+</script>
+<script>
+/* ===== js/45-road-tiles.js — Własny bufor danych dróg (kafelki) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Zamiast pytać Overpass o koło wokół pojazdu, aplikacja czyta KAFELKI dróg (0,02° × 0,03° ≈ 2,2 × 2 km) z trzech warstw:
+     1) pamięć telefonu (IndexedDB, 30 dni) — działa offline i natychmiast,
+     2) wspólna baza Supabase (tabela road_tiles, budowana przez administratora) — jedno szybkie zapytanie,
+     3) Overpass (tylko brakujący kafelek; zapytanie po prostokącie jest dużo lżejsze niż „around”) — wynik trafia do pamięci
+        telefonu, a gdy administrator jest zalogowany, także do Supabase (bufor rośnie sam podczas jazdy).
+   Kafelek zawiera drogi z limitem i bez limitu (geometria w skrócie „polyline”), kierunek jazdy (oneway) i fotoradary.
+   Ustawienia → „Dane dróg (offline)”: pobranie dróg na całej trasie; administrator: budowa bufora dla widoku mapy.
+   SQL: sql/road_tiles.sql. Wyłączenie (test): localStorage nawigator_road_tiles = "off". */
+"use strict";
+
+  const RT = { LAT: 0.02, LON: 0.03, PAD: 0.0015, VER: 1, LOCAL_MAX_AGE_MS: 30 * 24 * 3600 * 1000, PREFIX: "roadtile_v1:" };
+  const rtEnabled = () => { try{ return localStorage.getItem("nawigator_road_tiles") !== "off"; }catch(e){ return true; } };
+  const rtId = (iy, ix) => iy + "_" + ix;
+  const rtOf = (lat, lon) => ({ iy: Math.floor(lat / RT.LAT), ix: Math.floor(lon / RT.LON) });
+  function rtBbox(iy, ix){ return { s: iy * RT.LAT, w: ix * RT.LON, n: (iy + 1) * RT.LAT, e: (ix + 1) * RT.LON }; }
+  function rtParse(id){ const a = id.split("_"); return { iy: +a[0], ix: +a[1] }; }
+
+  /* ---------- polyline (precyzja 1e-5° ≈ 1 m) ---------- */
+  function rtEncNum(v){ v = v < 0 ? ~(v << 1) : (v << 1); let s = ""; while(v >= 0x20){ s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); }
+  function rtPolyEnc(pts){ let o = "", pa = 0, pb = 0; for(const p of pts){ const a = Math.round(p[0] * 1e5), b = Math.round(p[1] * 1e5); o += rtEncNum(a - pa) + rtEncNum(b - pb); pa = a; pb = b; } return o; }
+  function rtPolyDec(s){
+    const out = []; let i = 0, a = 0, b = 0;
+    const next = () => { let r = 0, sh = 0, c; do{ c = s.charCodeAt(i++) - 63; r |= (c & 0x1f) << sh; sh += 5; }while(c >= 0x20 && i < s.length + 1); return (r & 1) ? ~(r >> 1) : (r >> 1); };
+    while(i < s.length){ a += next(); b += next(); out.push([a / 1e5, b / 1e5]); }
+    return out;
+  }
+
+  /* ---------- Overpass → kafelek ---------- */
+  const RT_HW = "motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street";
+  function rtQuery(iy, ix){
+    const t = rtBbox(iy, ix), f = x => +x.toFixed(6), b = `${f(t.s)},${f(t.w)},${f(t.n)},${f(t.e)}`, p = RT.PAD;
+    return `[out:json][timeout:30];(way["maxspeed"](${b});way["highway"~"^(${RT_HW})$"][!"maxspeed"](${b});node["highway"="speed_camera"](${b});node["hazard"="speed_camera"](${b}););out geom(${f(t.s - p)},${f(t.w - p)},${f(t.n + p)},${f(t.e + p)});`;
+  }
+  function rtCompact(json){
+    const w = [], c = [];
+    (json.elements || []).forEach(el => {
+      if(el.type === "way" && el.geometry){
+        const pts = el.geometry.filter(p => p && p.lat != null).map(p => [p.lat, p.lon]); if(pts.length < 2) return;
+        const t = el.tags || {};
+        w.push([el.id, t.highway || "", t.maxspeed || "", (t.oneway === "yes" || t.oneway === "1") ? 1 : 0, rtPolyEnc(pts), t["maxspeed:hgv"] || ""]);
+      } else if(el.type === "node" && el.lat != null){
+        c.push([Math.round(el.lat * 1e6) / 1e6, Math.round(el.lon * 1e6) / 1e6, (el.tags && el.tags.maxspeed) || ""]);
+      }
+    });
+    return { v: RT.VER, t: Date.now(), w, c };
+  }
+  // kafelek → elementy w formacie Overpass (to czyta applyOverpassResult)
+  function rtDecode(id, d){
+    const q = rtParse(id), base = 1000000 + Math.abs(q.iy * 100003 + q.ix) * 1000;
+    const ways = (d.w || []).map(r => {
+      const tags = { highway: r[1] }; if(r[2]) tags.maxspeed = r[2]; if(r[3]) tags.oneway = "yes"; if(r[5]) tags["maxspeed:hgv"] = r[5];
+      return { type: "way", id: r[0], tags, geometry: rtPolyDec(r[4]).map(p => ({ lat: p[0], lon: p[1] })) };
+    });
+    const cams = (d.c || []).map((r, i) => ({ type: "node", id: -(base + i), lat: r[0], lon: r[1], tags: Object.assign({ highway: "speed_camera" }, r[2] ? { maxspeed: r[2] } : {}) }));
+    return { ways, cams };
+  }
+
+  /* ---------- warstwy: pamięć → IndexedDB → Supabase → Overpass ---------- */
+  const rtMem = new Map();            // id → { data, dec }
+  function rtMemSet(id, data){ rtMem.set(id, { data, dec: null }); if(rtMem.size > 40) rtMem.delete(rtMem.keys().next().value); }
+  async function rtLocalGet(id){
+    const m = rtMem.get(id); if(m) return m.data;
+    const L = await idbGet(RT.PREFIX + id);
+    if(L && L.v === RT.VER && Date.now() - L.t < RT.LOCAL_MAX_AGE_MS){ rtMemSet(id, L); return L; }
+    return null;
+  }
+  async function rtSupaGet(ids){
+    if(!ids.length || !supaConfigured() || supaMissingTables.has("road_tiles")) return {};
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 10000);
+    try{
+      const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/road_tiles?select=id,data&id=in.(" + ids.join(",") + ")", { headers: { "apikey": supaKey, "Authorization": "Bearer " + supaKey }, signal: ctl.signal });
+      if(r.status === 404){ supaMissingTables.add("road_tiles"); debugLog("warn", "Bufor dróg: w Supabase brak tabeli road_tiles (uruchom sql/road_tiles.sql) — używam Overpass."); return {}; }
+      if(!r.ok) return {};
+      const out = {}; (await r.json()).forEach(row => { if(row && row.data && row.data.w) out[row.id] = row.data; });
+      return out;
+    }catch(e){ return {}; } finally{ clearTimeout(to); }
+  }
+  async function rtStore(id, data){ rtMemSet(id, data); await idbSet(RT.PREFIX + id, data); }
+  async function rtUpload(id, data){
+    const row = { id, data, n_ways: (data.w || []).length, fetched_at: new Date().toISOString(), set_by: adminEmail() };
+    await supaAdminRequest("POST", "road_tiles?on_conflict=id", [row], "resolution=merge-duplicates,return=minimal");
+  }
+  async function rtFromOverpass(id, soft){
+    const q = rtParse(id), json = await tryEndpoints(rtQuery(q.iy, q.ix), 0, 25000, soft);
+    const data = rtCompact(json);
+    await rtStore(id, data);
+    if(isAdmin() && supaConfigured()) rtUpload(id, data).catch(() => {});     // administrator buduje wspólny bufor „przy okazji”
+    return data;
+  }
+
+  /* ---------- elementy wokół pozycji (to woła js/17 zamiast zapytania „around”) ---------- */
+  let rtBackfilling = false, rtLastRefetch = 0;
+  function rtRing(lat, lon){
+    const c = rtOf(lat, lon), ids = [{ id: rtId(c.iy, c.ix), d: 0 }];
+    for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+      if(!dx && !dy) continue;
+      const b = rtBbox(c.iy + dy, c.ix + dx);
+      ids.push({ id: rtId(c.iy + dy, c.ix + dx), d: haversine(lat, lon, Math.min(Math.max(lat, b.s), b.n), Math.min(Math.max(lon, b.w), b.e)) });
+    }
+    return ids.sort((a, b) => a.d - b.d).map(x => x.id);
+  }
+  function rtElements(ids, lat, lon){
+    const out = [];
+    ids.forEach(id => {
+      const m = rtMem.get(id); if(!m) return;
+      if(!m.dec) m.dec = rtDecode(id, m.data);
+      m.dec.ways.forEach(w => {                      // tylko drogi w pobliżu pojazdu (jak dawne „around”)
+        for(const g of w.geometry){
+          if(Math.abs(g.lat - lat) < 0.012 && Math.abs(g.lon - lon) < 0.02 && haversine(lat, lon, g.lat, g.lon) < ROAD_RADIUS_M * 1.15){ out.push(w); return; }
+        }
+      });
+      m.dec.cams.forEach(n => { if(Math.abs(n.lat - lat) < 0.03 && Math.abs(n.lon - lon) < 0.05 && haversine(lat, lon, n.lat, n.lon) <= CAMERA_RADIUS_M) out.push(n); });
+    });
+    return out;
+  }
+  async function rtElementsAround(lat, lon){
+    const ids = rtRing(lat, lon), src = { mem: 0, supabase: 0, overpass: 0 };
+    let missing = [];
+    for(const id of ids){ if(await rtLocalGet(id)) src.mem++; else missing.push(id); }
+    if(missing.length){                              // jedno zapytanie do Supabase o wszystkie brakujące
+      const rows = await rtSupaGet(missing);
+      for(const id of Object.keys(rows)){ rows[id].t = rows[id].t || Date.now(); await rtStore(id, rows[id]); src.supabase++; }
+      missing = missing.filter(id => !rows[id]);
+    }
+    if(missing.length && missing[0] === ids[0]){     // brakuje kafelka POD pojazdem → czekamy na Overpass (inaczej brak limitu)
+      await rtFromOverpass(ids[0], false); src.overpass++; missing.shift();
+    }
+    debugLog("info", `Dane dróg: ${ids.length - missing.length}/${ids.length} kafelków (telefon ${src.mem}, baza ${src.supabase}, Overpass ${src.overpass})`);
+    if(missing.length) rtBackfill(missing);          // sąsiednie kafelki dociągamy w tle
+    return rtElements(ids, lat, lon);
+  }
+  async function rtBackfill(ids){
+    if(rtBackfilling) return; rtBackfilling = true;
+    try{
+      for(const id of ids){
+        try{ await rtFromOverpass(id, true); }catch(e){ continue; }
+        if(lastPos && Date.now() - rtLastRefetch > 5000){ rtLastRefetch = Date.now(); fetchOverpassData(lastPos.lat, lastPos.lon); }
+      }
+    } finally{ rtBackfilling = false; }
+  }
+
+  /* ---------- pobieranie z góry: trasa (offline) i widok mapy (administrator) ---------- */
+  let rtCancel = false;
+  const $r = id => document.getElementById(id);
+  const rtSay = t => { const el = $r("roadBufStatus"); if(el) el.textContent = t; };
+  function rtTilesAlongRoute(){
+    const c = activeRoute && activeRoute.coords, set = new Set(); if(!c || c.length < 2) return [];
+    let acc = 1e9;
+    for(let i = 0; i < c.length; i++){
+      if(i) acc += haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]);
+      if(acc >= 400 || i === c.length - 1){ acc = 0; const t = rtOf(c[i][1], c[i][0]); set.add(rtId(t.iy, t.ix)); }
+    }
+    return Array.from(set);
+  }
+  function rtTilesInView(){
+    const b = map.getBounds(), a = rtOf(b.getSouth(), b.getWest()), z = rtOf(b.getNorth(), b.getEast()), out = [];
+    for(let iy = a.iy; iy <= z.iy; iy++) for(let ix = a.ix; ix <= z.ix; ix++) out.push(rtId(iy, ix));
+    return out;
+  }
+  // upload=true: administrator buduje wspólny bufor (pomija kafelki, które już są w Supabase)
+  async function rtPrefetch(ids, upload){
+    rtCancel = false; const total = ids.length; let done = 0, fromNet = 0, fromOsm = 0, failed = 0;
+    const tick = () => rtSay(`Kafelki: ${done}/${total} (z bazy ${fromNet}, z Overpass ${fromOsm}${failed ? ", błędy " + failed : ""})`);
+    tick();
+    for(let i = 0; i < ids.length && !rtCancel; i += 25){
+      const chunk = ids.slice(i, i + 25);
+      let need = [];
+      for(const id of chunk){ if(!upload && await rtLocalGet(id)) done++; else need.push(id); }
+      const rows = await rtSupaGet(need);
+      for(const id of Object.keys(rows)){ rows[id].t = rows[id].t || Date.now(); await rtStore(id, rows[id]); fromNet++; done++; }
+      need = need.filter(id => !rows[id]);
+      tick();
+      for(const id of need){
+        if(rtCancel) break;
+        try{ const d = await rtFromOverpass(id, true); if(upload) await rtUpload(id, d); fromOsm++; }catch(e){ failed++; }
+        done++; tick();
+        await new Promise(r => setTimeout(r, 1200));   // grzecznie wobec serwerów Overpass
+      }
+    }
+    rtSay((rtCancel ? "Przerwano. " : "Gotowe. ") + `Kafelki: ${done}/${total} (z bazy ${fromNet}, z Overpass ${fromOsm}${failed ? ", błędy " + failed : ""}).`);
+    rtInfo();
+  }
+  async function rtLocalCount(){
+    try{
+      const db = await idbOpen();
+      return await new Promise(res => { const r = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).count(IDBKeyRange.bound(RT.PREFIX, RT.PREFIX + "\uffff")); r.onsuccess = () => res(r.result); r.onerror = () => res(0); });
+    }catch(e){ return 0; }
+  }
+  async function rtInfo(){ const el = $r("roadBufInfo"); if(el) el.textContent = `Zapisane na tym telefonie: ${await rtLocalCount()} kafelków dróg (≈ 2 × 2 km każdy).`; }
+  function rtBusy(on){ ["roadBufRoute", "roadBufView"].forEach(i => { const b = $r(i); if(b) b.disabled = on; }); const c = $r("roadBufCancel"); if(c) c.style.display = on ? "" : "none"; }
+  async function rtRun(ids, upload){
+    if(!ids.length){ rtSay(upload ? "Nie ma kafelków do pobrania." : "Najpierw wyznacz trasę."); return; }
+    if(ids.length > 600){ rtSay(`Za dużo kafelków (${ids.length}) — przybliż mapę (maks. 600).`); return; }
+    rtBusy(true); try{ await rtPrefetch(ids, upload); } finally{ rtBusy(false); }
+  }
+  $r("roadBufRoute").addEventListener("click", () => rtRun(rtTilesAlongRoute(), false));
+  $r("roadBufView").addEventListener("click", () => {
+    if(!supaConfigured()) { rtSay("Najpierw skonfiguruj Supabase."); return; }
+    rtRun(rtTilesInView(), true);
+  });
+  $r("roadBufCancel").addEventListener("click", () => { rtCancel = true; });
+  setTimeout(rtInfo, 1500);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
