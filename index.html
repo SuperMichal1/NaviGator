@@ -827,6 +827,19 @@
   .pickRow .pbtn:active{ transform:scale(.92); }
   .pickRow .grip{ touch-action:none; cursor:grab; font-size:20px; line-height:1; }
   .pickRow.dragging{ opacity:.92; border-color:var(--gator); box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative; z-index:2; }
+
+  /* karta „Objazd” przed ograniczeniem wysokości / tonażu / szerokości (js/46) */
+  #detourCard{ position:fixed; left:10px; right:10px; z-index:9100; display:none; flex-direction:column; gap:6px;
+    top:calc(var(--guidance-h, 0px) + max(14px, env(safe-area-inset-top)) + 84px);
+    padding:12px 14px; border-radius:18px; background:#3a1010; color:#fff; border:2px solid #ff5a4d; box-shadow:0 8px 28px rgba(0,0,0,.55); }
+  #detourCard.show{ display:flex; }
+  #detourTitle{ font:800 16px 'Inter',system-ui,sans-serif; letter-spacing:.01em; }
+  #detourText{ font:600 14px 'Inter',system-ui,sans-serif; opacity:.92; }
+  .detourBtns{ display:flex; gap:8px; margin-top:4px; }
+  .detourBtns button{ flex:1; min-height:52px; border-radius:14px; border:0; font:800 17px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #detourGo{ background:#ff5a4d; color:#fff; }
+  #detourGo:disabled{ opacity:.65; }
+  #detourSkip{ background:rgba(255,255,255,.16); color:#fff; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -874,9 +887,10 @@
   #navRouteInfo:not(.planning) #navTripStats{ display:flex; }
   .cuTitle{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); }
   #avatarGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-  .avatarOpt{ aspect-ratio:1; border-radius:12px; padding:4px; cursor:pointer; background:rgba(128,128,128,.16); border:2px solid transparent; display:flex; align-items:center; justify-content:center; }
+  .avatarOpt{ aspect-ratio:1; border-radius:14px; padding:2px; cursor:pointer; background:linear-gradient(160deg, rgba(255,255,255,.14), rgba(128,128,128,.10)); border:2px solid transparent; display:flex; align-items:center; justify-content:center; transition:transform .12s ease, background .12s ease; }
+  .avatarOpt:active{ transform:scale(.94); }
   .avatarOpt svg{ width:100%; height:100%; }
-  .avatarOpt.active{ border-color:var(--gator); background:rgba(124,154,58,.22); }
+  .avatarOpt.active{ border-color:var(--gator); background:linear-gradient(160deg, rgba(124,154,58,.34), rgba(124,154,58,.14)); box-shadow:0 0 0 1px rgba(124,154,58,.35), 0 4px 14px rgba(0,0,0,.25); }
   .cuHead{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
   #colorToggle{ width:32px; height:32px; border-radius:50%; border:0; background:transparent; color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:.7; transition:opacity .2s, background .2s; }
   #colorToggle.on{ opacity:1; background:rgba(128,128,128,.2); color:var(--text-main); }
@@ -1395,6 +1409,14 @@
 
 <div id="map"></div>
 
+<div id="detourCard" role="alertdialog" aria-live="assertive">
+  <div id="detourTitle"></div>
+  <div id="detourText"></div>
+  <div class="detourBtns">
+    <button id="detourGo" type="button">🔀 Objazd</button>
+    <button id="detourSkip" type="button">Jadę dalej</button>
+  </div>
+</div>
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
     <div class="banner-icon">📷</div>
@@ -1752,7 +1774,6 @@
       <div class="navTitle">Widoczność na ekranie</div>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefHgvLimits"> Limity dla ciężarówek (HGV, UK) — wg masy pojazdu</label>
       <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
       <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
       <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
@@ -2438,7 +2459,6 @@
   let supaLastError = "";
   let prefShowSpeedometer = localStorage.getItem(PREF_SHOW_SPEEDOMETER) !== "0"; // domyślnie widoczny
   let prefShowLimitSign = localStorage.getItem(PREF_SHOW_LIMIT_SIGN) !== "0";     // domyślnie widoczny
-  let prefHgvLimits = localStorage.getItem("nawigator_pref_hgv_limits") !== "0";   // limity dla ciężarówek (UK), domyślnie włączone
   const PREF_VOICE = "nawigator_pref_voice";
   let prefVoice = localStorage.getItem(PREF_VOICE) !== "0";                        // głos domyślnie włączony
   const PREF_VOICE_VOL = "nawigator_pref_voice_vol", PREF_VOICE_FREQ = "nawigator_pref_voice_freq";
@@ -2543,14 +2563,14 @@
   /* ---------- Limity prędkości dla ciężarówek (UK) ----------
      Limit z OSM to zwykle limit dla samochodów osobowych. Dla pojazdów towarowych (gross > 3,5 t) obowiązują niższe maksima:
        > 7,5 t:      autostrada 60, droga dwujezdniowa 60, jednojezdniowa 50 mph
-       3,5 – 7,5 t:  autostrada 70, droga dwujezdniowa 60, jednojezdniowa 50 mph
+       do 7,5 t:     autostrada 70, droga dwujezdniowa 60, jednojezdniowa 50 mph
      Wyższy limit „krajowy” (70 / 60) obcinamy więc do maksimum dla pojazdu; limity niższe (30, 40, 50…) zostają bez zmian.
-     Tag maxspeed:hgv z OSM ma pierwszeństwo. Masa = HGV_PROFILE.weight (panel ciężarówki); wyłączenie: Ustawienia → „Limity dla ciężarówek”. */
+     Tag maxspeed:hgv z OSM ma pierwszeństwo. Nawigacja jest dla kierowców HGV, więc limity ciężarówki są ZAWSZE włączone (bez przełącznika);
+     masa = HGV_PROFILE.weight (panel ciężarówki): > 7,5 t → „heavy”, w przeciwnym razie „medium”. */
   const HGV_CAPS = { heavy: { motorway: 60, dual: 60, single: 50 }, medium: { motorway: 70, dual: 60, single: 50 } };
   function hgvTier(){
-    if(typeof prefHgvLimits !== "undefined" && !prefHgvLimits) return null;
     const t = (typeof HGV_PROFILE !== "undefined" && HGV_PROFILE.weight) || 0;
-    return t > 7.5 ? "heavy" : t > 3.5 ? "medium" : null;
+    return t > 7.5 ? "heavy" : "medium";
   }
   function roadKindForLimits(tags){
     if(/^motorway/.test((tags && tags.highway) || "")) return "motorway";
@@ -3890,8 +3910,9 @@
   }
 </script>
 <script>
-/* ===== js/11-motorway-asphalt.js — Asfalt autostrad w 3D, satelita, awatar pojazdu =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
+/* ===== js/11a-motorway-asphalt.js — Asfalt autostrad w 3D, kamera jazdy, etykieta trasy alternatywnej =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Dawny js/11-motorway-asphalt.js rozbity na 11a–11d (kolejność ładowania zachowana; wszystkie cztery ładują się jeden po drugim). */
 "use strict";
 
   /* ============================================================
@@ -4142,6 +4163,12 @@
     if(onClick) el.addEventListener("click", ev => { ev.stopPropagation(); onClick(); });
     altLabelMarker = new maplibregl.Marker({ element: el }).setLngLat(at).addTo(map);
   }
+</script>
+<script>
+/* ===== js/11b-avatars-2d.js — Kolory trasy i avatara, definicje avatarów (SVG z góry), rozmiar avatara, styl znacznika =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Dawny js/11-motorway-asphalt.js rozbity na 11a–11d (kolejność ładowania zachowana; wszystkie cztery ładują się jeden po drugim). */
+"use strict";
 
   // Trasa w trybie nocnym: neonowy cyjan (#1DF5FF) z błękitną poświatą; w dzień bez zmian
   const ROUTE_COLOR_KEY = "nawigator_route_color", AVATAR_KEY = "nawigator_avatar", AVATAR_COLOR_KEY = "nawigator_avatar_color";
@@ -4367,6 +4394,12 @@
     svg.innerHTML = userMarkerSvgInner(night);
     svg._px = null; applyAvatarSize();
   }
+</script>
+<script>
+/* ===== js/11c-avatars-3d.js — Avatary w prawdziwym 3D (fill-extrusion): modele ciężarówki / auta / aligatora i warstwa na mapie =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Dawny js/11-motorway-asphalt.js rozbity na 11a–11d (kolejność ładowania zachowana; wszystkie cztery ładują się jeden po drugim). */
+"use strict";
 
   /* ---------- Avatary w prawdziwym 3D (fill-extrusion MapLibre) ----------
      Pojazd to zestaw brył (x w prawo, y do przodu, metry; (0,0) = pozycja GPS) rysowanych jako warstwa 3D mapy:
@@ -4590,6 +4623,12 @@
     model.parts.forEach(o => feats.push({ type:"Feature", properties:{ sh:0, c:o.c, b:o.b * s, h:o.h * s }, geometry:{ type:"Polygon", coordinates: conv(o.p, o.tr) } }));
     src.setData({ type:"FeatureCollection", features: feats });
   }
+</script>
+<script>
+/* ===== js/11d-satellite-marker.js — Mapa satelitarna, panel kolorów trasy/avatara, znacznik pozycji, płynny ruch avatara =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Dawny js/11-motorway-asphalt.js rozbity na 11a–11d (kolejność ładowania zachowana; wszystkie cztery ładują się jeden po drugim). */
+"use strict";
 
   /* ---------- Mapa satelitarna (Mapbox Raster Tiles API) ----------
      Wystarczy „Default public token” (pk.…) z konta Mapbox — osobny klucz API nie jest potrzebny.
@@ -4739,22 +4778,41 @@
     hueAnim = requestAnimationFrame(step);
   }
   function setCtxColor(hex){ if(colorCtx === "route") setRouteColor(hex); else setAvatarColor(hex); }
+  // Kafelki w menu „Avatar i trasa”: pojazdy obrócone o -32° (wypełniają kafelek, wyglądają dynamicznie), miękki cień pod spodem,
+  // ikona trasy ze świecącą linią, punktem startu i pinezką celu. Identyfikatory filtrów SVG z prefiksem „avt” (unikalne w stronie).
+  function avatarTileSvg(k){
+    const acc = avatarAccent();
+    if(k === "arrow"){
+      return `<svg viewBox="0 0 100 100"><defs><linearGradient id="avtAg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eafffb"/><stop offset="1" stop-color="${acc}"/></linearGradient><filter id="avtAb" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter></defs>` +
+        `<g transform="translate(50 52) rotate(-32)"><ellipse cx="2" cy="26" rx="22" ry="7" fill="#000" opacity=".35" filter="url(#avtAb)"/>` +
+        `<path d="M0 -34 L22 26 L0 14 L-22 26 Z" fill="${acc}" opacity=".5" filter="url(#avtAb)"/>` +
+        `<path d="M0 -34 L22 26 L0 14 L-22 26 Z" fill="url(#avtAg)" stroke="#0c0f12" stroke-width="3" stroke-linejoin="round"/>` +
+        `<path d="M0 -26 L0 12" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/></g></svg>`;
+    }
+    const A = AVATARS[k], v = A.ivb.split(" ").map(Number), cx = v[0] + v[2] / 2, cy = v[1] + v[3] / 2;
+    const sc = k === "truck" ? 1.28 : k === "car" ? 2.35 : 1.75;
+    return `<svg viewBox="0 0 100 100"><defs><filter id="avtSh${k}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>` +
+      `<ellipse cx="52" cy="85" rx="${k === "truck" ? 36 : 26}" ry="6" fill="#000" opacity=".28" filter="url(#avtSh${k})"/>` +
+      `<g transform="translate(50 49) rotate(-32) scale(${sc}) translate(${-cx} ${-cy})">${avatarSvgInner(k, "g" + k)}</g></svg>`;
+  }
+  function routeTileSvg(rc){
+    const d = "M16 84 C14 52 66 66 78 22";
+    return `<svg viewBox="0 0 100 100"><defs><filter id="avtRg" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.6"/></filter></defs>` +
+      `<path d="${d}" fill="none" stroke="${rc}" stroke-width="15" stroke-linecap="round" opacity=".55" filter="url(#avtRg)"/>` +
+      `<path d="${d}" fill="none" stroke="#0c0f12" stroke-width="14" stroke-linecap="round" opacity=".7"/>` +
+      `<path d="${d}" fill="none" stroke="${rc}" stroke-width="9.5" stroke-linecap="round"/>` +
+      `<path d="${d}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" stroke-linecap="round" stroke-dasharray="1.5 7"/>` +
+      `<circle cx="16" cy="84" r="6.2" fill="#fff" stroke="#0c0f12" stroke-width="2"/><circle cx="16" cy="84" r="2.2" fill="#0c0f12"/>` +
+      `<path d="M78 10 a11 11 0 0 1 11 11 c0 9 -11 19 -11 19 s-11 -10 -11 -19 a11 11 0 0 1 11 -11z" fill="#ff3b30" stroke="#fff" stroke-width="2.4"/><circle cx="78" cy="21" r="4" fill="#fff"/></svg>`;
+  }
   function refreshCustomizeUi(){
     const grid = document.getElementById("avatarGrid");
     if(!grid) return;
     const keys = ["arrow", "truck", "car", "gator"];
-    const tiles = keys.map(k => {
-      const inner = avatarSvgInner(k, "g" + k);
-      const svg = inner ? `<svg viewBox="${AVATARS[k].ivb}">${inner}</svg>`
-        : `<svg viewBox="0 0 52 52"><path d="M26 6 L38 42 L26 34 L14 42 Z" fill="${avatarAccent()}" stroke="#0c0f12" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-      return `<div class="avatarOpt${(k === vehicleAvatar && colorCtx === "avatar") ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${svg}</div>`;
-    });
+    const tiles = keys.map(k =>
+      `<div class="avatarOpt${(k === vehicleAvatar && colorCtx === "avatar") ? " active" : ""}" data-av="${k}" role="button" aria-label="${AVATARS[k].name}" title="${AVATARS[k].name}">${avatarTileSvg(k)}</div>`);
     const rc = customRouteColor || (document.body.classList.contains("night") ? "#1DF5FF" : "#1FD6C1");
-    tiles.push(`<div class="avatarOpt routeOpt${colorCtx === "route" ? " active" : ""}" data-route="1" role="button" aria-label="Trasa" title="Trasa"><svg viewBox="0 0 52 52">` +
-      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="#0c0f12" stroke-width="10" stroke-linecap="round" opacity=".6"/>` +
-      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="${rc}" stroke-width="6.4" stroke-linecap="round"/>` +
-      `<path d="M10 43 C10 25 42 31 42 11" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1 5"/>` +
-      `<circle cx="10" cy="43" r="3.6" fill="#fff" stroke="#0c0f12" stroke-width="1.3"/><circle cx="42" cy="11" r="4" fill="${rc}" stroke="#fff" stroke-width="1.6"/><circle cx="42" cy="11" r="1.4" fill="#fff"/></svg></div>`);
+    tiles.push(`<div class="avatarOpt routeOpt${colorCtx === "route" ? " active" : ""}" data-route="1" role="button" aria-label="Trasa" title="Trasa">${routeTileSvg(rc)}</div>`);
     grid.innerHTML = tiles.join("");
   }
   safeInit("przełącznik dróg płatnych", () => {
@@ -10081,9 +10139,9 @@
     return prev && prev.ref ? prev.ref : null;
   }
 
-  // ostrzeżenia HGV: ograniczenia wysokości/tonażu/szerokości z trasy (tylko te, które dotyczą Twojego pojazdu),
-  // leżące przy manewrze (do 250 m za nim) albo najbliższe na trasie w ciągu ~2 mil
-  const UK_HGV_LOOKAHEAD_M = 3200, UK_HGV_AT_STEP_M = 250;
+  // ostrzeżenia HGV: ograniczenia wysokości/tonażu/szerokości z trasy (tylko te, które pojazd przekracza),
+  // leżące przy manewrze (do 250 m za nim) albo najbliższe na trasie w ciągu 500 m — tak samo jak alert głosowy (js/33)
+  const UK_HGV_LOOKAHEAD_M = 500, UK_HGV_AT_STEP_M = 250;
   function ukHgvChips(along, step){
     let list = [];
     try{ list = routeRestrictions(activeRoute) || []; }catch(e){ return ""; }
@@ -10248,10 +10306,10 @@
     src.d.forEach(f => add(f, "width", "maxwidth"));
     return (restrictionIdx = { ver: restrictionVer, items, grid });
   }
+  // ostrzegamy WYŁĄCZNIE wtedy, gdy parametr pojazdu jest większy niż limit na znaku (np. pojazd 4,0 m, znak 3,5 m);
+  // „mały zapas” (pojazd tuż pod limitem) nie wywołuje alertu
   function restrictionSeverity(kind, v){
-    if(kind === "height") return v < HGV_PROFILE.height ? "danger" : v < HGV_PROFILE.height + RESTR_HEIGHT_MARGIN ? "warn" : null;
-    if(kind === "weight") return v < HGV_PROFILE.weight ? "danger" : null;
-    if(kind === "width")  return v < HGV_PROFILE.width ? "danger" : v < HGV_PROFILE.width + RESTR_WIDTH_MARGIN ? "warn" : null;
+    if(kind === "height" || kind === "weight" || kind === "width") return v < HGV_PROFILE[kind] ? "danger" : null;
     return null;
   }
   // lista ograniczeń na trasie (tylko takie, które dotyczą Twojego pojazdu), posortowana wg odległości od startu trasy
@@ -10533,24 +10591,25 @@
       text: "Za " + guideDistLabel(d) + ": " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) +
             (tight ? " (mały zapas)" : r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się") };
   }
+  // głos + karta „Objazd” przy 500 m i przy 200 m przed ograniczeniem, którego pojazd nie spełnia (js/46)
   function restrictionTick(along){
     const list = routeRestrictions(activeRoute);
+    if(typeof detourTick === "function") detourTick(along, list);
     if(!list.length) return;
-    const v = currentSpeedKmh / 3.6;
-    const far = Math.min(3300, Math.max(1000, v * 55)), near = 400, now = 130;
+    const near = 500, now = 200;
     for(const r of list){
       const d = r.along - along;
       if(d < -30) continue;
-      if(d > far) break;
-      const stage = d <= now ? "now" : d <= near ? "near" : "far";
+      if(d > near) break;
+      const stage = d <= now ? "now" : "near";
       if(r.said[stage]) continue;
-      if(stage === "now"){ r.said.now = r.said.near = r.said.far = true; } else if(stage === "near"){ r.said.near = r.said.far = true; } else r.said.far = true;
+      if(stage === "now"){ r.said.now = r.said.near = true; } else r.said.near = true;
       const t = restrictionAlertText(r, Math.max(0, d));
-      showBanner(t.title, t.text, r.sev === "danger");
-      const mine = r.kind === "weight" ? "twój pojazd ma " + restrictionSpeak("weight", HGV_PROFILE.weight)
-                 : "twój pojazd ma " + restrictionSpeak(r.kind, HGV_PROFILE[r.kind]);
-      guideSay((r.sev === "danger" ? "Uwaga! " : "Ostrożnie. ") + "Za " + guideSpeakDist(Math.max(50, d)) + " ograniczenie " + RESTR_NAMES[r.kind] +
-        " " + restrictionSpeak(r.kind, r.value) + ", " + mine + ".");
+      showBanner(t.title, t.text, true);
+      const mine = "twój pojazd ma " + restrictionSpeak(r.kind, HGV_PROFILE[r.kind]);
+      guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d)) + " ograniczenie " + RESTR_NAMES[r.kind] +
+        " " + restrictionSpeak(r.kind, r.value) + ", " + mine + (stage === "near" ? ". Dotknij Objazd, aby ominąć." : "."));
+      if(typeof detourOffer === "function") detourOffer(r, d);
       return;                                  // jeden alert na odczyt GPS
     }
   }
@@ -11291,13 +11350,6 @@
     prefShowSpeedometer = e.target.checked;
     try{ localStorage.setItem(PREF_SHOW_SPEEDOMETER, prefShowSpeedometer ? "1" : "0"); }catch(err){}
     applyDisplayPrefs();
-  });
-  const navPrefHgvLimitsInput = document.getElementById("navPrefHgvLimits");
-  navPrefHgvLimitsInput.checked = prefHgvLimits;
-  navPrefHgvLimitsInput.addEventListener("change", (e) => {
-    prefHgvLimits = e.target.checked;
-    try{ localStorage.setItem("nawigator_pref_hgv_limits", prefHgvLimits ? "1" : "0"); }catch(err){}
-    refreshRoadLimitsForTruck();
   });
   navPrefLimitSignInput.addEventListener("change", (e) => {
     prefShowLimitSign = e.target.checked;
@@ -12843,7 +12895,7 @@
    Konstrukcję (nogi, ramę, płytę) rysuje warstwa fill-extrusion, a ZAWARTOŚĆ tablicy (tekst albo przesłany obraz) rysuje
    własna warstwa WebGL jako teksturowany prostokąt o wysokiej rozdzielczości (1536 px, mipmapy, filtr anizotropowy) —
    obraz wyświetla się więc w całości, z zachowaniem proporcji, a napisy są ostre.
-   Zależności (wołane tylko w callbackach): map, avSm, AVATARS, vehicleAvatar, avatarScale (js/11), currentSpeedKmh (js/04),
+   Zależności (wołane tylko w callbackach): map, avSm (js/11d), AVATARS, vehicleAvatar (js/11b), avatarScale (js/11c), currentSpeedKmh (js/04),
    haversine, projectPointToSegment (js/05), ukMapRoadClasses (js/32), activeRoute (js/04). */
 (function(){
   const SIGN_EVERY_M = 5 * 1609.344;   // co 5 mil
@@ -13038,7 +13090,7 @@
   };
 
   const signs = [];   // {lat, lon, hdg, bbId}
-  // Skala znaku = skala avatara (avatarScale, js/11) × wielkość billboardu z panelu (30–250 %)
+  // Skala znaku = skala avatara (avatarScale, js/11c) × wielkość billboardu z panelu (30–250 %)
   let curScale = 1;
   function signScale(){
     try{
@@ -13605,6 +13657,92 @@
   });
   $r("roadBufCancel").addEventListener("click", () => { rtCancel = true; });
   setTimeout(rtInfo, 1500);
+</script>
+<script>
+/* ===== js/46-restriction-detour.js — Objazd przed ograniczeniem wysokości / tonażu / szerokości =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Ostrzeżenia głosowe 500 m i 200 m przed ograniczeniem, którego Twój pojazd NIE spełnia, wywołuje restrictionTick (js/33).
+   Tu: karta „Objazd” (przycisk 🔀 Objazd / Jadę dalej) i wyznaczenie trasy z pominięciem tych ograniczeń (Valhalla exclude_locations). */
+"use strict";
+
+  const detour = { r: null, route: null, busy: false };
+  const $d = id => document.getElementById(id);
+  const DETOUR_KIND = { height: "Niski most / ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
+
+  function detourHide(){ detour.r = null; detour.route = null; const c = $d("detourCard"); if(c) c.classList.remove("show"); }
+
+  // karta z propozycją objazdu; wołana z restrictionTick przy 500 m (i odświeżana przy 200 m)
+  function detourOffer(r, d){
+    if(!activeRoute || activeRoute.planning || !navSelectedDest || r.sev !== "danger") return;
+    detour.r = r; detour.route = activeRoute;
+    const unit = r.kind === "weight" ? " t" : " m", tr = (v) => plNum(v) + unit;
+    $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + guideDistLabel(Math.max(0, d));
+    $d("detourText").textContent = "Limit " + tr(r.value) + " · Twój pojazd " + tr(HGV_PROFILE[r.kind]) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
+    $d("detourGo").disabled = false; $d("detourGo").textContent = "🔀 Objazd";
+    $d("detourCard").classList.add("show");
+  }
+  // wołane przy każdym odczyku GPS (js/33): chowa kartę po minięciu ograniczenia albo zmianie trasy
+  function detourTick(along, list){
+    if(!detour.r) return;
+    if(activeRoute !== detour.route || !list.includes(detour.r) || detour.r.along - along < -20) detourHide();
+  }
+
+  // punkty do ominięcia: początek / środek / koniec każdego ograniczenia „danger” na najbliższych ~8 km trasy
+  function detourAvoidPoints(along){
+    const cum = activeRoute._restr && activeRoute._restr.cum, pts = [];
+    if(!cum) return pts;
+    routeRestrictions(activeRoute).forEach(r => {
+      if(r.sev !== "danger" || r.along < along - 30 || r.along > along + 8000) return;
+      const seg = sliceRouteAlong(activeRoute.coords, cum, Math.max(0, r.along - 5), Math.max((r.to || r.along) + 5, r.along + 20));
+      if(seg.length < 2){ pts.push({ lat: r.lat, lon: r.lon }); return; }
+      [seg[0], seg[Math.floor(seg.length / 2)], seg[seg.length - 1]].forEach(c => pts.push({ lat: c[1], lon: c[0] }));
+    });
+    return pts.slice(0, 12);
+  }
+
+  // pozycja pojazdu wzdłuż trasy (m od jej początku); gdy brak danych — szacujemy z ograniczenia (ok. 400 m przed nim)
+  function detourAlong(){
+    try{
+      const cum = activeRoute._restr && activeRoute._restr.cum, c = activeRoute.coords;
+      if(cum){
+        const dr = distanceToActiveRoute(lastPos.lat, lastPos.lon), q = projectPointToSegment(lastPos.lat, lastPos.lon, c[dr.idx], c[dr.idx + 1]);
+        return cum[dr.idx] + haversine(c[dr.idx][1], c[dr.idx][0], q.lat, q.lon);
+      }
+    }catch(e){}
+    return detour.r.along - 400;
+  }
+  async function detourAccept(){
+    if(detour.busy || !detour.r || !activeRoute || !navSelectedDest || !lastPos) return;
+    detour.busy = true;
+    const old = activeRoute, btn = $d("detourGo"); btn.disabled = true; btn.textContent = "Szukam objazdu…";
+    try{
+      const along = detourAlong();
+      const avoid = detourAvoidPoints(along);
+      const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
+      const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
+      const variant = old.source === "truck-easy" ? "easy" : "fast";
+      let r = null;
+      try{ r = await fetchTruckRoute(stops, variant, null, { exclude_locations: avoid }); }
+      catch(e){ if(origin.heading != null) r = await fetchTruckRoute([Object.assign({}, origin, { heading: null })].concat(stops.slice(1)), variant, null, { exclude_locations: avoid }); }
+      if(activeRoute !== old) return;                               // trasę zamknięto / zmieniono w międzyczasie
+      if(!r){ throw new Error("brak trasy"); }
+      const oldRemM = Math.max(0, old.distanceM - along), oldRemS = old.distanceM > 0 ? old.timeS * oldRemM / old.distanceM : old.timeS;
+      const dM = r.distanceM - oldRemM, dS = r.timeS - oldRemS;
+      applyRerouted(r, variant === "easy" ? "truck-easy" : "truck", old);
+      detourHide();
+      const plus = (dS >= 60 ? "+" + Math.round(dS / 60) + " min" : "bez straty czasu") + " · " + (dM >= 0 ? "+" : "−") + metersToDistanceLabel(Math.abs(dM));
+      showBanner("OBJAZD WYZNACZONY", plus, false);
+      guideSay("Objazd wyznaczony." + (dS >= 60 ? " Dodatkowo " + Math.round(dS / 60) + " minut." : ""), 2);
+      setTimeout(announceRouteRestrictions, 3500);
+    }catch(e){
+      console.warn("Objazd nie powiódł się:", e);
+      showBanner("BRAK OBJAZDU", "Nie znalazłem objazdu. Zatrzymaj się bezpiecznie i sprawdź trasę.", true);
+      guideSay("Nie znalazłem objazdu. Zatrzymaj się bezpiecznie i sprawdź trasę.", 2);
+      btn.disabled = false; btn.textContent = "🔀 Objazd";
+    }finally{ detour.busy = false; }
+  }
+  $d("detourGo").addEventListener("click", detourAccept);
+  $d("detourSkip").addEventListener("click", detourHide);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
