@@ -835,11 +835,20 @@
   #detourCard.show{ display:flex; }
   #detourTitle{ font:800 16px 'Inter',system-ui,sans-serif; letter-spacing:.01em; }
   #detourText{ font:600 14px 'Inter',system-ui,sans-serif; opacity:.92; }
+  #detourCost{ font:800 15px 'Inter',system-ui,sans-serif; color:#ffd9a8; }
   .detourBtns{ display:flex; gap:8px; margin-top:4px; }
   .detourBtns button{ flex:1; min-height:52px; border-radius:14px; border:0; font:800 17px 'Inter',system-ui,sans-serif; cursor:pointer; }
   #detourGo{ background:#ff5a4d; color:#fff; }
   #detourGo:disabled{ opacity:.65; }
   #detourSkip{ background:rgba(255,255,255,.16); color:#fff; }
+
+  /* pasek symulatora: ▶ jazda, prędkość, skok przed ograniczenie, od początku (js/47) */
+  #simBar{ position:fixed; left:10px; bottom:calc(env(safe-area-inset-bottom, 0px) + 31vh); z-index:8800; display:none; align-items:center; gap:6px;
+    padding:6px 8px; border-radius:18px; background:rgba(8,14,22,.82); border:1px solid rgba(255,255,255,.18); box-shadow:0 6px 20px rgba(0,0,0,.45); }
+  #simBar.show{ display:flex; }
+  #simBar button{ width:44px; height:44px; border-radius:12px; border:0; background:rgba(255,255,255,.14); color:#fff; font:700 20px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  #simBar #simPlay{ background:#19a05a; font-size:22px; }
+  #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1409,9 +1418,18 @@
 
 <div id="map"></div>
 
+<div id="simBar" aria-label="Sterowanie symulatorem">
+  <button id="simPlay" type="button">▶</button>
+  <button id="simSlower" type="button" aria-label="Wolniej">−</button>
+  <span id="simSpeed">50 mph</span>
+  <button id="simFaster" type="button" aria-label="Szybciej">+</button>
+  <button id="simJump" type="button" title="Skok przed ograniczenie" aria-label="Skok przed ograniczenie">⏩</button>
+  <button id="simRestart" type="button" title="Od początku trasy" aria-label="Od początku trasy">⏮</button>
+</div>
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
   <div id="detourText"></div>
+  <div id="detourCost"></div>
   <div class="detourBtns">
     <button id="detourGo" type="button">🔀 Objazd</button>
     <button id="detourSkip" type="button">Jadę dalej</button>
@@ -3977,13 +3995,14 @@
     const layout = { visibility:"none", "line-join":"round", "line-cap":"butt" };
     const layoutTex = { visibility:"none", "line-join":"round", "line-cap":"round" };   // asfalt: zaokrąglone końce = płynne łączenia kawałków
     const mw = ["interpolate", ["linear"], ["zoom"], 15, 0.8, 17, 1.1, 19, 2.8, 22, 22];   // grubość linii oznakowania
-    // wiadukty i mosty: asfalt rysowany POD linią trasy — trasa zawsze na wierzchu, nie znika pod mostami i wiaduktami
-    let topRoute = -1; styleLayers.forEach((l, i) => { if(/^route-/.test(l.id)) topRoute = i; });
-    const aboveRoute = topRoute >= 0 && styleLayers[topRoute + 1] ? styleLayers[topRoute + 1].id : undefined;
+    // wiadukty i mosty: asfalt nad WSZYSTKIMI warstwami dróg stylu (także jego mostami — to one dawały niebieską linię na estakadach),
+    // ale pod nakładkami aplikacji i trasą; trasa zostaje na wierzchu i nie znika pod mostami i wiaduktami
+    let lastRoadLine = -1; styleLayers.forEach((l, i) => { if(l.type === "line" && l["source-layer"] === "transportation") lastRoadLine = i; });
+    const afterRoads = lastRoadLine >= 0 && styleLayers[lastRoadLine + 1] ? styleLayers[lastRoadLine + 1].id : undefined;
     mwLayerIds = []; mwMarkIds = []; mwTexIds = [];
     // jezdnia główna (3 pasy) oraz zjazdy/dojazdy (ramp=1, 1 pas) — oba z asfaltem
     [["", 0, N], ["-rp", 1, 1]].forEach(([rsfx, ramp, LN]) => {
-    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", before, ["==", ["get", "bridge"], 1]]].forEach(([sfx0, bef, bf]) => {
+    [["", before, ["!=", ["get", "bridge"], 1]], ["-br", afterRoads || before, ["==", ["get", "bridge"], 1]]].forEach(([sfx0, bef, bf]) => {
       const sfx = sfx0 + rsfx;
       const filter = ["all", bf, ["==", ["get", "ramp"], ramp]];
       const base = { type:"line", source: MW_SRC, minzoom: MW.minZoom, filter };
@@ -9411,7 +9430,11 @@
       costing_options: { truck: Object.assign({}, HGV_PROFILE, variant === "easy" ? TRUCK_EASY_OPTS : TRUCK_FAST_OPTS, tollOpts()) },
       directions_options: { units: "kilometers", language: "pl-PL" }
     };
-    if(extra) Object.assign(request, extra); // np. alternates, exclude_locations
+    if(extra){                                // np. alternates, exclude_locations; truckOpts = dodatkowe opcje kosztów ciężarówki (np. preferencja dróg głównych)
+      const { truckOpts, ...rest } = extra;
+      Object.assign(request, rest);
+      if(truckOpts) Object.assign(request.costing_options.truck, truckOpts);
+    }
     // GET z parametrem json= (jak robi to openstreetmap.org) — zwykłe żądanie, bez preflightu CORS
     // zapytania pomocnicze (extra: alternatywy / wykluczenia) — jedna próba; główne trasy — do 3 prób
     return valhallaRequest(request, ctrl, extra ? 1 : VALHALLA_TRY_TIMEOUTS_MS.length)
@@ -9886,9 +9909,9 @@
     const km = m / 1000;
     return (km < 10 ? km.toFixed(1) : Math.round(km)) + " km";
   }
-  function guideSpeakDist(m){
+  function guideSpeakDist(m, forceMiles){
     const plMile = n => (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) ? "mile" : "mil";
-    if(unitSystem === "mph"){
+    if(unitSystem === "mph" || forceMiles){
       const yd = m * 1.09361;
       if(yd < 600) return Math.max(50, Math.round(yd / 50) * 50) + " jardów";
       const mi = m / 1609.344;
@@ -10062,8 +10085,9 @@
   }
 
   // odległość jak na brytyjskiej tablicy: yds do ¼ mili, potem ułamki mili (¼ ½ ¾ 1½ …), od 10 mi całe
-  function ukDist(m){
-    if(unitSystem !== "mph") return guideDistLabel(m);
+  function ukDist(m){ return unitSystem !== "mph" ? guideDistLabel(m) : ukDistMiles(m); }
+  // zawsze w jardach i milach (alerty ograniczeń HGV — aplikacja na razie tylko w milach)
+  function ukDistMiles(m){
     const yd = m * 1.09361;
     if(yd < 440) return Math.max(10, Math.round(yd / 10) * 10) + " yds";
     const mi = m / 1609.344;
@@ -10140,8 +10164,8 @@
   }
 
   // ostrzeżenia HGV: ograniczenia wysokości/tonażu/szerokości z trasy (tylko te, które pojazd przekracza),
-  // leżące przy manewrze (do 250 m za nim) albo najbliższe na trasie w ciągu 500 m — tak samo jak alert głosowy (js/33)
-  const UK_HGV_LOOKAHEAD_M = 500, UK_HGV_AT_STEP_M = 250;
+  // leżące przy manewrze (do 250 m za nim) albo najbliższe na trasie w ciągu 3 mil — tak jak pierwszy alert głosowy (js/33)
+  const UK_HGV_LOOKAHEAD_M = 3 * 1609.344, UK_HGV_AT_STEP_M = 250;
   function ukHgvChips(along, step){
     let list = [];
     try{ list = routeRestrictions(activeRoute) || []; }catch(e){ return ""; }
@@ -10169,7 +10193,7 @@
         ico = ring('<path d="M7 13h12M7 13l3-3M7 13l3 3M19 13l-3-3M19 13l-3 3" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>');
         val = ukFtIn(r.value); lbl = "Width limit · narrow road"; mine = "your vehicle " + ukFtIn(HGV_PROFILE.width);
       }
-      return `<div class="hgvChip${warn ? " warn" : ""}">${ico}<span class="hv">${val}</span><span class="hl">${lbl}<small>${when}in ${escHtml(ukDist(d))} · ${mine}${warn ? " · tight" : ""}</small></span></div>`;
+      return `<div class="hgvChip${warn ? " warn" : ""}">${ico}<span class="hv">${val}</span><span class="hl">${lbl}<small>${when}in ${escHtml(ukDistMiles(d))} · ${mine}${warn ? " · tight" : ""}</small></span></div>`;
     }).join("");
   }
 
@@ -10558,11 +10582,9 @@
       if(list.length && cum){
         list.forEach(r => {
           if(r.lat == null || r.lon == null) return;
-          const unit = r.kind === "weight" ? " t" : " m";
-          const mine = plNum(HGV_PROFILE[r.kind]) + unit;
-          const limit = plNum(r.value) + unit;
+          const mine = restrictionMine(r.kind), limit = restrictionValueLabel(r.kind, r.value);   // stopy/cale i tony
           pts.push({ type:"Feature", properties: { kind: r.kind, sev: r.sev, sk: (r.sev === "danger" ? 0 : 10) + Math.min(9, r.value / 10),
-            short: plNum(r.value) + (r.kind === "weight" ? "t" : ""),
+            short: restrictionValueLabel(r.kind, r.value),
             label: "limit " + limit + " · masz " + mine },
             geometry: { type:"Point", coordinates: [r.lon, r.lat] } });
           const seg = sliceRouteAlong(activeRoute.coords, cum, Math.max(0, r.along - 15), Math.max((r.to || r.along) + 15, r.along + 35));
@@ -10575,28 +10597,33 @@
   }
 
   const RESTR_LABEL = { height: "Ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
-  function restrictionValueLabel(kind, v){ return kind === "weight" ? formatWeightLabel(v) : kind === "height" ? formatHeightLabel(v) : formatWidthLabel(v); }
+  // wartości w brytyjskim zapisie: wysokość/szerokość w stopach i calach (14'-6"), tonaż w tonach
+  function restrictionValueLabel(kind, v){ return kind === "weight" ? ukWeight(v) : ukFtIn(v); }
   function restrictionMine(kind){
-    const v = HGV_PROFILE[kind === "weight" ? "weight" : kind];
-    return String(Math.round(v * 100) / 100) + (kind === "weight" ? "t" : "m");
+    const v = HGV_PROFILE[kind];
+    return kind === "weight" ? ukWeight(v) : ukFtIn(v);
   }
   function plNum(v){ return String(Math.round(v * 100) / 100).replace(".", ","); }
-  function restrictionSpeak(kind, v){      // słownie, żeby syntezator nie czytał "m" jako "em"
+  function restrictionSpeak(kind, v){      // słownie, żeby syntezator nie czytał skrótów (ft, in, m) po swojemu
     if(kind === "weight") return Number.isInteger(v) ? (v === 1 ? "1 tonę" : (v % 10 >= 2 && v % 10 <= 4 && !(v % 100 >= 12 && v % 100 <= 14)) ? v + " tony" : v + " ton") : plNum(v) + " tony";
-    return plNum(v) + " metra";
+    const totalIn = Math.round(v / 0.0254), ft = Math.floor(totalIn / 12), inch = totalIn % 12;
+    const pl = (n, one, few, many) => n === 1 ? one : (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) ? few : many;
+    return ft + " " + pl(ft, "stopa", "stopy", "stóp") + (inch ? " " + inch + " " + pl(inch, "cal", "cale", "calów") : "");
   }
   function restrictionAlertText(r, d){
     const tight = r.sev === "warn";
     return { title: (r.sev === "danger" ? "UWAGA — " : "OSTROŻNIE — ") + RESTR_LABEL[r.kind].toUpperCase(),
-      text: "Za " + guideDistLabel(d) + ": " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) +
+      text: "Za " + ukDistMiles(d) + ": " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) +
             (tight ? " (mały zapas)" : r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się") };
   }
-  // głos + karta „Objazd” przy 500 m i przy 200 m przed ograniczeniem, którego pojazd nie spełnia (js/46)
+  // głos + karta „Objazd” przy 3 milach i przy 1 mili przed ograniczeniem, którego pojazd nie spełnia (js/46) —
+  // wcześnie, żeby kierowca miał jeszcze wybór trasy; odległości zawsze w milach
+  const RESTR_FIRST_M = 3 * 1609.344, RESTR_SECOND_M = 1609.344;
   function restrictionTick(along){
     const list = routeRestrictions(activeRoute);
     if(typeof detourTick === "function") detourTick(along, list);
     if(!list.length) return;
-    const near = 500, now = 200;
+    const near = RESTR_FIRST_M, now = RESTR_SECOND_M;
     for(const r of list){
       const d = r.along - along;
       if(d < -30) continue;
@@ -10607,8 +10634,8 @@
       const t = restrictionAlertText(r, Math.max(0, d));
       showBanner(t.title, t.text, true);
       const mine = "twój pojazd ma " + restrictionSpeak(r.kind, HGV_PROFILE[r.kind]);
-      guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d)) + " ograniczenie " + RESTR_NAMES[r.kind] +
-        " " + restrictionSpeak(r.kind, r.value) + ", " + mine + (stage === "near" ? ". Dotknij Objazd, aby ominąć." : "."));
+      guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " ograniczenie " + RESTR_NAMES[r.kind] +
+        " " + restrictionSpeak(r.kind, r.value) + ", " + mine + (stage === "near" ? ". Szukam objazdu głównymi drogami." : ". Możesz jeszcze wybrać objazd."));
       if(typeof detourOffer === "function") detourOffer(r, d);
       return;                                  // jeden alert na odczyt GPS
     }
@@ -12745,10 +12772,11 @@
   // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
   // więc cała reszta aplikacji (onPosition, mapa, prędkościomierz) działa bez zmian.
   function makeMockPosition(){
+    const h = (typeof simHold !== "undefined") ? simHold : null;   // js/47: po jeździe symulatora pojazd stoi tam, gdzie stanął
     return {
       coords: {
-        latitude: MOCK_START_LAT,
-        longitude: MOCK_START_LON,
+        latitude: h ? h.lat : MOCK_START_LAT,
+        longitude: h ? h.lon : MOCK_START_LON,
         speed: 0,
         heading: null,
         accuracy: 8
@@ -12765,6 +12793,7 @@
     if(mockIntervalId !== null) clearInterval(mockIntervalId);
     // odświeżanie co 2 s, żeby np. zegar/status pozostawał "żywy" podczas testów UI
     mockIntervalId = setInterval(() => {
+      if(typeof simDriving !== "undefined" && simDriving) return;   // jedzie (js/47) — pozycje podaje symulator jazdy
       onPosition(makeMockPosition());
     }, 2000);
   }
@@ -13661,46 +13690,40 @@
 <script>
 /* ===== js/46-restriction-detour.js — Objazd przed ograniczeniem wysokości / tonażu / szerokości =====
    Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
-   Ostrzeżenia głosowe 500 m i 200 m przed ograniczeniem, którego Twój pojazd NIE spełnia, wywołuje restrictionTick (js/33).
-   Tu: karta „Objazd” (przycisk 🔀 Objazd / Jadę dalej) i wyznaczenie trasy z pominięciem tych ograniczeń (Valhalla exclude_locations). */
+   Alerty głosowe 3 mile i 1 mila przed ograniczeniem, którego pojazd NIE spełnia, wywołuje restrictionTick (js/33).
+   Już przy pierwszym alercie (3 mile) liczymy objazd z wyprzedzeniem — darmowym silnikiem Valhalla (FOSSGIS, bez klucza API),
+   z pominięciem ograniczeń i z preferencją dróg głównych (autostrady, drogi A). Karta pokazuje koszt („+4 min · +2 mi”), a na mapie widać go jako cienką przerywaną linię obok trasy,
+   a dotknięcie „🔀 Objazd” włącza gotową trasę od razu. Gdy pojazd odjechał > 400 m od miejsca obliczeń — liczymy ponownie. */
 "use strict";
 
-  const detour = { r: null, route: null, busy: false };
+  const detour = { r: null, route: null, busy: false, prep: null };   // prep: { r, origin, promise, res, failed }
   const $d = id => document.getElementById(id);
   const DETOUR_KIND = { height: "Niski most / ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
+  // preferuj duże drogi: autostrady / trunk / drogi A; unikaj małych ulic, dróg serwisowych i leśnych
+  const DETOUR_TRUCK_OPTS = { use_highways: 1.0, use_living_streets: 0, use_tracks: 0, service_penalty: 120, use_truck_route: 1.0 };
+  const DETOUR_REUSE_M = 400;
 
-  function detourHide(){ detour.r = null; detour.route = null; const c = $d("detourCard"); if(c) c.classList.remove("show"); }
-
-  // karta z propozycją objazdu; wołana z restrictionTick przy 500 m (i odświeżana przy 200 m)
-  function detourOffer(r, d){
-    if(!activeRoute || activeRoute.planning || !navSelectedDest || r.sev !== "danger") return;
-    detour.r = r; detour.route = activeRoute;
-    const unit = r.kind === "weight" ? " t" : " m", tr = (v) => plNum(v) + unit;
-    $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + guideDistLabel(Math.max(0, d));
-    $d("detourText").textContent = "Limit " + tr(r.value) + " · Twój pojazd " + tr(HGV_PROFILE[r.kind]) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
-    $d("detourGo").disabled = false; $d("detourGo").textContent = "🔀 Objazd";
-    $d("detourCard").classList.add("show");
+  // podgląd objazdu na mapie: cienka przerywana pomarańczowa linia obok głównej trasy (przesunięta o 5 px w prawo)
+  const DETOUR_SRC = "detour-preview";
+  function detourPreviewSet(coords){
+    try{
+      const data = { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords || [] } };
+      if(!map.getSource(DETOUR_SRC)){
+        map.addSource(DETOUR_SRC, { type: "geojson", data });
+        map.addLayer({ id: DETOUR_SRC + "-halo", type: "line", source: DETOUR_SRC, layout: { "line-join": "round" },
+          paint: { "line-color": "#ffffff", "line-opacity": 0.55, "line-offset": 5, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 18, 9] } });
+        map.addLayer({ id: DETOUR_SRC + "-line", type: "line", source: DETOUR_SRC, layout: { "line-join": "round", "line-cap": "butt" },
+          paint: { "line-color": "#ff9f1c", "line-offset": 5, "line-dasharray": [1.6, 1.3], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 14, 3, 18, 5.5] } });
+      } else map.getSource(DETOUR_SRC).setData(data);
+    }catch(e){}
   }
-  // wołane przy każdym odczyku GPS (js/33): chowa kartę po minięciu ograniczenia albo zmianie trasy
-  function detourTick(along, list){
-    if(!detour.r) return;
-    if(activeRoute !== detour.route || !list.includes(detour.r) || detour.r.along - along < -20) detourHide();
-  }
-
-  // punkty do ominięcia: początek / środek / koniec każdego ograniczenia „danger” na najbliższych ~8 km trasy
-  function detourAvoidPoints(along){
-    const cum = activeRoute._restr && activeRoute._restr.cum, pts = [];
-    if(!cum) return pts;
-    routeRestrictions(activeRoute).forEach(r => {
-      if(r.sev !== "danger" || r.along < along - 30 || r.along > along + 8000) return;
-      const seg = sliceRouteAlong(activeRoute.coords, cum, Math.max(0, r.along - 5), Math.max((r.to || r.along) + 5, r.along + 20));
-      if(seg.length < 2){ pts.push({ lat: r.lat, lon: r.lon }); return; }
-      [seg[0], seg[Math.floor(seg.length / 2)], seg[seg.length - 1]].forEach(c => pts.push({ lat: c[1], lon: c[0] }));
-    });
-    return pts.slice(0, 12);
+  function detourHide(){
+    detour.r = null; detour.route = null; detour.prep = null;
+    const c = $d("detourCard"); if(c) c.classList.remove("show");
+    detourPreviewSet(null);
   }
 
-  // pozycja pojazdu wzdłuż trasy (m od jej początku); gdy brak danych — szacujemy z ograniczenia (ok. 400 m przed nim)
+  // pozycja pojazdu wzdłuż trasy (m od jej początku); gdy brak danych — szacujemy z ograniczenia (ok. 3 mile przed nim)
   function detourAlong(){
     try{
       const cum = activeRoute._restr && activeRoute._restr.cum, c = activeRoute.coords;
@@ -13709,40 +13732,204 @@
         return cum[dr.idx] + haversine(c[dr.idx][1], c[dr.idx][0], q.lat, q.lon);
       }
     }catch(e){}
-    return detour.r.along - 400;
+    return detour.r.along - RESTR_FIRST_M;
   }
+  // punkty do ominięcia: początek / środek / koniec ograniczenia „danger” (z listy na trasie)
+  function detourPointsOf(route, list, fromAlong, toAlong){
+    const cum = route._restr && route._restr.cum, pts = [];
+    if(!cum) return pts;
+    list.forEach(r => {
+      if(r.sev !== "danger" || r.along < fromAlong - 30 || r.along > toAlong) return;
+      const seg = sliceRouteAlong(route.coords, cum, Math.max(0, r.along - 5), Math.max((r.to || r.along) + 5, r.along + 20));
+      if(seg.length < 2){ pts.push({ lat: r.lat, lon: r.lon }); return; }
+      [seg[0], seg[Math.floor(seg.length / 2)], seg[seg.length - 1]].forEach(c => pts.push({ lat: c[1], lon: c[0] }));
+    });
+    return pts;
+  }
+
+  // liczy objazd: Valhalla z exclude_locations; sprawdza, czy nowa trasa nie ma tego samego (lub innego) przekroczonego ograniczenia —
+  // jeśli ma, dokłada jego punkty do wykluczeń i szuka jeszcze raz (do 3 prób)
+  async function detourCompute(r){
+    const old = activeRoute, along = detourAlong();
+    const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
+    const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
+    const variant = old.source === "truck-easy" ? "easy" : "fast";
+    let avoid = detourPointsOf(old, routeRestrictionsRaw(old), along, along + 7 * 1609.344).slice(0, 12);
+    if(!avoid.length) avoid = [{ lat: r.lat, lon: r.lon }];
+    for(let attempt = 0; attempt < 3; attempt++){
+      let nr = null;
+      const ask = st => fetchTruckRoute(st, variant, null, { exclude_locations: avoid, truckOpts: DETOUR_TRUCK_OPTS });
+      try{ nr = await ask(stops); }
+      catch(e){ if(origin.heading != null) nr = await ask([Object.assign({}, origin, { heading: null })].concat(stops.slice(1))); else throw e; }
+      if(activeRoute !== old) throw new Error("trasa zmieniona");
+      const bad = routeRestrictionsRaw(nr).filter(x => x.sev === "danger");
+      if(!bad.length){
+        const oldRemM = Math.max(0, old.distanceM - along), oldRemS = old.distanceM > 0 ? old.timeS * oldRemM / old.distanceM : old.timeS;
+        return { route: nr, variant, origin, dM: nr.distanceM - oldRemM, dS: nr.timeS - oldRemS };
+      }
+      avoid = avoid.concat(detourPointsOf(nr, bad, 0, Infinity)).slice(0, 24);   // nowa trasa też ma przekroczone ograniczenie — wyklucz je i szukaj dalej
+    }
+    throw new Error("brak objazdu bez ograniczeń");
+  }
+  const detourCost = res => (res.dS >= 60 ? "+" + Math.round(res.dS / 60) + " min" : "bez straty czasu") + " · " + (res.dM >= 0 ? "+" : "−") + ukDistMiles(Math.abs(res.dM));
+
+  // karta; wołana z restrictionTick przy 3 milach (liczy objazd) i przy 1 mili (przypomina, korzysta z gotowego)
+  function detourOffer(r, d){
+    if(!activeRoute || activeRoute.planning || !navSelectedDest || r.sev !== "danger" || !lastPos) return;
+    detour.r = r; detour.route = activeRoute;
+    $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + ukDistMiles(Math.max(0, d));
+    $d("detourText").textContent = "Limit " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
+    $d("detourCard").classList.add("show");
+    detourRenderState();
+    if(!detour.prep || detour.prep.r !== r){
+      const prep = { r, origin: { lat: lastPos.lat, lon: lastPos.lon }, res: null, failed: false };
+      prep.promise = detourCompute(r).then(res => {
+        prep.res = res; if(detour.prep === prep){ detourPreviewSet(res.route.coords); detourRenderState(); guideSay("Objazd gotowy. " + (res.dS >= 60 ? "Dodatkowo " + Math.round(res.dS / 60) + " minut." : "Bez straty czasu.") + " Dotknij Objazd, aby go włączyć.", 2); }
+      }).catch(e => { prep.failed = true; console.warn("Objazd:", e); if(detour.prep === prep) detourRenderState(); });
+      detour.prep = prep;
+    }
+  }
+  function detourRenderState(){
+    const p = detour.prep, go = $d("detourGo"), sub = $d("detourCost");
+    if(!p || (!p.res && !p.failed)){ sub.textContent = "Szukam objazdu głównymi drogami…"; go.disabled = true; go.textContent = "🔀 Objazd"; }
+    else if(p.failed){ sub.textContent = "Nie znalazłem objazdu głównymi drogami — zatrzymaj się bezpiecznie i sprawdź trasę."; go.disabled = true; go.textContent = "Brak objazdu"; }
+    else { sub.textContent = "Objazd głównymi drogami: " + detourCost(p.res); go.disabled = false; go.textContent = "🔀 Objazd"; }
+  }
+  // wołane przy każdym odczycie GPS (js/33): chowa kartę po minięciu ograniczenia albo zmianie trasy
+  function detourTick(along, list){
+    if(!detour.r) return;
+    if(activeRoute !== detour.route || !list.includes(detour.r) || detour.r.along - along < -20) detourHide();
+  }
+
   async function detourAccept(){
-    if(detour.busy || !detour.r || !activeRoute || !navSelectedDest || !lastPos) return;
+    if(detour.busy || !detour.r || !activeRoute || !lastPos) return;
     detour.busy = true;
-    const old = activeRoute, btn = $d("detourGo"); btn.disabled = true; btn.textContent = "Szukam objazdu…";
+    const old = activeRoute, p = detour.prep, btn = $d("detourGo"); btn.disabled = true;
     try{
-      const along = detourAlong();
-      const avoid = detourAvoidPoints(along);
-      const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
-      const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
-      const variant = old.source === "truck-easy" ? "easy" : "fast";
-      let r = null;
-      try{ r = await fetchTruckRoute(stops, variant, null, { exclude_locations: avoid }); }
-      catch(e){ if(origin.heading != null) r = await fetchTruckRoute([Object.assign({}, origin, { heading: null })].concat(stops.slice(1)), variant, null, { exclude_locations: avoid }); }
-      if(activeRoute !== old) return;                               // trasę zamknięto / zmieniono w międzyczasie
-      if(!r){ throw new Error("brak trasy"); }
-      const oldRemM = Math.max(0, old.distanceM - along), oldRemS = old.distanceM > 0 ? old.timeS * oldRemM / old.distanceM : old.timeS;
-      const dM = r.distanceM - oldRemM, dS = r.timeS - oldRemS;
-      applyRerouted(r, variant === "easy" ? "truck-easy" : "truck", old);
+      let res = p && p.res;
+      if(res && haversine(p.origin.lat, p.origin.lon, lastPos.lat, lastPos.lon) > DETOUR_REUSE_M){ res = null; }   // pojazd odjechał za daleko — przelicz od bieżącej pozycji
+      if(!res){ btn.textContent = "Szukam objazdu…"; res = await detourCompute(detour.r); }
+      if(activeRoute !== old) return;
+      applyRerouted(res.route, res.variant === "easy" ? "truck-easy" : "truck", old);
       detourHide();
-      const plus = (dS >= 60 ? "+" + Math.round(dS / 60) + " min" : "bez straty czasu") + " · " + (dM >= 0 ? "+" : "−") + metersToDistanceLabel(Math.abs(dM));
-      showBanner("OBJAZD WYZNACZONY", plus, false);
-      guideSay("Objazd wyznaczony." + (dS >= 60 ? " Dodatkowo " + Math.round(dS / 60) + " minut." : ""), 2);
+      showBanner("OBJAZD WŁĄCZONY", detourCost(res), false);
+      guideSay("Objazd włączony." + (res.dS >= 60 ? " Dodatkowo " + Math.round(res.dS / 60) + " minut." : ""), 2);
       setTimeout(announceRouteRestrictions, 3500);
     }catch(e){
       console.warn("Objazd nie powiódł się:", e);
       showBanner("BRAK OBJAZDU", "Nie znalazłem objazdu. Zatrzymaj się bezpiecznie i sprawdź trasę.", true);
       guideSay("Nie znalazłem objazdu. Zatrzymaj się bezpiecznie i sprawdź trasę.", 2);
-      btn.disabled = false; btn.textContent = "🔀 Objazd";
+      btn.textContent = "🔀 Objazd"; btn.disabled = false;
     }finally{ detour.busy = false; }
   }
   $d("detourGo").addEventListener("click", detourAccept);
   $d("detourSkip").addEventListener("click", detourHide);
+</script>
+<script>
+/* ===== js/47-simulator-play.js — Symulator: przycisk Play, wirtualna jazda po wyznaczonej trasie =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   W trybie symulatora (ekran startowy → 🧪 Symulator) wyznacz trasę do celu i dotknij ▶ — pojazd pojedzie wirtualnie po trasie,
+   a aplikacja zachowa się jak podczas prawdziwej jazdy (prędkościomierz, limity, stoper 57 mph, alerty, objazd, komunikaty głosowe).
+   Przyciski: ▶/⏸ jazda, − / + prędkość (mph), ⏩ skok na ~3 mile przed pierwszym przekroczonym ograniczeniem, ⏮ od początku trasy. */
+"use strict";
+
+  const sim = { playing: false, along: 0, mph: 50, route: null, cum: null, timer: null, tLast: 0 };
+  let simDriving = false;      // js/40: gdy true, statyczny odczyt symulatora jest wstrzymany
+  let simHold = null;          // ostatnia pozycja symulowana — w pauzie pojazd stoi tam, gdzie stanął
+  const $s = id => document.getElementById(id);
+
+  function simBuild(route){
+    const c = route.coords, cum = [0];
+    for(let i = 1; i < c.length; i++) cum.push(cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]));
+    sim.route = route; sim.cum = cum;
+  }
+  function simPointAt(a){
+    const c = sim.route.coords, cum = sim.cum, total = cum[cum.length - 1];
+    a = Math.max(0, Math.min(total, a));
+    let lo = 0, hi = cum.length - 1;
+    while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(cum[mid] <= a) lo = mid; else hi = mid; }
+    const seg = cum[hi] - cum[lo], f = seg > 0 ? (a - cum[lo]) / seg : 0;
+    return { lat: c[lo][1] + (c[hi][1] - c[lo][1]) * f, lon: c[lo][0] + (c[hi][0] - c[lo][0]) * f };
+  }
+  function simProject(lat, lon){            // pozycja wzdłuż trasy najbliższa podanemu punktowi
+    const c = sim.route.coords; let best = Infinity, along = 0;
+    for(let i = 0; i < c.length - 1; i++){
+      const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
+      if(q.distM < best){ best = q.distM; along = sim.cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon); }
+    }
+    return along;
+  }
+  function simEmit(speedMps){
+    const p = simPointAt(sim.along), q = simPointAt(sim.along + 20), total = sim.cum[sim.cum.length - 1];
+    const hdg = sim.along + 20 <= total ? bearingBetween(p.lat, p.lon, q.lat, q.lon) : null;
+    simHold = { lat: p.lat, lon: p.lon };
+    onPosition({ coords: { latitude: p.lat, longitude: p.lon, speed: speedMps, heading: hdg, accuracy: 5 }, timestamp: Date.now() });
+  }
+  function simTick(){
+    if(!sim.playing) return;
+    // trasa zmieniona (np. włączony objazd) — jedziemy dalej po nowej od najbliższego punktu
+    if(activeRoute !== sim.route){
+      if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2){ simStop(); return; }
+      simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0;
+    }
+    const now = performance.now(), dt = Math.min(1.5, (now - sim.tLast) / 1000); sim.tLast = now;
+    const v = sim.mph * 0.44704, total = sim.cum[sim.cum.length - 1];
+    sim.along = Math.min(total, sim.along + v * dt);
+    if(sim.along >= total - 8){
+      sim.along = total; simEmit(0); simStop();
+      showBanner("CEL OSIĄGNIĘTY", "Koniec jazdy symulatora", false);
+      return;
+    }
+    simEmit(v);
+  }
+  function simPlay(){
+    if(!MOCK_GPS || !started) return;
+    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2){
+      showBanner("SYMULATOR", "Najpierw wyznacz trasę do celu (pole „Wpisz cel podróży”), potem dotknij ▶", false); return;
+    }
+    if(activeRoute !== sim.route){ simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0; }
+    sim.playing = true; simDriving = true; sim.tLast = performance.now();
+    if(sim.timer) clearInterval(sim.timer);
+    sim.timer = setInterval(simTick, 500);
+    simUi();
+  }
+  function simStop(){
+    sim.playing = false; simDriving = false;
+    if(sim.timer){ clearInterval(sim.timer); sim.timer = null; }
+    simUi();
+  }
+  function simUi(){
+    $s("simPlay").textContent = sim.playing ? "⏸" : "▶";
+    $s("simPlay").setAttribute("aria-label", sim.playing ? "Pauza" : "Jazda");
+    $s("simSpeed").textContent = sim.mph + " mph";
+  }
+  function simJump(){
+    if(!activeRoute){ showBanner("SYMULATOR", "Najpierw wyznacz trasę do celu", false); return; }
+    if(activeRoute !== sim.route){ simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0; }
+    const list = routeRestrictionsRaw(activeRoute).filter(r => r.sev === "danger" && r.along > sim.along + 150);
+    if(!list.length){
+      showBanner("SYMULATOR", "Na trasie przed pojazdem nie ma ograniczeń przekraczanych przez Twoją ciężarówkę. Zwiększ wysokość/masę w panelu 🚛 albo wybierz inną trasę.", false); return;
+    }
+    const r = list[0];
+    let target = Math.max(sim.along, r.along - RESTR_FIRST_M - 100);
+    if(target <= sim.along + 5) target = Math.max(sim.along, r.along - RESTR_SECOND_M - 100);
+    sim.along = target; simEmit(sim.playing ? sim.mph * 0.44704 : 0);
+    showBanner("SYMULATOR", "Skok: ograniczenie za " + ukDistMiles(r.along - target), false);
+  }
+  function simRestart(){
+    if(!activeRoute) return;
+    simBuild(activeRoute); sim.along = 0;
+    activeRoute._restr = null; if(typeof detourHide === "function") detourHide();   // alerty i objazd zadziałają od nowa
+    simEmit(sim.playing ? sim.mph * 0.44704 : 0);
+  }
+  $s("simPlay").addEventListener("click", () => sim.playing ? simStop() : simPlay());
+  $s("simSlower").addEventListener("click", () => { sim.mph = Math.max(10, sim.mph - 5); simUi(); });
+  $s("simFaster").addEventListener("click", () => { sim.mph = Math.min(120, sim.mph + 5); simUi(); });
+  $s("simJump").addEventListener("click", simJump);
+  $s("simRestart").addEventListener("click", simRestart);
+  // pasek widoczny tylko w trybie symulatora po uruchomieniu
+  setInterval(() => { $s("simBar").classList.toggle("show", !!(MOCK_GPS && started && map)); }, 1000);
+  simUi();
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
