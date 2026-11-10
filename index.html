@@ -466,6 +466,10 @@
   .truckRouteIco{ display:block; width:100%; height:auto; }
   /* klawiatura ekranowa: panel unosi się nad nią, żeby pola były widoczne */
   body.kb-open #navPanel{ bottom: var(--kb, 0px); }
+  /* z klawiaturą pola celu i kodu pocztowego zawsze widoczne: panel mieści się w widocznym obszarze,
+     a przewija się tylko lista podpowiedzi pod polami */
+  body.kb-open #navPanel:not(.truck-open):not(.billboard-open){ max-height: calc(var(--vvh, 100vh) - 8px); overflow-y:hidden; }
+  body.kb-open #navPanel:not(.truck-open):not(.billboard-open) .navSuggestions{ max-height: max(120px, calc(var(--vvh, 100vh) - 270px)); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:5.6; }
   .truckRouteIco .rt{ stroke: var(--accent); stroke-width:3.4; }
   .truckRouteIco .pin{ fill:#ff4d4d; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
@@ -928,6 +932,13 @@
   #navRouteInfo .rSub{ font-size:12px; color: var(--text-dim); }
   #navRouteInfo .rTraffic{ font-size:12px; color: #f2b632; }
   #navRouteInfo .rTraffic.heavy{ color: var(--danger); }
+
+/* Radar avatara (2D, oddalenie): jeden powolny, półprzezroczysty puls */
+.avRadar{position:absolute;left:50%;top:50%;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;
+  border:2px solid var(--avRadar,#1FD6C1);background:radial-gradient(circle,transparent 55%,var(--avRadar,#1FD6C1) 140%);
+  opacity:0;transform:scale(.2);pointer-events:none;display:none}
+.avRadar.on{display:block;animation:avRadarPulse 3.2s ease-out infinite}
+@keyframes avRadarPulse{0%{transform:scale(.2);opacity:.5}60%{opacity:.18}100%{transform:scale(1);opacity:0}}
   /* ---------- Ustawienia nawigatora (klucze API, wspólna baza) — osobny panel spod "⋮" ---------- */
   #navSettingsPanel{
     position:fixed; inset:0; z-index:80;
@@ -2970,6 +2981,24 @@
     return { data: ctx.getImageData(0, 0, d, d), options: { pixelRatio: PR } };
   }
 
+  // Brytyjski znak fotoradaru: biały trójkąt z czerwoną obwódką i czarną kamerką (rysowany raz, jeden obrazek)
+  function addCameraSignImage(m){
+    const id = "mw-camera-sign";
+    try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}   // styleimagemissing mógł wstawić pusty piksel
+    const PR = 2, S = 36 * PR, k = PR;
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d");
+    g.lineJoin = "round";
+    g.beginPath(); g.moveTo(18*k, 3*k); g.lineTo(33*k, 31*k); g.lineTo(3*k, 31*k); g.closePath();
+    g.fillStyle = "#ffffff"; g.fill();
+    g.lineWidth = 4*k; g.strokeStyle = "#D8232A"; g.stroke();
+    g.fillStyle = "#111"; g.fillRect(11*k, 18*k, 14*k, 8*k);            // korpus kamery
+    g.fillRect(12.5*k, 15.5*k, 5*k, 3*k);                                // wizjer
+    g.beginPath(); g.moveTo(25*k, 20*k); g.lineTo(29*k, 18.5*k); g.lineTo(29*k, 25.5*k); g.lineTo(25*k, 24*k); g.closePath(); g.fill();   // obiektyw
+    g.beginPath(); g.arc(16*k, 22*k, 2.2*k, 0, Math.PI*2); g.fillStyle = "#ffffff"; g.fill();
+    m.addImage(id, g.getImageData(0, 0, S, S), { pixelRatio: PR });
+  }
+
   function addRestrictionSignImages(m){
     Object.keys(RESTRICTION_SIGN_COLORS).forEach(kind => {
       const id = "restriction-sign-" + kind;
@@ -3184,6 +3213,7 @@
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
     },
+    motorway3d: { fill: "#455154", casing: "#232b2d" },  // widok 3D (noc): jak asfalt autostrady z js/11a, zamiast niebieskiego
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
     minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
@@ -3330,6 +3360,7 @@
   // to zwykły stały kolor.
   function nightRoadColorValue(cls, isCasing){
     const spec = NIGHT_ROADS[cls];
+    if(cls === "motorway" && typeof is3D !== "undefined" && is3D) return NIGHT_ROADS.motorway3d[isCasing ? "casing" : "fill"];
     if(cls === "major" || cls === "motorway"){
       const [zFar, zNear] = NIGHT_ROADS.majorColorZoom;
       const far = isCasing ? spec.casingFar : spec.fillFar;
@@ -3414,6 +3445,7 @@
         }
       });
     });
+    mw3dApplied = !!(night && is3D);
     applyNightDetail(night);
     applyNightZones(night);
     applyMinorRoadZoom(night);
@@ -3470,9 +3502,13 @@
     if(!map) return;
     try{
       const Z    = [8,   9,   10,  11,  12,  13,  14,  15];
-      const FILL = [.5,  .7,  .9,  1.1, 1.5, 2.2, 3.2, 4.6];     // szerokość wypełnienia (px)
-      const CASE = [1.4, 1.6, 1.9, 2.3, 2.9, 3.8, 5.0, 6.8];     // szerokość obrysu (px)
-      const OFF  = [.6,  1,   1.4, 2,   2.4, 2.4, 1.8, .9];      // odsunięcie każdej jezdni od osi (px)
+      // Szerokość jednej jezdni ≈ 70 % szerokości drogi A (pełna autostrada = dwie jezdnie, wyraźnie grubsza niż A).
+      // Odsunięcie liczone tak, by odstęp między jezdniami był stały w proporcji do grubości linii:
+      // docelowy rozstaw osi d = 1,5·FILL + 0,8 px, a rzeczywisty rozstaw w OSM (ok. 24 m) rośnie z zoomem —
+      // przy zoomie 8–12 rozsuwamy jezdnie (+), od 14 ściągamy je ku sobie (−), żeby nie było „dziury” między nimi.
+      const FILL = [.7,  1,   1.4, 2,   2.7, 3.5, 4.5, 5.6];     // szerokość wypełnienia (px)
+      const CASE = [1.7, 2.1, 2.6, 3.3, 4.2, 5.2, 6.5, 8.0];     // szerokość obrysu (px)
+      const OFF  = [.85, 1,   1.2, 1.4, 1.4, .9,  -.4, -3.8];    // odsunięcie każdej jezdni od osi (px; ujemne = ku osi)
       const asExpr = w => {                                       // zapis „stops” → wyrażenie interpolate
         if(w && !Array.isArray(w) && Array.isArray(w.stops)){
           const out = ["interpolate", ["exponential", w.base || 1], ["zoom"]];
@@ -3509,6 +3545,23 @@
         map.setPaintProperty(l.id, "line-offset", off);
       });
     }catch(e){ console.warn("Nie udało się rozdzielić jezdni autostrad:", e); }
+  }
+  // Autostrady w nocy: w widoku 3D szare (asfalt), w 2D niebieskie. Przełączenie 2D↔3D wykrywa lekki zegar (bez obciążania mapy).
+  let mw3dApplied = null;
+  function applyMotorway3dColor(){
+    try{
+      if(!map || !nightOriginals) return;
+      const night = document.body.classList.contains("night"), want = !!(night && is3D);
+      if(want === mw3dApplied) return;
+      mw3dApplied = want;
+      if(!night) return;   // dzień: kolory ze stylu bez zmian (applyNightTheme je przywraca)
+      Object.keys(nightOriginals).forEach(id => {
+        const inf = nightLayerInfo[id];
+        if(!inf || inf.type !== "line" || inf.sl !== "transportation" || !map.getLayer(id)) return;
+        if(nightRoadClass(inf.id, inf.filter) !== "motorway") return;
+        Object.keys(nightOriginals[id]).forEach(prop => map.setPaintProperty(id, prop, nightThemeValue(inf, prop, nightOriginals[id][prop])));
+      });
+    }catch(e){ console.warn("Kolor autostrady w 3D:", e); }
   }
   function applyNightZones(night){
     if(!map || !map.getLayer("night-industrial")) return;
@@ -3589,6 +3642,7 @@
       try{ applyBaseMap(); }catch(e){ console.warn("Mapa satelitarna:", e); }
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
+      setInterval(applyMotorway3dColor, 600);
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
@@ -3826,19 +3880,18 @@
       // Dyskretne: małe kropki widoczne dopiero po zbliżeniu; leżą pod "żywymi" fotoradarami
       // z okolicy pozycji, więc te większe je przykrywają, zamiast się dublować.
       map.addSource("motorway-cameras", { type:"geojson", data: emptyFC() });
+      addCameraSignImage(map);
       map.addLayer({
         id:"motorway-cameras-dot",
-        type:"circle",
+        type:"symbol",
         source:"motorway-cameras",
         minzoom: 14,
-        paint:{
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2, 16, 3.5, 18, 5],
-          "circle-color": "#E5484D",
-          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75],
-          "circle-stroke-width": 1,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 0.75]
-        }
+        layout:{
+          "icon-image": "mw-camera-sign",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.5, 16, 0.75, 18, 1],
+          "icon-allow-overlap": true, "icon-ignore-placement": true
+        },
+        paint:{ "icon-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 1] }
       }, "cameras-glow");
 
       // źródło parkingów/MOP-ów dla HGV (dane z OSM/Overpass)
@@ -4430,10 +4483,13 @@
     const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
     return pts.map(p => { const x = p[0] - px, y = p[1] - py; return [px + x * c + y * s, py - x * s + y * c]; });
   }
-  function avatarScale(a){
-    const lat = lastPos ? lastPos.lat : 53;
-    const ppm = Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
-    return Math.max(1, Math.min(14, (is3D ? a.t3d : a.t2d) / (a.lenM * ppm)));
+  // wide=true (tylko avatar): przy dużym oddaleniu pojazd nie kurczy się do kropki — limit skali 14× podniesiony do 260×,
+  // a docelowy rozmiar na ekranie spada łagodnie do 55 % poniżej zoomu 11 (billboardy wołają bez wide = jak dawniej).
+  function avatarScale(a, wide){
+    const lat = lastPos ? lastPos.lat : 53, z = map.getZoom();
+    const ppm = Math.pow(2, z) / (78271.517 * Math.cos(lat * Math.PI / 180));
+    const fade = wide ? 0.55 + 0.45 * Math.max(0, Math.min(1, (z - 11) / 3)) : 1;
+    return Math.max(1, Math.min(wide ? 260 : 14, fade * (is3D ? a.t3d : a.t2d) / (a.lenM * ppm)));
   }
   // lista brył: { p: obrys, b: podstawa (m), h: wysokość (m), c: kolor, tr: należy do naczepy, sh: tylko cień }
   // ciężarówka (przód = +y): nowoczesny ciągnik z aerodynamiczną kabiną + naczepa kurtynowa
@@ -4625,7 +4681,7 @@
     const moving = currentSpeedKmh >= 3;
     if(moving) avSm.ph = (avSm.ph || 0) + 0.033 * (4 + Math.min(30, avSm.v) * .35);
     const model = A3_BUILD[vehicleAvatar](avatarAccent(), avSm.ph || 0);
-    const s = avatarScale(a), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
+    const s = avatarScale(a, true), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
     const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180)));
     const trRot = avSm.trLoc || 0, pv = model.pivot || [0, 0];
     const conv = (pts, tr) => {
@@ -4885,6 +4941,17 @@
     applyUserMarkerStyle();
     map.on("zoom", queueAvatarSize);
     map.on("pitch", queueAvatarSize);
+    // delikatny „radar” wokół avatara: tylko w widoku 2D przy oddaleniu (zoom < 15), żeby pojazd był widoczny z daleka
+    const radar = document.createElement("div");
+    radar.className = "avRadar";
+    userMarkerEl.appendChild(radar);
+    setInterval(() => {
+      try{
+        const on = !is3D && map.getZoom() < 15;
+        radar.classList.toggle("on", on);
+        if(on) radar.style.setProperty("--avRadar", (typeof avatarAccent === "function" && avatarAccent()) || "#1FD6C1");
+      }catch(e){}
+    }, 500);
   }
 
   /* ---------- płynny ruch avatara ----------
@@ -5183,17 +5250,57 @@
   const MW_CAMERA_MAX_RETRIES = 3;
   let mwCameraRetries = 0;
 
-  function showMotorwayCameras(cams){
+  // Znak stoi ~5 m na lewo od osi jezdni (w kierunku jazdy). Kierunek jezdni czytamy z kafelków mapy najbliżej fotoradaru
+  // (po przybliżeniu), wynik pamiętamy — dla kamer bez dopasowania zostaje pozycja z OSM.
+  const MW_CAMERA_LEFT_M = 5;
+  let mwCamAll = [], mwCamShift = new Map(), mwCamHooked = false;
+  function mwCamRender(){
     const src = map && map.getSource("motorway-cameras");
     if(!src) return;
     src.setData({
       type: "FeatureCollection",
-      features: cams.map(c => ({
-        type: "Feature",
-        properties: { id: c.id },
-        geometry: { type: "Point", coordinates: [c.lon, c.lat] }
-      }))
+      features: mwCamAll.map(c => {
+        const s = mwCamShift.get(c.id);
+        return { type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: s || [c.lon, c.lat] } };
+      })
     });
+  }
+  function mwCamUpdateShifts(){
+    try{
+      if(!map || !mwCamAll.length || map.getZoom() < 14.5) return;
+      const ids = (map.getStyle().layers || []).filter(l => l.type === "line" && l["source-layer"] === "transportation" && /motorway/.test(l.id) && !/casing/.test(l.id)).map(l => l.id);
+      if(!ids.length) return;
+      const b = map.getBounds(); let changed = false, n = 0;
+      for(const c of mwCamAll){
+        if(mwCamShift.has(c.id) || c.lon < b.getWest() || c.lon > b.getEast() || c.lat < b.getSouth() || c.lat > b.getNorth()) continue;
+        if(++n > 60) break;
+        const p = map.project([c.lon, c.lat]);
+        const feats = map.queryRenderedFeatures([[p.x - 14, p.y - 14], [p.x + 14, p.y + 14]], { layers: ids });
+        const kLat = 111320, kLon = 111320 * Math.cos(c.lat * Math.PI / 180);
+        let best = null;
+        feats.forEach(f => {
+          const g = f.geometry; if(!g) return;
+          const lines = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+          lines.forEach(ln => { for(let i = 0; i + 1 < ln.length; i++){
+            const ax = (ln[i][0] - c.lon) * kLon, ay = (ln[i][1] - c.lat) * kLat, bx = (ln[i+1][0] - c.lon) * kLon, by = (ln[i+1][1] - c.lat) * kLat;
+            const dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy; if(L2 < 1e-6) continue;
+            const t = Math.max(0, Math.min(1, -(ax*dx + ay*dy) / L2)), ex = ax + t*dx, ey = ay + t*dy, d = Math.hypot(ex, ey);
+            if(!best || d < best.d) best = { d, dx, dy };
+          } });
+        });
+        if(!best || best.d > 40) continue;
+        const L = Math.hypot(best.dx, best.dy), lx = -best.dy / L, ly = best.dx / L;   // lewa strona kierunku jazdy (x = wschód, y = północ)
+        mwCamShift.set(c.id, [c.lon + lx * MW_CAMERA_LEFT_M / kLon, c.lat + ly * MW_CAMERA_LEFT_M / kLat]);
+        changed = true;
+      }
+      if(changed) mwCamRender();
+    }catch(e){ console.warn("Przesunięcie fotoradarów:", e); }
+  }
+  function showMotorwayCameras(cams){
+    if(!map || !map.getSource("motorway-cameras")) return;
+    mwCamAll = cams;
+    mwCamRender();
+    if(!mwCamHooked){ mwCamHooked = true; map.on("moveend", mwCamUpdateShifts); map.on("idle", mwCamUpdateShifts); }
   }
 
   function readMotorwayCameraCache(){
@@ -8309,7 +8416,14 @@
         hgvCompaniesCache.forEach(f => { const q = f.geometry && f.geometry.coordinates; if(q) addLocal(f.properties && f.properties.name, q[1], q[0]); });
         list.forEach(r => { r._d = _dM(c.lat, c.lon, r.position.lat, r.position.lon); r._pop = popularity(r);
           r._sub = distLabel(r._d) + " · " + (r._fromDb ? "baza kierowców" : ((r.address && r.address.freeformAddress) || "")); });
-        list.sort((a, b) => b._pop - a._pop || a._d - b._d);
+        // kolejność: 1) ten sam kod pocztowy, 2) ten sam sektor (np. CV3 4P…), 3) brak kodu (baza kierowców), 4) inne kody;
+        // w obrębie grupy: bliżej wpisanego kodu, przy remisie popularniejsze
+        const normPc = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const want = normPc(pc), sector = want.slice(0, -2);
+        const pcRank = r => { const got = normPc(r.address && r.address.postalCode);
+          if(!got) return 2; if(got === want) return 0; return got.slice(0, -2) === sector ? 1 : 3; };
+        list.forEach(r => { r._pcRank = pcRank(r); });
+        list.sort((a, b) => a._pcRank - b._pcRank || a._d - b._d || b._pop - a._pop);
         if(token !== pcToken) return;
         pcCompanies = { pc, list: list.slice(0, 60) };
         // jeśli w polu celu są już litery — pokaż tylko pasujące firmy
@@ -11191,6 +11305,7 @@
         const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
         const open = kb > 80;
         document.documentElement.style.setProperty("--kb", open ? kb + "px" : "0px");
+        document.documentElement.style.setProperty("--vvh", Math.round(vv.height) + "px");
         document.body.classList.toggle("kb-open", open);
         if(open && document.activeElement && block.contains(document.activeElement))
           setTimeout(() => { try{ document.activeElement.scrollIntoView({ block:"center", behavior:"smooth" }); }catch(e){} }, 60);
@@ -12639,10 +12754,16 @@
   safeInit("menu ikon", () => {
     const row = document.getElementById("navIconRow"), handle = document.getElementById("menuHandle");
     if(!row || !handle) return;
+    let menuTimer = null;
     function setMenuOpen(on){
       document.body.classList.toggle("menu-open", !!on);
       handle.setAttribute("aria-expanded", on ? "true" : "false");
+      if(menuTimer){ clearTimeout(menuTimer); menuTimer = null; }
+      if(on) menuTimer = setTimeout(() => setMenuOpen(false), 5000);   // sam się chowa po 5 s
     }
+    // dotknięcie menu (przycisk, przeciągnięcie) odnawia odliczanie, żeby nie zniknęło pod palcem
+    row.addEventListener("touchstart", () => { if(document.body.classList.contains("menu-open")) setMenuOpen(true); }, { passive:true });
+    row.addEventListener("click", () => { if(document.body.classList.contains("menu-open")) setMenuOpen(true); });
     let sx = null, sy = null, swiped = false;
     row.addEventListener("touchstart", e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; swiped = false; }, { passive:true });
     row.addEventListener("touchmove", e => {
