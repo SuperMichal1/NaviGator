@@ -850,6 +850,15 @@
   #simBar{ position:fixed; left:10px; bottom:calc(env(safe-area-inset-bottom, 0px) + 31vh); z-index:8800; display:none; align-items:center; gap:6px;
     padding:6px 8px; border-radius:18px; background:rgba(8,14,22,.82); border:1px solid rgba(255,255,255,.18); box-shadow:0 6px 20px rgba(0,0,0,.45); }
   #simBar.show{ display:flex; }
+  /* wysuwany z lewej krawędzi jak menu ikon: schowany = widać tylko uchwyt ›, po 5 s bez dotyku sam się chowa (js/47) */
+  #simBar{ left:0; padding:6px 6px 6px 8px; border-left:none; border-radius:0 18px 18px 0;
+    transform:translateX(calc(-100% + 34px)); transition:transform .3s cubic-bezier(.2,.85,.3,1); }
+  #simBar.open{ transform:none; }
+  #simBar:not(.open) button{ pointer-events:none; }
+  #simHandle{ flex:0 0 26px; width:26px; height:44px; border-radius:12px; cursor:pointer; background:rgba(255,255,255,.14); color:#fff;
+    display:flex; align-items:center; justify-content:center; font:700 20px/1 'Inter',system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
+  #simHandle::before{ content:"A"; }
+  #simBar.open #simHandle::before{ content:"9"; }
   #simBar button{ width:44px; height:44px; border-radius:12px; border:0; background:rgba(255,255,255,.14); color:#fff; font:700 20px 'Inter',system-ui,sans-serif; cursor:pointer; }
   #simBar #simPlay{ background:#19a05a; font-size:22px; }
   #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
@@ -1436,6 +1445,7 @@
   <button id="simFaster" type="button" aria-label="Szybciej">+</button>
   <button id="simJump" type="button" title="Skok przed ograniczenie" aria-label="Skok przed ograniczenie">⏩</button>
   <button id="simRestart" type="button" title="Od początku trasy" aria-label="Od początku trasy">⏮</button>
+  <div id="simHandle" role="button" aria-label="Panel symulatora: dotknij, żeby wysunąć lub schować" aria-expanded="false"></div>
 </div>
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
@@ -1766,6 +1776,7 @@
   <div class="ctrl-btn" id="btnDim" title="2D / 3D">
     <span id="dimIcon">3D</span>
   </div>
+  <div class="ctrl-btn" id="btnTraffic" title="Natężenie ruchu (TomTom)">🚦</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
 </div>
@@ -2981,22 +2992,29 @@
     return { data: ctx.getImageData(0, 0, d, d), options: { pixelRatio: PR } };
   }
 
-  // Brytyjski znak fotoradaru: biały trójkąt z czerwoną obwódką i czarną kamerką (rysowany raz, jeden obrazek)
+  // Znak „Speed cameras" (biała tablica z grubą czarną ramką, czarna kamerka z dwoma kółkami, napis) — jeden obrazek
   function addCameraSignImage(m){
     const id = "mw-camera-sign";
     try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}   // styleimagemissing mógł wstawić pusty piksel
-    const PR = 2, S = 36 * PR, k = PR;
-    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    const PR = 3, W = 46, H = 50, k = PR;
+    const c = document.createElement("canvas"); c.width = W * k; c.height = H * k;
     const g = c.getContext("2d");
-    g.lineJoin = "round";
-    g.beginPath(); g.moveTo(18*k, 3*k); g.lineTo(33*k, 31*k); g.lineTo(3*k, 31*k); g.closePath();
-    g.fillStyle = "#ffffff"; g.fill();
-    g.lineWidth = 4*k; g.strokeStyle = "#D8232A"; g.stroke();
-    g.fillStyle = "#111"; g.fillRect(11*k, 18*k, 14*k, 8*k);            // korpus kamery
-    g.fillRect(12.5*k, 15.5*k, 5*k, 3*k);                                // wizjer
-    g.beginPath(); g.moveTo(25*k, 20*k); g.lineTo(29*k, 18.5*k); g.lineTo(29*k, 25.5*k); g.lineTo(25*k, 24*k); g.closePath(); g.fill();   // obiektyw
-    g.beginPath(); g.arc(16*k, 22*k, 2.2*k, 0, Math.PI*2); g.fillStyle = "#ffffff"; g.fill();
-    m.addImage(id, g.getImageData(0, 0, S, S), { pixelRatio: PR });
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    g.scale(k, k);
+    rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#f7f7f7"; g.fill();                 // biała tablica
+    rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#111"; g.stroke();   // czarna ramka
+    // kamerka: czarny korpus z dwoma białymi kółkami + obiektyw (schodki)
+    rr(11, 8, 17, 17, 2.5); g.fillStyle = "#111"; g.fill();
+    g.beginPath(); g.arc(15.8, 20, 3.4, 0, Math.PI * 2); g.lineWidth = 1.5; g.strokeStyle = "#fff"; g.stroke();
+    g.beginPath(); g.arc(22.6, 12.4, 1.8, 0, Math.PI * 2); g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = "#111"; g.fillRect(34, 14, 3.5, 5);                               // lufa obiektywu
+    g.lineWidth = 0.9; g.strokeStyle = "#111";
+    [29.4, 31, 32.6].forEach((x, i) => { g.beginPath(); g.moveTo(x, 10.5 + i * .5); g.lineTo(x, 23 - i * .5); g.stroke(); });   // pionowe listwy
+    g.beginPath(); g.moveTo(28.2, 22.8); g.lineTo(32.8, 22.8); g.stroke();
+    g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "alphabetic";
+    g.font = "bold 8.4px Arial, Helvetica, sans-serif"; g.fillText("Speed", W / 2, 35.5);
+    g.font = "bold 7.6px Arial, Helvetica, sans-serif"; g.fillText("cameras", W / 2, 44);
+    m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
   }
 
   function addRestrictionSignImages(m){
@@ -3888,7 +3906,7 @@
         minzoom: 14,
         layout:{
           "icon-image": "mw-camera-sign",
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.5, 16, 0.75, 18, 1],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 18, 1.1],
           "icon-allow-overlap": true, "icon-ignore-placement": true
         },
         paint:{ "icon-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 1] }
@@ -13050,7 +13068,9 @@
 (function(){
   const SIGN_EVERY_M = 5 * 1609.344;   // co 5 mil
   const SIGN_FIRST_M = 0.5 * 1609.344; // pierwszy znak krótko po wjeździe na autostradę
-  const AHEAD_ROUTE_M = 450, AHEAD_FREE_M = 300;   // ile metrów przed pojazdem stawiamy znak
+  const AHEAD_ROUTE_M = 1500, AHEAD_FREE_M = 1000;  // ile metrów przed pojazdem stawiamy znak (daleko — widać go z dużym wyprzedzeniem)
+  const EDGE_GAP_M = 2;                            // odstęp tablicy od krawędzi jezdni (m) — tuż przy drodze
+  const MAX_SC = 10;                               // maks. powiększenie znaku (1 = rozmiar rzeczywisty)
   const KEEP_M = 3000;                             // znaki dalej niż 3 km od pojazdu znikają
   const ROAD_EDGE_M = 9;                           // krawędź jezdni (pas + pobocze) licząc od osi, w metrach
   const SRC = "nawisign", LAYER = "nawisign-body", FACE_LAYER = "nawisign-face";
@@ -13256,8 +13276,8 @@
     const feats = [];
     signs.forEach(s => {
       const bb = findBB(s.bbId); if(!bb) return;
-      const model = getModel(bb), sc = curScale * Math.max(0.3, Math.min(2.5, (bb.scale || 100) / 100));
-      const cx = -(ROAD_EDGE_M + 1.5 * curScale + (model.W / 2) * sc);
+      const model = getModel(bb), sc = s.sc || 1;
+      const cx = -(ROAD_EDGE_M + EDGE_GAP_M + (model.W / 2) * sc);
       const hr = s.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
       const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(s.lat * Math.PI / 180)));
       model.parts.forEach(o => {
@@ -13273,11 +13293,45 @@
     src.setData({ type:"FeatureCollection", features: feats });
     try{ map.triggerRepaint(); }catch(e){}
   }
+  // Automatyczne skalowanie: największe powiększenie (1–MAX_SC), przy którym tablica
+  //  • mieści się na ekranie (lewa krawędź ≥ 2 % szerokości), • zajmuje najwyżej ~32 % szerokości (× „wielkość" z panelu 🪧),
+  //  • nie wchodzi pod górny brzeg ekranu. Krawędź przy drodze stoi zawsze tuż przy jezdni, więc tablica nie zasłania pasów.
+  const llAt = (s, xm) => {
+    const hr = s.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
+    return [s.lon + (xm * ch) / (111320 * Math.max(0.2, Math.cos(s.lat * Math.PI / 180))), s.lat + (-xm * sh) / 111320];
+  };
+  function fitScale(s){
+    try{
+      const bb = findBB(s.bbId); if(!bb) return 1;
+      const model = getModel(bb), cv = map.getCanvas(), vw = cv.clientWidth, vh = cv.clientHeight;
+      if(!vw || !vh) return s.sc || 1;
+      const k = Math.max(0.3, Math.min(2.5, (bb.scale || 100) / 100)), wFrac = Math.max(0.12, Math.min(0.5, 0.32 * k));
+      const sinP = Math.sin((map.getPitch() || 0) * Math.PI / 180), xr = -(ROAD_EDGE_M + EDGE_GAP_M);
+      const ok = T => {
+        const pr = map.project(llAt(s, xr)), pl = map.project(llAt(s, xr - model.W * T));
+        if(!isFinite(pr.x) || !isFinite(pl.x)) return false;
+        const w = Math.abs(pr.x - pl.x); if(w < 1) return true;
+        if(w > wFrac * vw || Math.min(pl.x, pr.x) < 0.02 * vw) return false;
+        const top = pr.y - (BOARD_B + model.H) * T * (w / (model.W * T)) * sinP;
+        return top >= 0.15 * vh;
+      };
+      if(!ok(1)) return 1;
+      let lo = 1, hi = MAX_SC;
+      if(ok(hi)) return hi;
+      for(let i = 0; i < 9; i++){ const mid = (lo + hi) / 2; if(ok(mid)) lo = mid; else hi = mid; }
+      return lo;
+    }catch(e){ return s.sc || 1; }
+  }
   setInterval(() => {
     if(!signs.length || !map) return;
-    const sc = signScale();
-    if(Math.abs(sc / curScale - 1) > 0.06){ curScale = sc; render(); }
-  }, 400);
+    let ch = false;
+    signs.forEach(s => {
+      const t = fitScale(s), cur = s.sc || t;
+      const n = Math.abs(t / cur - 1) < 0.02 ? cur : cur + (t - cur) * 0.4;
+      if(s.sc === undefined || Math.abs(n / cur - 1) > 0.015){ s.sc = n; ch = true; }
+    });
+    if(ch) render();
+  }, 300);
 
   /* ---------- gdzie postawić znak ---------- */
   function bearing(lat1, lon1, lat2, lon2){
@@ -13306,6 +13360,18 @@
     }
     return null;
   }
+  // miejsce na prostym odcinku: kierunek trasy 250 m przed i 250 m za punktem różni się o < 6° (najbliżej AHEAD_ROUTE_M)
+  function straightAhead(lat, lon){
+    const offs = [0, 200, -200, 400, -400, 600, -600, 900, -900];
+    for(const o of offs){
+      const d = AHEAD_ROUTE_M + o;
+      const a = aheadOnRoute(lat, lon, d - 250), m = aheadOnRoute(lat, lon, d), b = aheadOnRoute(lat, lon, d + 250);
+      if(!a || !m || !b) continue;
+      const df = (x, y) => Math.abs(((x - y + 540) % 360) - 180);
+      if(df(a.hdg, m.hdg) < 6 && df(m.hdg, b.hdg) < 6 && df(a.hdg, b.hdg) < 8) return m;
+    }
+    return aheadOnRoute(lat, lon, AHEAD_ROUTE_M) || aheadOnRoute(lat, lon, 600);
+  }
   let rot = 0;
   function nextBB(){
     const on = BB.filter(b => b.enabled !== false);
@@ -13315,7 +13381,7 @@
     if(!map || !avSm || !avSm.init) return false;
     const bb = (typeof bbId === "string" && findBB(bbId)) || nextBB();
     if(!bb) return false;                                   // wszystkie billboardy wyłączone
-    const r = aheadOnRoute(avSm.lat, avSm.lon, AHEAD_ROUTE_M);
+    const r = straightAhead(avSm.lat, avSm.lon);
     let s;
     if(r) s = r;
     else {
@@ -13323,8 +13389,9 @@
       s = { lat: avSm.lat + d * Math.cos(hr) / 111320, lon: avSm.lon + d * Math.sin(hr) / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180))), hdg: avSm.hdg };
     }
     s.bbId = bb.id;
+    s.sc = 1;
     signs.push(s);
-    curScale = signScale();
+    s.sc = fitScale(s);
     render();
     return true;
   }
@@ -14048,9 +14115,73 @@
   $s("simFaster").addEventListener("click", () => { sim.mph = Math.min(120, sim.mph + 5); simUi(); });
   $s("simJump").addEventListener("click", simJump);
   $s("simRestart").addEventListener("click", simRestart);
+  // wysuwanie / chowanie paska (jak menu ikon): uchwyt albo przeciągnięcie w prawo wysuwa, sam chowa się po 5 s
+  let simBarTimer = null;
+  function simBarOpen(on){
+    $s("simBar").classList.toggle("open", !!on);
+    $s("simHandle").setAttribute("aria-expanded", on ? "true" : "false");
+    if(simBarTimer){ clearTimeout(simBarTimer); simBarTimer = null; }
+    if(on) simBarTimer = setTimeout(() => simBarOpen(false), 5000);
+  }
+  const simBarEl = $s("simBar"), isOpen = () => simBarEl.classList.contains("open");
+  $s("simHandle").addEventListener("click", () => simBarOpen(!isOpen()));
+  simBarEl.addEventListener("click", e => { if(isOpen() && e.target !== $s("simHandle")) simBarOpen(true); });   // użycie przycisku odnawia 5 s
+  let simSx = null;
+  simBarEl.addEventListener("touchstart", e => { simSx = e.touches[0].clientX; }, { passive:true });
+  simBarEl.addEventListener("touchmove", e => {
+    if(simSx === null) return; const dx = e.touches[0].clientX - simSx;
+    if(Math.abs(dx) > 22){ simBarOpen(dx > 0); simSx = null; }
+  }, { passive:true });
   // pasek widoczny tylko w trybie symulatora po uruchomieniu
   setInterval(() => { $s("simBar").classList.toggle("show", !!(MOCK_GPS && started && map)); }, 1000);
   simUi();
+</script>
+<script>
+/* ===== js/48-traffic-layer.js — Natężenie ruchu (TomTom Traffic Flow) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny. Przycisk 🚦 w wysuwanym menu ikon (#btnTraffic) włącza / wyłącza
+   kolorowanie dróg według płynności ruchu (zielony = płynnie, żółty/pomarańczowy = wolniej, czerwony = korek).
+   Kafelki rastrowe TomTom Traffic Flow (v4, styl "relative" = względem swobodnej prędkości na danym odcinku), klucz API ten sam co
+   do tras (Ustawienia ⋮). Dane odświeżane co 5 minut. Stan (włączone/wyłączone) zapamiętany w localStorage.
+   Zależności (tylko w callbackach): map, tomtomApiKey (js/04), showBanner (js/06). */
+"use strict";
+
+  const TRAFFIC_LS = "nawigator_traffic_on", TRAFFIC_SRC = "tt-traffic", TRAFFIC_LYR = "tt-traffic-flow";
+  let trafficOn = false, trafficStamp = 0;
+  try{ trafficOn = localStorage.getItem(TRAFFIC_LS) === "1"; }catch(e){}
+
+  function trafficTiles(){
+    trafficStamp = Math.floor(Date.now() / 300000);   // nowy adres co 5 min = świeże dane
+    return ["https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?tileSize=512&key=" + encodeURIComponent(tomtomApiKey) + "&_=" + trafficStamp];
+  }
+  function trafficRemove(){
+    try{ if(map.getLayer(TRAFFIC_LYR)) map.removeLayer(TRAFFIC_LYR); if(map.getSource(TRAFFIC_SRC)) map.removeSource(TRAFFIC_SRC); }catch(e){}
+  }
+  function trafficApply(){
+    try{
+      if(!map || !map.isStyleLoaded()) return;
+      const has = !!map.getLayer(TRAFFIC_LYR);
+      if(!trafficOn || !tomtomApiKey){ if(has) trafficRemove(); return; }
+      if(has && trafficStamp === Math.floor(Date.now() / 300000)) return;
+      if(has) trafficRemove();
+      map.addSource(TRAFFIC_SRC, { type:"raster", tiles: trafficTiles(), tileSize: 512, minzoom: 6, maxzoom: 18, attribution: "© TomTom" });
+      // pod linią trasy, znakami i fotoradarami, ale nad podkładem mapy
+      const before = ["route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
+      map.addLayer({ id: TRAFFIC_LYR, type:"raster", source: TRAFFIC_SRC,
+        paint:{ "raster-opacity": 0.85, "raster-fade-duration": 0 } }, before);
+    }catch(e){ console.warn("Warstwa ruchu:", e); }
+  }
+  function trafficSet(on){
+    trafficOn = !!on;
+    try{ localStorage.setItem(TRAFFIC_LS, on ? "1" : "0"); }catch(e){}
+    document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
+    if(trafficOn && !tomtomApiKey){
+      showBanner("RUCH DROGOWY", "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć natężenie ruchu", false);
+    }
+    trafficApply();
+  }
+  document.getElementById("btnTraffic").addEventListener("click", () => trafficSet(!trafficOn));
+  document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
+  setInterval(trafficApply, 4000);   // doda warstwę po załadowaniu mapy, odświeży dane co 5 min, przywróci po zmianie stylu
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
