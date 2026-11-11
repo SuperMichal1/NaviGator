@@ -158,7 +158,7 @@
      Karta nawigatora dokuje się do samego dołu ekranu (--nav-icon-row-h = 0). */
   :root{
     --nav-icon-row-h: 0px;   /* karta nawigatora dotyka dołu ekranu / paska nawigacji telefonu */
-    --menu-w: 222px;      /* szerokość wysuniętego menu (4 ikony + uchwyt) */
+    --menu-w: 318px;      /* szerokość wysuniętego menu (6 ikon + uchwyt) */
     --menu-hw: 24px;      /* szerokość uchwytu */
     --menu-h: 54px;
   }
@@ -1783,6 +1783,7 @@
     <span id="dimIcon">3D</span>
   </div>
   <div class="ctrl-btn" id="btnTraffic" title="Natężenie ruchu (TomTom)">🚦</div>
+  <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
 </div>
@@ -1907,6 +1908,18 @@
       <div id="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
     </div>
     <div id="navKeySaved" class="adminOnly">Zapisano lokalnie w tej przeglądarce</div>
+
+    <div id="nhBlock" style="margin:12px 0 6px;">
+      <div style="font-weight:700; margin-bottom:4px;">🚧 National Highways — remonty i zamknięcia (UK)</div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input type="password" id="nhKey" class="navApiKeyInput" placeholder="Klucz API (Ocp-Apim-Subscription-Key)…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;">
+        <div id="nhKeyEye" class="navKeyEye" title="Pokaż/ukryj klucz">👁</div>
+      </div>
+      <input type="text" id="nhUrl" class="navApiKeyInput" placeholder="Adres API (puste = domyślny roads/v2.0/closures)" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:6px; width:100%; box-sizing:border-box;">
+      <label class="navPrefLabel" style="margin-top:6px;"><input type="checkbox" id="nhOn"> Pokazuj na mapie (🚧 w menu)</label>
+      <button type="button" id="nhFetchBtn" class="navPrefBtn" style="margin-top:6px;">⟳ Pobierz teraz / test klucza</button>
+      <div id="nhStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px;"></div>
+    </div>
 
     <div id="navSupaToggle" class="navKeyToggle adminOnly">
       <span>🔗 Wspólna baza (Supabase)</span>
@@ -3843,6 +3856,14 @@
         layout:{ "line-cap":"round", "line-join":"round" },
         paint:{ "line-color":"#0c0f12", "line-width":9, "line-opacity":0.55 }
       }, "cameras-glow");
+      // delikatna neonowa poświata trasy (kolor ustawia applyRouteNightStyle, js/11b)
+      map.addLayer({
+        id:"route-line-glow",
+        type:"line",
+        source:"route-line",
+        layout:{ "line-cap":"round", "line-join":"round" },
+        paint:{ "line-color":"#1FD6C1", "line-width":16, "line-blur":7, "line-opacity":0.22 }
+      }, "route-line-casing");
       map.addLayer({
         id:"route-line-main",
         type:"line",
@@ -4290,6 +4311,10 @@
     map.setPaintProperty("route-line-casing", "line-color", customRouteColor ? (night ? customRouteColor : "#0c0f12") : (night ? "#00B4FF" : "#0c0f12"));
     map.setPaintProperty("route-line-casing", "line-opacity", night ? 0.55 : 0.55);
     map.setPaintProperty("route-line-casing", "line-blur", night ? 5 : 0);
+    if(map.getLayer("route-line-glow")){   // delikatny neon: miękka poświata w kolorze trasy (mocniejsza w nocy)
+      map.setPaintProperty("route-line-glow", "line-color", customRouteColor || (night ? "#1DF5FF" : "#1FD6C1"));
+      map.setPaintProperty("route-line-glow", "line-opacity", night ? 0.3 : 0.2);
+    }
     if(map.getLayer("route-line-alt-main"))
       map.setPaintProperty("route-line-alt-main", "line-color", night ? "#5FA9B5" : "#86E0D4");
     if(userMarkerEl) applyUserMarkerStyle();
@@ -12630,6 +12655,7 @@
     if(!map || !map.getLayer("route-line-main")) return;
     map.setPaintProperty("route-line-main", "line-width", routeEditMode ? 8 : 5);
     map.setPaintProperty("route-line-casing", "line-width", routeEditMode ? 12 : 9);
+    if(map.getLayer("route-traffic-line")) map.setPaintProperty("route-traffic-line", "line-width", routeEditMode ? 8 : 5);
   }
 </script>
 <script>
@@ -14277,34 +14303,44 @@
   function trStatus(t){ const el = document.getElementById("pickTrafficInfo"); if(el) el.textContent = t || ""; }
 
   // --- rysowanie: kolorowa obwódka pod linią trasy + znaczniki robót / zamknięć / dużych korków
+  // mała „bańka” jak w Mapach Google: ikona (roboty = żółte kółko z robotnikiem, zamknięcie = czerwone z kreską, korek = czerwona kropka)
+  // + koszt opóźnienia („5 min”) czerwonym tekstem, gdy TomTom go podaje; sama ikona, gdy opóźnienia brak
+  const TR_ICON = {
+    ROAD_WORK: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#F5B301"/><circle cx="14.6" cy="6.6" r="1.9" fill="#111"/><path d="M9.2 11l3.4-1.6 2.6 2.4-1.4 3.6 1.6 4.4h-2.2l-1.5-3.8-1.6 3.8H7.4l2-5.2z" fill="#111"/><path d="M6.6 15.6l5.2 3" stroke="#111" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    ROAD_CLOSURE: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#E5484D"/><rect x="5.5" y="10.4" width="13" height="3.2" rx="1.2" fill="#fff"/></svg>',
+    JAM: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#E5484D"/><circle cx="12" cy="12" r="4.2" fill="#fff"/></svg>'
+  };
+  function trBubble(s){
+    const el = document.createElement("div"), mins = s.delay >= 60 ? Math.max(1, Math.round(s.delay / 60)) : 0;
+    el.innerHTML = (TR_ICON[s.cat] || TR_ICON.JAM) + (mins ? '<span>' + mins + ' min</span>' : "");
+    el.title = (TR_CAT[s.cat] || TR_CAT.OTHER).title + (mins ? " · opóźnienie ok. " + mins + " min" : "");
+    el.style.cssText = "display:flex;align-items:center;gap:5px;background:#fff;border-radius:14px;padding:1px " + (mins ? 8 : 1) + "px 1px 1px;" +
+      "box-shadow:0 1px 4px rgba(0,0,0,.45);font:700 13px/1 'Inter',system-ui,sans-serif;color:#B3261E;pointer-events:none;white-space:nowrap";
+    return el;
+  }
   function trClear(){ trMarkers.forEach(m => m.remove()); trMarkers = []; trFeat = []; }
   function trDraw(route, secs, from, to){
     try{
       if(!map || !map.getStyle()) return false;
       const c = route.coords, feats = []; trClear();
-      // baza: cała trasa w oknie na zielono (płynnie) — widać, że dane działają, także gdy nie ma żadnych utrudnień
-      feats.push({ type: "Feature", properties: { col: "#3DBE6B", op: 0.55 }, geometry: { type: "LineString", coordinates: c.slice(from, to + 1) } });
       let nInc = 0, sumDelay = 0;
       secs.forEach(s => {
         const A = trNearest(c, s.a, from, to), B = trNearest(c, s.b, from, to); if(A.m > 60 || B.m > 60) return;
         const i0 = Math.min(A.i, B.i), i1 = Math.max(A.i, B.i); if(i1 - i0 < 1) return;
         const cat = TR_CAT[s.cat] || TR_CAT.OTHER, col = cat.color || TR_MAGCOL[s.mag] || "#EE8A2E", mid = c[(i0 + i1) >> 1];
         nInc++; sumDelay += s.delay || 0;
-        feats.push({ type: "Feature", properties: { col, op: 0.92 }, geometry: { type: "LineString", coordinates: c.slice(i0, i1 + 1) } });
+        feats.push({ type: "Feature", properties: { col }, geometry: { type: "LineString", coordinates: c.slice(i0, i1 + 1) } });
         trFeat.push({ id: s.cat + ":" + i0, i0, i1, cat: s.cat, mag: s.mag, delay: s.delay, mid });
         if(s.cat === "ROAD_WORK" || s.cat === "ROAD_CLOSURE" || s.mag >= 3){
-          const el = document.createElement("div");
-          el.textContent = cat.icon; el.title = cat.title + (s.delay > 60 ? " · opóźnienie ok. " + Math.round(s.delay / 60) + " min" : "");
-          el.style.cssText = "width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid " + col + ";display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.4);pointer-events:none";
-          trMarkers.push(new maplibregl.Marker({ element: el }).setLngLat(mid).addTo(map));
+          trMarkers.push(new maplibregl.Marker({ element: trBubble(s), anchor: "bottom", offset: [0, -5] }).setLngLat(mid).addTo(map));
         }
       });
       if(!map.getSource(TR_SRC)) map.addSource(TR_SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       if(!map.getLayer(TR_LYR)){
-        // tuż nad obwódką trasy, pod jej linią — wystaje ~2 px z każdej strony, nie zasłania trasy; kolory stonowane
+        // dokładnie na linii trasy (ta sama szerokość), tuż nad route-line-main: utrudnienia przebarwiają trasę, jak w Mapach Google
+        const ls = map.getStyle().layers, mi = ls.findIndex(l => l.id === "route-line-main"), before = mi >= 0 && ls[mi + 1] ? ls[mi + 1].id : undefined;
         map.addLayer({ id: TR_LYR, type: "line", source: TR_SRC, layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-width": 10, "line-opacity": ["get", "op"], "line-color": ["get", "col"] } },
-          map.getLayer("route-line-main") ? "route-line-main" : undefined);
+          paint: { "line-width": routeEditMode ? 8 : 5, "line-opacity": 0.95, "line-color": ["get", "col"] } }, before);
       }
       map.getSource(TR_SRC).setData({ type: "FeatureCollection", features: feats });
       trStatus(nInc ? nInc + " utrudn." + (sumDelay >= 60 ? " · +" + Math.round(sumDelay / 60) + " min" : "") : "płynnie");
@@ -14412,6 +14448,216 @@
   document.getElementById("pickTraffic").checked = trafficOn;
   document.getElementById("pickTraffic").addEventListener("change", e => trafficSet(e.target.checked));   // haczyk w oknie „Jedziemy / Zmień trasę”
   addTick(trTick, 3000);
+</script>
+<script>
+/* ===== js/49-national-highways.js — Remonty, zamknięcia i zdarzenia National Highways (UK) na mapie =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny. Pole klucza API: Ustawienia ⋮ → zakładka System → „National Highways”.
+   Przycisk 🚧 (#btnNH) w menu ikon włącza / wyłącza warstwę. API „Road and Lane Closures v2” (DATEX II v3.4, portal
+   developer.data.nationalhighways.co.uk): klucz subskrypcji idzie w nagłówku Ocp-Apim-Subscription-Key (przy błędzie sieci/CORS ponawiamy
+   z parametrem ?subscription-key=). Limit portalu: 10 zapytań / min / klucz — pobieramy raz na 15 min, wynik trzymamy w telefonie.
+   Parser jest TOLERANCYJNY (struktura DATEX bywa różna): szuka pozycji „situationRecord”, współrzędnych (latitude/longitude, posList),
+   dat (overallStartTime/EndTime) i opisów. Rozpoznane: zamknięcia (czerwone), roboty drogowe (bursztynowe), inne (szare);
+   aktywne = pełny kolor, planowane w ciągu 14 dni = przerywane i jaśniejsze. Adres API można zmienić w ustawieniach (gdyby portal zmienił ścieżkę).
+   Zależności (tylko w callbackach): map, addTick (js/03). */
+"use strict";
+
+  const NH_KEY_LS = "nawigator_nh_key", NH_URL_LS = "nawigator_nh_url", NH_ON_LS = "nawigator_nh_on", NH_CACHE_LS = "nawigator_nh_cache";
+  const NH_DEFAULT_URL = "https://api.data.nationalhighways.co.uk/roads/v2.0/closures";
+  const NH_TTL = 15 * 60 * 1000, NH_PLANNED_DAYS = 14, NH_MAX = 4000;
+  const NH_SRC = "nh-works", NH_L_ACT = "nh-works-line-active", NH_L_PLAN = "nh-works-line-planned", NH_L_DOT = "nh-works-dot";
+  const NH_COL = ["match", ["get", "k"], "closure", "#E5484D", "works", "#F5A623", "#9AA0A6"];
+  let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null;
+  try{
+    nhKey = localStorage.getItem(NH_KEY_LS) || ""; nhUrl = localStorage.getItem(NH_URL_LS) || NH_DEFAULT_URL; nhOn = localStorage.getItem(NH_ON_LS) !== "0";
+    const c = JSON.parse(localStorage.getItem(NH_CACHE_LS) || "null"); if(c && c.feats){ nhData = c.feats; nhAt = c.t; }
+  }catch(e){}
+
+  const nhEl = id => document.getElementById(id);
+  function nhStatus(t){ const el = nhEl("nhStatus"); if(el) el.textContent = t || ""; }
+
+  // --- parsowanie DATEX II (JSON lub XML) ---
+  function nhXml2Obj(node){
+    const kids = Array.from(node.children);
+    if(!kids.length) return node.textContent.trim();
+    const o = {};
+    kids.forEach(k => {
+      const n = k.localName, v = nhXml2Obj(k);
+      if(n in o){ if(!Array.isArray(o[n])) o[n] = [o[n]]; o[n].push(v); } else o[n] = v;
+    });
+    return o;
+  }
+  function nhWalk(o, fn, key){
+    if(o === null || typeof o !== "object"){ fn(o, key, null); return; }
+    if(fn(o, key, true) === false) return;
+    if(Array.isArray(o)) o.forEach(v => nhWalk(v, fn, key)); else Object.keys(o).forEach(k => nhWalk(o[k], fn, k));
+  }
+  function nhFindRecords(root){
+    const out = [];
+    nhWalk(root, (v, k, isObj) => {
+      if(isObj && /^situationRecord$/i.test(k || "")){ (Array.isArray(v) ? v : [v]).forEach(r => { if(r && typeof r === "object") out.push(r); }); return false; }
+    });
+    return out;
+  }
+  const nhNum = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  function nhPairs(nums){   // płaska lista liczb → [[lon,lat],…]; w UK szerokość 49–61 (lat), długość −9…2 (lon)
+    const pts = [], latFirst = Math.abs(nums[0]) > 40;
+    for(let i = 0; i + 1 < nums.length; i += 2){ const a = nums[i], b = nums[i + 1]; pts.push(latFirst ? [b, a] : [a, b]); }
+    return pts;
+  }
+  function nhGeometry(rec){
+    const lines = [], points = [];
+    nhWalk(rec, (v, k, isObj) => {
+      if(isObj && !Array.isArray(v) && "latitude" in v && "longitude" in v){ const la = nhNum(v.latitude), lo = nhNum(v.longitude); if(la !== null && lo !== null) points.push([lo, la]); }
+      if(/^(posList|coordinates)$/i.test(k || "") && (typeof v === "string" || (Array.isArray(v) && v.length && typeof v[0] !== "object"))){
+        const nums = (typeof v === "string" ? v.trim().split(/[\s,]+/) : v).map(nhNum).filter(n => n !== null);
+        if(nums.length >= 4) lines.push(nhPairs(nums));
+      }
+    });
+    const ok = p => p[1] > 49 && p[1] < 61.5 && p[0] > -9 && p[0] < 2.5;
+    const L = lines.map(l => l.filter(ok)).filter(l => l.length >= 2).sort((a, b) => b.length - a.length)[0];
+    if(L) return L;
+    const P = points.filter(ok);
+    if(P.length >= 2){ const u = [P[0]]; P.slice(1).forEach(p => { if(p[0] !== u[u.length-1][0] || p[1] !== u[u.length-1][1]) u.push(p); }); if(u.length >= 2) return u; }
+    return P.length ? P[0] : null;
+  }
+  function nhFirstString(o){ let s = null; nhWalk(o, (v, k, isObj) => { if(s === null && !isObj && typeof v === "string" && v.trim() && !/^(lang|id|version)$/i.test(k || "")) s = v.trim(); }); return s; }
+  function nhTimes(rec){
+    let s = null, e = null;
+    nhWalk(rec, (v, k, isObj) => {
+      if(isObj || typeof v !== "string") return;
+      if(s === null && /^(overallStartTime|startOfPeriod|startTime)$/i.test(k || "")) s = Date.parse(v);
+      if(e === null && /^(overallEndTime|endOfPeriod|endTime)$/i.test(k || "")) e = Date.parse(v);
+    });
+    return { s: isFinite(s) ? s : null, e: isFinite(e) ? e : null };
+  }
+  function nhKind(rec){
+    const t = JSON.stringify(rec).toLowerCase();
+    if(/roadclosed|carriagewayclosure|laneclosure|closed|closure/.test(t)) return /roadworks|maintenance|construction|resurfac/.test(t) && !/roadclosed|carriagewayclosure/.test(t) ? "works" : "closure";
+    if(/roadworks|maintenance|construction|resurfac|worksite/.test(t)) return "works";
+    return "other";
+  }
+  function nhParse(payload){
+    const recs = nhFindRecords(payload), now = Date.now(), limit = now + NH_PLANNED_DAYS * 864e5, out = [];
+    for(const r of recs){
+      const g = nhGeometry(r); if(!g) continue;
+      const t = nhTimes(r); if(t.e !== null && t.e < now) continue;      // zakończone
+      if(t.s !== null && t.s > limit) continue;                          // za odległe w czasie
+      let road = null, txt = null;
+      nhWalk(r, (v, k, isObj) => { if(road === null && isObj && /roadnumber|roadname/i.test(k || "")) road = nhFirstString(v); if(txt === null && isObj && /comment|description/i.test(k || "")) txt = nhFirstString(v); });
+      out.push({ k: nhKind(r), act: t.s === null || t.s <= now, c: g, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
+      if(out.length >= NH_MAX) break;
+    }
+    return { recs: recs.length, feats: out };
+  }
+
+  // --- pobieranie ---
+  async function nhRequest(){
+    const hdr = { "Accept": "application/json", "Ocp-Apim-Subscription-Key": nhKey };
+    let res;
+    try{ res = await fetch(nhUrl, { headers: hdr }); }
+    catch(e){ res = await fetch(nhUrl + (nhUrl.includes("?") ? "&" : "?") + "subscription-key=" + encodeURIComponent(nhKey), { headers: { "Accept": "application/json" } }); }   // ponowienie bez własnego nagłówka (prostsze CORS)
+    if(!res.ok) throw new Error("HTTP " + res.status + (res.status === 401 || res.status === 403 ? " — sprawdź klucz" : res.status === 429 ? " — limit 10/min" : ""));
+    const txt = await res.text(), ct = res.headers.get("content-type") || "";
+    if(/xml/i.test(ct) || txt.trim().startsWith("<")){ const d = new DOMParser().parseFromString(txt, "application/xml"); return nhXml2Obj(d.documentElement); }
+    return JSON.parse(txt);
+  }
+  async function nhRefresh(force){
+    if(nhBusy || !nhKey) return; if(!force && nhData && Date.now() - nhAt < NH_TTL) return;
+    nhBusy = true; nhStatus("pobieram…");
+    try{
+      const payload = await nhRequest(), r = nhParse(payload);
+      nhData = r.feats; nhAt = Date.now(); nhFails = 0;
+      try{ localStorage.setItem(NH_CACHE_LS, JSON.stringify({ t: nhAt, feats: nhData })); }catch(e){}
+      if(!r.recs){ const keys = payload && typeof payload === "object" ? Object.keys(payload).slice(0, 8).join(", ") : typeof payload;
+        nhStatus("Odebrano dane, ale nie rozpoznałem pozycji (klucze: " + keys + "). Wyślij próbkę z konsoli 🐞."); console.log("NH próbka:", JSON.stringify(payload).slice(0, 3000)); }
+      else nhStatus("OK: " + nhData.length + " pozycji (" + nhData.filter(f => f.act).length + " aktywnych), z " + r.recs + " rekordów · " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
+      nhDraw();
+    }catch(e){
+      nhFails++; nhAt = Date.now() - NH_TTL + 60000 * Math.min(10, nhFails * 2);    // ponowna próba za 2, 4, … min
+      const m = String(e && e.message || e);
+      nhStatus("Błąd: " + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? "przeglądarka zablokowała odpowiedź (CORS) lub brak sieci" : m)); console.warn("National Highways:", e);
+    }finally{ nhBusy = false; }
+  }
+
+  // --- rysowanie ---
+  const nhMid = c => Array.isArray(c[0]) ? c[c.length >> 1] : c;
+  function nhDraw(){
+    try{
+      if(!map || !map.getStyle()) return;
+      const lines = [], dots = [];
+      (nhOn && nhData ? nhData : []).forEach((f, i) => {
+        const p = { k: f.k, act: f.act ? 1 : 0, road: f.road, txt: f.txt, s: f.s, e: f.e, i };
+        if(Array.isArray(f.c[0])) lines.push({ type: "Feature", properties: p, geometry: { type: "LineString", coordinates: f.c } });
+        dots.push({ type: "Feature", properties: p, geometry: { type: "Point", coordinates: nhMid(f.c) } });
+      });
+      const fc = { type: "FeatureCollection", features: lines.concat(dots) };
+      if(!map.getSource(NH_SRC)){
+        map.addSource(NH_SRC, { type: "geojson", data: fc });
+        const before = ["route-line-glow", "route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
+        const lay = { "line-cap": "round", "line-join": "round" }, isLine = ["==", ["geometry-type"], "LineString"];
+        const w = ["interpolate", ["linear"], ["zoom"], 7, 1.5, 12, 3.5, 16, 6];
+        map.addLayer({ id: NH_L_PLAN, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 0]], layout: lay,
+          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": 0.6, "line-dasharray": [2, 1.6] } }, before);
+        map.addLayer({ id: NH_L_ACT, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 1]], layout: lay,
+          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": 0.9 } }, before);
+        map.addLayer({ id: NH_L_DOT, type: "circle", source: NH_SRC, minzoom: 8, filter: ["==", ["geometry-type"], "Point"],
+          paint: { "circle-color": NH_COL, "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 12, 6, 16, 9],
+            "circle-stroke-width": 1.5, "circle-stroke-color": "#fff", "circle-opacity": ["case", ["==", ["get", "act"], 1], 0.95, 0.55], "circle-stroke-opacity": 0.9 } }, before);
+        map.on("click", NH_L_DOT, nhOpenPopup);
+        map.on("mouseenter", NH_L_DOT, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", NH_L_DOT, () => { map.getCanvas().style.cursor = ""; });
+      } else map.getSource(NH_SRC).setData(fc);
+    }catch(e){ console.warn("National Highways (rysowanie):", e); }
+  }
+  function nhOpenPopup(e){
+    try{
+      const p = e.features[0].properties, T = { closure: "Zamknięcie", works: "Roboty drogowe", other: "Zdarzenie" };
+      const d = ms => ms ? new Date(Number(ms)).toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+      const box = document.createElement("div"); box.style.cssText = "font:13px/1.35 'Inter',system-ui,sans-serif;color:#111;max-width:240px";
+      box.innerHTML = "<b></b><div class='a'></div><div class='b' style='margin-top:3px'></div><div class='c' style='margin-top:3px;color:#555'></div>";
+      box.querySelector("b").textContent = (T[p.k] || "Zdarzenie") + (p.act ? "" : " (planowane)") + (p.road ? " · " + p.road : "");
+      box.querySelector(".a").textContent = p.txt || "";
+      box.querySelector(".b").textContent = "Od " + d(p.s) + " do " + d(p.e);
+      box.querySelector(".c").textContent = "National Highways";
+      if(nhPopup) nhPopup.remove();
+      nhPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(map);
+      if(e.originalEvent) e.originalEvent.stopPropagation();
+    }catch(err){}
+  }
+
+  // --- UI: klucz w ustawieniach, przycisk 🚧 ---
+  function nhApplyUi(){
+    const b = nhEl("btnNH"); if(b) b.classList.toggle("active", nhOn && !!nhKey);
+    const cb = nhEl("nhOn"); if(cb) cb.checked = nhOn;
+  }
+  function nhTick(){
+    if(!nhOn || !nhKey || !map) return;
+    if(!nhData || !map.getSource(NH_SRC)) { if(nhData) nhDraw(); }
+    nhRefresh(false);
+  }
+  function nhInit(){
+    const key = nhEl("nhKey"), url = nhEl("nhUrl"), eye = nhEl("nhKeyEye");
+    if(!key) return;
+    key.value = nhKey; url.value = nhUrl === NH_DEFAULT_URL ? "" : nhUrl; nhApplyUi();
+    const save = () => {
+      nhKey = key.value.trim(); nhUrl = url.value.trim() || NH_DEFAULT_URL;
+      try{ localStorage.setItem(NH_KEY_LS, nhKey); localStorage.setItem(NH_URL_LS, nhUrl); }catch(e){}
+      nhApplyUi();
+    };
+    key.addEventListener("change", save); url.addEventListener("change", save);
+    eye.addEventListener("click", () => { key.type = key.type === "password" ? "text" : "password"; });
+    nhEl("nhOn").addEventListener("change", e => nhSet(e.target.checked));
+    nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhApplyUi(); nhRefresh(true); });
+    nhEl("btnNH").addEventListener("click", () => nhSet(!nhOn));
+  }
+  function nhSet(on){
+    nhOn = !!on; try{ localStorage.setItem(NH_ON_LS, on ? "1" : "0"); }catch(e){}
+    nhApplyUi();
+    if(on && !nhKey){ showBanner("NATIONAL HIGHWAYS", "Wpisz klucz API w Ustawieniach (⋮ → System), żeby zobaczyć remonty i zamknięcia", false); return; }
+    nhDraw(); if(on) nhRefresh(false);
+  }
+  nhInit();
+  addTick(nhTick, 5000);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
