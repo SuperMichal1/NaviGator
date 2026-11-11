@@ -863,9 +863,10 @@
   #simBar #simPlay{ background:#19a05a; font-size:22px; }
   #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
 
-/* haczyk „Natężenie ruchu” w wyborze trasy: duży cel dotykowy */
-#pickTrafficRow{ display:flex; align-items:center; gap:12px; min-height:48px; padding:6px 4px; font:600 16px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-#pickTrafficRow input{ width:26px; height:26px; flex:0 0 auto; accent-color:#1FD6C1; }
+/* haczyk „Natężenie ruchu” w wyborze trasy: mały, stonowany (tap-target dzięki paddingowi etykiety) */
+#pickTrafficRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; opacity:.72; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#pickTrafficRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
+#pickTrafficInfo{ margin-left:auto; font:400 11.5px/1.2 'Inter',system-ui,sans-serif; opacity:.85; text-align:right; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1630,7 +1631,7 @@
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
-      <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>🚦 Natężenie ruchu na trasie</span></label>
+      <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Natężenie ruchu</span><small id="pickTrafficInfo"></small></label>
       <div id="pickActions">
         <button id="pickGoBtn" type="button">Jedziemy</button>
         <button id="pickChangeBtn" type="button">Zmień trasę</button>
@@ -14273,17 +14274,23 @@
       .then(d => d.routes && d.routes[0] ? trParseSections(d.routes[0]) : []);
   }
 
+  function trStatus(t){ const el = document.getElementById("pickTrafficInfo"); if(el) el.textContent = t || ""; }
+
   // --- rysowanie: kolorowa obwódka pod linią trasy + znaczniki robót / zamknięć / dużych korków
   function trClear(){ trMarkers.forEach(m => m.remove()); trMarkers = []; trFeat = []; }
   function trDraw(route, secs, from, to){
     try{
-      if(!map || !map.isStyleLoaded()) return false;
+      if(!map || !map.getStyle()) return false;
       const c = route.coords, feats = []; trClear();
+      // baza: cała trasa w oknie na zielono (płynnie) — widać, że dane działają, także gdy nie ma żadnych utrudnień
+      feats.push({ type: "Feature", properties: { col: "#3DBE6B", op: 0.55 }, geometry: { type: "LineString", coordinates: c.slice(from, to + 1) } });
+      let nInc = 0, sumDelay = 0;
       secs.forEach(s => {
         const A = trNearest(c, s.a, from, to), B = trNearest(c, s.b, from, to); if(A.m > 60 || B.m > 60) return;
         const i0 = Math.min(A.i, B.i), i1 = Math.max(A.i, B.i); if(i1 - i0 < 1) return;
         const cat = TR_CAT[s.cat] || TR_CAT.OTHER, col = cat.color || TR_MAGCOL[s.mag] || "#EE8A2E", mid = c[(i0 + i1) >> 1];
-        feats.push({ type: "Feature", properties: { col }, geometry: { type: "LineString", coordinates: c.slice(i0, i1 + 1) } });
+        nInc++; sumDelay += s.delay || 0;
+        feats.push({ type: "Feature", properties: { col, op: 0.92 }, geometry: { type: "LineString", coordinates: c.slice(i0, i1 + 1) } });
         trFeat.push({ id: s.cat + ":" + i0, i0, i1, cat: s.cat, mag: s.mag, delay: s.delay, mid });
         if(s.cat === "ROAD_WORK" || s.cat === "ROAD_CLOSURE" || s.mag >= 3){
           const el = document.createElement("div");
@@ -14296,12 +14303,18 @@
       if(!map.getLayer(TR_LYR)){
         // tuż nad obwódką trasy, pod jej linią — wystaje ~2 px z każdej strony, nie zasłania trasy; kolory stonowane
         map.addLayer({ id: TR_LYR, type: "line", source: TR_SRC, layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-width": 9, "line-opacity": 0.85, "line-color": ["get", "col"] } },
+          paint: { "line-width": 10, "line-opacity": ["get", "op"], "line-color": ["get", "col"] } },
           map.getLayer("route-line-main") ? "route-line-main" : undefined);
       }
       map.getSource(TR_SRC).setData({ type: "FeatureCollection", features: feats });
+      trStatus(nInc ? nInc + " utrudn." + (sumDelay >= 60 ? " · +" + Math.round(sumDelay / 60) + " min" : "") : "płynnie");
       return true;
     }catch(e){ console.warn("Ruch na trasie:", e); return false; }
+  }
+  // rysowanie z ponowieniem (źródło / warstwa mogą nie być gotowe tuż po zmianie stylu)
+  function trDrawRetry(route, secs, from, to, n){
+    if(trDraw(route, secs, from, to) || (n || 0) >= 5) return;
+    setTimeout(() => { const t = trTarget(); if(t && t.route === route) trDrawRetry(route, secs, from, to, (n || 0) + 1); }, 800);
   }
 
   // --- odświeżanie: okno ~60 mil przed pojazdem (start przyciągany co 10 km, żeby klucze cache zgadzały się między kierowcami)
@@ -14322,12 +14335,13 @@
     let i1 = i0; while(i1 < c.length - 1 && cum[i1] - cum[i0] < TR_WINDOW_M) i1++;
     const key = trKeyOf(c, i0, i1), w = c.slice(i0, i1 + 1);
     const seed = !force && route.trafficSecs && Date.now() - (route.trafficAt || 0) < TR_TTL ? route.trafficSecs : null;   // z „Wyznacz trasę” (0 zapytań)
+    trStatus("ładuję…");
     const src = seed ? Promise.resolve(seed)
       : force ? trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; })
       : Promise.resolve(trLocalGet(key)).then(l => l || trSupaGet(key).then(sh => { if(sh){ trLocalSet(key, sh); return sh; }
           return trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
-    src.then(s => { const t = trTarget(); if(t && t.route === route) trDraw(route, s, i0, i1); })
-       .catch(e => console.warn("Ruch na trasie:", e))
+    src.then(s => { const t = trTarget(); if(t && t.route === route) trDrawRetry(route, s, i0, i1, 0); })
+       .catch(e => { console.warn("Ruch na trasie:", e); trStatus("błąd: " + (e && e.message || e)); trStamp = Date.now() - TR_TTL + 30000; })   // ponowna próba najwcześniej za 30 s (bez spamowania zapytań)
        .finally(() => { trBusy = false; });
   }
 
@@ -14366,7 +14380,9 @@
     try{
       if(!map) return;
       const tg = trTarget(), on = trafficOn && tg && tomtomApiKey;
+      if(trafficOn && tg && !tomtomApiKey) trStatus("brak klucza TomTom (⋮)");
       if(!on){
+        if(!(trafficOn && tg && !tomtomApiKey)) trStatus("");
         if(trRoute){ trClear(); trRoute = null; const s = map.getSource(TR_SRC); if(s) s.setData({ type: "FeatureCollection", features: [] }); }
         return;
       }
