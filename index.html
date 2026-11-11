@@ -862,6 +862,10 @@
   #simBar button{ width:44px; height:44px; border-radius:12px; border:0; background:rgba(255,255,255,.14); color:#fff; font:700 20px 'Inter',system-ui,sans-serif; cursor:pointer; }
   #simBar #simPlay{ background:#19a05a; font-size:22px; }
   #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
+
+/* haczyk „Natężenie ruchu” w wyborze trasy: duży cel dotykowy */
+#pickTrafficRow{ display:flex; align-items:center; gap:12px; min-height:48px; padding:6px 4px; font:600 16px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#pickTrafficRow input{ width:26px; height:26px; flex:0 0 auto; accent-color:#1FD6C1; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1626,6 +1630,7 @@
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
+      <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>🚦 Natężenie ruchu na trasie</span></label>
       <div id="pickActions">
         <button id="pickGoBtn" type="button">Jedziemy</button>
         <button id="pickChangeBtn" type="button">Zmień trasę</button>
@@ -2376,6 +2381,18 @@
   }
 
   /* bezpieczna inicjalizacja jednego bloku UI — błąd w nim nie zatrzymuje reszty aplikacji */
+  // JEDEN wspólny zegar zamiast kilku setInterval: addTick(fn, okres_ms, działaWTle). W tle (karta ukryta) chodzą tylko zegary z działaWTle=true,
+  // a sam zegar zwalnia z 100 ms do 1 s — mniej wybudzeń procesora i baterii.
+  const TICKS = []; let tickTimer = null;
+  function tickAll(){
+    const now = Date.now(), hid = document.hidden;
+    for(const t of TICKS){ if(now < t.next) continue; t.next = now + t.ms; if(hid && !t.bg) continue; try{ t.fn(); }catch(e){} }
+  }
+  function tickRestart(){ if(tickTimer) clearInterval(tickTimer); tickTimer = setInterval(tickAll, document.hidden ? 1000 : 100); }
+  function addTick(fn, ms, runInBackground){
+    TICKS.push({ fn, ms, bg: !!runInBackground, next: Date.now() + ms });
+    if(!tickTimer){ tickRestart(); document.addEventListener("visibilitychange", () => { tickRestart(); if(!document.hidden) TICKS.forEach(t => { t.next = 0; }); }); }
+  }
   function safeInit(label, fn){ try{ fn(); }catch(e){ console.warn("Inicjalizacja (" + label + "):", e); } }
 </script>
 <script>
@@ -3660,7 +3677,7 @@
       try{ applyBaseMap(); }catch(e){ console.warn("Mapa satelitarna:", e); }
       applyNightTheme();   // zapamiętuje dzienne kolory stylu (raz) i ustawia kolory zgodnie z trybem
       delayMinorRoads();
-      setInterval(applyMotorway3dColor, 600);
+      addTick(applyMotorway3dColor, 600);
       setupNightZones();
       hideNonHgvPoi();
       thickenMotorways();
@@ -4963,7 +4980,7 @@
     const radar = document.createElement("div");
     radar.className = "avRadar";
     userMarkerEl.appendChild(radar);
-    setInterval(() => {
+    addTick(() => {
       try{
         const on = !is3D && map.getZoom() < 15;
         radar.classList.toggle("on", on);
@@ -7876,7 +7893,7 @@
       el.textContent = unitSystem === "mph" ? "MPH" : "KM/H";
     }
   }
-  setInterval(updateOverspeedTimer, 200);
+  addTick(updateOverspeedTimer, 200);
 
   function renderSpeedUI(){
     document.getElementById("speedValue").textContent = kmhToDisplay(currentSpeedKmh);
@@ -11032,7 +11049,7 @@
     set("tsDist", metersToDistanceLabel(rem.m));
     set("tsEta", new Date(Date.now() + rem.s * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" }));
   }
-  setInterval(() => { if(activeRoute) updateNavTripStats(); }, 20000);
+  addTick(() => { if(activeRoute) updateNavTripStats(); }, 20000);
 
   function renderNavRouteInfo(){
     const info = document.getElementById("navRouteInfo");
@@ -12768,7 +12785,7 @@
   }
   document.getElementById("themeNightFrom").addEventListener("change", onNightHoursChange);
   document.getElementById("themeNightTo").addEventListener("change", onNightHoursChange);
-  setInterval(() => { if(themeMode === "sun" || themeMode === "auto") applyThemeMode(); }, 30000);
+  addTick(() => { if(themeMode === "sun" || themeMode === "auto") applyThemeMode(); }, 30000, true);   // w tle też: motyw dzień/noc wg zachodu słońca
   document.addEventListener("visibilitychange", () => { if(!document.hidden && (themeMode === "sun" || themeMode === "auto")) applyThemeMode(); });
   applyThemeMode();
 
@@ -13327,7 +13344,7 @@
       return lo;
     }catch(e){ return s.sc || 1; }
   }
-  setInterval(() => {
+  addTick(() => {
     if(!signs.length || !map) return;
     let ch = false;
     signs.forEach(s => {
@@ -13336,7 +13353,7 @@
       if(s.sc === undefined || Math.abs(n / cur - 1) > 0.015){ s.sc = n; ch = true; }
     });
     if(ch) render();
-  }, 300);
+  }, 300);   // wspólny zegar (js/03)
 
   /* ---------- gdzie postawić znak ---------- */
   function bearing(lat1, lon1, lat2, lon2){
@@ -13425,7 +13442,7 @@
       if(signs.length !== n0) render();
     }catch(e){}
   }
-  setInterval(tick, 1000);
+  addTick(tick, 1000);
 
   /* ---------- API dla edytora (js/43) ---------- */
   window.nawiBillboards = {
@@ -13891,7 +13908,7 @@
 
   const detour = { r: null, route: null, busy: false, prep: null };   // prep: { r, origin, promise, res, failed }
   const $d = id => document.getElementById(id);
-  const DETOUR_KIND = { height: "Niski most / ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości" };
+  const DETOUR_KIND = { height: "Niski most / ograniczenie wysokości", weight: "Limit tonażu", width: "Ograniczenie szerokości", closure: "Droga zamknięta" };
   // preferuj duże drogi: autostrady / trunk / drogi A; unikaj małych ulic, dróg serwisowych i leśnych
   const DETOUR_TRUCK_OPTS = { use_highways: 1.0, use_living_streets: 0, use_tracks: 0, service_penalty: 120, use_truck_route: 1.0 };
   const DETOUR_REUSE_M = 400;
@@ -13919,7 +13936,7 @@
   // pozycja pojazdu wzdłuż trasy (m od jej początku); gdy brak danych — szacujemy z ograniczenia (ok. 3 mile przed nim)
   function detourAlong(){
     try{
-      const cum = activeRoute._restr && activeRoute._restr.cum, c = activeRoute.coords;
+      const cum = (activeRoute._restr && activeRoute._restr.cum) || (detour.r && detour.r.closure ? trCum(activeRoute) : null), c = activeRoute.coords;
       if(cum){
         const dr = distanceToActiveRoute(lastPos.lat, lastPos.lon), q = projectPointToSegment(lastPos.lat, lastPos.lon, c[dr.idx], c[dr.idx + 1]);
         return cum[dr.idx] + haversine(c[dr.idx][1], c[dr.idx][0], q.lat, q.lon);
@@ -13940,6 +13957,14 @@
     return pts;
   }
 
+  function detourClosurePoints(route, r){
+    const cum = trCum(route), seg = sliceRouteAlong(route.coords, cum, Math.max(0, r.along - 5), r.to + 5);
+    if(seg.length < 2) return [{ lat: r.lat, lon: r.lon }];
+    const n = Math.min(12, Math.ceil((r.to - r.along) / 500) + 1), pts = [];
+    for(let k = 0; k < n; k++){ const c = seg[Math.round(k * (seg.length - 1) / Math.max(1, n - 1))]; pts.push({ lat: c[1], lon: c[0] }); }
+    return pts;
+  }
+
   // liczy objazd: Valhalla z exclude_locations; sprawdza, czy nowa trasa nie ma tego samego (lub innego) przekroczonego ograniczenia —
   // jeśli ma, dokłada jego punkty do wykluczeń i szuka jeszcze raz (do 3 prób)
   async function detourCompute(r){
@@ -13947,7 +13972,7 @@
     const origin = { lat: lastPos.lat, lon: lastPos.lon, heading: currentSpeedKmh >= OFFROUTE_MIN_SPEED_KMH ? currentHeading : null };
     const stops = [origin, ...getRemainingWaypoints(origin.lat, origin.lon), navSelectedDest];
     const variant = old.source === "truck-easy" ? "easy" : "fast";
-    let avoid = detourPointsOf(old, routeRestrictionsRaw(old), along, along + 7 * 1609.344).slice(0, 12);
+    let avoid = r.closure ? detourClosurePoints(old, r) : detourPointsOf(old, routeRestrictionsRaw(old), along, along + 7 * 1609.344).slice(0, 12);
     if(!avoid.length) avoid = [{ lat: r.lat, lon: r.lon }];
     for(let attempt = 0; attempt < 3; attempt++){
       let nr = null;
@@ -13970,32 +13995,41 @@
   function detourOffer(r, d){
     if(!activeRoute || activeRoute.planning || !navSelectedDest || r.sev !== "danger" || !lastPos) return;
     detour.r = r; detour.route = activeRoute;
-    $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + ukDistMiles(Math.max(0, d));
-    $d("detourText").textContent = "Limit " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
+    if(r.closure){
+      $d("detourTitle").textContent = "⛔ Droga zamknięta za " + ukDistMiles(Math.max(0, d));
+      $d("detourText").textContent = "Zamknięcie na Twojej trasie (dane TomTom).";
+    } else {
+      $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + ukDistMiles(Math.max(0, d));
+      $d("detourText").textContent = "Limit " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
+    }
     $d("detourCard").classList.add("show");
     detourRenderState();
-    if(!detour.prep || detour.prep.r !== r){
-      const prep = { r, origin: { lat: lastPos.lat, lon: lastPos.lon }, res: null, failed: false };
-      prep.promise = detourCompute(r).then(res => {
-        prep.res = res; if(detour.prep === prep){ detourPreviewSet(res.route.coords); detourRenderState(); guideSay("Objazd gotowy. " + (res.dS >= 60 ? "Dodatkowo " + Math.round(res.dS / 60) + " minut." : "Bez straty czasu.") + " Dotknij Objazd, aby go włączyć.", 2); }
-      }).catch(e => { prep.failed = true; console.warn("Objazd:", e); if(detour.prep === prep) detourRenderState(); });
-      detour.prep = prep;
-    }
+    if(!r.closure) detourStartPrep(r);       // zamknięcie: najpierw pytamy kierowcę, objazd liczymy po „Tak, szukaj” (detourAccept)
+  }
+  function detourStartPrep(r){
+    if(detour.prep && detour.prep.r === r) return;
+    const prep = { r, origin: { lat: lastPos.lat, lon: lastPos.lon }, res: null, failed: false };
+    prep.promise = detourCompute(r).then(res => {
+      prep.res = res; if(detour.prep === prep){ detourPreviewSet(res.route.coords); detourRenderState(); guideSay("Objazd gotowy. " + (res.dS >= 60 ? "Dodatkowo " + Math.round(res.dS / 60) + " minut." : "Bez straty czasu.") + " Dotknij Objazd, aby go włączyć.", 2); }
+    }).catch(e => { prep.failed = true; console.warn("Objazd:", e); if(detour.prep === prep) detourRenderState(); });
+    detour.prep = prep;
   }
   function detourRenderState(){
     const p = detour.prep, go = $d("detourGo"), sub = $d("detourCost");
-    if(!p || (!p.res && !p.failed)){ sub.textContent = "Szukam objazdu głównymi drogami…"; go.disabled = true; go.textContent = "🔀 Objazd"; }
+    if(!p && detour.r && detour.r.closure){ sub.textContent = "Zaproponować objazd głównymi drogami?"; go.disabled = false; go.textContent = "🔀 Tak, szukaj"; }
+    else if(!p || (!p.res && !p.failed)){ sub.textContent = "Szukam objazdu głównymi drogami…"; go.disabled = true; go.textContent = "🔀 Objazd"; }
     else if(p.failed){ sub.textContent = "Nie znalazłem objazdu głównymi drogami — zatrzymaj się bezpiecznie i sprawdź trasę."; go.disabled = true; go.textContent = "Brak objazdu"; }
     else { sub.textContent = "Objazd głównymi drogami: " + detourCost(p.res); go.disabled = false; go.textContent = "🔀 Objazd"; }
   }
   // wołane przy każdym odczycie GPS (js/33): chowa kartę po minięciu ograniczenia albo zmianie trasy
   function detourTick(along, list){
     if(!detour.r) return;
-    if(activeRoute !== detour.route || !list.includes(detour.r) || detour.r.along - along < -20) detourHide();
+    if(activeRoute !== detour.route || (!detour.r.closure && !list.includes(detour.r)) || detour.r.along - along < -20) detourHide();
   }
 
   async function detourAccept(){
     if(detour.busy || !detour.r || !activeRoute || !lastPos) return;
+    if(detour.r.closure && !detour.prep){ detourStartPrep(detour.r); detourRenderState(); return; }   // „Tak, szukaj” → liczymy objazd, potem drugie dotknięcie go włącza
     detour.busy = true;
     const old = activeRoute, p = detour.prep, btn = $d("detourGo"); btn.disabled = true;
     try{
@@ -14138,7 +14172,7 @@
     if(Math.abs(dx) > 22){ simBarOpen(dx > 0); simSx = null; }
   }, { passive:true });
   // pasek widoczny tylko w trybie symulatora po uruchomieniu
-  setInterval(() => { $s("simBar").classList.toggle("show", !!(MOCK_GPS && started && map)); }, 1000);
+  addTick(() => { $s("simBar").classList.toggle("show", !!(MOCK_GPS && started && map)); }, 1000);
   simUi();
 </script>
 <script>
@@ -14150,7 +14184,7 @@
    3) wspólny cache Supabase (tabela traffic_cache, sql/traffic_cache.sql; wynik jednego kierowcy służy innym) → 4) TomTom.
    Pytamy tylko o ~60 mil PRZED pojazdem (okno przesuwane co 10 km), odświeżanie co 10 min, a wcześniej tylko gdy kierowca nagle
    zwolnił (≤ 25 km/h po szybkiej jeździe — prawdopodobny nowy korek). Karta w tle i brak trasy = zero zapytań.
-   Alerty: banner + głos 3 mile przed robotami / zamknięciem / dużym korkiem. Zależności (tylko w callbackach): map, activeRoute,
+   Alerty: banner + głos 3 mile przed robotami / dużym korkiem; zamknięta droga → pytanie o objazd (karta js/46) zaraz po wykryciu i 5 mil przed. Zależności (tylko w callbackach): map, activeRoute,
    lastPos, currentSpeedKmh, tomtomApiKey, haversine, TOMTOM_ROUTE_URL, supaConfigured/normSupaUrl/supaUrl/supaKey, showBanner, guideSay. */
 "use strict";
 
@@ -14159,7 +14193,7 @@
   const TR_SRC = "route-traffic", TR_LYR = "route-traffic-line";
   let trafficOn = true, trRoute = null, trStamp = 0, trBusy = false, trFeat = [], trMarkers = [], trSaid = new Set();
   let trFastAt = 0, trSlowSince = 0, trSupaMissing = false;
-  try{ trafficOn = localStorage.getItem(TR_LS_ON) !== "0"; }catch(e){}
+  try{ trafficOn = localStorage.getItem(TR_LS_ON) === "1"; }catch(e){}   // domyślnie wyłączone (oszczędzamy zapytania); włącza haczyk przy wyborze trasy albo 🚦
 
   const TR_CAT = {
     ROAD_CLOSURE: { title: "ZAMKNIĘTA DROGA", say: "droga zamknięta", icon: "⛔", color: "#9B1C2E" },
@@ -14271,10 +14305,18 @@
   }
 
   // --- odświeżanie: okno ~60 mil przed pojazdem (start przyciągany co 10 km, żeby klucze cache zgadzały się między kierowcami)
-  function trRefresh(route, force){
+  // cel pokazywania ruchu: trasa wybrana w oknie wyboru (haczyk) albo aktywna trasa
+  function trTarget(){
+    try{
+      if(navUiState === "picker" && pendingRoutes && !pendingRoutes.reroute){ const r = pendingRoutes[pickSel()]; if(r && r.coords && r.coords.length > 1) return { route: r, picker: true }; }
+      if(activeRoute && activeRoute.coords && activeRoute.coords.length > 1) return { route: activeRoute, picker: false };
+    }catch(e){}
+    return null;
+  }
+  function trRefresh(route, force, picker){
     if(trBusy) return; trBusy = true; trRoute = route; trStamp = Date.now(); trSlowSince = 0;
     const c = route.coords, cum = trCum(route);
-    const pos = lastPos ? trNearest(c, [lastPos.lon, lastPos.lat], 0, c.length - 1).i : 0;
+    const pos = !picker && lastPos ? trNearest(c, [lastPos.lon, lastPos.lat], 0, c.length - 1).i : 0;
     const startAlong = Math.floor(cum[pos] / TR_SNAP_M) * TR_SNAP_M;
     let i0 = 0; while(i0 < c.length - 2 && cum[i0 + 1] <= startAlong) i0++;
     let i1 = i0; while(i1 < c.length - 1 && cum[i1] - cum[i0] < TR_WINDOW_M) i1++;
@@ -14284,16 +14326,31 @@
       : force ? trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; })
       : Promise.resolve(trLocalGet(key)).then(l => l || trSupaGet(key).then(sh => { if(sh){ trLocalSet(key, sh); return sh; }
           return trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
-    src.then(s => { if(activeRoute === route) trDraw(route, s, i0, i1); })
+    src.then(s => { const t = trTarget(); if(t && t.route === route) trDraw(route, s, i0, i1); })
        .catch(e => console.warn("Ruch na trasie:", e))
        .finally(() => { trBusy = false; });
   }
 
-  // --- alerty 3 mile przed robotami / zamknięciem / dużym korkiem
+  // zamknięta droga: pytanie „zaproponować objazd?” (karta js/46) — zaraz po wykryciu oraz ponownie 5 mil przed zamknięciem
+  const TR_CLOSE_ASK_M = 5 * 1609.344, trClosureR = new Map();
+  function trClosure(f, d, cum){
+    if(d < 150 || (detour.r && !detour.r.closure)) return;                // już przy zamknięciu albo karta ograniczenia ma pierwszeństwo
+    const learn = "L:" + f.id, near = "N:" + f.id; let stage = null;
+    if(!trSaid.has(learn)){ trSaid.add(learn); stage = "learn"; if(d <= TR_CLOSE_ASK_M) trSaid.add(near); }
+    else if(d <= TR_CLOSE_ASK_M && !trSaid.has(near)){ trSaid.add(near); stage = "near"; }
+    if(!stage) return;
+    let r = trClosureR.get(f.id);
+    if(!r || r.route !== activeRoute){ r = { route: activeRoute, kind: "closure", closure: true, sev: "danger", along: cum[f.i0], to: cum[f.i1], lat: f.mid[1], lon: f.mid[0], said: {} }; trClosureR.set(f.id, r); }
+    detourOffer(r, d);
+    guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " droga zamknięta. Czy zaproponować objazd? Dotknij Tak, szukaj.", 2);
+  }
+
+  // --- alerty 3 mile przed robotami / dużym korkiem
   function trAlerts(route){
     if(!trFeat.length || !lastPos) return;
     const c = route.coords, cum = trCum(route), pos = trNearest(c, [lastPos.lon, lastPos.lat], 0, c.length - 1).i;
     for(const f of trFeat){
+      if(f.cat === "ROAD_CLOSURE"){ trClosure(f, cum[f.i0] - cum[pos], cum); continue; }
       if(f.cat === "JAM" && f.mag < 3) continue;
       const d = cum[f.i0] - cum[pos]; if(d < -50 || d > 3 * 1609.344 || trSaid.has(f.id)) continue;
       trSaid.add(f.id);
@@ -14308,7 +14365,7 @@
   function trTick(){
     try{
       if(!map) return;
-      const on = trafficOn && activeRoute && activeRoute.coords && activeRoute.coords.length > 1 && tomtomApiKey;
+      const tg = trTarget(), on = trafficOn && tg && tomtomApiKey;
       if(!on){
         if(trRoute){ trClear(); trRoute = null; const s = map.getSource(TR_SRC); if(s) s.setData({ type: "FeatureCollection", features: [] }); }
         return;
@@ -14319,23 +14376,26 @@
       if(currentSpeedKmh >= 56){ trFastAt = now; trSlowSince = 0; }
       else if(currentSpeedKmh <= 25 && now - trFastAt < 3 * 60000){ if(!trSlowSince) trSlowSince = now; }
       else trSlowSince = 0;
-      if(trRoute !== activeRoute){ trSaid = new Set(); trRefresh(activeRoute, false); }
-      else if(now - trStamp > TR_TTL) trRefresh(activeRoute, false);
-      else if(trSlowSince && now - trSlowSince > 60000 && now - trStamp > TR_SLOW_GAP) trRefresh(activeRoute, true);
-      trAlerts(activeRoute);
+      if(trRoute !== tg.route){ trSaid = new Set(); trClosureR.clear(); trRefresh(tg.route, false, tg.picker); }
+      else if(now - trStamp > TR_TTL) trRefresh(tg.route, false, tg.picker);
+      else if(!tg.picker && trSlowSince && now - trSlowSince > 60000 && now - trStamp > TR_SLOW_GAP) trRefresh(tg.route, true, false);
+      if(!tg.picker) trAlerts(tg.route);       // alerty głosowe i pytanie o objazd tylko w jeździe, nie w oknie wyboru trasy
     }catch(e){}
   }
   function trafficSet(on){
     trafficOn = !!on;
     try{ localStorage.setItem(TR_LS_ON, on ? "1" : "0"); }catch(e){}
     document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
+    const pt = document.getElementById("pickTraffic"); if(pt) pt.checked = trafficOn;
     if(trafficOn && !tomtomApiKey) showBanner("RUCH DROGOWY", "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć ruch i roboty na trasie", false);
     trRoute = null; trTick();
   }
   document.getElementById("btnTraffic").title = "Ruch, roboty i zamknięcia na trasie (TomTom)";
   document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
   document.getElementById("btnTraffic").addEventListener("click", () => trafficSet(!trafficOn));
-  setInterval(trTick, 3000);
+  document.getElementById("pickTraffic").checked = trafficOn;
+  document.getElementById("pickTraffic").addEventListener("change", e => trafficSet(e.target.checked));   // haczyk w oknie „Jedziemy / Zmień trasę”
+  addTick(trTick, 3000);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
