@@ -9346,6 +9346,7 @@
       const speedSegments = [];
       const incidents = [];
       const tollSegs = [];
+      const trafficSecs = [];      // dla js/48: korki, roboty, zamknięcia z tego samego zapytania (0 dodatkowych zapytań)
       (route.sections || []).forEach(sec => {
         if(sec.sectionType === "TOLL_ROAD") tollSegs.push([sec.startPointIndex, sec.endPointIndex]);
         else if(sec.sectionType === "SPEED_LIMIT" && sec.maxSpeedLimitInKmh){
@@ -9354,6 +9355,9 @@
           }
         } else if(sec.sectionType === "TRAFFIC"){
           const midIdx = Math.round((sec.startPointIndex + sec.endPointIndex) / 2);
+          const cat = sec.simpleCategory || "OTHER", mag = sec.magnitudeOfDelay || 0;
+          if((cat === "ROAD_CLOSURE" || cat === "ROAD_WORK" || (cat === "JAM" && mag >= 1) || (cat !== "JAM" && mag >= 2)) && coords[sec.startPointIndex] && coords[sec.endPointIndex])
+            trafficSecs.push({ a: coords[sec.startPointIndex], b: coords[sec.endPointIndex], mag: Math.min(4, mag), cat, delay: sec.delayInSeconds || sec.delay || 0 });
           const p = coords[Math.min(midIdx, coords.length - 1)];
           if(p) incidents.push({ lon:p[0], lat:p[1], delay: sec.delay||0, magnitude: sec.magnitudeOfDelay||0 });
         }
@@ -9366,7 +9370,7 @@
         distanceM: route.summary.lengthInMeters,
         timeS: route.summary.travelTimeInSeconds,
         trafficDelayS: route.summary.trafficDelayInSeconds || 0,
-        speedSegments, incidents
+        speedSegments, incidents, trafficSecs, trafficAt: Date.now()
       };
     });
   }
@@ -9471,7 +9475,8 @@
       trafficDelayS: chosen.trafficDelayS || 0,
       manuallyEdited: false,
       source: key,
-      steps: chosen.steps || null
+      steps: chosen.steps || null,
+      trafficSecs: chosen.trafficSecs || null, trafficAt: chosen.trafficAt || 0
     };
     setTimeout(announceRouteRestrictions, 600);
     routeSpeedSegments = chosen.speedSegments || [];
@@ -14137,51 +14142,200 @@
   simUi();
 </script>
 <script>
-/* ===== js/48-traffic-layer.js — Natężenie ruchu (TomTom Traffic Flow) =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny. Przycisk 🚦 w wysuwanym menu ikon (#btnTraffic) włącza / wyłącza
-   kolorowanie dróg według płynności ruchu (zielony = płynnie, żółty/pomarańczowy = wolniej, czerwony = korek).
-   Kafelki rastrowe TomTom Traffic Flow (v4, styl "relative" = względem swobodnej prędkości na danym odcinku), klucz API ten sam co
-   do tras (Ustawienia ⋮). Dane odświeżane co 5 minut. Stan (włączone/wyłączone) zapamiętany w localStorage.
-   Zależności (tylko w callbackach): map, tomtomApiKey (js/04), showBanner (js/06). */
+/* ===== js/48-traffic-layer.js — Ruch, roboty drogowe i zamknięcia NA TRASIE (TomTom Routing, jedno zapytanie) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny. Przycisk 🚦 (#btnTraffic) w menu ikon = włącz/wyłącz (domyślnie włączone).
+   Jedno zapytanie POST do TomTom Routing (supportingPoints = punkty NASZEJ trasy co ~2 km, sectionType=traffic) zwraca korki,
+   roboty drogowe (ROAD_WORK) i zamknięcia (ROAD_CLOSURE) wzdłuż trasy — bez osobnych zapytań o kafelki i incydenty.
+   Oszczędzanie zapytań (kolejność źródeł): 1) dane z „Wyznacz trasę” (route.trafficSecs, js/29) → 2) cache w telefonie (10 min) →
+   3) wspólny cache Supabase (tabela traffic_cache, sql/traffic_cache.sql; wynik jednego kierowcy służy innym) → 4) TomTom.
+   Pytamy tylko o ~60 mil PRZED pojazdem (okno przesuwane co 10 km), odświeżanie co 10 min, a wcześniej tylko gdy kierowca nagle
+   zwolnił (≤ 25 km/h po szybkiej jeździe — prawdopodobny nowy korek). Karta w tle i brak trasy = zero zapytań.
+   Alerty: banner + głos 3 mile przed robotami / zamknięciem / dużym korkiem. Zależności (tylko w callbackach): map, activeRoute,
+   lastPos, currentSpeedKmh, tomtomApiKey, haversine, TOMTOM_ROUTE_URL, supaConfigured/normSupaUrl/supaUrl/supaKey, showBanner, guideSay. */
 "use strict";
 
-  const TRAFFIC_LS = "nawigator_traffic_on", TRAFFIC_SRC = "tt-traffic", TRAFFIC_LYR = "tt-traffic-flow";
-  let trafficOn = false, trafficStamp = 0;
-  try{ trafficOn = localStorage.getItem(TRAFFIC_LS) === "1"; }catch(e){}
+  const TR_LS_ON = "nawigator_traffic_on", TR_LS_CACHE = "nawigator_traffic_cache";
+  const TR_TTL = 10 * 60 * 1000, TR_WINDOW_M = 96000, TR_SNAP_M = 10000, TR_SLOW_GAP = 2 * 60 * 1000;
+  const TR_SRC = "route-traffic", TR_LYR = "route-traffic-line";
+  let trafficOn = true, trRoute = null, trStamp = 0, trBusy = false, trFeat = [], trMarkers = [], trSaid = new Set();
+  let trFastAt = 0, trSlowSince = 0, trSupaMissing = false;
+  try{ trafficOn = localStorage.getItem(TR_LS_ON) !== "0"; }catch(e){}
 
-  function trafficTiles(){
-    trafficStamp = Math.floor(Date.now() / 300000);   // nowy adres co 5 min = świeże dane
-    return ["https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?tileSize=512&key=" + encodeURIComponent(tomtomApiKey) + "&_=" + trafficStamp];
+  const TR_CAT = {
+    ROAD_CLOSURE: { title: "ZAMKNIĘTA DROGA", say: "droga zamknięta", icon: "⛔", color: "#9B1C2E" },
+    ROAD_WORK:    { title: "ROBOTY DROGOWE", say: "roboty drogowe", icon: "🚧", color: "#F2B134" },
+    JAM:          { title: "KOREK", say: "korek", icon: "🐢", color: null },
+    OTHER:        { title: "UTRUDNIENIA", say: "utrudnienia", icon: "⚠️", color: null }
+  };
+  const TR_MAGCOL = { 1: "#F2B134", 2: "#EE8A2E", 3: "#E5484D", 4: "#9B1C2E" };
+
+  // --- pomocnicze: długości wzdłuż trasy, najbliższy wierzchołek
+  function trCum(route){
+    if(route._trCum && route._trCum.length === route.coords.length) return route._trCum;
+    const c = route.coords, cum = [0];
+    for(let i = 1; i < c.length; i++) cum.push(cum[i-1] + haversine(c[i-1][1], c[i-1][0], c[i][1], c[i][0]));
+    return (route._trCum = cum);
   }
-  function trafficRemove(){
-    try{ if(map.getLayer(TRAFFIC_LYR)) map.removeLayer(TRAFFIC_LYR); if(map.getSource(TRAFFIC_SRC)) map.removeSource(TRAFFIC_SRC); }catch(e){}
+  function trNearest(c, p, from, to){
+    const kx = Math.cos(p[1] * Math.PI / 180); let bi = -1, bd = Infinity;
+    for(let i = from; i <= to; i++){ const dx = (c[i][0] - p[0]) * kx, dy = c[i][1] - p[1], d = dx*dx + dy*dy; if(d < bd){ bd = d; bi = i; } }
+    return { i: bi, m: Math.sqrt(bd) * 111320 };
   }
-  function trafficApply(){
+  function trKeyOf(c, i0, i1){ const f = i => (Math.round(c[i][1] * 200) / 200) + "," + (Math.round(c[i][0] * 200) / 200); return f(i0) + ">" + f(i1); }
+
+  // --- cache w telefonie (jedna pozycja: ostatnie okno)
+  function trLocalGet(key){
+    try{ const o = JSON.parse(localStorage.getItem(TR_LS_CACHE) || "null"); if(o && o.k === key && Date.now() - o.t < TR_TTL) return o.secs; }catch(e){}
+    return null;
+  }
+  function trLocalSet(key, secs){ try{ localStorage.setItem(TR_LS_CACHE, JSON.stringify({ k: key, t: Date.now(), secs })); }catch(e){} }
+
+  // --- wspólny cache Supabase (publiczne dane o ruchu; brak tabeli = po cichu pomijamy)
+  function trSupaHdr(){ return { "apikey": supaKey, "Authorization": "Bearer " + supaKey }; }
+  function trSupaGet(key){
+    if(trSupaMissing || typeof supaConfigured !== "function" || !supaConfigured()) return Promise.resolve(null);
+    const since = new Date(Date.now() - TR_TTL).toISOString();
+    return fetch(normSupaUrl(supaUrl) + "/rest/v1/traffic_cache?select=data&limit=1&key=eq." + encodeURIComponent(key) + "&updated_at=gte." + encodeURIComponent(since), { headers: trSupaHdr() })
+      .then(r => { if(r.status === 404){ trSupaMissing = true; return null; } return r.ok ? r.json() : null; })
+      .then(rows => rows && rows[0] && Array.isArray(rows[0].data) ? rows[0].data : null).catch(() => null);
+  }
+  function trSupaSet(key, secs){
+    if(trSupaMissing || typeof supaConfigured !== "function" || !supaConfigured()) return;
+    fetch(normSupaUrl(supaUrl) + "/rest/v1/traffic_cache?on_conflict=key", {
+      method: "POST", headers: Object.assign({ "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" }, trSupaHdr()),
+      body: JSON.stringify([{ key, data: secs, updated_at: new Date().toISOString() }])
+    }).then(r => { if(r.status === 404) trSupaMissing = true; }).catch(() => {});
+  }
+
+  // --- TomTom: jedno zapytanie na okno trasy
+  function trKeepSection(s){
+    const cat = s.simpleCategory || "OTHER", mag = s.magnitudeOfDelay || 0;
+    return cat === "ROAD_CLOSURE" || cat === "ROAD_WORK" || (cat === "JAM" && mag >= 1) || (cat !== "JAM" && mag >= 2);
+  }
+  function trParseSections(rt){
+    const pts = []; (rt.legs || []).forEach(l => (l.points || []).forEach(p => pts.push([p.longitude, p.latitude])));
+    const out = [];
+    (rt.sections || []).forEach(s => {
+      if(s.sectionType !== "TRAFFIC" || !trKeepSection(s)) return;
+      const A = pts[s.startPointIndex], B = pts[s.endPointIndex]; if(!A || !B) return;
+      out.push({ a: A, b: B, mag: Math.min(4, s.magnitudeOfDelay || 0), cat: s.simpleCategory || "OTHER", delay: s.delayInSeconds || s.delay || 0 });
+    });
+    return out;
+  }
+  function trSupportPoints(c){
+    let total = 0; for(let i = 1; i < c.length; i++) total += haversine(c[i-1][1], c[i-1][0], c[i][1], c[i][0]);
+    const step = Math.max(2000, total / 140), pts = []; let acc = 0, next = step;
+    for(let i = 1; i < c.length - 1; i++){
+      acc += haversine(c[i-1][1], c[i-1][0], c[i][1], c[i][0]);
+      if(acc >= next){ pts.push({ latitude: c[i][1], longitude: c[i][0] }); next += step; }
+    }
+    return pts;
+  }
+  function trFetchTomTom(w){
+    const a = w[0], b = w[w.length - 1];
+    const url = `${TOMTOM_ROUTE_URL}${a[1]},${a[0]}:${b[1]},${b[0]}/json?key=${encodeURIComponent(tomtomApiKey)}&traffic=true&travelMode=car&routeType=fastest&routeRepresentation=polyline&sectionType=traffic`;
+    return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ supportingPoints: trSupportPoints(w) }) })
+      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => d.routes && d.routes[0] ? trParseSections(d.routes[0]) : []);
+  }
+
+  // --- rysowanie: kolorowa obwódka pod linią trasy + znaczniki robót / zamknięć / dużych korków
+  function trClear(){ trMarkers.forEach(m => m.remove()); trMarkers = []; trFeat = []; }
+  function trDraw(route, secs, from, to){
     try{
-      if(!map || !map.isStyleLoaded()) return;
-      const has = !!map.getLayer(TRAFFIC_LYR);
-      if(!trafficOn || !tomtomApiKey){ if(has) trafficRemove(); return; }
-      if(has && trafficStamp === Math.floor(Date.now() / 300000)) return;
-      if(has) trafficRemove();
-      map.addSource(TRAFFIC_SRC, { type:"raster", tiles: trafficTiles(), tileSize: 512, minzoom: 6, maxzoom: 18, attribution: "© TomTom" });
-      // pod linią trasy, znakami i fotoradarami, ale nad podkładem mapy
-      const before = ["route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
-      map.addLayer({ id: TRAFFIC_LYR, type:"raster", source: TRAFFIC_SRC,
-        paint:{ "raster-opacity": 0.85, "raster-fade-duration": 0 } }, before);
-    }catch(e){ console.warn("Warstwa ruchu:", e); }
+      if(!map || !map.isStyleLoaded()) return false;
+      const c = route.coords, feats = []; trClear();
+      secs.forEach(s => {
+        const A = trNearest(c, s.a, from, to), B = trNearest(c, s.b, from, to); if(A.m > 60 || B.m > 60) return;
+        const i0 = Math.min(A.i, B.i), i1 = Math.max(A.i, B.i); if(i1 - i0 < 1) return;
+        const cat = TR_CAT[s.cat] || TR_CAT.OTHER, col = cat.color || TR_MAGCOL[s.mag] || "#EE8A2E", mid = c[(i0 + i1) >> 1];
+        feats.push({ type: "Feature", properties: { col }, geometry: { type: "LineString", coordinates: c.slice(i0, i1 + 1) } });
+        trFeat.push({ id: s.cat + ":" + i0, i0, i1, cat: s.cat, mag: s.mag, delay: s.delay, mid });
+        if(s.cat === "ROAD_WORK" || s.cat === "ROAD_CLOSURE" || s.mag >= 3){
+          const el = document.createElement("div");
+          el.textContent = cat.icon; el.title = cat.title + (s.delay > 60 ? " · opóźnienie ok. " + Math.round(s.delay / 60) + " min" : "");
+          el.style.cssText = "width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid " + col + ";display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.4);pointer-events:none";
+          trMarkers.push(new maplibregl.Marker({ element: el }).setLngLat(mid).addTo(map));
+        }
+      });
+      if(!map.getSource(TR_SRC)) map.addSource(TR_SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      if(!map.getLayer(TR_LYR)){
+        // tuż nad obwódką trasy, pod jej linią — wystaje ~2 px z każdej strony, nie zasłania trasy; kolory stonowane
+        map.addLayer({ id: TR_LYR, type: "line", source: TR_SRC, layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-width": 9, "line-opacity": 0.85, "line-color": ["get", "col"] } },
+          map.getLayer("route-line-main") ? "route-line-main" : undefined);
+      }
+      map.getSource(TR_SRC).setData({ type: "FeatureCollection", features: feats });
+      return true;
+    }catch(e){ console.warn("Ruch na trasie:", e); return false; }
+  }
+
+  // --- odświeżanie: okno ~60 mil przed pojazdem (start przyciągany co 10 km, żeby klucze cache zgadzały się między kierowcami)
+  function trRefresh(route, force){
+    if(trBusy) return; trBusy = true; trRoute = route; trStamp = Date.now(); trSlowSince = 0;
+    const c = route.coords, cum = trCum(route);
+    const pos = lastPos ? trNearest(c, [lastPos.lon, lastPos.lat], 0, c.length - 1).i : 0;
+    const startAlong = Math.floor(cum[pos] / TR_SNAP_M) * TR_SNAP_M;
+    let i0 = 0; while(i0 < c.length - 2 && cum[i0 + 1] <= startAlong) i0++;
+    let i1 = i0; while(i1 < c.length - 1 && cum[i1] - cum[i0] < TR_WINDOW_M) i1++;
+    const key = trKeyOf(c, i0, i1), w = c.slice(i0, i1 + 1);
+    const seed = !force && route.trafficSecs && Date.now() - (route.trafficAt || 0) < TR_TTL ? route.trafficSecs : null;   // z „Wyznacz trasę” (0 zapytań)
+    const src = seed ? Promise.resolve(seed)
+      : force ? trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; })
+      : Promise.resolve(trLocalGet(key)).then(l => l || trSupaGet(key).then(sh => { if(sh){ trLocalSet(key, sh); return sh; }
+          return trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
+    src.then(s => { if(activeRoute === route) trDraw(route, s, i0, i1); })
+       .catch(e => console.warn("Ruch na trasie:", e))
+       .finally(() => { trBusy = false; });
+  }
+
+  // --- alerty 3 mile przed robotami / zamknięciem / dużym korkiem
+  function trAlerts(route){
+    if(!trFeat.length || !lastPos) return;
+    const c = route.coords, cum = trCum(route), pos = trNearest(c, [lastPos.lon, lastPos.lat], 0, c.length - 1).i;
+    for(const f of trFeat){
+      if(f.cat === "JAM" && f.mag < 3) continue;
+      const d = cum[f.i0] - cum[pos]; if(d < -50 || d > 3 * 1609.344 || trSaid.has(f.id)) continue;
+      trSaid.add(f.id);
+      const cat = TR_CAT[f.cat] || TR_CAT.OTHER, len = cum[f.i1] - cum[f.i0];
+      const txt = "Za " + ukDistMiles(Math.max(0, d)) + (len > 400 ? " · odcinek " + ukDistMiles(len) : "") + (f.delay > 60 ? " · opóźnienie ok. " + Math.round(f.delay / 60) + " min" : "");
+      showBanner(cat.title, txt, true);
+      guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " " + cat.say + (f.delay > 60 ? ", opóźnienie około " + Math.round(f.delay / 60) + " minut" : "") + ".");
+      return;                                               // jeden alert na odczyt
+    }
+  }
+
+  function trTick(){
+    try{
+      if(!map) return;
+      const on = trafficOn && activeRoute && activeRoute.coords && activeRoute.coords.length > 1 && tomtomApiKey;
+      if(!on){
+        if(trRoute){ trClear(); trRoute = null; const s = map.getSource(TR_SRC); if(s) s.setData({ type: "FeatureCollection", features: [] }); }
+        return;
+      }
+      if(document.hidden) return;                                // karta w tle — bez zapytań
+      const now = Date.now();
+      // nagłe zwolnienie po szybkiej jeździe = możliwy nowy korek → wcześniejsze odświeżenie (z pominięciem cache)
+      if(currentSpeedKmh >= 56){ trFastAt = now; trSlowSince = 0; }
+      else if(currentSpeedKmh <= 25 && now - trFastAt < 3 * 60000){ if(!trSlowSince) trSlowSince = now; }
+      else trSlowSince = 0;
+      if(trRoute !== activeRoute){ trSaid = new Set(); trRefresh(activeRoute, false); }
+      else if(now - trStamp > TR_TTL) trRefresh(activeRoute, false);
+      else if(trSlowSince && now - trSlowSince > 60000 && now - trStamp > TR_SLOW_GAP) trRefresh(activeRoute, true);
+      trAlerts(activeRoute);
+    }catch(e){}
   }
   function trafficSet(on){
     trafficOn = !!on;
-    try{ localStorage.setItem(TRAFFIC_LS, on ? "1" : "0"); }catch(e){}
+    try{ localStorage.setItem(TR_LS_ON, on ? "1" : "0"); }catch(e){}
     document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
-    if(trafficOn && !tomtomApiKey){
-      showBanner("RUCH DROGOWY", "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć natężenie ruchu", false);
-    }
-    trafficApply();
+    if(trafficOn && !tomtomApiKey) showBanner("RUCH DROGOWY", "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć ruch i roboty na trasie", false);
+    trRoute = null; trTick();
   }
-  document.getElementById("btnTraffic").addEventListener("click", () => trafficSet(!trafficOn));
+  document.getElementById("btnTraffic").title = "Ruch, roboty i zamknięcia na trasie (TomTom)";
   document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
-  setInterval(trafficApply, 4000);   // doda warstwę po załadowaniu mapy, odświeży dane co 5 min, przywróci po zmianie stylu
+  document.getElementById("btnTraffic").addEventListener("click", () => trafficSet(!trafficOn));
+  setInterval(trTick, 3000);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
