@@ -751,6 +751,24 @@
   body.night #navDestCombo .navComboSep{ background: rgba(255,176,32,0.22); }
   #navDestCombo #navPostcode{ flex:0 0 102px; width:102px; padding:10px 10px; text-transform:uppercase; text-align:center; font-weight:600; letter-spacing:.03em; }
   #navDestCombo #navPostcode::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
+
+  /* pole celu + kod pocztowy: pasek na samej górze ekranu (jak w Google Maps), lista adresów pod nim na całą resztę ekranu */
+  #navTopBar{
+    display:none; position:fixed; left:8px; right:8px; z-index:46; margin:0 auto; max-width:560px;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 16px);
+    flex-direction:column; filter: drop-shadow(0 4px 14px rgba(0,0,0,.35));
+  }
+  body:has(#navPanel[data-navstate="search"]) #navTopBar{ display:flex; }
+  body:has(#navPanel.truck-open) #navTopBar, body:has(#navPanel.billboard-open) #navTopBar{ display:none !important; }
+  #navTopBar #navDestWrap{ display:flex; flex-direction:column; min-height:0; }
+  #navTopBar #navDestCombo{ flex:0 0 auto; min-height:48px; }
+  #navTopBar #navDest{ font-size:16px; padding:13px 8px 13px 14px; }
+  #navTopBar #navPostcode{ font-size:15px; }
+  #navTopBar #navSuggestions{ flex:1 1 auto; min-height:0; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-top:6px; }
+  #navTopBar #navSuggestions.saved{ max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px); }
+  #navTopBar .navSuggestion{ padding:13px 14px; font-size:14px; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1582,6 +1600,18 @@
   </div>
 </div>
 
+<div id="navTopBar">
+    <div id="navDestWrap" class="navStopWrap">
+      <div id="navDestCombo">
+        <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+        <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
+        <span class="navComboSep" aria-hidden="true"></span>
+        <input type="text" id="navPostcode" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy — pokaż firmy w okolicy">
+      </div>
+      <div id="navSuggestions" class="navSuggestions"></div>
+    </div>
+</div>
+
 <div id="navPanel" data-navstate="search">
   <div id="navDragHandle" title="Przeciągnij lub dotknij, żeby zwinąć/rozwinąć"><span class="navGrip"></span></div>
   <div class="navHeader">
@@ -1600,15 +1630,6 @@
       <div id="navOriginSuggestions" class="navSuggestions"></div>
     </div>
     <div id="navWaypointsList"></div>
-    <div id="navDestWrap" class="navStopWrap">
-      <div id="navDestCombo">
-        <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
-        <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
-        <span class="navComboSep" aria-hidden="true"></span>
-        <input type="text" id="navPostcode" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy — pokaż firmy w okolicy">
-      </div>
-      <div id="navSuggestions" class="navSuggestions"></div>
-    </div>
     <div id="navAddWaypointBtn" role="button">+ Dodaj punkt pośredni</div>
   </div>
 
@@ -1787,7 +1808,6 @@
   <div class="ctrl-btn" id="btnDim" title="2D / 3D">
     <span id="dimIcon">3D</span>
   </div>
-  <div class="ctrl-btn" id="btnTraffic" title="Natężenie ruchu (TomTom)">🚦</div>
   <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
@@ -8503,6 +8523,29 @@
         showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się pobrać firm dla kodu pocztowego.");
       }
     }
+    // Enter / „Idź” w kodzie pocztowym: tylko pinezka na mapie w tym kodzie (bez wybierania firmy)
+    async function pinPostcode(pc){
+      const token = ++pcToken;
+      if(pcAbort) pcAbort.abort();
+      if(!tomtomApiKey){ showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy."); setNavKeyRowOpen(true); return; }
+      showNavError("");
+      pcAbort = new AbortController();
+      try{
+        const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal: pcAbort.signal });
+        if(g.status === 403) throw new Error("UNAUTHORIZED");
+        const hit = ((await g.json()).results || [])[0];
+        if(token !== pcToken) return;
+        if(!hit || !hit.position){ showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
+        destSearch.clear();
+        navSelectedDest = { lat: hit.position.lat, lon: hit.position.lon, label: pc, name: null };
+        document.getElementById("navDest").value = pc;
+        updateAddWaypointVisibility();
+        confirmDestination();
+      }catch(err){
+        if(err.name === "AbortError") return;
+        showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się znaleźć kodu pocztowego.");
+      }
+    }
     pcInput.addEventListener("input", () => {
       const pos = pcInput.selectionStart;
       pcInput.value = pcInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
@@ -8516,7 +8559,7 @@
       if(e.key !== "Enter") return;
       e.preventDefault();
       const v = fmt(pcInput.value);
-      if(UK_POSTCODE_RE.test(v)){ if(pcTimer) clearTimeout(pcTimer); findCompanies(v); pcInput.blur(); }
+      if(UK_POSTCODE_RE.test(v)){ if(pcTimer) clearTimeout(pcTimer); pcInput.value = v; pcInput.blur(); pinPostcode(v); }
       else showNavError("Wpisz pełny kod pocztowy UK, np. M1 1AE.");
     });
     pcInput.addEventListener("focus", () => { try{ pcInput.select(); }catch(e){} });
@@ -14453,14 +14496,10 @@
   function trafficSet(on){
     trafficOn = !!on;
     try{ localStorage.setItem(TR_LS_ON, on ? "1" : "0"); }catch(e){}
-    document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
     const pt = document.getElementById("pickTraffic"); if(pt) pt.checked = trafficOn;
     if(trafficOn && !tomtomApiKey) showBanner("RUCH DROGOWY", "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć ruch i roboty na trasie", false);
     trRoute = null; trTick();
   }
-  document.getElementById("btnTraffic").title = "Ruch, roboty i zamknięcia na trasie (TomTom)";
-  document.getElementById("btnTraffic").classList.toggle("active", trafficOn);
-  document.getElementById("btnTraffic").addEventListener("click", () => trafficSet(!trafficOn));
   document.getElementById("pickTraffic").checked = trafficOn;
   document.getElementById("pickTraffic").addEventListener("change", e => trafficSet(e.target.checked));   // haczyk w oknie „Jedziemy / Zmień trasę”
   addTick(trTick, 3000);
@@ -14673,15 +14712,34 @@
   function nhOpenPopup(e){
     try{
       const p = e.features[0].properties, T = { closure: "Droga zamknięta", lane: "Zamknięty pas", shoulder: "Pobocze / pas awaryjny zamknięty", works: "Roboty drogowe", other: "Zdarzenie" };
-      const d = ms => ms ? new Date(Number(ms)).toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
-      const box = document.createElement("div"); box.style.cssText = "font:13px/1.35 'Inter',system-ui,sans-serif;color:#111;max-width:240px";
-      box.innerHTML = "<b></b><div class='a'></div><div class='b' style='margin-top:3px'></div><div class='c' style='margin-top:3px;color:#555'></div>";
-      box.querySelector("b").textContent = (T[p.k] || "Zdarzenie") + (p.k === "lane" && p.n > 0 ? " (" + p.n + ")" : "") + (p.act ? "" : " (planowane)") + (p.road ? " · " + p.road : "");
-      box.querySelector(".a").textContent = p.txt || "";
-      box.querySelector(".b").textContent = "Od " + d(p.s) + " do " + d(p.e);
-      box.querySelector(".c").textContent = "National Highways";
+      // przejezdność: zamknięcie całej drogi = nieprzejezdna; reszta = przejezdna z utrudnieniami
+      const blocked = p.k === "closure";
+      const MON = ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"];
+      const dt = ms => new Date(Number(ms));
+      const day = ms => { const x = dt(ms); return x.getDate() + " " + MON[x.getMonth()]; };
+      const hm = ms => { const x = dt(ms); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
+      const hasS = !!p.s, hasE = !!p.e;
+      let dates = "", hours = "";
+      if(hasS && hasE){
+        const same = day(p.s) === day(p.e);
+        dates = same ? day(p.s) : "od " + day(p.s) + " do " + day(p.e);
+        hours = "godz. " + hm(p.s) + " – " + hm(p.e);
+      } else if(hasS){ dates = "od " + day(p.s); hours = "od godz. " + hm(p.s); }
+      else if(hasE){ dates = "do " + day(p.e); hours = "do godz. " + hm(p.e); }
+      else { dates = "czas nieokreślony"; }
+      const box = document.createElement("div"); box.style.cssText = "font:13px/1.35 'Inter',system-ui,sans-serif;color:#111;max-width:250px";
+      const st = document.createElement("div");
+      st.style.cssText = "display:inline-block;margin:0 0 6px;padding:4px 9px;border-radius:7px;font:800 13px 'Inter',system-ui,sans-serif;color:#fff;background:" + (blocked ? "#d32f2f" : "#e08a00");
+      st.textContent = blocked ? "⛔ Droga nieprzejezdna" : "⚠️ Przejezdna z utrudnieniami";
+      const h = document.createElement("div"); h.style.cssText = "font-weight:700";
+      h.textContent = (T[p.k] || "Zdarzenie") + (p.k === "lane" && p.n > 0 ? " (" + p.n + ")" : "") + (p.act ? "" : " (planowane)") + (p.road ? " · " + p.road : "");
+      const d1 = document.createElement("div"); d1.style.cssText = "margin-top:5px;font-weight:700;white-space:nowrap;font-size:14px"; d1.textContent = dates;
+      box.appendChild(st); box.appendChild(h); box.appendChild(d1);
+      if(hours){ const d2 = document.createElement("div"); d2.style.cssText = "margin-top:1px;font-weight:600;color:#333;font-size:14px"; d2.textContent = hours; box.appendChild(d2); }
+      if(p.txt){ const d3 = document.createElement("div"); d3.style.cssText = "margin-top:5px;color:#444;font-size:12px"; d3.textContent = p.txt; box.appendChild(d3); }
+      const c = document.createElement("div"); c.style.cssText = "margin-top:4px;color:#777;font-size:11px"; c.textContent = "National Highways"; box.appendChild(c);
       if(nhPopup) nhPopup.remove();
-      nhPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(map);
+      nhPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "280px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(map);
       if(e.originalEvent) e.originalEvent.stopPropagation();
     }catch(err){}
   }
