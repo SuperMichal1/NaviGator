@@ -867,6 +867,10 @@
 #pickTrafficRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; opacity:.72; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 #pickTrafficRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
 #pickTrafficInfo{ margin-left:auto; font:400 11.5px/1.2 'Inter',system-ui,sans-serif; opacity:.85; text-align:right; }
+
+#pickNHWarn{ margin:0 4px 6px; padding:6px 8px; border-radius:10px; background:rgba(217,54,54,.14); color:#E5484D; font:600 12.5px/1.3 'Inter',system-ui,sans-serif; }
+#pickNHWarnTxt{ white-space:pre-line; display:block; }
+#pickNHDetourBtn{ margin-top:6px; min-height:40px; padding:8px 14px; border:0; border-radius:10px; background:#ff9f1c; color:#1b1b1b; font:700 14px 'Inter',system-ui,sans-serif; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1632,6 +1636,7 @@
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
       <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Natężenie ruchu</span><small id="pickTrafficInfo"></small></label>
+      <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
       <div id="pickActions">
         <button id="pickGoBtn" type="button">Jedziemy</button>
         <button id="pickChangeBtn" type="button">Zmień trasę</button>
@@ -13956,6 +13961,7 @@
   }
   function detourHide(){
     detour.r = null; detour.route = null; detour.prep = null;
+    const sk = $d("detourSkip"); if(sk) sk.textContent = "Jadę dalej";
     const c = $d("detourCard"); if(c) c.classList.remove("show");
     detourPreviewSet(null);
   }
@@ -14023,8 +14029,10 @@
     if(!activeRoute || activeRoute.planning || !navSelectedDest || r.sev !== "danger" || !lastPos) return;
     detour.r = r; detour.route = activeRoute;
     if(r.closure){
-      $d("detourTitle").textContent = "⛔ Droga zamknięta za " + ukDistMiles(Math.max(0, d));
-      $d("detourText").textContent = "Zamknięcie na Twojej trasie (dane TomTom).";
+      const unc = r.nhUid && !r.confirmed;
+      $d("detourTitle").textContent = (unc ? "⛔ Zamknięcie za " : "⛔ Droga zamknięta za ") + ukDistMiles(Math.max(0, d));
+      $d("detourText").textContent = unc ? "Według National Highways. Czy droga jest zamknięta w Twoim kierunku?" : "Zamknięcie na Twojej trasie.";
+      $d("detourSkip").textContent = unc ? "Nie, jadę dalej" : "Jadę dalej";
     } else {
       $d("detourTitle").textContent = "⚠ " + DETOUR_KIND[r.kind] + " za " + ukDistMiles(Math.max(0, d));
       $d("detourText").textContent = "Limit " + restrictionValueLabel(r.kind, r.value) + " · Twój pojazd " + restrictionMine(r.kind) + (r.kind === "weight" ? " — przekraczasz limit" : " — nie zmieścisz się");
@@ -14043,7 +14051,10 @@
   }
   function detourRenderState(){
     const p = detour.prep, go = $d("detourGo"), sub = $d("detourCost");
-    if(!p && detour.r && detour.r.closure){ sub.textContent = "Zaproponować objazd głównymi drogami?"; go.disabled = false; go.textContent = "🔀 Tak, szukaj"; }
+    if(!p && detour.r && detour.r.closure){
+      const unc = detour.r.nhUid && !detour.r.confirmed;
+      sub.textContent = unc ? "Jeśli tak — znajdę objazd głównymi drogami." : "Zaproponować objazd głównymi drogami?"; go.disabled = false; go.textContent = unc ? "🔀 Tak, objazd" : "🔀 Tak, szukaj";
+    }
     else if(!p || (!p.res && !p.failed)){ sub.textContent = "Szukam objazdu głównymi drogami…"; go.disabled = true; go.textContent = "🔀 Objazd"; }
     else if(p.failed){ sub.textContent = "Nie znalazłem objazdu głównymi drogami — zatrzymaj się bezpiecznie i sprawdź trasę."; go.disabled = true; go.textContent = "Brak objazdu"; }
     else { sub.textContent = "Objazd głównymi drogami: " + detourCost(p.res); go.disabled = false; go.textContent = "🔀 Objazd"; }
@@ -14056,7 +14067,7 @@
 
   async function detourAccept(){
     if(detour.busy || !detour.r || !activeRoute || !lastPos) return;
-    if(detour.r.closure && !detour.prep){ detourStartPrep(detour.r); detourRenderState(); return; }   // „Tak, szukaj” → liczymy objazd, potem drugie dotknięcie go włącza
+    if(detour.r.closure && !detour.prep){ if(detour.r.nhUid && typeof nhVote === "function") nhVote(detour.r.nhUid, "yes"); detourStartPrep(detour.r); detourRenderState(); return; }   // „Tak, szukaj” → liczymy objazd, potem drugie dotknięcie go włącza
     detour.busy = true;
     const old = activeRoute, p = detour.prep, btn = $d("detourGo"); btn.disabled = true;
     try{
@@ -14077,7 +14088,10 @@
     }finally{ detour.busy = false; }
   }
   $d("detourGo").addEventListener("click", detourAccept);
-  $d("detourSkip").addEventListener("click", detourHide);
+  $d("detourSkip").addEventListener("click", () => {
+    if(detour.r && detour.r.nhUid && !detour.r.confirmed && typeof nhVote === "function") nhVote(detour.r.nhUid, "no");   // kierowca: „nie jest zamknięta u mnie” → ukryj na 6 h
+    detourHide();
+  });
 </script>
 <script>
 /* ===== js/47-simulator-play.js — Symulator: przycisk Play, wirtualna jazda po wyznaczonej trasie =====
@@ -14390,9 +14404,11 @@
     else if(d <= TR_CLOSE_ASK_M && !trSaid.has(near)){ trSaid.add(near); stage = "near"; }
     if(!stage) return;
     let r = trClosureR.get(f.id);
-    if(!r || r.route !== activeRoute){ r = { route: activeRoute, kind: "closure", closure: true, sev: "danger", along: cum[f.i0], to: cum[f.i1], lat: f.mid[1], lon: f.mid[0], said: {} }; trClosureR.set(f.id, r); }
+    if(!r || r.route !== activeRoute){ r = { route: activeRoute, kind: "closure", closure: true, sev: "danger", along: cum[f.i0], to: cum[f.i1], lat: f.mid[1], lon: f.mid[0], said: {}, nhUid: f.uid || null, confirmed: f.confirmed !== false }; trClosureR.set(f.id, r); }
     detourOffer(r, d);
-    guideSay("Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " droga zamknięta. Czy zaproponować objazd? Dotknij Tak, szukaj.", 2);
+    guideSay(r.nhUid && !r.confirmed
+      ? "Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " zamknięcie drogi według National Highways. Czy droga jest zamknięta w Twoim kierunku? Dotknij Tak, objazd."
+      : "Uwaga! Za " + guideSpeakDist(Math.max(50, d), true) + " droga zamknięta. Czy zaproponować objazd? Dotknij Tak, szukaj.", 2);
   }
 
   // --- alerty 3 mile przed robotami / dużym korkiem
@@ -14465,8 +14481,7 @@
   const NH_DEFAULT_URL = "https://api.data.nationalhighways.co.uk/roads/v2.0/closures";
   const NH_TTL = 15 * 60 * 1000, NH_PLANNED_DAYS = 14, NH_MAX = 4000;
   const NH_SRC = "nh-works", NH_L_ACT = "nh-works-line-active", NH_L_PLAN = "nh-works-line-planned", NH_L_DOT = "nh-works-dot";
-  const NH_COL = ["match", ["get", "k"], "closure", "#E5484D", "works", "#F5A623", "#9AA0A6"];
-  let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null, nhNext = 0, nhVia = "direct";
+    let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null, nhNext = 0, nhVia = "direct";
   try{
     nhKey = localStorage.getItem(NH_KEY_LS) || ""; nhUrl = localStorage.getItem(NH_URL_LS) || NH_DEFAULT_URL; nhOn = localStorage.getItem(NH_ON_LS) !== "0"; nhVia = localStorage.getItem("nawigator_nh_via") || "direct";
     const c = JSON.parse(localStorage.getItem(NH_CACHE_LS) || "null"); if(c && c.feats){ nhData = c.feats; nhAt = c.t; }
@@ -14530,11 +14545,17 @@
     });
     return { s: isFinite(s) ? s : null, e: isFinite(e) ? e : null };
   }
+  // rodzaj: closure = cała droga (jezdnia) zamknięta; lane = zamknięty pas (część jezdni); shoulder = pobocze / pas awaryjny; works = roboty; other
   function nhKind(rec){
-    const t = JSON.stringify(rec).toLowerCase();
-    if(/roadclosed|carriagewayclosure|laneclosure|closed|closure/.test(t)) return /roadworks|maintenance|construction|resurfac/.test(t) && !/roadclosed|carriagewayclosure/.test(t) ? "works" : "closure";
-    if(/roadworks|maintenance|construction|resurfac|worksite/.test(t)) return "works";
-    return "other";
+    const t = JSON.stringify(rec).toLowerCase().replace(/[\s_\-]/g, "");
+    let lanes = null;
+    nhWalk(rec, (v, k, isObj) => { if(lanes === null && !isObj && /numberoflanes(restricted|closed)|lanesclosed|lanesrestricted/i.test(k || "")){ const n = nhNum(v); if(n !== null) lanes = n; } });
+    const lane = /laneclosure|lanesclosed|laneblocked|lanesrestricted|numberoflanesrestricted|narrowlanes|contraflow|partialroadclosure|partialclosure/.test(t);
+    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(t) && !/roadclosed|carriagewayclosed/.test(t)) return { k: "shoulder", lanes };
+    if(lane) return { k: "lane", lanes };
+    if(/roadclosed|carriagewayclosed|carriagewayblocked|roadblocked|closedahead|fullclosure|fullroadclosure|fullcarriagewayclosure|closure/.test(t)) return { k: "closure", lanes };
+    if(/roadworks|maintenance|construction|resurfac|worksite/.test(t)) return { k: "works", lanes };
+    return { k: "other", lanes };
   }
   function nhParse(payload){
     const recs = nhFindRecords(payload), now = Date.now(), limit = now + NH_PLANNED_DAYS * 864e5, out = [];
@@ -14544,7 +14565,7 @@
       if(t.s !== null && t.s > limit) continue;                          // za odległe w czasie
       let road = null, txt = null;
       nhWalk(r, (v, k, isObj) => { if(road === null && isObj && /roadnumber|roadname/i.test(k || "")) road = nhFirstString(v); if(txt === null && isObj && /comment|description/i.test(k || "")) txt = nhFirstString(v); });
-      out.push({ k: nhKind(r), act: t.s === null || t.s <= now, c: g, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
+      const kd = nhKind(r), mm = nhMid(g); out.push({ uid: kd.k + ":" + Math.round(mm[0] * 2000) + ":" + Math.round(mm[1] * 2000), k: kd.k, n: kd.lanes, act: t.s === null || t.s <= now, c: g, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
       if(out.length >= NH_MAX) break;
     }
     return { recs: recs.length, feats: out };
@@ -14594,28 +14615,55 @@
 
   // --- rysowanie ---
   const nhMid = c => Array.isArray(c[0]) ? c[c.length >> 1] : c;
+  // czytelne znaki: zakaz wjazdu (cała droga), barierka (pas), niebieskoszara barierka (pobocze), robotnik (roboty), „!” (inne)
+  function nhAddImages(m){
+    const PR = 3, S = 24, mk = (id, draw) => {
+      try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}
+      const c = document.createElement("canvas"); c.width = S * PR; c.height = S * PR; const g = c.getContext("2d"); g.scale(PR, PR);
+      draw(g); m.addImage(id, g.getImageData(0, 0, S * PR, S * PR), { pixelRatio: PR });
+    };
+    const disc = (g, fill, ring) => { g.beginPath(); g.arc(12, 12, 11, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); if(ring){ g.lineWidth = 2; g.strokeStyle = ring; g.stroke(); } };
+    const barrier = (g, col) => {            // pozioma barierka w ukośne pasy
+      g.save(); g.beginPath(); g.roundRect ? g.roundRect(4.5, 8.5, 15, 7, 1.5) : g.rect(4.5, 8.5, 15, 7); g.clip();
+      g.fillStyle = "#fff"; g.fillRect(4, 8, 16, 8); g.fillStyle = col;
+      for(let x = -4; x < 22; x += 6){ g.beginPath(); g.moveTo(x, 16); g.lineTo(x + 3, 16); g.lineTo(x + 7, 8); g.lineTo(x + 4, 8); g.closePath(); g.fill(); }
+      g.restore(); g.lineWidth = 1.2; g.strokeStyle = col; g.strokeRect(4.5, 8.5, 15, 7);
+      g.fillStyle = "#555"; g.fillRect(6, 15.5, 1.6, 4); g.fillRect(16.4, 15.5, 1.6, 4);   // nóżki
+    };
+    mk("nh-full", g => { disc(g, "#D93636", "#fff"); g.fillStyle = "#fff"; g.fillRect(5.5, 10.3, 13, 3.4); });
+    mk("nh-lane", g => { disc(g, "#fff", "#F28C28"); barrier(g, "#F28C28"); });
+    mk("nh-shoulder", g => { disc(g, "#fff", "#7A8794"); barrier(g, "#7A8794"); });
+    mk("nh-works", g => { disc(g, "#F5B301", "#fff"); g.fillStyle = "#111"; g.beginPath(); g.arc(14.6, 6.6, 1.9, 0, Math.PI * 2); g.fill();
+      g.fill(new Path2D("M9.2 11l3.4-1.6 2.6 2.4-1.4 3.6 1.6 4.4h-2.2l-1.5-3.8-1.6 3.8H7.4l2-5.2z")); g.lineWidth = 1.7; g.lineCap = "round"; g.strokeStyle = "#111"; g.beginPath(); g.moveTo(6.6, 15.6); g.lineTo(11.8, 18.6); g.stroke(); });
+    mk("nh-other", g => { disc(g, "#9AA0A6", "#fff"); g.fillStyle = "#fff"; g.font = "bold 15px Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("!", 12, 12.5); });
+  }
+  const NH_COL = ["match", ["get", "k"], "closure", "#E5484D", "works", "#F5A623", "lane", "#F28C28", "shoulder", "#7A8794", "#9AA0A6"];
+  const nhW = (a, b, c) => ["match", ["get", "k"], "closure", a, "shoulder", c, b];      // szerokość: zamknięcie / reszta / pobocze
   function nhDraw(){
     try{
       if(!map || !map.getStyle()) return;
       const lines = [], dots = [];
       (nhOn && nhData ? nhData : []).forEach((f, i) => {
-        const p = { k: f.k, act: f.act ? 1 : 0, road: f.road, txt: f.txt, s: f.s, e: f.e, i };
+        const p = { k: f.k, n: f.n === null || f.n === undefined ? -1 : f.n, act: f.act ? 1 : 0, road: f.road, txt: f.txt, s: f.s, e: f.e, i };
         if(Array.isArray(f.c[0])) lines.push({ type: "Feature", properties: p, geometry: { type: "LineString", coordinates: f.c } });
         dots.push({ type: "Feature", properties: p, geometry: { type: "Point", coordinates: nhMid(f.c) } });
       });
       const fc = { type: "FeatureCollection", features: lines.concat(dots) };
       if(!map.getSource(NH_SRC)){
         map.addSource(NH_SRC, { type: "geojson", data: fc });
+        nhAddImages(map);
         const before = ["route-line-glow", "route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
-        const lay = { "line-cap": "round", "line-join": "round" }, isLine = ["==", ["geometry-type"], "LineString"];
-        const w = ["interpolate", ["linear"], ["zoom"], 7, 1.5, 12, 3.5, 16, 6];
-        map.addLayer({ id: NH_L_PLAN, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 0]], layout: lay,
-          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": 0.6, "line-dasharray": [2, 1.6] } }, before);
-        map.addLayer({ id: NH_L_ACT, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 1]], layout: lay,
+        const lay = { "line-cap": "round", "line-join": "round" }, isLine = ["==", ["geometry-type"], "LineString"], part = ["in", ["get", "k"], ["literal", ["lane", "shoulder"]]];
+        const w = ["interpolate", ["linear"], ["zoom"], 7, nhW(2.2, 1.3, 1), 12, nhW(4.5, 3, 2), 16, nhW(7, 5, 3)];
+        // przerywane = planowane albo częściowe (pas / pobocze); ciągłe = aktywne zamknięcie całej drogi, roboty, inne
+        map.addLayer({ id: NH_L_PLAN, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["any", ["==", ["get", "act"], 0], part]], layout: lay,
+          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": ["case", ["==", ["get", "act"], 1], 0.85, 0.55], "line-dasharray": [2, 1.6] } }, before);
+        map.addLayer({ id: NH_L_ACT, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 1], ["!", part]], layout: lay,
           paint: { "line-color": NH_COL, "line-width": w, "line-opacity": 0.9 } }, before);
-        map.addLayer({ id: NH_L_DOT, type: "circle", source: NH_SRC, minzoom: 8, filter: ["==", ["geometry-type"], "Point"],
-          paint: { "circle-color": NH_COL, "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 12, 6, 16, 9],
-            "circle-stroke-width": 1.5, "circle-stroke-color": "#fff", "circle-opacity": ["case", ["==", ["get", "act"], 1], 0.95, 0.55], "circle-stroke-opacity": 0.9 } }, before);
+        map.addLayer({ id: NH_L_DOT, type: "symbol", source: NH_SRC, minzoom: 8, filter: ["==", ["geometry-type"], "Point"],
+          layout: { "icon-image": ["match", ["get", "k"], "closure", "nh-full", "lane", "nh-lane", "shoulder", "nh-shoulder", "works", "nh-works", "nh-other"],
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 0.85, 16, 1.1], "icon-allow-overlap": true, "icon-ignore-placement": true },
+          paint: { "icon-opacity": ["case", ["==", ["get", "act"], 1], 1, 0.6] } }, before);
         map.on("click", NH_L_DOT, nhOpenPopup);
         map.on("mouseenter", NH_L_DOT, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", NH_L_DOT, () => { map.getCanvas().style.cursor = ""; });
@@ -14624,11 +14672,11 @@
   }
   function nhOpenPopup(e){
     try{
-      const p = e.features[0].properties, T = { closure: "Zamknięcie", works: "Roboty drogowe", other: "Zdarzenie" };
+      const p = e.features[0].properties, T = { closure: "Droga zamknięta", lane: "Zamknięty pas", shoulder: "Pobocze / pas awaryjny zamknięty", works: "Roboty drogowe", other: "Zdarzenie" };
       const d = ms => ms ? new Date(Number(ms)).toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
       const box = document.createElement("div"); box.style.cssText = "font:13px/1.35 'Inter',system-ui,sans-serif;color:#111;max-width:240px";
       box.innerHTML = "<b></b><div class='a'></div><div class='b' style='margin-top:3px'></div><div class='c' style='margin-top:3px;color:#555'></div>";
-      box.querySelector("b").textContent = (T[p.k] || "Zdarzenie") + (p.act ? "" : " (planowane)") + (p.road ? " · " + p.road : "");
+      box.querySelector("b").textContent = (T[p.k] || "Zdarzenie") + (p.k === "lane" && p.n > 0 ? " (" + p.n + ")" : "") + (p.act ? "" : " (planowane)") + (p.road ? " · " + p.road : "");
       box.querySelector(".a").textContent = p.txt || "";
       box.querySelector(".b").textContent = "Od " + d(p.s) + " do " + d(p.e);
       box.querySelector(".c").textContent = "National Highways";
@@ -14636,6 +14684,129 @@
       nhPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(map);
       if(e.originalEvent) e.originalEvent.stopPropagation();
     }catch(err){}
+  }
+
+  // --- zamknięcia całej drogi NA TRASIE (wybór trasy i jazda): oznaczenie na mapie + pytanie o objazd (karta js/46 przez trClosure z js/48) ---
+  const NH_ROUTE_SRC = "nh-route-closure", NH_ROUTE_LYR = "nh-route-closure-line", NH_SOON_MS = 3 * 3600 * 1000, NH_HIT_M = 30;
+  let nhRouteMarkers = [], nhRouteSig = "", nhLastRoute = null;
+  function nhSegDist(p, a, b){   // odległość punktu od odcinka (m), płaska aproksymacja
+    const kx = Math.cos(p[1] * Math.PI / 180) * 111320, ky = 111320;
+    const ax = (a[0] - p[0]) * kx, ay = (a[1] - p[1]) * ky, bx = (b[0] - p[0]) * kx, by = (b[1] - p[1]) * ky, dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+    const t = L2 < 1e-6 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2));
+    return Math.hypot(ax + t * dx, ay + t * dy);
+  }
+  // głosy kierowcy („Tak, zamknięta” / „Nie, jadę dalej”) — ważne 6 h na tym urządzeniu; „nie” ukrywa dane zamknięcie
+  const NH_VOTE_LS = "nawigator_nh_votes", NH_VOTE_TTL = 6 * 3600 * 1000;
+  let nhVoteStamp = 0;
+  function nhVotes(){ try{ const o = JSON.parse(localStorage.getItem(NH_VOTE_LS) || "{}"), now = Date.now(); Object.keys(o).forEach(k => { if(now - o[k].t > NH_VOTE_TTL) delete o[k]; }); return o; }catch(e){ return {}; } }
+  function nhVote(uid, v){ try{ const o = nhVotes(); o[uid] = { v, t: Date.now() }; localStorage.setItem(NH_VOTE_LS, JSON.stringify(o)); }catch(e){} nhVoteStamp++; nhRouteSig = ""; }
+  // potwierdzenie w TomTom (1 zapytanie na zamknięcie / 10 min): TomTom prowadzi naszą trasą i zna kierunek jazdy — jeśli też zgłasza zamknięcie, jest pewne
+  const nhTT = new Map();
+  function nhConfirmCheck(route, h){
+    const e = nhTT.get(h.uid); if(e && Date.now() - e.t < 10 * 60 * 1000) return;
+    if(!tomtomApiKey || typeof trFetchTomTom !== "function"){ nhTT.set(h.uid, { v: false, t: Date.now() }); return; }
+    nhTT.set(h.uid, { v: null, t: Date.now() });
+    const c = route.coords, a = Math.max(0, h.i0 - 150), b = Math.min(c.length - 1, h.i1 + 150);
+    trFetchTomTom(c.slice(a, b + 1)).then(secs => {
+      const ok = secs.some(s => (s.cat === "ROAD_CLOSURE" || s.mag >= 4) && [s.a, s.b].some(p => { const n = trNearest(c, p, a, b); return n.m < 80 && n.i >= h.i0 - 40 && n.i <= h.i1 + 40; }));
+      nhTT.set(h.uid, { v: ok, t: Date.now() }); route._nhSig = null;
+    }).catch(() => { nhTT.set(h.uid, { v: false, t: Date.now() }); route._nhSig = null; });
+  }
+  function nhRouteHits(route){
+    const sig = nhAt + ":" + nhOn + ":" + (nhData ? nhData.length : 0) + ":" + nhVoteStamp + ":" + Array.from(nhTT.values()).map(x => x.v).join("");
+    if(route._nhSig === sig) return route._nhHits;
+    const c = route.coords, out = [], now = Date.now(); route._nhSig = sig; route._nhHits = out;
+    if(!nhOn || !nhData) return out;
+    const votes = nhVotes();
+    nhData.forEach((f, fi) => {
+      if(f.k !== "closure" || (!f.act && !(f.s !== null && f.s <= now + NH_SOON_MS))) return;
+      const vote = votes[f.uid]; if(vote && vote.v === "no") return;
+      const g = Array.isArray(f.c[0]) ? f.c : [f.c];
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; g.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
+      x0 -= .0008; x1 += .0008; y0 -= .0005; y1 += .0005;
+      let i0 = -1, i1 = -1;
+      for(let i = 0; i < c.length; i++){
+        const p = c[i]; if(p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
+        let d = Infinity; if(g.length === 1) d = nhSegDist(p, g[0], g[0]); else for(let j = 0; j + 1 < g.length && d > NH_HIT_M; j++) d = Math.min(d, nhSegDist(p, g[j], g[j + 1]));
+        if(d <= (g.length === 1 ? 60 : NH_HIT_M)){ if(i0 < 0) i0 = i; i1 = i; }
+      }
+      if(i0 >= 0 && i1 - i0 < 4000){ const tt = nhTT.get(f.uid); out.push({ id: "NH:" + f.uid, uid: f.uid, confirmed: !!((vote && vote.v === "yes") || (tt && tt.v === true)), checking: !!(tt && tt.v === null), i0, i1: Math.max(i1, i0 + 1), cat: "ROAD_CLOSURE", mag: 4, delay: 0, mid: c[(i0 + i1) >> 1], road: f.road, txt: f.txt }); }
+    });
+    return out;
+  }
+  function nhRouteFeats(route){ try{ return route ? nhRouteHits(route) : []; }catch(e){ return []; } }
+
+  function nhNoEntry(){
+    const el = document.createElement("div");
+    el.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="#D93636" stroke="#fff" stroke-width="2"/><rect x="5.5" y="10.3" width="13" height="3.4" fill="#fff"/></svg><span>Zamknięta</span>';
+    el.style.cssText = "display:flex;align-items:center;gap:5px;background:#fff;border-radius:14px;padding:1px 8px 1px 1px;box-shadow:0 1px 4px rgba(0,0,0,.45);font:700 12.5px/1 'Inter',system-ui,sans-serif;color:#B3261E;pointer-events:none;white-space:nowrap";
+    return el;
+  }
+  function nhDrawRoute(hits, route){
+    try{
+      if(!map || !map.getStyle()) return;
+      nhRouteMarkers.forEach(m => m.remove()); nhRouteMarkers = [];
+      const feats = hits.map(h => ({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: route.coords.slice(h.i0, h.i1 + 1) } }));
+      if(!map.getSource(NH_ROUTE_SRC)) map.addSource(NH_ROUTE_SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      if(!map.getLayer(NH_ROUTE_LYR)){
+        const ls = map.getStyle().layers, mi = ls.findIndex(l => l.id === "route-line-main"), before = mi >= 0 && ls[mi + 1] ? ls[mi + 1].id : undefined;
+        map.addLayer({ id: NH_ROUTE_LYR, type: "line", source: NH_ROUTE_SRC, layout: { "line-cap": "butt", "line-join": "round" },
+          paint: { "line-color": "#C4122B", "line-width": 6, "line-opacity": 0.95, "line-dasharray": [1.2, 0.8] } }, before);
+      }
+      map.getSource(NH_ROUTE_SRC).setData({ type: "FeatureCollection", features: feats });
+      hits.forEach(h => nhRouteMarkers.push(new maplibregl.Marker({ element: nhNoEntry(), anchor: "bottom", offset: [0, -5] }).setLngLat(h.mid).addTo(map)));
+    }catch(e){ console.warn("National Highways (trasa):", e); }
+  }
+  // objazd już w oknie wyboru trasy: liczony od razu (Valhalla, bez kosztów), pokazany przerywaną linią; „Użyj objazdu” podmienia wybraną trasę
+  function nhPickDetour(route, hits){
+    const key = hits.map(h => h.uid).join(","), cur = route._nhDet;
+    if(cur && cur.key === key) return cur;
+    const det = { key, status: "loading", res: null }; route._nhDet = det;
+    const sel = pickSel(), variant = sel === "alt" ? "easy" : "fast";
+    (async () => {
+      const cum = trCum(route); let avoid = [];
+      hits.forEach(h => { avoid = avoid.concat(detourClosurePoints(route, { along: cum[h.i0], to: cum[h.i1], lat: h.mid[1], lon: h.mid[0] })); });
+      for(let attempt = 0; attempt < 3; attempt++){
+        const nr = await fetchTruckRoute(lastTruckStops, variant, null, { exclude_locations: avoid.slice(0, 24), truckOpts: DETOUR_TRUCK_OPTS });
+        const again = nhRouteHits(nr);
+        if(!again.length) return { route: nr, variant, dS: nr.timeS - route.timeS, dM: nr.distanceM - route.distanceM };
+        const c2 = trCum(nr); again.forEach(h => { avoid = avoid.concat(detourClosurePoints(nr, { along: c2[h.i0], to: c2[h.i1], lat: h.mid[1], lon: h.mid[0] })); });
+      }
+      throw new Error("brak objazdu");
+    })().then(res => { det.res = res; det.status = "ready"; nhRouteSig = ""; }).catch(e => { det.status = "fail"; nhRouteSig = ""; console.warn("Objazd (wybór trasy):", e); });
+    return det;
+  }
+  let nhPreviewOn = false;
+  function nhRouteTick(){
+    try{
+      const tg = typeof trTarget === "function" ? trTarget() : null, warn = document.getElementById("pickNHWarn");
+      const hits = tg && nhOn && nhData ? nhRouteHits(tg.route) : [];
+      hits.forEach(h => { if(!h.confirmed) nhConfirmCheck(tg.route, h); });
+      const det = tg && tg.picker && hits.length && pendingRoutes && pendingRoutes.truck && typeof lastTruckStops !== "undefined" && lastTruckStops ? nhPickDetour(tg.route, hits) : null;
+      const sig = (tg ? "r" + (tg.route.coords.length) + ":" + tg.route.coords[0][0] : "-") + "|" + hits.map(h => h.id + h.i0 + h.confirmed).join(",") + "|" + nhAt + "|" + (det ? det.status : "");
+      if(sig !== nhRouteSig){
+        nhRouteSig = sig; if(tg) nhDrawRoute(hits, tg.route); else nhDrawRoute([], { coords: [] });
+        if(warn){
+          const txt = document.getElementById("pickNHWarnTxt"), btn = document.getElementById("pickNHDetourBtn");
+          if(tg && tg.picker && hits.length){
+            const h = hits[0]; warn.style.display = "block";
+            let t = "⛔ Droga zamknięta na tej trasie" + (h.road ? " · " + h.road : "") + (h.confirmed ? " (potwierdzone)" : h.checking ? " (sprawdzam…)" : " (wg National Highways — sprawdzę w Twoim kierunku w czasie jazdy)");
+            btn.style.display = "none";
+            if(det && det.status === "loading") t += "\nSzukam objazdu…";
+            else if(det && det.status === "ready"){ t += "\nObjazd: " + detourCost(det.res); btn.style.display = "inline-block"; detourPreviewSet(det.res.route.coords); nhPreviewOn = true; }
+            else if(det && det.status === "fail") t += "\nNie znalazłem objazdu głównymi drogami.";
+            txt.textContent = t;
+          } else { warn.style.display = "none"; if(nhPreviewOn){ detourPreviewSet(null); nhPreviewOn = false; } }
+        }
+      }
+      // jazda: pytanie o objazd zaraz po wykryciu i 5 mil przed (karta js/46 przez trClosure z js/48); niepotwierdzone → pytamy kierowcę o jego kierunek
+      if(tg && !tg.picker && hits.length && typeof trClosure === "function" && lastPos){
+        if(nhLastRoute !== tg.route){ nhLastRoute = tg.route; Array.from(trSaid).forEach(k => { if(k.indexOf("NH:") >= 0) trSaid.delete(k); }); }
+        const cum = trCum(tg.route), c = tg.route.coords, kx = Math.cos(lastPos.lat * Math.PI / 180);
+        let pos = 0, bd = Infinity; for(let i = 0; i < c.length; i++){ const dx = (c[i][0] - lastPos.lon) * kx, dy = c[i][1] - lastPos.lat, d = dx * dx + dy * dy; if(d < bd){ bd = d; pos = i; } }
+        hits.forEach(h => { if(!h.checking) trClosure(h, cum[h.i0] - cum[pos], cum); });
+      }
+    }catch(e){}
   }
 
   // --- UI: klucz w ustawieniach, przycisk 🚧 ---
@@ -14670,7 +14841,15 @@
     nhDraw(); if(on) nhRefresh(false);
   }
   nhInit();
+  document.addEventListener("click", e => {
+    if(!e.target || e.target.id !== "pickNHDetourBtn") return;
+    const tg = typeof trTarget === "function" ? trTarget() : null, det = tg && tg.route._nhDet;
+    if(!tg || !tg.picker || !det || !det.res) return;
+    pendingRoutes[pickSel()] = det.res.route; detourPreviewSet(null); nhPreviewOn = false; nhRouteSig = "";
+    paintPicker(false); showBanner("OBJAZD", "Trasa z objazdem zamkniętej drogi: " + detourCost(det.res), false);
+  });
   addTick(nhTick, 5000);
+  addTick(nhRouteTick, 4000);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
