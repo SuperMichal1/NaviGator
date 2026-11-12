@@ -14466,9 +14466,9 @@
   const NH_TTL = 15 * 60 * 1000, NH_PLANNED_DAYS = 14, NH_MAX = 4000;
   const NH_SRC = "nh-works", NH_L_ACT = "nh-works-line-active", NH_L_PLAN = "nh-works-line-planned", NH_L_DOT = "nh-works-dot";
   const NH_COL = ["match", ["get", "k"], "closure", "#E5484D", "works", "#F5A623", "#9AA0A6"];
-  let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null;
+  let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null, nhNext = 0, nhVia = "direct";
   try{
-    nhKey = localStorage.getItem(NH_KEY_LS) || ""; nhUrl = localStorage.getItem(NH_URL_LS) || NH_DEFAULT_URL; nhOn = localStorage.getItem(NH_ON_LS) !== "0";
+    nhKey = localStorage.getItem(NH_KEY_LS) || ""; nhUrl = localStorage.getItem(NH_URL_LS) || NH_DEFAULT_URL; nhOn = localStorage.getItem(NH_ON_LS) !== "0"; nhVia = localStorage.getItem("nawigator_nh_via") || "direct";
     const c = JSON.parse(localStorage.getItem(NH_CACHE_LS) || "null"); if(c && c.feats){ nhData = c.feats; nhAt = c.t; }
   }catch(e){}
 
@@ -14553,29 +14553,42 @@
   // --- pobieranie ---
   async function nhRequest(){
     const hdr = { "Accept": "application/json", "Ocp-Apim-Subscription-Key": nhKey };
-    let res;
-    try{ res = await fetch(nhUrl, { headers: hdr }); }
-    catch(e){ res = await fetch(nhUrl + (nhUrl.includes("?") ? "&" : "?") + "subscription-key=" + encodeURIComponent(nhKey), { headers: { "Accept": "application/json" } }); }   // ponowienie bez własnego nagłówka (prostsze CORS)
+    const proxyOk = typeof supaConfigured === "function" && supaConfigured();
+    let res = null;
+    if(nhVia !== "proxy" || !proxyOk){
+      try{ res = await fetch(nhUrl, { headers: hdr }); }
+      catch(e){
+        try{ res = await fetch(nhUrl + (nhUrl.includes("?") ? "&" : "?") + "subscription-key=" + encodeURIComponent(nhKey), { headers: { "Accept": "application/json" } }); }   // bez własnego nagłówka (prostsze CORS)
+        catch(e2){ res = null; }
+      }
+    }
+    if(!res){
+      // portal nie wysyła nagłówków CORS → przechodzimy przez własną funkcję Supabase „nh-proxy” (sql/nh-proxy.ts)
+      if(!proxyOk) throw new Error("przeglądarka zablokowała odpowiedź (CORS) — skonfiguruj Supabase i funkcję nh-proxy");
+      res = await fetch(normSupaUrl(supaUrl) + "/functions/v1/nh-proxy?u=" + encodeURIComponent(nhUrl), { headers: { "Accept": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey, "x-nh-key": nhKey } });
+      if(res.status === 404) throw new Error("brak funkcji nh-proxy w Supabase (patrz sql/nh-proxy.ts)");
+      if(nhVia !== "proxy"){ nhVia = "proxy"; try{ localStorage.setItem("nawigator_nh_via", "proxy"); }catch(e){} }
+    }
     if(!res.ok) throw new Error("HTTP " + res.status + (res.status === 401 || res.status === 403 ? " — sprawdź klucz" : res.status === 429 ? " — limit 10/min" : ""));
     const txt = await res.text(), ct = res.headers.get("content-type") || "";
     if(/xml/i.test(ct) || txt.trim().startsWith("<")){ const d = new DOMParser().parseFromString(txt, "application/xml"); return nhXml2Obj(d.documentElement); }
     return JSON.parse(txt);
   }
   async function nhRefresh(force){
-    if(nhBusy || !nhKey) return; if(!force && nhData && Date.now() - nhAt < NH_TTL) return;
+    if(nhBusy || !nhKey) return; if(!force && Date.now() < nhNext) return;
     nhBusy = true; nhStatus("pobieram…");
     try{
       const payload = await nhRequest(), r = nhParse(payload);
-      nhData = r.feats; nhAt = Date.now(); nhFails = 0;
+      nhData = r.feats; nhAt = Date.now(); nhFails = 0; nhNext = nhAt + NH_TTL;
       try{ localStorage.setItem(NH_CACHE_LS, JSON.stringify({ t: nhAt, feats: nhData })); }catch(e){}
       if(!r.recs){ const keys = payload && typeof payload === "object" ? Object.keys(payload).slice(0, 8).join(", ") : typeof payload;
         nhStatus("Odebrano dane, ale nie rozpoznałem pozycji (klucze: " + keys + "). Wyślij próbkę z konsoli 🐞."); console.log("NH próbka:", JSON.stringify(payload).slice(0, 3000)); }
       else nhStatus("OK: " + nhData.length + " pozycji (" + nhData.filter(f => f.act).length + " aktywnych), z " + r.recs + " rekordów · " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
       nhDraw();
     }catch(e){
-      nhFails++; nhAt = Date.now() - NH_TTL + 60000 * Math.min(10, nhFails * 2);    // ponowna próba za 2, 4, … min
+      nhFails++; nhNext = Date.now() + 60000 * Math.min(10, nhFails * 2);    // ponowna próba za 2, 4, … 10 min (wcześniej: co 5 s — błąd)
       const m = String(e && e.message || e);
-      nhStatus("Błąd: " + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? "przeglądarka zablokowała odpowiedź (CORS) lub brak sieci" : m)); console.warn("National Highways:", e);
+      nhStatus("Błąd: " + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? "brak sieci albo blokada (CORS) — sprawdź adres API" : m)); console.warn("National Highways:", e);
     }finally{ nhBusy = false; }
   }
 
@@ -14647,7 +14660,7 @@
     key.addEventListener("change", save); url.addEventListener("change", save);
     eye.addEventListener("click", () => { key.type = key.type === "password" ? "text" : "password"; });
     nhEl("nhOn").addEventListener("change", e => nhSet(e.target.checked));
-    nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhApplyUi(); nhRefresh(true); });
+    nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhVia = "direct"; nhApplyUi(); nhRefresh(true); });
     nhEl("btnNH").addEventListener("click", () => nhSet(!nhOn));
   }
   function nhSet(on){
