@@ -4740,19 +4740,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     bx(-.35, -14.1, .35, -14.14, .55, .7, "#f2c200", true);                                               // tablica tylna
     mir(.74, -14.1, 1.2, -14.17, .55, .73, "#ff3b30", true);                                               // światła tylne: szerokie, na zderzaku
     mir(.4, -14.1, .66, -14.15, .58, .7, "#ffffff", true);                                                 // światła cofania (na zderzaku)
-    if(sig){   // migacz: przód, powtarzacze na kabinie i naczepie, tył naczepy + poświata na jezdni — po stronie skrętu (R = prawa, +x)
-      const sd = sig === "R" ? 1 : -1, amb = "#ffc400", hot = "#fff3b0", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
-      let q = sx(.95, 1.4); bx(q[0], 2.45, q[1], 2.9, .7, 1.2, amb); q = sx(1.05, 1.3); bx(q[0], 2.5, q[1], 2.95, .85, 1.05, hot);
-      q = sx(1.27, 1.38); bx(q[0], 1.7, q[1], 2.5, .95, 1.3, amb);
-      q = sx(1.31, 1.4); bx(q[0], -8.0, q[1], -6.4, 1.2, 1.55, amb, true); bx(q[0], -3.2, q[1], -1.8, 1.2, 1.55, amb, true);
-      q = sx(.85, 1.28); bx(q[0], -14.12, q[1], -14.3, .7, 1.2, amb, true); q = sx(.95, 1.2); bx(q[0], -14.14, q[1], -14.32, .8, 1.05, hot, true);
-      const spill = "#ffd24a";   // świetlna plama na asfalcie przed i za pojazdem oraz z boku
-      q = sx(1.0, 3.2); bx(q[0], 2.8, q[1], 5.2, 0, .06, spill);
-      q = sx(1.4, 3.0); bx(q[0], -6.5, q[1], 1.5, 0, .05, spill);
-      q = sx(.8, 2.6); bx(q[0], -14.3, q[1], -16.2, 0, .06, spill, true);
+    let glows = null;
+    if(sig){   // migacz: świecą ISTNIEJĄCE lampy po stronie skrętu (R = prawa, +x): zewnętrzna część reflektora, powtarzacz na kabinie i naczepie, lewa/prawa lampa tylna
+      const sd = sig === "R" ? 1 : -1, amb = "#ffb300", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
+      let q = sx(.98, 1.2); bx(q[0], 2.6, q[1], 2.76, .95, 1.12, amb);                  // przedni kierunkowskaz w obudowie reflektora
+      q = sx(1.27, 1.31); bx(q[0], 1.98, q[1], 2.28, 1.0, 1.12, amb);                    // powtarzacz boczny na kabinie
+      q = sx(1.31, 1.35); bx(q[0], -8.0, q[1], -7.5, 1.35, 1.5, amb, true);              // powtarzacz boczny na naczepie
+      q = sx(.74, 1.2); bx(q[0], -14.1, q[1], -14.2, .55, .73, amb, true);               // tylna lampa (ta sama co czerwona) świeci na pomarańczowo
+      glows = [{ x: sd * 1.1, y: 3.4, r: 3.0 }, { x: sd * 1.9, y: 2.2, r: 1.8 }, { x: sd * 1.9, y: -7.7, r: 2.0, tr: true }, { x: sd * .97, y: -14.8, r: 3.0, tr: true }];
     }
     const sh = [{ p: a3Box(-1.45, -.95, 1.45, 2.8), sh: 1 }, { p: a3Box(-1.45, -14.1, 1.45, -1.3), sh: 1, tr: true }];
-    return { parts: P, shadow: sh, pivot: [0, -2.6] };
+    return { parts: P, shadow: sh, pivot: [0, -2.6], glows };
   }
   function a3Car(c, ctx, sig){
     // czarny pickup (przód = -y, flip → przód w stronę jazdy): kabina z błękitnymi szybami, otwarta skrzynia z pałąkiem, czerwone tylne światła
@@ -4778,14 +4776,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     add(a3Box(-.92, -2.78, .92, -2.6), .38, .58, dk);                      // zderzak
     add(a3Box(-.85, 2.65, -.3, 2.72), .72, 1.12, "#ff2a20"); add(a3Box(.3, 2.65, .85, 2.72), .72, 1.12, "#ff2a20");   // tylne światła
     add(a3Box(-1.12, -.85, -.92, -.55), 1.1, 1.3, shadeHex(body, -.1)); add(a3Box(.92, -.85, 1.12, -.55), 1.1, 1.3, shadeHex(body, -.1));   // lusterka
+    let glows = null;
     if(sig){
-      const sd = sig === "R" ? 1 : -1, amb = "#ffc400", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
-      let q = sx(.7, 1.05); add(a3Box(q[0], -2.76, q[1], -2.55), .58, 1.0, amb);
-      q = sx(.45, .95); add(a3Box(q[0], 2.64, q[1], 2.8), .7, 1.2, amb);
-      q = sx(.8, 2.4); add(a3Box(q[0], -2.8, q[1], -4.6), 0, .05, "#ffd24a");
-      q = sx(.6, 2.2); add(a3Box(q[0], 2.8, q[1], 4.4), 0, .05, "#ffd24a");
+      const sd = sig === "R" ? 1 : -1, amb = "#ffb300", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
+      let q = sx(.7, 1.05); add(a3Box(q[0], -2.76, q[1], -2.55), .58, .8, amb);
+      q = sx(.45, .95); add(a3Box(q[0], 2.64, q[1], 2.8), .7, .95, amb);
+      glows = [{ x: sd * .95, y: -3.3, r: 2.4 }, { x: sd * .8, y: 3.4, r: 2.4 }];
     }
-    return { parts: P, flip: true, shadow: [{ p: a3Box(-1.15, -2.85, 1.15, 2.8), sh: 1 }] };
+    return { parts: P, flip: true, shadow: [{ p: a3Box(-1.15, -2.85, 1.15, 2.8), sh: 1 }], glows };
   }
   // aligator (przód = -y w modelu; flip → przód w stronę jazdy): segmentowany grzbiet, głowa z oczami i zębami, łapy z palcami
   function a3Gator(c, ph){
@@ -4857,13 +4855,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!map.isStyleLoaded()){ map.once("idle", ensureAvatarLayers); return; }
     try{
       if(!map.getSource("avatar3d")) map.addSource("avatar3d", { type:"geojson", data:{ type:"FeatureCollection", features:[] }, maxzoom:22, tolerance:0, buffer:0 });
+      if(!map.getSource("avatar3d-glow")) map.addSource("avatar3d-glow", { type:"geojson", data:{ type:"FeatureCollection", features:[] } });
+      if(!map.getLayer("avatar3d-glow")) map.addLayer({ id:"avatar3d-glow", type:"circle", source:"avatar3d-glow",   // łuna migacza na jezdni: rozmyte koła leżące na mapie
+        paint:{ "circle-color":"#ffa800", "circle-radius":["get","r"], "circle-blur":["get","bl"], "circle-opacity":["get","o"], "circle-pitch-alignment":"map", "circle-pitch-scale":"map" } });
       if(!map.getLayer("avatar3d-shadow")) map.addLayer({ id:"avatar3d-shadow", type:"fill", source:"avatar3d", filter:["==", ["get","sh"], 1], paint:{ "fill-color":"#000", "fill-opacity":.28 } });
       if(!map.getLayer("avatar3d-body")) map.addLayer({ id:"avatar3d-body", type:"fill-extrusion", source:"avatar3d", filter:["!=", ["get","sh"], 1],
         paint:{ "fill-extrusion-color":["get","c"], "fill-extrusion-height":["get","h"], "fill-extrusion-base":["get","b"], "fill-extrusion-opacity":1, "fill-extrusion-vertical-gradient":true } });
     }catch(e){ console.warn("Avatar 3D:", e); }
   }
   function avatar3dClear(){
-    try{ const s = map && map.getSource("avatar3d"); if(s) s.setData({ type:"FeatureCollection", features:[] }); }catch(e){}
+    try{ const s = map && map.getSource("avatar3d"); if(s) s.setData({ type:"FeatureCollection", features:[] }); const g = map && map.getSource("avatar3d-glow"); if(g) g.setData({ type:"FeatureCollection", features:[] }); }catch(e){}
     avSm.t3 = 0;
   }
   function avatar3dUpdate(t, dt){
@@ -4891,6 +4892,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
     model.parts.forEach(o => feats.push({ type:"Feature", properties:{ sh:0, c:o.c, b:o.b * s, h:o.h * s }, geometry:{ type:"Polygon", coordinates: conv(o.p, o.tr) } }));
     src.setData({ type:"FeatureCollection", features: feats });
+    try{
+      const gs = map.getSource("avatar3d-glow");
+      if(gs && (model.glows || avSm.glowOn)){
+        const gf = [], ppm = Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(avSm.lat * Math.PI / 180)), fl = model.flip ? -1 : 1;
+        (model.glows || []).forEach(g => {
+          let pt = [g.x, g.y]; if(g.tr && trRot) pt = a3Rot([pt], trRot, pv[0], pv[1])[0];
+          const x = pt[0] * s, y = pt[1] * s * fl, ll = [avSm.lon + (x * ch + y * sh) * kLon, avSm.lat + (-x * sh + y * ch) * kLat], rp = g.r * s * ppm;
+          gf.push({ type:"Feature", properties:{ r: rp, bl: 1, o: .4 }, geometry:{ type:"Point", coordinates: ll } });        // szeroka, miękka łuna
+          gf.push({ type:"Feature", properties:{ r: rp * .42, bl: .9, o: .6 }, geometry:{ type:"Point", coordinates: ll } });  // jaśniejszy rdzeń blasku
+        });
+        gs.setData({ type:"FeatureCollection", features: gf }); avSm.glowOn = !!model.glows;
+      }
+    }catch(e){}
   }
 </script>
 <script>
@@ -14837,7 +14851,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const t = nhTimes(r); if(t.e !== null && t.e < now) continue;      // zakończone
       if(t.s !== null && t.s > limit) continue;                          // za odległe w czasie
       let road = null, txt = null;
-      nhWalk(r, (v, k, isObj) => { if(road === null && isObj && /roadnumber|roadname/i.test(k || "")) road = nhFirstString(v); if(txt === null && isObj && /comment|description/i.test(k || "")) txt = nhFirstString(v); });
+      nhWalk(r, (v, k, isObj) => { if(road === null && /^(roadnumber|roadname)$/i.test(k || "")) road = isObj ? nhFirstString(v) : (typeof v === "string" ? v : null); if(txt === null && isObj && /comment|description/i.test(k || "")) txt = nhFirstString(v); });
       const kd = nhKind(r), mm = nhMid(g); out.push({ uid: kd.k + ":" + Math.round(mm[0] * 2000) + ":" + Math.round(mm[1] * 2000), k: kd.k, n: kd.lanes, act: t.s === null || t.s <= now, c: g, x: geo.x || undefined, snap: geo.snap && Array.isArray(g[0]) ? 1 : undefined, raw: kd.k === "closure" ? JSON.stringify(r).slice(0, 6000) : undefined, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
       if(out.length >= NH_MAX) break;
     }
@@ -15329,9 +15343,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
    TomTom (js/48) zostaje do robót i zamknięć na trasie. Zależności (tylko w callbackach): map, mapboxToken (js/11d), addTick (js/03). */
 "use strict";
 
-  const MBT_LS = "nawigator_mb_traffic", MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";
-  let mbtOn = false;   // domyślnie wyłączone
-  try{ mbtOn = localStorage.getItem(MBT_LS) === "1"; }catch(e){}
+  const MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";
+  let mbtOn = false;   // zawsze wyłączone na starcie — kierowca włącza ręcznie przy każdym uruchomieniu (oszczędza limit Mapbox); stan NIE jest zapamiętywany
 
   function mbtApply(){
     try{
@@ -15360,7 +15373,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function mbtSet(on){
     mbtOn = !!on;
-    try{ localStorage.setItem(MBT_LS, on ? "1" : "0"); }catch(e){}
     const cb = document.getElementById("pickMbTraffic"); if(cb) cb.checked = mbtOn;
     const bt = document.getElementById("btnMbTraffic"); if(bt) bt.classList.toggle("active", mbtOn);
     mbtApply();
