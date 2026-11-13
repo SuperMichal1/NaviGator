@@ -769,6 +769,44 @@
     overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-top:6px; }
   #navTopBar #navSuggestions.saved{ max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px); }
   #navTopBar .navSuggestion{ padding:13px 14px; font-size:14px; }
+
+  /* pasek u góry: tła prawie nieprzezroczyste, żeby wpisany tekst był dobrze widoczny */
+  #navTopBar #navDestCombo{ background:#fff; border-color: rgba(0,0,0,0.18); }
+  #navTopBar #navSuggestions{ background: rgba(255,255,255,0.98); }
+  #navTopBar .navSavedTabs, #navTopBar .navSavedHead{ background:#eef0f2; }
+  body.night #navTopBar #navDestCombo{ background:#17120a; border-color: rgba(255,176,32,0.35); }
+  body.night #navTopBar #navSuggestions{ background: rgba(23,18,10,0.985); }
+  body.night #navTopBar .navSavedTabs, body.night #navTopBar .navSavedHead{ background:#241c0f; }
+  /* X do szybkiego czyszczenia pól (widoczny tylko gdy w polu jest tekst) */
+  .navClearBtn{ display:none; flex:0 0 32px; align-self:center; width:32px; height:32px; margin:0 2px; padding:0; border:none; border-radius:50%;
+    background: rgba(0,0,0,0.10); color:#333; font-size:14px; line-height:1; cursor:pointer; }
+  .navClearBtn:active{ background: rgba(0,0,0,0.22); }
+  body.night .navClearBtn{ background: rgba(255,255,255,0.14); color:#eee; }
+  #navDestCombo.has-dest #navDestClear, #navDestCombo.has-pc #navPostcodeClear{ display:block; }
+  #navDestCombo #navPostcode{ flex:0 0 96px; width:96px; padding-left:6px; padding-right:4px; }
+
+  /* „Po drodze”: przycisk w karcie jazdy + arkusz z parkingami / paliwem / punktem pośrednim */
+  #navAlongRow{ display:none; margin-top:8px; }
+  #navRouteInfo.show:not(.planning) #navAlongRow{ display:block; }
+  #navAlongBtn{ width:100%; min-height:48px; background: rgba(31,214,193,0.14); color: var(--text-main); border:1px solid var(--accent); padding:10px 12px; border-radius:12px; font:700 15px 'Inter',sans-serif; cursor:pointer; }
+  #navAlongBtn:active{ transform: scale(0.98); }
+  #alongSheet{ display:none; position:fixed; left:10px; right:10px; bottom:10px; max-width:520px; margin:0 auto; max-height:72vh; overflow-y:auto; z-index:9050;
+    flex-direction:column; gap:8px; padding:12px; border-radius:16px; background: var(--panel-bg-solid); color: var(--text-main); border:1px solid var(--panel-border); box-shadow:0 8px 28px rgba(0,0,0,.45); }
+  #alongSheet.show{ display:flex; }
+  #alongSheet .alHead{ display:flex; align-items:center; justify-content:space-between; font-size:16px; }
+  #alongSheet #alClose{ width:40px; height:40px; border:none; border-radius:10px; background: rgba(128,128,128,.2); color:inherit; font-size:16px; cursor:pointer; }
+  #alongSheet .alTabs{ display:flex; gap:6px; }
+  #alongSheet .alTabs button{ flex:1; min-height:46px; padding:6px 4px; border-radius:11px; border:1px solid var(--panel-border); background:transparent; color:inherit; font:700 13px 'Inter',sans-serif; cursor:pointer; }
+  #alongSheet .alTabs button.on{ background: var(--accent); border-color: var(--accent); color:#0c0f12; }
+  #alStatus{ font-size:13px; opacity:.8; min-height:0; }
+  #alStatus:empty{ display:none; }
+  .alRow{ display:flex; align-items:center; gap:10px; padding:11px 10px; border-radius:12px; border:1px solid var(--panel-border); cursor:pointer; }
+  .alRow:active{ background: rgba(128,128,128,.18); }
+  .alMain{ flex:1; min-width:0; }
+  .alName{ font:700 15px 'Inter',sans-serif; overflow-wrap:anywhere; }
+  .alSub{ font-size:12px; opacity:.8; margin-top:2px; overflow-wrap:anywhere; }
+  .alGo{ flex:0 0 auto; padding:9px 14px; border-radius:10px; background: var(--accent); color:#0c0f12; font:800 14px 'Inter',sans-serif; }
+  #alongSheet #alViaWrap .navSuggestions{ max-height:40vh; overflow-y:auto; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -882,7 +920,12 @@
   #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
 
 /* haczyk „Natężenie ruchu” w wyborze trasy: mały, stonowany (tap-target dzięki paddingowi etykiety) */
-#pickTrafficRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; opacity:.72; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#pickChecks{ display:flex; flex-direction:column; }
+#pickTrafficRow, #pickNHRow{ color:#14181c; }
+body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
+#pickNHRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#pickNHRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
+#pickTrafficRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 #pickTrafficRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
 #pickTrafficInfo{ margin-left:auto; font:400 11.5px/1.2 'Inter',system-ui,sans-serif; opacity:.85; text-align:right; }
 
@@ -1604,12 +1647,29 @@
     <div id="navDestWrap" class="navStopWrap">
       <div id="navDestCombo">
         <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+        <button id="navDestClear" class="navClearBtn" type="button" aria-label="Wyczyść cel">✕</button>
         <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
         <span class="navComboSep" aria-hidden="true"></span>
         <input type="text" id="navPostcode" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy — pokaż firmy w okolicy">
+        <button id="navPostcodeClear" class="navClearBtn" type="button" aria-label="Wyczyść kod pocztowy">✕</button>
       </div>
       <div id="navSuggestions" class="navSuggestions"></div>
     </div>
+</div>
+
+<div id="alongSheet" role="dialog" aria-label="Po drodze">
+  <div class="alHead"><b id="alTitle">Po drodze</b><button id="alClose" type="button" aria-label="Zamknij">✕</button></div>
+  <div class="alTabs">
+    <button type="button" data-k="parking">🅿️ Parking HGV</button>
+    <button type="button" data-k="fuel">⛽ Paliwo / serwis</button>
+    <button type="button" data-k="via">➕ Punkt</button>
+  </div>
+  <div id="alViaWrap" class="navStopWrap" style="display:none">
+    <input type="text" id="alViaInput" class="navStopInput" placeholder="Dodaj punkt pośredni…" autocomplete="off">
+    <div id="alViaSuggestions" class="navSuggestions"></div>
+  </div>
+  <div id="alStatus"></div>
+  <div id="alList"></div>
 </div>
 
 <div id="navPanel" data-navstate="search">
@@ -1656,7 +1716,10 @@
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
-      <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Natężenie ruchu</span><small id="pickTrafficInfo"></small></label>
+      <div id="pickChecks">
+        <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Natężenie ruchu</span><small id="pickTrafficInfo"></small></label>
+        <label id="pickNHRow"><input type="checkbox" id="pickNH"><span>Remonty dróg (National Highways)</span></label>
+      </div>
       <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
       <div id="pickActions">
         <button id="pickGoBtn" type="button">Jedziemy</button>
@@ -1680,6 +1743,7 @@
       <div class="ts"><b id="tsEta">–</b><span>przyjazd</span></div>
     </div>
     <div id="navTollNote">£ Mimo unikania trasa ma odcinki płatne (zaznaczone na mapie)</div>
+    <div id="navAlongRow"><button id="navAlongBtn" type="button">＋ Po drodze: parking · paliwo · punkt</button></div>
         <div id="navRouteBtnRow">
       <button id="navUndoEditBtn" class="secondary">↩ Cofnij</button>
       <button id="navStartBtn">Jedziemy</button>
@@ -8315,7 +8379,7 @@
         countrySet: NAV_DEFAULT_COUNTRY
       });
       // wyniki faworyzują okolicę, którą widać na mapie (a bez mapy — pozycję GPS)
-      const bias = searchBias();
+      const bias = (opts.bias && opts.bias()) || searchBias();
       if(bias){
         params.set("lat", bias.lat);
         params.set("lon", bias.lon);
@@ -8414,13 +8478,15 @@
     if(!pcCompanies || !pcCompanies.list.length) return null;
     const n = normCompanyName(q);
     if(!n) return { list: pcCompanies.list.slice(0, 30), head: "Firmy w okolicy " + pcCompanies.pc };
-    const scored = [];
+    const scored = [], toks = n.split(" ").filter(Boolean);
     pcCompanies.list.forEach((r, i) => {
       const nm = normCompanyName(r.poi && r.poi.name); if(!nm) return;
       let sc = -1;
       if(nm.startsWith(n)) sc = 0;
       else if((" " + nm).includes(" " + n)) sc = 1;          // początek dowolnego słowa
+      else if(toks.length > 1 && toks.every(t => (" " + nm).includes(" " + t))) sc = 1.5;   // wszystkie słowa, w dowolnej kolejności
       else if(n.length >= 3 && nm.includes(n)) sc = 2;
+      else if(n.length >= 3 && toks.length > 1 && toks.every(t => nm.includes(t))) sc = 2.5;
       if(sc >= 0) scored.push([sc, i, r]);
     });
     if(!scored.length) return n.length >= 3 ? null : { list: [], head: "Brak firmy „" + q + "” w okolicy " + pcCompanies.pc };   // 3+ znaków i brak trafień → zwykłe wyszukiwanie
@@ -8436,6 +8502,7 @@
     {
       onTyping: () => { navSelectedDest = null; removeDestPin(); updateAddWaypointVisibility(); },
       localSuggest: pcLocalSuggest,
+      bias: () => (pcCompanies && pcCompanies.c) ? { lat: pcCompanies.c.lat, lon: pcCompanies.c.lon } : null,   // z wpisanym kodem szukaj firm wokół niego
       hasSelection: () => !!navSelectedDest,
       onEnterConfirm: () => confirmDestination(),
       // Wybór wyniku: pinezka staje tam, dokąd GPS faktycznie ma doprowadzić — jeśli TomTom
@@ -8448,6 +8515,7 @@
         document.getElementById("navDest").value = label;
         updateAddWaypointVisibility();
         confirmDestination();
+        if(typeof navSearchHistDrop === "function") navSearchHistDrop();
       }
     }
   );
@@ -8511,7 +8579,7 @@
         list.forEach(r => { r._pcRank = pcRank(r); });
         list.sort((a, b) => a._pcRank - b._pcRank || a._d - b._d || b._pop - a._pop);
         if(token !== pcToken) return;
-        pcCompanies = { pc, list: list.slice(0, 60) };
+        pcCompanies = { pc, c, list: list.slice(0, 60) };
         // jeśli w polu celu są już litery — pokaż tylko pasujące firmy
         const typed = document.getElementById("navDest").value.trim();
         const loc = typed ? pcLocalSuggest(typed) : null;
@@ -8541,6 +8609,7 @@
         document.getElementById("navDest").value = pc;
         updateAddWaypointVisibility();
         confirmDestination();
+        if(typeof navSearchHistDrop === "function") navSearchHistDrop();
       }catch(err){
         if(err.name === "AbortError") return;
         showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się znaleźć kodu pocztowego.");
@@ -8564,6 +8633,43 @@
     });
     pcInput.addEventListener("focus", () => { try{ pcInput.select(); }catch(e){} });
   })();
+
+  // ---------- X w polach celu/kodu + przycisk „wstecz” (zamyka listę zamiast wychodzić z aplikacji) ----------
+  function navRefreshClearBtns(){
+    const combo = document.getElementById("navDestCombo"); if(!combo) return;
+    combo.classList.toggle("has-dest", !!document.getElementById("navDest").value);
+    combo.classList.toggle("has-pc", !!document.getElementById("navPostcode").value);
+  }
+  (function(){
+    const dest = document.getElementById("navDest"), pc = document.getElementById("navPostcode");
+    [dest, pc].forEach(i => i.addEventListener("input", navRefreshClearBtns));
+    document.getElementById("navDestClear").addEventListener("click", e => {
+      e.preventDefault(); dest.value = "";
+      dest.dispatchEvent(new Event("input", { bubbles: true })); navRefreshClearBtns(); dest.focus();
+    });
+    document.getElementById("navPostcodeClear").addEventListener("click", e => {
+      e.preventDefault(); pc.value = "";
+      pc.dispatchEvent(new Event("input", { bubbles: true })); navRefreshClearBtns(); pc.focus();
+    });
+    // „wstecz”: pierwsze naciśnięcie (poza zamknięciem klawiatury przez system) zamyka listę i wraca do mapy
+    let pushed = false, ignorePop = false;
+    const push = () => { if(pushed) return; try{ history.pushState({ navSearch: 1 }, ""); pushed = true; }catch(e){} };
+    [dest, pc].forEach(i => i.addEventListener("focus", push));
+    window.navSearchHistDrop = function(){   // cel wybrany: zdejmij nasz wpis historii, żeby „wstecz” nie był martwy
+      if(!pushed) return; pushed = false; ignorePop = true;
+      try{ history.back(); }catch(e){ ignorePop = false; }
+    };
+    window.addEventListener("popstate", () => {
+      if(ignorePop){ ignorePop = false; return; }
+      if(!pushed) return;
+      pushed = false;
+      dest.blur(); pc.blur();
+      const box = document.getElementById("navSuggestions");
+      box.innerHTML = ""; box.classList.remove("open", "saved");
+    });
+    // „Wstecz” przy ukrytej liście (już zamknięta) nie ma wpisu do zdjęcia — wpis dodaje się przy kolejnym wejściu w pole
+  })();
+  navRefreshClearBtns();
 
   // ---------- pole miejsca początkowego (opcjonalne — puste = użyj bieżącej pozycji GPS) ----------
   let navSelectedOrigin = null; // null = start od aktualnej pozycji GPS
@@ -8848,6 +8954,7 @@
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
+    if(typeof navRefreshClearBtns === "function") navRefreshClearBtns();
     updateLocateBtnVisibility();   // podczas planowania trasy "Centruj" jest schowany, po przejściu dalej wraca
   }
 </script>
@@ -10498,7 +10605,7 @@
     if(!guideActive()){ hideGuidance(); return; }
     const g = guideEnsure();
     if(!g){ hideGuidance(); return; }
-    if(g.done){ if(Date.now() > g.hideAt) hideGuidance(); return; }
+    if(g.done){ if(Date.now() > g.hideAt){ hideGuidance(); if(!g.cleared){ g.cleared = true; try{ clearNavRoute(); }catch(e){ console.warn("Kasowanie trasy po dotarciu:", e); } } } return; }
     const along = guideProgress(g, lat, lon);
     if(along === null) return;
     g.pos = [lat, lon];
@@ -10517,7 +10624,7 @@
     if(step.t.indexOf("arrive") === 0 && dist <= 35){
       renderGuidance(step, dist, null, g);
       guideSpeak(g, step, dist, null);
-      g.done = true; g.hideAt = Date.now() + 8000;
+      g.done = true; g.hideAt = Date.now() + 6000;   // po komunikacie „You have arrived” trasa sama się kasuje
       return;
     }
     renderGuidance(step, dist, next, g);
@@ -10930,6 +11037,7 @@
       skipWaypoints: oldRoute && oldRoute.skipWaypoints
     };
     routeSpeedSegments = r.speedSegments || [];
+    if(typeof alongCommit === "function") alongCommit();
     routeTrafficIncidents = r.incidents || [];
     routeBeforeEdit = null;
     setRouteLineCoords(activeRoute.coords, "route-line");
@@ -11003,12 +11111,18 @@
   }
 
   // przycisk „Zmień trasę”: szybka i łatwa trasa od AKTUALNEJ pozycji do tego samego celu
-  async function offerRoutesFromHere(){
+  async function offerRoutesFromHere(extra){
     if(rerouteBusy || !activeRoute || !navSelectedDest || !lastPos) return;
     rerouteBusy = true;
     showNavStatus("Szukam tras…");
     const oldRoute = activeRoute;
-    const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...getRemainingWaypoints(lastPos.lat, lastPos.lon), navSelectedDest];
+    let wps = getRemainingWaypoints(lastPos.lat, lastPos.lon);
+    if(extra && extra.lat !== undefined){   // „Po drodze”: nowy punkt wchodzi na właściwe miejsce wg kolejności na trasie
+      const ei = distanceToActiveRoute(extra.lat, extra.lon).idx; let k = 0;
+      while(k < wps.length && distanceToActiveRoute(wps[k].lat, wps[k].lon).idx <= ei) k++;
+      wps = wps.slice(0, k).concat([{ lat: extra.lat, lon: extra.lon, label: extra.label }], wps.slice(k));
+    }
+    const stops = [{ lat: lastPos.lat, lon: lastPos.lon }, ...wps, navSelectedDest];
     if(truckRouteAbort) truckRouteAbort.abort();
     truckRouteAbort = new AbortController();
     const ctrl = truckRouteAbort;
@@ -11018,7 +11132,7 @@
         fetchTruckRoute(stops, "easy", ctrl).catch(() => null)
       ]);
       if(activeRoute !== oldRoute) return;
-      if(!fast && !easy){ showBanner("BRAK TRAS", "Nie udało się wyznaczyć nowych tras. Spróbuj ponownie.", false); return; }
+      if(!fast && !easy){ if(typeof alongDiscard === "function") alongDiscard(); showBanner("BRAK TRAS", "Nie udało się wyznaczyć nowych tras. Spróbuj ponownie.", false); return; }
       let alt = easy;
       if(fast && easy){ try{ alt = await findDistinctEasyRoute(stops, fast, easy, ctrl); }catch(e){ console.warn(e); } }
       if(!fast || !alt){ // tylko jedna trasa — od razu jedziemy nią
@@ -11044,6 +11158,7 @@
   }
 
   function cancelRerouteOffer(){
+    if(typeof alongDiscard === "function") alongDiscard();
     pendingRoutes = { main:null, alt:null };
     setRouteLineCoords([], "route-line-alt");
     if(activeRoute) setRouteLineCoords(activeRoute.coords, "route-line");
@@ -14428,13 +14543,21 @@
     let i1 = i0; while(i1 < c.length - 1 && cum[i1] - cum[i0] < TR_WINDOW_M) i1++;
     const key = trKeyOf(c, i0, i1), w = c.slice(i0, i1 + 1);
     const seed = !force && route.trafficSecs && Date.now() - (route.trafficAt || 0) < TR_TTL ? route.trafficSecs : null;   // z „Wyznacz trasę” (0 zapytań)
+    // limit zapytań TomTom na trasę wg czasu przejazdu: ≤20 min → 1, ≤40 min → 2, ≤60 min → 3, dłuższe → bez limitu (okno co 10 min).
+    // Dane z „Wyznacz trasę” (seed) liczą się jako pierwsze zapytanie; wyniki z cache (telefon/Supabase) nic nie kosztują.
+    const quota = (route.timeS || 0) <= 1200 ? 1 : (route.timeS || 0) <= 2400 ? 2 : (route.timeS || 0) <= 3600 ? 3 : Infinity;
+    if(route._trCalls === undefined) route._trCalls = 0;
+    if(seed && !route._trSeeded){ route._trSeeded = true; route._trCalls++; }
+    const spend = () => { if(route._trCalls >= quota) return false; route._trCalls++; return true; };
     trStatus("ładuję…");
+    const fetchTT = () => spend() ? trFetchTomTom(w) : Promise.reject(new Error("QUOTA"));
     const src = seed ? Promise.resolve(seed)
-      : force ? trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; })
+      : force ? fetchTT().then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; })
       : Promise.resolve(trLocalGet(key)).then(l => l || trSupaGet(key).then(sh => { if(sh){ trLocalSet(key, sh); return sh; }
-          return trFetchTomTom(w).then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
+          return fetchTT().then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
     src.then(s => { const t = trTarget(); if(t && t.route === route) trDrawRetry(route, s, i0, i1, 0); })
-       .catch(e => { console.warn("Ruch na trasie:", e); trStatus("błąd: " + (e && e.message || e)); trStamp = Date.now() - TR_TTL + 30000; })   // ponowna próba najwcześniej za 30 s (bez spamowania zapytań)
+       .catch(e => { if(e && e.message === "QUOTA"){ trStatus(""); return; }   // limit zapytań na tę trasę wyczerpany — zostaje ostatni obraz ruchu
+         console.warn("Ruch na trasie:", e); trStatus("błąd: " + (e && e.message || e)); trStamp = Date.now() - TR_TTL + 30000; })   // ponowna próba najwcześniej za 30 s (bez spamowania zapytań)
        .finally(() => { trBusy = false; });
   }
 
@@ -14586,13 +14709,24 @@
   }
   // rodzaj: closure = cała droga (jezdnia) zamknięta; lane = zamknięty pas (część jezdni); shoulder = pobocze / pas awaryjny; works = roboty; other
   function nhKind(rec){
+    // 1) wartości tekstowe rekordu (bez nazw pól — nazwy typu numberOfLanesRestricted występują też w pełnych zamknięciach)
+    let vals = "", lanes = null, opLanes = null;
+    nhWalk(rec, (v, k, isObj) => {
+      if(isObj) return;
+      if(typeof v === "string") vals += " " + v;
+      if(/numberoflanes(restricted|closed)|lanesclosed|lanesrestricted/i.test(k || "")){ const n = nhNum(v); if(n !== null && lanes === null) lanes = n; }
+      if(/numberofoperationallanes|totalnumberoflanes/i.test(k || "")){ const n = nhNum(v); if(n !== null && opLanes === null) opLanes = n; }
+    });
+    const tv = vals.toLowerCase().replace(/[\s_\-]/g, "");
     const t = JSON.stringify(rec).toLowerCase().replace(/[\s_\-]/g, "");
-    let lanes = null;
-    nhWalk(rec, (v, k, isObj) => { if(lanes === null && !isObj && /numberoflanes(restricted|closed)|lanesclosed|lanesrestricted/i.test(k || "")){ const n = nhNum(v); if(n !== null) lanes = n; } });
-    const lane = /laneclosure|lanesclosed|laneblocked|lanesrestricted|numberoflanesrestricted|narrowlanes|contraflow|partialroadclosure|partialclosure/.test(t);
-    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(t) && !/roadclosed|carriagewayclosed/.test(t)) return { k: "shoulder", lanes };
+    // pełne zamknięcie jezdni / drogi (np. „M69 southbound Jct 1 to M6 Jct 2 carriageway closure”) — ma pierwszeństwo przed „lane”
+    if(/carriagewayclosure|carriagewayclosed|carriagewayblocked|roadclosed|roadclosure|fullclosure|fullroadclosure|closedtotraffic|roadblocked|closedahead/.test(tv)) return { k: "closure", lanes };
+    if(lanes !== null && opLanes !== null && opLanes > 0 && lanes >= opLanes) return { k: "closure", lanes };
+    const lane = /laneclosure|lanesclosed|laneblocked|lanesrestricted|narrowlanes|contraflow|partialroadclosure|partialclosure/.test(tv) || (lanes !== null && lanes > 0);
+    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(tv) && !lane) return { k: "shoulder", lanes };
     if(lane) return { k: "lane", lanes };
-    if(/roadclosed|carriagewayclosed|carriagewayblocked|roadblocked|closedahead|fullclosure|fullroadclosure|fullcarriagewayclosure|closure/.test(t)) return { k: "closure", lanes };
+    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(t) && !/roadclosed|carriagewayclosed/.test(t)) return { k: "shoulder", lanes };
+    if(/roadclosed|carriagewayclosed|carriagewayclosure|carriagewayblocked|roadblocked|closedahead|fullclosure|fullroadclosure|fullcarriagewayclosure|closure/.test(t)) return { k: "closure", lanes };
     if(/roadworks|maintenance|construction|resurfac|worksite/.test(t)) return { k: "works", lanes };
     return { k: "other", lanes };
   }
@@ -14697,12 +14831,12 @@
         // przerywane = planowane albo częściowe (pas / pobocze); ciągłe = aktywne zamknięcie całej drogi, roboty, inne
         map.addLayer({ id: NH_L_PLAN, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["any", ["==", ["get", "act"], 0], part]], layout: lay,
           paint: { "line-color": NH_COL, "line-width": w, "line-opacity": ["case", ["==", ["get", "act"], 1], 0.85, 0.55], "line-dasharray": [2, 1.6] } }, before);
-        map.addLayer({ id: NH_L_ACT, type: "line", source: NH_SRC, minzoom: 7, filter: ["all", isLine, ["==", ["get", "act"], 1], ["!", part]], layout: lay,
-          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": 0.9 } }, before);
-        map.addLayer({ id: NH_L_DOT, type: "symbol", source: NH_SRC, minzoom: 8, filter: ["==", ["geometry-type"], "Point"],
+        map.addLayer({ id: NH_L_ACT, type: "line", source: NH_SRC, minzoom: 6, filter: ["all", isLine, ["==", ["get", "act"], 1], ["!", part]], layout: lay,
+          paint: { "line-color": NH_COL, "line-width": w, "line-opacity": ["step", ["zoom"], ["case", ["==", ["get", "k"], "closure"], 0.9, 0], 7, 0.9] } }, before);
+        map.addLayer({ id: NH_L_DOT, type: "symbol", source: NH_SRC, minzoom: 6, filter: ["==", ["geometry-type"], "Point"],
           layout: { "icon-image": ["match", ["get", "k"], "closure", "nh-full", "lane", "nh-lane", "shoulder", "nh-shoulder", "works", "nh-works", "nh-other"],
             "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 0.85, 16, 1.1], "icon-allow-overlap": true, "icon-ignore-placement": true },
-          paint: { "icon-opacity": ["case", ["==", ["get", "act"], 1], 1, 0.6] } }, before);
+          paint: { "icon-opacity": ["step", ["zoom"], ["case", ["all", ["==", ["get", "k"], "closure"], ["==", ["get", "act"], 1]], 1, 0], 8, ["case", ["==", ["get", "act"], 1], 1, 0.6]] } }, before);
         map.on("click", NH_L_DOT, nhOpenPopup);
         map.on("mouseenter", NH_L_DOT, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", NH_L_DOT, () => { map.getCanvas().style.cursor = ""; });
@@ -14809,8 +14943,14 @@
       if(!map.getLayer(NH_ROUTE_LYR)){
         const ls = map.getStyle().layers, mi = ls.findIndex(l => l.id === "route-line-main"), before = mi >= 0 && ls[mi + 1] ? ls[mi + 1].id : undefined;
         map.addLayer({ id: NH_ROUTE_LYR, type: "line", source: NH_ROUTE_SRC, layout: { "line-cap": "butt", "line-join": "round" },
-          paint: { "line-color": "#C4122B", "line-width": 6, "line-opacity": 0.95, "line-dasharray": [1.2, 0.8] } }, before);
+          paint: { "line-color": "#C4122B", "line-width": 8, "line-opacity": 1, "line-dasharray": [1.2, 0.8] } }, before);
       }
+      // czerwona przerywana linia zawsze NA WIERZCHU trasy (po każdym przerysowaniu trasy warstwy zmieniają kolejność)
+      try{
+        const ls2 = map.getStyle().layers; let last = -1; ls2.forEach((l, i) => { if(/^route-line/.test(l.id) && l.id !== NH_ROUTE_LYR) last = i; });
+        const cur = ls2.findIndex(l => l.id === NH_ROUTE_LYR);
+        if(last >= 0 && cur >= 0 && cur < last) map.moveLayer(NH_ROUTE_LYR, ls2[last + 1] && ls2[last + 1].id !== NH_ROUTE_LYR ? ls2[last + 1].id : undefined);
+      }catch(e){}
       map.getSource(NH_ROUTE_SRC).setData({ type: "FeatureCollection", features: feats });
       hits.forEach(h => nhRouteMarkers.push(new maplibregl.Marker({ element: nhNoEntry(), anchor: "bottom", offset: [0, -5] }).setLngLat(h.mid).addTo(map)));
     }catch(e){ console.warn("National Highways (trasa):", e); }
@@ -14871,6 +15011,7 @@
   function nhApplyUi(){
     const b = nhEl("btnNH"); if(b) b.classList.toggle("active", nhOn && !!nhKey);
     const cb = nhEl("nhOn"); if(cb) cb.checked = nhOn;
+    const pk = nhEl("pickNH"); if(pk) pk.checked = nhOn;
   }
   function nhTick(){
     if(!nhOn || !nhKey || !map) return;
@@ -14891,6 +15032,7 @@
     nhEl("nhOn").addEventListener("change", e => nhSet(e.target.checked));
     nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhVia = "direct"; nhApplyUi(); nhRefresh(true); });
     nhEl("btnNH").addEventListener("click", () => nhSet(!nhOn));
+    const pk = nhEl("pickNH"); if(pk) pk.addEventListener("change", e => nhSet(e.target.checked));   // haczyk w oknie wyboru trasy
   }
   function nhSet(on){
     nhOn = !!on; try{ localStorage.setItem(NH_ON_LS, on ? "1" : "0"); }catch(e){}
@@ -14908,6 +15050,118 @@
   });
   addTick(nhTick, 5000);
   addTick(nhRouteTick, 4000);
+</script>
+<script>
+/* ===== js/50-along-route.js — „Po drodze”: parking HGV, paliwo / serwis, punkt pośredni przy aktywnej trasie =====
+   Klasyczny <script> (bez IIFE). Przycisk #navAlongBtn w karcie jazdy → arkusz #alongSheet. Wybrane miejsce staje się
+   następnym punktem pośrednim: trasy liczy offerRoutesFromHere(extra) (js/34), po zatwierdzeniu wpis trafia do listy punktów (alongCommit).
+   Parkingi: najpierw dane lokalne (warstwa "hgv-parking", 0 zapytań), TomTom tylko gdy lokalnych jest mało. Paliwo: TomTom poiSearch (cache 3 min). */
+"use strict";
+
+  var pendingExtra = null;
+  const AL_RADIUS_M = 25000, AL_CORRIDOR_M = 3500, AL_CACHE_MS = 3 * 60 * 1000;
+  let alKind = "parking", alCache = {}, alToken = 0;
+  const alEl = id => document.getElementById(id);
+  const alMi = m => (m / 1609.344 < 10 ? (m / 1609.344).toFixed(1) : Math.round(m / 1609.344)) + " mi";
+
+  function alOpen(){
+    if(!activeRoute || activeRoute.planning || !lastPos){ showBanner("PO DRODZE", "Najpierw uruchom nawigację po trasie", false); return; }
+    alEl("alongSheet").classList.add("show");
+    alSet(alKind);
+  }
+  function alClose(){ alEl("alongSheet").classList.remove("show"); }
+  function alSet(k){
+    alKind = k;
+    document.querySelectorAll("#alongSheet .alTabs button").forEach(b => b.classList.toggle("on", b.dataset.k === k));
+    alEl("alViaWrap").style.display = k === "via" ? "" : "none";
+    alEl("alList").innerHTML = ""; alEl("alStatus").textContent = "";
+    if(k === "via"){ alEl("alViaInput").focus(); return; }
+    alSearch(k);
+  }
+  function alLocalParking(){
+    try{
+      const src = map.getSource("hgv-parking"), d = src && src.serialize && src.serialize().data;
+      return ((d && d.features) || []).map(f => ({ name: f.properties.name || "Parking HGV", lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], local: true }));
+    }catch(e){ return []; }
+  }
+  async function alTomTom(query){
+    if(!tomtomApiKey) return [];
+    const p = new URLSearchParams({ key: tomtomApiKey, lat: String(lastPos.lat), lon: String(lastPos.lon), radius: String(AL_RADIUS_M), limit: "30", countrySet: NAV_DEFAULT_COUNTRY });
+    const r = await fetch("https://api.tomtom.com/search/2/poiSearch/" + encodeURIComponent(query) + ".json?" + p);
+    if(!r.ok) return [];
+    return ((await r.json()).results || []).filter(x => x.position).map(x => ({ name: (x.poi && x.poi.name) || "Miejsce", lat: x.position.lat, lon: x.position.lon,
+      addr: (x.address && (x.address.freeformAddress || x.address.municipality)) || "" }));
+  }
+  // dla miejsca: ile przed nami na trasie i jak daleko od niej (tylko miejsca PRZED nami)
+  function alRank(list){
+    const cum = trCum(activeRoute), here = distanceToActiveRoute(lastPos.lat, lastPos.lon).idx, out = [];
+    list.forEach(it => {
+      const d = distanceToActiveRoute(it.lat, it.lon);
+      if(d.idx < here || d.distM > AL_CORRIDOR_M) return;
+      it.alongM = Math.max(0, cum[d.idx] - cum[here]); it.offM = d.distM; out.push(it);
+    });
+    out.sort((a, b) => (a.alongM + a.offM * 3) - (b.alongM + b.offM * 3));
+    const seen = []; return out.filter(it => { if(seen.some(s => haversine(s.lat, s.lon, it.lat, it.lon) < 120)) return false; seen.push(it); return true; }).slice(0, 8);
+  }
+  async function alSearch(kind){
+    const token = ++alToken, st = alEl("alStatus"), grid = Math.round(lastPos.lat * 50) + ":" + Math.round(lastPos.lon * 50) + ":" + kind;
+    st.textContent = "Szukam…";
+    try{
+      let res;
+      const c = alCache[grid];
+      if(c && Date.now() - c.t < AL_CACHE_MS) res = c.res;
+      else {
+        let raw = [];
+        if(kind === "parking"){
+          raw = alLocalParking();
+          if(alRank(raw.slice()).length < 3) raw = raw.concat(await alTomTom("lorry parking"));
+        } else {
+          const [a, b] = await Promise.all([alTomTom("petrol station"), alTomTom("motorway services")]);
+          raw = a.concat(b);
+        }
+        res = alRank(raw); alCache[grid] = { t: Date.now(), res };
+      }
+      if(token !== alToken) return;
+      st.textContent = res.length ? "" : (kind !== "parking" && !tomtomApiKey ? "Wpisz klucz API TomTom w Ustawieniach (⋮)." : "Brak miejsc blisko trasy przed Tobą (do " + alMi(AL_CORRIDOR_M) + " od trasy).");
+      const box = alEl("alList"); box.innerHTML = "";
+      res.forEach(it => {
+        const row = document.createElement("div"); row.className = "alRow";
+        row.innerHTML = '<div class="alMain"><div class="alName"></div><div class="alSub"></div></div><div class="alGo">Jedź</div>';
+        row.querySelector(".alName").textContent = (kind === "parking" ? "🅿️ " : "⛽ ") + it.name;
+        row.querySelector(".alSub").textContent = "za " + alMi(it.alongM) + " · " + (it.offM < 150 ? "przy trasie" : alMi(it.offM) + " od trasy") + (it.addr ? " · " + it.addr : "");
+        row.addEventListener("click", () => alAdd({ lat: it.lat, lon: it.lon, label: it.name }));
+        box.appendChild(row);
+      });
+    }catch(e){ if(token === alToken){ st.textContent = "Nie udało się pobrać miejsc."; console.warn("Po drodze:", e); } }
+  }
+  function alAdd(stop){
+    pendingExtra = stop; alClose();
+    if(typeof offerRoutesFromHere === "function") offerRoutesFromHere(stop);
+  }
+  // po zatwierdzeniu trasy z nowym punktem: wpis ląduje na liście punktów pośrednich (na właściwym miejscu wg kolejności na trasie)
+  function alongCommit(){
+    const e = pendingExtra; if(!e) return; pendingExtra = null;
+    try{
+      if(pickWraps().length >= NAV_MAX_WAYPOINTS) return;   // brak miejsca na liście — trasa i tak prowadzi przez punkt, ale kolejne przeliczenia go nie zapamiętają
+      addWaypointRow();
+      const wrap = pickWraps().pop(), inp = wrap.querySelector("input");
+      wrap._navPoint = { lat: e.lat, lon: e.lon, label: e.label }; inp.value = e.label; inp.blur();
+      const ei = distanceToActiveRoute(e.lat, e.lon).idx, list = alEl("navWaypointsList");
+      const before = pickWraps().find(w => w !== wrap && w._navPoint && distanceToActiveRoute(w._navPoint.lat, w._navPoint.lon).idx > ei);
+      if(before) list.insertBefore(wrap, before);
+    }catch(err){ console.warn("Po drodze (zapis punktu):", err); }
+  }
+  function alongDiscard(){ pendingExtra = null; }
+
+  safeInit("po drodze", () => {
+    alEl("navAlongBtn").addEventListener("click", alOpen);
+    alEl("alClose").addEventListener("click", alClose);
+    document.querySelectorAll("#alongSheet .alTabs button").forEach(b => b.addEventListener("click", () => alSet(b.dataset.k)));
+    createStopSearch(alEl("alViaWrap"), alEl("alViaInput"), alEl("alViaSuggestions"), {
+      bias: () => lastPos ? { lat: lastPos.lat, lon: lastPos.lon } : null,
+      onSelect: r => { alEl("alViaInput").value = ""; alAdd({ lat: r.position.lat, lon: r.position.lon, label: navResultLabel(r) }); }
+    });
+  });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
