@@ -921,10 +921,10 @@
 
 /* haczyk „Natężenie ruchu” w wyborze trasy: mały, stonowany (tap-target dzięki paddingowi etykiety) */
 #pickChecks{ display:flex; flex-direction:column; }
-#pickTrafficRow, #pickNHRow{ color:#14181c; }
-body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
-#pickNHRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-#pickNHRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
+#pickTrafficRow, #pickNHRow, #pickMbRow{ color:#14181c; }
+body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color: var(--text-main); }
+#pickNHRow, #pickMbRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#pickNHRow input, #pickMbRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
 #pickTrafficRow{ display:flex; align-items:center; gap:8px; padding:7px 4px; font:500 13px/1.2 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 #pickTrafficRow input{ width:17px; height:17px; flex:0 0 auto; margin:0; accent-color:#1FD6C1; }
 #pickTrafficInfo{ margin-left:auto; font:400 11.5px/1.2 'Inter',system-ui,sans-serif; opacity:.85; text-align:right; }
@@ -1717,7 +1717,8 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
       <div id="pickChecks">
-        <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Natężenie ruchu</span><small id="pickTrafficInfo"></small></label>
+        <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Roboty i zamknięcia (TomTom)</span><small id="pickTrafficInfo"></small></label>
+        <label id="pickMbRow"><input type="checkbox" id="pickMbTraffic"><span>Korki na mapie (Mapbox)</span></label>
         <label id="pickNHRow"><input type="checkbox" id="pickNH"><span>Remonty dróg (National Highways)</span></label>
       </div>
       <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
@@ -8405,7 +8406,10 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
           const local = localNameMatches(query, bias).filter(l => !results.some(r =>
             !r.local && r.position && _dM(r.position.lat, r.position.lon, l.position.lat, l.position.lon) < 200 &&
             r.poi && namesMatch(r.poi.name, l.poi.name)));
-          const rank = list => list.map((r, i) => [addrRank(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+          const pcBias = opts.bias && opts.bias();   // wpisany kod pocztowy: najbliżej jego środka na górze, wpisy z bazy kierowców wyżej
+          const rank = pcBias
+            ? (list => list.filter(r => r.position).map((r, i) => [_dM(pcBias.lat, pcBias.lon, r.position.lat, r.position.lon) - (r.local ? 2500 : 0), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]))
+            : (list => list.map((r, i) => [addrRank(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]));
           return Promise.race([enrichLocalAddresses(local, signal), new Promise(res => setTimeout(res, 1800))])
             .then(() => rank(results.concat(local)));
         })
@@ -8524,7 +8528,18 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
   // TomTom nie podaje liczby odwiedzin, więc "popularność" to przybliżenie: sieci/marki, strona www i telefon w wizytówce,
   // wpis w bazie kierowców/HGV oraz trafność z TomTom; przy remisie wygrywa bliższa firma.
   const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/;
-  const POSTCODE_RADIUS_M = 1500;
+  const POSTCODE_RADIUS_M = 1500, POSTCODE_PARTIAL_RADIUS_M = 3000;
+  const UK_OUTWARD_RE = /^[A-Z]{1,2}\d{1,2}[A-Z]?$/;              // np. B66, CV6, SW1A (sam początek kodu)
+  const UK_SECTOR_RE = /^([A-Z]{1,2}\d{1,2}[A-Z]?) (\d)$/;        // np. B66 2
+  // pełny kod → {v, partial:false}; sam początek kodu (B66, B66 2) → {v, partial:true}; inaczej null
+  function parsePostcode(raw){
+    const up = String(raw || "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/ +/g, " ").trim();
+    const t = up.replace(/ /g, ""), full = t.length > 3 ? t.slice(0, -3) + " " + t.slice(-3) : t;
+    if(UK_POSTCODE_RE.test(full)) return { v: full, partial: false };
+    if(UK_SECTOR_RE.test(up)) return { v: up, partial: true };
+    if(!up.includes(" ") && UK_OUTWARD_RE.test(t) && t.length >= 2) return { v: t, partial: true };
+    return null;
+  }
   (function(){
     const pcInput = document.getElementById("navPostcode");
     let pcTimer = null, pcAbort = null, pcToken = 0;
@@ -8539,7 +8554,14 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
       if(r._hgv) sc += 2;
       return sc;
     }
+    async function geocodePc(pc, signal){
+      const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "5", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal });
+      if(g.status === 403) throw new Error("UNAUTHORIZED");
+      const rs = (await g.json()).results || [];
+      return rs.find(r => r.type === "Geography" && r.position) || rs.find(r => r.position) || null;   // sam początek kodu → obszar, nie ulica o podobnej nazwie
+    }
     async function findCompanies(pc){
+      const partial = !UK_POSTCODE_RE.test(pc), R = partial ? POSTCODE_PARTIAL_RADIUS_M : POSTCODE_RADIUS_M;
       const token = ++pcToken;
       if(!tomtomApiKey){ showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy."); setNavKeyRowOpen(true); return; }
       showNavError("");
@@ -8547,21 +8569,18 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
       pcAbort = new AbortController();
       const signal = pcAbort.signal;
       try{
-        const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal });
-        if(g.status === 403) throw new Error("UNAUTHORIZED");
-        const gd = await g.json();
-        const hit = (gd.results || [])[0];
+        const hit = await geocodePc(pc, signal);
         if(!hit || !hit.position){ if(token === pcToken) showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
         const c = hit.position;
         const n = await fetch("https://api.tomtom.com/search/2/nearbySearch/.json?" + new URLSearchParams({
-          key: tomtomApiKey, lat: String(c.lat), lon: String(c.lon), radius: String(POSTCODE_RADIUS_M), limit: "50", countrySet: NAV_DEFAULT_COUNTRY }), { signal });
+          key: tomtomApiKey, lat: String(c.lat), lon: String(c.lon), radius: String(R), limit: "50", countrySet: NAV_DEFAULT_COUNTRY }), { signal });
         const nd = n.ok ? await n.json() : { results: [] };
         const list = (nd.results || []).filter(r => r.poi && r.poi.name && r.position);
         // firmy z bazy kierowców i HGV w promieniu
         const addLocal = (name, lat, lon) => {
           if(!name || typeof lat !== "number" || typeof lon !== "number") return;
           const d = _dM(c.lat, c.lon, lat, lon);
-          if(d > POSTCODE_RADIUS_M) return;
+          if(d > R) return;
           const same = list.find(r => r.poi && namesMatch(r.poi.name, name) && _dM(r.position.lat, r.position.lon, lat, lon) < 150);
           if(same){ same._hgv = true; return; }
           list.push({ poi: { name }, address: { freeformAddress: name }, position: { lat, lon }, _hgv: true, _fromDb: true });
@@ -8575,6 +8594,7 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
         const normPc = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         const want = normPc(pc), sector = want.slice(0, -2);
         const pcRank = r => { const got = normPc(r.address && r.address.postalCode);
+          if(partial){ if(!got) return 2; return got.startsWith(want) ? 0 : 3; }
           if(!got) return 2; if(got === want) return 0; return got.slice(0, -2) === sector ? 1 : 3; };
         list.forEach(r => { r._pcRank = pcRank(r); });
         list.sort((a, b) => a._pcRank - b._pcRank || a._d - b._d || b._pop - a._pop);
@@ -8599,9 +8619,7 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
       showNavError("");
       pcAbort = new AbortController();
       try{
-        const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "1", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal: pcAbort.signal });
-        if(g.status === 403) throw new Error("UNAUTHORIZED");
-        const hit = ((await g.json()).results || [])[0];
+        const hit = await geocodePc(pc, pcAbort.signal);
         if(token !== pcToken) return;
         if(!hit || !hit.position){ showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
         destSearch.clear();
@@ -8616,20 +8634,19 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
       }
     }
     pcInput.addEventListener("input", () => {
-      const pos = pcInput.selectionStart;
       pcInput.value = pcInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
       if(pcTimer) clearTimeout(pcTimer);
-      const v = fmt(pcInput.value);
-      if(!UK_POSTCODE_RE.test(v)){ pcToken++; pcCompanies = null; if(pcAbort) pcAbort.abort(); if(v.length === 0) destSearch.clear(); return; }
-      pcInput.value = v;
-      pcTimer = setTimeout(() => findCompanies(v), 300);
+      const pr = parsePostcode(pcInput.value);
+      if(!pr){ pcToken++; pcCompanies = null; if(pcAbort) pcAbort.abort(); if(pcInput.value.length === 0) destSearch.clear(); return; }
+      if(!pr.partial) pcInput.value = pr.v;
+      pcTimer = setTimeout(() => findCompanies(pr.v), pr.partial ? 700 : 300);   // sam początek kodu: dłużej czekamy na dalsze znaki (mniej zapytań)
     });
     pcInput.addEventListener("keydown", e => {
       if(e.key !== "Enter") return;
       e.preventDefault();
-      const v = fmt(pcInput.value);
-      if(UK_POSTCODE_RE.test(v)){ if(pcTimer) clearTimeout(pcTimer); pcInput.value = v; pcInput.blur(); pinPostcode(v); }
-      else showNavError("Wpisz pełny kod pocztowy UK, np. M1 1AE.");
+      const pr = parsePostcode(pcInput.value);
+      if(pr){ if(pcTimer) clearTimeout(pcTimer); if(!pr.partial) pcInput.value = pr.v; pcInput.blur(); pinPostcode(pr.v); }
+      else showNavError("Wpisz kod pocztowy UK, np. M1 1AE albo sam początek: B66.");
     });
     pcInput.addEventListener("focus", () => { try{ pcInput.select(); }catch(e){} });
   })();
@@ -14443,7 +14460,7 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
   // --- TomTom: jedno zapytanie na okno trasy
   function trKeepSection(s){
     const cat = s.simpleCategory || "OTHER", mag = s.magnitudeOfDelay || 0;
-    return cat === "ROAD_CLOSURE" || cat === "ROAD_WORK" || (cat === "JAM" && mag >= 1) || (cat !== "JAM" && mag >= 2);
+    return cat === "ROAD_CLOSURE" || cat === "ROAD_WORK";   // korki pokazuje warstwa Mapbox (js/51); TomTom tylko roboty i zamknięcia
   }
   function trParseSections(rt){
     const pts = []; (rt.legs || []).forEach(l => (l.points || []).forEach(p => pts.push([p.longitude, p.latitude])));
@@ -15162,6 +15179,54 @@ body.night #pickTrafficRow, body.night #pickNHRow{ color: var(--text-main); }
       onSelect: r => { alEl("alViaInput").value = ""; alAdd({ lat: r.position.lat, lon: r.position.lon, label: navResultLabel(r) }); }
     });
   });
+</script>
+<script>
+/* ===== js/51-mapbox-traffic.js — Korki na mapie (Mapbox Traffic, kafelki wektorowe) =====
+   Klasyczny <script> (bez IIFE). Warstwa „traffic” z tilesetu mapbox.mapbox-traffic-v1: kolor wg zatłoczenia drogi (moderate / heavy / severe),
+   bez zapytań o trasę — tylko kafelki mapy (używa tokenu Mapbox z js/11d). Domyślnie włączona; haczyk „Korki na mapie (Mapbox)” w oknie wyboru trasy.
+   TomTom (js/48) zostaje do robót i zamknięć na trasie. Zależności (tylko w callbackach): map, mapboxToken (js/11d), addTick (js/03). */
+"use strict";
+
+  const MBT_LS = "nawigator_mb_traffic", MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";
+  let mbtOn = true;
+  try{ mbtOn = localStorage.getItem(MBT_LS) !== "0"; }catch(e){}
+
+  function mbtApply(){
+    try{
+      if(!map || !map.getStyle()) return;
+      const tok = typeof mapboxToken === "string" ? mapboxToken : "";
+      const want = mbtOn && /^pk\./.test(tok);
+      if(!want){ if(map.getLayer(MBT_LYR)) map.setLayoutProperty(MBT_LYR, "visibility", "none"); return; }
+      if(!map.getSource(MBT_SRC)){
+        map.addSource(MBT_SRC, { type: "vector", minzoom: 0, maxzoom: 16,
+          tiles: ["https://api.mapbox.com/v4/mapbox.mapbox-traffic-v1/{z}/{x}/{y}.vector.pbf?access_token=" + encodeURIComponent(tok)],
+          attribution: "© Mapbox" });
+      }
+      if(!map.getLayer(MBT_LYR)){
+        const before = ["route-line-glow", "route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
+        map.addLayer({ id: MBT_LYR, type: "line", source: MBT_SRC, "source-layer": "traffic", minzoom: 7,
+          filter: ["in", ["get", "congestion"], ["literal", ["moderate", "heavy", "severe"]]],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": ["match", ["get", "congestion"], "moderate", "#F2B134", "heavy", "#E5484D", "severe", "#8E1B2D", "#F2B134"],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1.6, 12, 3.4, 16, 6],
+            "line-opacity": 0.9
+          } }, before);
+      }
+      if(map.getLayoutProperty(MBT_LYR, "visibility") !== "visible") map.setLayoutProperty(MBT_LYR, "visibility", "visible");
+    }catch(e){}
+  }
+  function mbtSet(on){
+    mbtOn = !!on;
+    try{ localStorage.setItem(MBT_LS, on ? "1" : "0"); }catch(e){}
+    const cb = document.getElementById("pickMbTraffic"); if(cb) cb.checked = mbtOn;
+    mbtApply();
+  }
+  safeInit("korki Mapbox", () => {
+    const cb = document.getElementById("pickMbTraffic");
+    if(cb){ cb.checked = mbtOn; cb.addEventListener("change", e => mbtSet(e.target.checked)); }
+  });
+  addTick(mbtApply, 4000);   // dodaje warstwę po załadowaniu mapy i odtwarza ją po przemalowaniu stylu (motyw dzień/noc)
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
