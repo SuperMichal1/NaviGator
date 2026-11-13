@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Nawigator — GPS, fotoradary i limity prędkości</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
@@ -345,6 +348,10 @@
     border-color: rgba(255,176,32,0.25);
     color: var(--text-main);
   }
+
+  /* przycisk widoku (3D / 3D·N / 2D): igła kompasu + podpis */
+  #btnCompass{ flex-direction:column; gap:0; }
+  #btnCompass #viewLabel{ font:800 10px/1 'Inter',system-ui,sans-serif; letter-spacing:.02em; margin-top:-1px; }
   /* ---------- Nawigator: panel wyznaczania trasy ----------
      Szklana karta zadokowana przy dolnej krawędzi ekranu. Chowa się w dół
      po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
@@ -821,14 +828,6 @@
   .alPin{ width:34px; height:34px; border-radius:50%; background:#1b6fd1; color:#fff; border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.55); font:800 15px/28px 'Inter',sans-serif; text-align:center; cursor:pointer; }
   .alPin.fuel{ background:#d9822b; }
   .alPin.sel{ transform:scale(1.25); background:#0b7a6d; z-index:2; }
-
-  /* pasek z godziną i baterią (tylko pełny ekran / zainstalowana aplikacja): bardzo przezroczysty, bez klikania */
-  #topStatus{ display:none; position:fixed; top:0; left:0; right:0; height:calc(env(safe-area-inset-top, 0px) + 18px); padding:env(safe-area-inset-top, 0px) 14px 0;
-    z-index:9200; pointer-events:none; align-items:center; justify-content:space-between; box-sizing:border-box;
-    background: rgba(0,0,0,0.10); color:#fff; font:700 12px/18px 'Inter',system-ui,sans-serif; text-shadow:0 1px 2px rgba(0,0,0,.7); }
-  #topStatus.show{ display:flex; }
-  body.topstatus-on #navTopBar{ top: calc(env(safe-area-inset-top, 0px) + 26px); max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 34px); }
-  body.topstatus-on #guidanceCard{ top: calc(max(10px, env(safe-area-inset-top)) + 18px); }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1573,12 +1572,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
 
-<div id="btnCompass" title="Ustaw mapę północą do góry" role="button" aria-label="Ustaw mapę północą do góry">
-  <svg id="compassNeedle" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+<div id="btnCompass" title="Widok mapy: 3D (za kierunkiem jazdy) → 3D północ u góry → 2D" role="button" aria-label="Przełącz widok mapy: 3D, 3D północ u góry, 2D">
+  <svg id="compassNeedle" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
     <path d="M12 2.5 15.6 12H8.4z" fill="#e5392f"/>
     <path d="M12 21.5 8.4 12h7.2z" fill="currentColor" opacity=".55"/>
     <circle cx="12" cy="12" r="1.3" fill="#fff" stroke="currentColor" stroke-opacity=".5" stroke-width=".6"/>
   </svg>
+  <span id="viewLabel">2D</span>
 </div>
 
 <div id="btnFitRoute" title="1× od pozycji do celu · 2× cała trasa · 3× trasa alternatywna stąd · przytrzymaj: zmień trasę" role="button" aria-label="Pokaż całą trasę">
@@ -1664,8 +1664,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </div>
   </div>
 </div>
-
-<div id="topStatus" aria-hidden="true"><span id="tsClock"></span><span id="tsBatt"></span></div>
 
 <div id="navTopBar">
     <div id="navDestWrap" class="navStopWrap">
@@ -1894,9 +1892,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="navIconRow">
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
-  <div class="ctrl-btn" id="btnDim" title="2D / 3D">
-    <span id="dimIcon">3D</span>
-  </div>
+  <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
   <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
   <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
@@ -2571,14 +2567,18 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let is3D = false;
   let followUser = true;
   let northUp = false; // po kliknięciu kompasu kamera nie obraca się już za kursem pojazdu (do czasu ponownego 3D / widoku jazdy)
+  function updateViewBtn(){
+    const lab = document.getElementById("viewLabel"); if(!lab) return;
+    lab.textContent = !is3D ? "2D" : northUp ? "3D·N" : "3D";
+  }
   function updateCompassBtn(){
     const btn = document.getElementById("btnCompass");
     if(!btn || !map) return;
+    btn.classList.add("visible");   // przycisk widoku jest zawsze widoczny
     const b = map.getBearing();
-    const off = Math.abs(((b + 180) % 360 + 360) % 360 - 180) > 0.5; // mapa obrócona względem północy
-    btn.classList.toggle("visible", off);
     const needle = document.getElementById("compassNeedle");
     if(needle) needle.style.transform = `rotate(${-b}deg)`; // czerwona strzałka zawsze wskazuje północ
+    updateViewBtn();
   }
   function updateLocateBtnVisibility(){
     // gdy na mapie pokazana jest zaplanowana trasa: bez prędkościomierza i menu ikon (więcej miejsca na trasę)
@@ -4740,12 +4740,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     bx(-.35, -14.1, .35, -14.14, .55, .7, "#f2c200", true);                                               // tablica tylna
     mir(.74, -14.1, 1.2, -14.17, .55, .73, "#ff3b30", true);                                               // światła tylne: szerokie, na zderzaku
     mir(.4, -14.1, .66, -14.15, .58, .7, "#ffffff", true);                                                 // światła cofania (na zderzaku)
-    if(sig){   // migacz: przód (reflektor), powtarzacz na kabinie, powtarzacz na naczepie, tył naczepy — po stronie skrętu (R = prawa, +x)
-      const sd = sig === "R" ? 1 : -1, amb = "#ffb000", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
-      let q = sx(1.0, 1.3); bx(q[0], 2.5, q[1], 2.84, .78, 1.02, amb);
-      q = sx(1.27, 1.34); bx(q[0], 1.9, q[1], 2.35, 1.0, 1.18, amb);
-      q = sx(1.31, 1.36); bx(q[0], -7.2, q[1], -6.6, 1.25, 1.42, amb, true);
-      q = sx(.9, 1.26); bx(q[0], -14.12, q[1], -14.22, .78, 1.0, amb, true);
+    if(sig){   // migacz: przód, powtarzacze na kabinie i naczepie, tył naczepy + poświata na jezdni — po stronie skrętu (R = prawa, +x)
+      const sd = sig === "R" ? 1 : -1, amb = "#ffc400", hot = "#fff3b0", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
+      let q = sx(.95, 1.4); bx(q[0], 2.45, q[1], 2.9, .7, 1.2, amb); q = sx(1.05, 1.3); bx(q[0], 2.5, q[1], 2.95, .85, 1.05, hot);
+      q = sx(1.27, 1.38); bx(q[0], 1.7, q[1], 2.5, .95, 1.3, amb);
+      q = sx(1.31, 1.4); bx(q[0], -8.0, q[1], -6.4, 1.2, 1.55, amb, true); bx(q[0], -3.2, q[1], -1.8, 1.2, 1.55, amb, true);
+      q = sx(.85, 1.28); bx(q[0], -14.12, q[1], -14.3, .7, 1.2, amb, true); q = sx(.95, 1.2); bx(q[0], -14.14, q[1], -14.32, .8, 1.05, hot, true);
+      const spill = "#ffd24a";   // świetlna plama na asfalcie przed i za pojazdem oraz z boku
+      q = sx(1.0, 3.2); bx(q[0], 2.8, q[1], 5.2, 0, .06, spill);
+      q = sx(1.4, 3.0); bx(q[0], -6.5, q[1], 1.5, 0, .05, spill);
+      q = sx(.8, 2.6); bx(q[0], -14.3, q[1], -16.2, 0, .06, spill, true);
     }
     const sh = [{ p: a3Box(-1.45, -.95, 1.45, 2.8), sh: 1 }, { p: a3Box(-1.45, -14.1, 1.45, -1.3), sh: 1, tr: true }];
     return { parts: P, shadow: sh, pivot: [0, -2.6] };
@@ -4775,9 +4779,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     add(a3Box(-.85, 2.65, -.3, 2.72), .72, 1.12, "#ff2a20"); add(a3Box(.3, 2.65, .85, 2.72), .72, 1.12, "#ff2a20");   // tylne światła
     add(a3Box(-1.12, -.85, -.92, -.55), 1.1, 1.3, shadeHex(body, -.1)); add(a3Box(.92, -.85, 1.12, -.55), 1.1, 1.3, shadeHex(body, -.1));   // lusterka
     if(sig){
-      const sd = sig === "R" ? 1 : -1, amb = "#ffb000", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
-      let q = sx(.78, .98); add(a3Box(q[0], -2.72, q[1], -2.58), .6, .9, amb);
-      q = sx(.5, .9); add(a3Box(q[0], 2.66, q[1], 2.76), .72, 1.12, amb);
+      const sd = sig === "R" ? 1 : -1, amb = "#ffc400", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
+      let q = sx(.7, 1.05); add(a3Box(q[0], -2.76, q[1], -2.55), .58, 1.0, amb);
+      q = sx(.45, .95); add(a3Box(q[0], 2.64, q[1], 2.8), .7, 1.2, amb);
+      q = sx(.8, 2.4); add(a3Box(q[0], -2.8, q[1], -4.6), 0, .05, "#ffd24a");
+      q = sx(.6, 2.2); add(a3Box(q[0], 2.8, q[1], 4.4), 0, .05, "#ffd24a");
     }
     return { parts: P, flip: true, shadow: [{ p: a3Box(-1.15, -2.85, 1.15, 2.8), sh: 1 }] };
   }
@@ -4867,9 +4873,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     avSm.t3 = t;
     const moving = currentSpeedKmh >= 3;
     if(moving) avSm.ph = (avSm.ph || 0) + 0.033 * (4 + Math.min(30, avSm.v) * .35);
-    const sig = (window.turnSignal && Date.now() % 900 < 450) ? window.turnSignal : null;   // migacz: 0,45 s świeci / 0,45 s gaśnie
+    const sig = (window.turnSignal && Date.now() % 800 < 400) ? window.turnSignal : null;   // migacz: 0,45 s świeci / 0,45 s gaśnie
     const model = A3_BUILD[vehicleAvatar](avatarAccent(), avSm.ph || 0, sig);
-    const s = avatarScale(a, true), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
+    const s = avatarScale(a, true) * (vehicleAvatar === "truck" ? 0.82 : 1), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
     const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180)));
     const trRot = avSm.trLoc || 0, pv = model.pivot || [0, 0];
     const conv = (pts, tr) => {
@@ -9761,8 +9767,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     updateLocateBtnVisibility();
     is3D = true;
     northUp = false;
-    document.getElementById("btnDim").classList.add("active");
-    document.getElementById("dimIcon").textContent = "2D";
+    updateViewBtn();
     applyDrivingCamera(true);
     map.easeTo({
       center: [lastPos.lon, lastPos.lat],
@@ -10097,8 +10102,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     followUser = false;
     updateLocateBtnVisibility();
     is3D = false;
-    document.getElementById("btnDim").classList.remove("active");
-    document.getElementById("dimIcon").textContent = "3D";
+    updateViewBtn();
     applyDrivingCamera(false);
 
     renderNavRouteInfo();
@@ -12928,21 +12932,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* ============================================================
      KONTROLKI UI
   ============================================================ */
-  document.getElementById("btnDim").addEventListener("click", () => {
-    is3D = !is3D;
-    northUp = false;
-    document.getElementById("btnDim").classList.toggle("active", is3D);
-    document.getElementById("dimIcon").textContent = is3D ? "2D" : "3D";
-    applyDrivingCamera(is3D);
-    if(map){
-      map.easeTo({
-        pitch: is3D ? DRIVE_PITCH : 0,
-        bearing: is3D ? currentHeading : 0,
-        duration: 700
-      });
-    }
-  });
-
   /* ---------- TRYB DZIEŃ / NOC: dzień, noc albo auto (noc w godzinach wybranych przez użytkownika) ---------- */
   const THEME_KEY = "nawigator_theme_mode";
   const NIGHT_FROM_KEY = "nawigator_night_from", NIGHT_TO_KEY = "nawigator_night_to";
@@ -13077,12 +13066,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   });
 
 
-  // Kompas: ustawia mapę północą do góry (pochylenie 3D zostaje); znika, gdy mapa jest już na północ,
-  // i wraca, gdy tylko mapa zostanie obrócona (gest dwoma palcami albo kamera 3D podążająca za kursem)
+  // Jeden przycisk widoku (dawniej 3D/2D + kompas): kolejne dotknięcia = 3D (za kierunkiem jazdy) → 3D z północą u góry → 2D (płasko, północ u góry) → znowu 3D.
+  // Igła pokazuje północ, podpis — aktualny widok.
   document.getElementById("btnCompass").addEventListener("click", () => {
     if(!map) return;
-    northUp = true;
-    map.easeTo({ bearing: 0, duration: 500 });
+    if(is3D && !northUp){            // 3D → 3D północ u góry (pochylenie zostaje)
+      northUp = true;
+      map.easeTo({ bearing: 0, duration: 500 });
+    } else if(is3D){                 // 3D północ → 2D
+      is3D = false; northUp = false;
+      applyDrivingCamera(false);
+      map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
+    } else {                         // 2D → 3D
+      is3D = true; northUp = false;
+      applyDrivingCamera(true);
+      map.easeTo({ pitch: DRIVE_PITCH, bearing: currentHeading, duration: 700 });
+    }
+    updateViewBtn();
   });
 
   document.getElementById("btnReportMenu").addEventListener("click", () => {
@@ -14536,11 +14536,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   // mała „bańka” jak w Mapach Google: ikona (roboty = żółte kółko z robotnikiem, zamknięcie = czerwone z kreską, korek = czerwona kropka)
   // + koszt opóźnienia („5 min”) czerwonym tekstem, gdy TomTom go podaje; sama ikona, gdy opóźnienia brak
   const TR_ICON = {
-    ROAD_WORK: '<svg viewBox="0 0 24 24" width="30" height="30"><circle cx="12" cy="12" r="11" fill="#FFC400" stroke="#fff" stroke-width="2"/><circle cx="14.8" cy="6.4" r="2.1" fill="#000"/><path d="M9 11.2l3.6-1.7 2.8 2.5-1.5 3.8 1.7 4.6h-2.4l-1.6-4-1.7 4H7.2l2.1-5.5z" fill="#000"/><path d="M6.2 15.8l5.6 3.2" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg>',
-    ROAD_CLOSURE: '<svg viewBox="0 0 24 24" width="30" height="30"><circle cx="12" cy="12" r="11" fill="#D93636" stroke="#fff" stroke-width="2"/><rect x="5.5" y="10.3" width="13" height="3.4" fill="#fff"/></svg>',
+    ROAD_WORK: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#F5B301"/><circle cx="14.6" cy="6.6" r="1.9" fill="#111"/><path d="M9.2 11l3.4-1.6 2.6 2.4-1.4 3.6 1.6 4.4h-2.2l-1.5-3.8-1.6 3.8H7.4l2-5.2z" fill="#111"/><path d="M6.6 15.6l5.2 3" stroke="#111" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    ROAD_CLOSURE: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#E5484D"/><rect x="5.5" y="10.4" width="13" height="3.2" rx="1.2" fill="#fff"/></svg>',
     JAM: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#E5484D"/><circle cx="12" cy="12" r="4.2" fill="#fff"/></svg>'
   };
-  // dotknięcie znaczka: ten sam układ okienka co National Highways (plakietka przejezdności, rodzaj, czas), podpis „TomTom”
+  // dotknięcie znaczka: okienko w układzie jak National Highways (plakietka przejezdności, rodzaj, czas), podpis „TomTom”
   let trPopup = null;
   function trOpenPopup(s, ll){
     try{
@@ -15325,13 +15325,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 <script>
 /* ===== js/51-mapbox-traffic.js — Korki na mapie (Mapbox Traffic, kafelki wektorowe) =====
    Klasyczny <script> (bez IIFE). Warstwa „traffic” z tilesetu mapbox.mapbox-traffic-v1: kolor wg zatłoczenia drogi (moderate / heavy / severe),
-   bez zapytań o trasę — tylko kafelki mapy (używa tokenu Mapbox z js/11d). Domyślnie włączona; haczyk „Korki na mapie (Mapbox)” w oknie wyboru trasy.
+   bez zapytań o trasę — tylko kafelki mapy (używa tokenu Mapbox z js/11d). Domyślnie WYŁĄCZONA (ikona 🚦 w wysuwanym menu lub haczyk w oknie wyboru trasy); haczyk „Korki na mapie (Mapbox)” w oknie wyboru trasy.
    TomTom (js/48) zostaje do robót i zamknięć na trasie. Zależności (tylko w callbackach): map, mapboxToken (js/11d), addTick (js/03). */
 "use strict";
 
   const MBT_LS = "nawigator_mb_traffic", MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";
-  let mbtOn = true;
-  try{ mbtOn = localStorage.getItem(MBT_LS) !== "0"; }catch(e){}
+  let mbtOn = false;   // domyślnie wyłączone
+  try{ mbtOn = localStorage.getItem(MBT_LS) === "1"; }catch(e){}
 
   function mbtApply(){
     try{
@@ -15362,39 +15362,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     mbtOn = !!on;
     try{ localStorage.setItem(MBT_LS, on ? "1" : "0"); }catch(e){}
     const cb = document.getElementById("pickMbTraffic"); if(cb) cb.checked = mbtOn;
+    const bt = document.getElementById("btnMbTraffic"); if(bt) bt.classList.toggle("active", mbtOn);
     mbtApply();
   }
   safeInit("korki Mapbox", () => {
     const cb = document.getElementById("pickMbTraffic");
+    const bt = document.getElementById("btnMbTraffic");
+    if(bt){ bt.classList.toggle("active", mbtOn); bt.addEventListener("click", () => mbtSet(!mbtOn)); }
     if(cb){ cb.checked = mbtOn; cb.addEventListener("change", e => mbtSet(e.target.checked)); }
   });
   addTick(mbtApply, 4000);   // dodaje warstwę po załadowaniu mapy i odtwarza ją po przemalowaniu stylu (motyw dzień/noc)
-</script>
-<script>
-/* ===== js/52-top-status.js — cienki, bardzo przezroczysty pasek z godziną i baterią na samej górze ekranu =====
-   Klasyczny <script> (bez IIFE). Pokazuje się tylko w trybie pełnego ekranu / zainstalowanej aplikacji (gdy pasek systemowy telefonu jest schowany).
-   Bateria: Battery Status API (Chrome na Androidzie); gdy niedostępne — tylko godzina. Zależności (tylko w callbackach): addTick (js/03). */
-"use strict";
-
-  safeInit("pasek górny", () => {
-    const bar = document.getElementById("topStatus"); if(!bar) return;
-    const tEl = document.getElementById("tsClock"), bEl = document.getElementById("tsBatt");
-    const want = () => !!(document.fullscreenElement || document.webkitFullscreenElement || (window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches)));
-    let batt = null;
-    function paint(){
-      const on = want();
-      bar.classList.toggle("show", on); document.body.classList.toggle("topstatus-on", on);
-      if(!on) return;
-      tEl.textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-      bEl.textContent = batt ? (batt.charging ? "⚡" : "🔋") + " " + Math.round(batt.level * 100) + "%" : "";
-    }
-    try{
-      if(navigator.getBattery) navigator.getBattery().then(b => { batt = b; ["levelchange", "chargingchange"].forEach(ev => b.addEventListener(ev, paint)); paint(); }).catch(() => {});
-    }catch(e){}
-    ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, paint));
-    addTick(paint, 15000);
-    paint();
-  });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
