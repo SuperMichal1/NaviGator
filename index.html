@@ -14823,39 +14823,41 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   // rodzaj: closure = cała droga (jezdnia) zamknięta; lane = zamknięty pas (część jezdni); shoulder = pobocze / pas awaryjny; works = roboty; other
   function nhKind(rec){
-    // 1) wartości tekstowe rekordu (bez nazw pól — nazwy typu numberOfLanesRestricted występują też w pełnych zamknięciach)
-    let vals = "", lanes = null, opLanes = null;
+    // 1) Pewne zamknięcie: typ zarządzania ruchem z danych NH („carriagewayClosures” = zamknięta cała jezdnia). Sprawdzone na prawdziwym pliku NH.
+    let type = "", lanes = null, comment = "";
     nhWalk(rec, (v, k, isObj) => {
-      if(isObj) return;
-      if(typeof v === "string") vals += " " + v;
-      if(/numberoflanes(restricted|closed)|lanesclosed|lanesrestricted/i.test(k || "")){ const n = nhNum(v); if(n !== null && lanes === null) lanes = n; }
-      if(/numberofoperationallanes|totalnumberoflanes/i.test(k || "")){ const n = nhNum(v); if(n !== null && opLanes === null) opLanes = n; }
+      if(!isObj && /^value$/i.test(k || "") && !type && /^(carriagewayClosures|roadClosed|roadClosure|carriagewayBlocked)$/i.test(String(v))) type = String(v);
+      if(!isObj && /^numberOfLanesRestricted$/i.test(k || "") && lanes === null){ const n = nhNum(v); if(n !== null) lanes = n; }
+      if(!isObj && /^comment$/i.test(k || "") && !comment) comment = String(v);
     });
-    const tv = vals.toLowerCase().replace(/[\s_\-]/g, "");
-    const t = JSON.stringify(rec).toLowerCase().replace(/[\s_\-]/g, "");
-    // pełne zamknięcie jezdni / drogi (np. „M69 southbound Jct 1 to M6 Jct 2 carriageway closure”) — ma pierwszeństwo przed „lane”
-    if(/carriagewayclosure|carriagewayclosed|carriagewayblocked|roadclosed|roadclosure|fullclosure|fullroadclosure|closedtotraffic|roadblocked|closedahead/.test(tv)) return { k: "closure", lanes };
-    if(lanes !== null && opLanes !== null && opLanes > 0 && lanes >= opLanes) return { k: "closure", lanes };
-    const lane = /laneclosure|lanesclosed|laneblocked|lanesrestricted|narrowlanes|contraflow|partialroadclosure|partialclosure/.test(tv) || (lanes !== null && lanes > 0);
-    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(tv) && !lane) return { k: "shoulder", lanes };
-    if(lane) return { k: "lane", lanes };
-    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(t) && !/roadclosed|carriagewayclosed/.test(t)) return { k: "shoulder", lanes };
-    if(/roadclosed|carriagewayclosed|carriagewayclosure|carriagewayblocked|roadblocked|closedahead|fullclosure|fullroadclosure|fullcarriagewayclosure|closure/.test(t)) return { k: "closure", lanes };
+    if(type) return { k: "closure", lanes };
+    // 2) Reszta po opisie (zamknięty pas / pobocze / roboty) — nazwy pól typu numberOfLanesRestricted występują wszędzie, więc NIE decydują
+    const c = comment.toLowerCase(), t = JSON.stringify(rec).toLowerCase().replace(/[\s_\-]/g, "");
+    if(/hard ?shoulder|emergency (area|lane)|verge|shoulder/.test(c) && !/lane[s]? \d|lanes? closure/.test(c)) return { k: "shoulder", lanes };
+    if(/\blanes?\b|narrow|contraflow|speed|lights|2 way|two way|restrict/.test(c)) return { k: "lane", lanes };
+    if(/(road|carriageway|slip road|link road|entry slip|exit slip)\s+closure|road closed|closed to traffic/.test(c)) return { k: "closure", lanes };
+    if(/hardshoulder|emergencylane|shoulderclosed|verge/.test(t)) return { k: "shoulder", lanes };
     if(/roadworks|maintenance|construction|resurfac|worksite/.test(t)) return { k: "works", lanes };
-    return { k: "other", lanes };
+    return { k: lanes ? "lane" : "other", lanes };
   }
   function nhParse(payload){
     const recs = nhFindRecords(payload), now = Date.now(), limit = now + NH_PLANNED_DAYS * 864e5, out = [];
     for(const r of recs){
+      let susp = false; nhWalk(r, (v, k, isObj) => { if(!isObj && /^validityStatus$/i.test(k || "") && /suspended|cancelled|inactive/i.test(String(v))) susp = true; });
+      if(susp) continue;   // wstrzymane / odwołane — nie obowiązuje
       const geo = nhGeometry(r); if(!geo) continue; const g = geo.c;
       const t = nhTimes(r); if(t.e !== null && t.e < now) continue;      // zakończone
       if(t.s !== null && t.s > limit) continue;                          // za odległe w czasie
       let road = null, txt = null;
       nhWalk(r, (v, k, isObj) => { if(road === null && /^(roadnumber|roadname)$/i.test(k || "")) road = isObj ? nhFirstString(v) : (typeof v === "string" ? v : null); if(txt === null && isObj && /comment|description/i.test(k || "")) txt = nhFirstString(v); });
-      const kd = nhKind(r), mm = nhMid(g); out.push({ uid: kd.k + ":" + Math.round(mm[0] * 2000) + ":" + Math.round(mm[1] * 2000), k: kd.k, n: kd.lanes, act: t.s === null || t.s <= now, c: g, x: geo.x || undefined, snap: geo.snap && Array.isArray(g[0]) ? 1 : undefined, raw: kd.k === "closure" ? JSON.stringify(r).slice(0, 6000) : undefined, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
+      const kd = nhKind(r), mm = nhMid(g); out.push({ uid: kd.k + ":" + Math.round(mm[0] * 2000) + ":" + Math.round(mm[1] * 2000), k: kd.k, n: kd.lanes, act: t.s === null || t.s <= now, c: g, x: geo.x || undefined, road: road || "", txt: (txt || "").slice(0, 180), s: t.s, e: t.e });
       if(out.length >= NH_MAX) break;
     }
-    return { recs: recs.length, feats: out };
+    // ten sam odcinek bywa podany wiele razy (osobny wpis na każdą noc) — zostawiamy trwający teraz albo najbliższy w czasie
+    const best = new Map();
+    out.forEach(f => { const b = best.get(f.uid); if(!b || (f.act && !b.act) || (f.act === b.act && (f.s || 0) < (b.s || 0))) best.set(f.uid, f); });
+    const feats = Array.from(best.values());
+    return { recs: recs.length, feats };
   }
 
   // --- pobieranie ---
@@ -14888,7 +14890,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{
       const payload = await nhRequest(), r = nhParse(payload);
       nhData = r.feats; nhAt = Date.now(); nhFails = 0; nhNext = nhAt + NH_TTL;
-      try{ localStorage.setItem(NH_CACHE_LS, JSON.stringify({ t: nhAt, feats: nhData.map(f => { const { raw, ...rest } = f; return rest; }) })); }catch(e){}
+      try{ localStorage.setItem(NH_CACHE_LS, JSON.stringify({ t: nhAt, feats: nhData })); }catch(e){}
       if(!r.recs){ const keys = payload && typeof payload === "object" ? Object.keys(payload).slice(0, 8).join(", ") : typeof payload;
         nhStatus("Odebrano dane, ale nie rozpoznałem pozycji (klucze: " + keys + "). Wyślij próbkę z konsoli 🐞."); console.log("NH próbka:", JSON.stringify(payload).slice(0, 3000)); }
       else nhStatus("OK: " + nhData.length + " pozycji (" + nhData.filter(f => f.act).length + " aktywnych), z " + r.recs + " rekordów · " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
@@ -14987,9 +14989,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(hours){ const d2 = document.createElement("div"); d2.style.cssText = "margin-top:1px;font-weight:600;color:#333;font-size:14px"; d2.textContent = hours; box.appendChild(d2); }
       if(p.txt){ const d3 = document.createElement("div"); d3.style.cssText = "margin-top:5px;color:#444;font-size:12px"; d3.textContent = p.txt; box.appendChild(d3); }
       const c = document.createElement("div"); c.style.cssText = "margin-top:4px;color:#777;font-size:11px"; c.textContent = "National Highways"; box.appendChild(c);
-      const raw = nhData && nhData[p.i] && nhData[p.i].raw;
-      if(raw){ const cp = document.createElement("a"); cp.href = "#"; cp.style.cssText = "display:block;margin-top:5px;font-size:11px;color:#0a58ca"; cp.textContent = "📋 kopiuj dane zdarzenia (diagnostyka)";
-        cp.addEventListener("click", ev => { ev.preventDefault(); try{ navigator.clipboard.writeText(raw); cp.textContent = "Skopiowano"; }catch(err){ console.log("NH dane:", raw); cp.textContent = "Dane w konsoli 🐞"; } }); box.appendChild(cp); }
       if(nhPopup) nhPopup.remove();
       nhPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "280px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(map);
       if(e.originalEvent) e.originalEvent.stopPropagation();
@@ -15127,34 +15126,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
 
-  // zamknięcie podane tylko jako początek i koniec (np. „M69 J1 → M6 J2”): dociągamy do prawdziwej drogi darmowym Valhalla (auto), wynik w pamięci telefonu
-  const NH_SNAP_LS = "nawigator_nh_snap";
-  let nhSnapBusy = false, nhSnapMem = null;
-  function nhSnapCache(){ if(!nhSnapMem){ try{ nhSnapMem = JSON.parse(localStorage.getItem(NH_SNAP_LS) || "{}"); }catch(e){ nhSnapMem = {}; } } return nhSnapMem; }
-  async function nhSnapTick(){
-    if(nhSnapBusy || !nhData || typeof valhallaRequest !== "function" || document.hidden) return;
-    const cache = nhSnapCache(); let changed = false;
-    const todo = [];
-    nhData.forEach(f => { if(!f.snap || !Array.isArray(f.c[0])) return; if(cache[f.uid]){ f.c = cache[f.uid]; f.snap = 0; changed = true; } else todo.push(f); });
-    if(changed) nhDraw();
-    const f = todo.find(q => q.k === "closure") || todo[0];
-    if(!f) return;
-    const A = f.c[0], B = f.c[f.c.length - 1];
-    if(haversine(A[1], A[0], B[1], B[0]) < 250){ f.snap = 0; return; }
-    nhSnapBusy = true;
-    try{
-      const r = await valhallaRequest({ locations: [{ lat: A[1], lon: A[0], type: "break" }, { lat: B[1], lon: B[0], type: "break" }], costing: "auto", directions_options: { units: "kilometers" } }, null, 1);
-      const leg = r && r.ok && r.data && r.data.trip && r.data.trip.legs && r.data.trip.legs[0];
-      const sh = leg && decodePolyline(leg.shape, 6);
-      f.snap = 0;
-      if(sh && sh.length >= 2){
-        const len = sh.reduce((m, q, i) => i ? m + haversine(sh[i-1][1], sh[i-1][0], q[1], q[0]) : 0, 0);
-        if(len < haversine(A[1], A[0], B[1], B[0]) * 3 + 500){ f.c = sh; cache[f.uid] = sh.map(q => [Math.round(q[0] * 1e5) / 1e5, Math.round(q[1] * 1e5) / 1e5]); try{ localStorage.setItem(NH_SNAP_LS, JSON.stringify(cache)); }catch(e){} nhDraw(); }
-      }
-    }catch(e){ f.snap = 0; }
-    finally{ nhSnapBusy = false; }
-  }
-  addTick(nhSnapTick, 2500);
 
   // --- UI: klucz w ustawieniach, przycisk 🚧 ---
   function nhApplyUi(){
