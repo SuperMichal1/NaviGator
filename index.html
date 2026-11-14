@@ -127,7 +127,7 @@
   }
   #gVoiceBtn.off{ opacity:.5; }
   body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
-  body.guidance-on #voteCard, body.guidance-on #flagCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
+  body.guidance-on #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -334,8 +334,6 @@
   #zoomChip small{ font-weight:600; opacity:.7; margin-right:4px; letter-spacing:.04em; text-transform:uppercase; font-size:10px; }
   /* przy włączonej tablicy z instrukcjami wskaźnik schodzi pod nią, żeby jej nie zasłaniać */
   body.guidance-on #zoomChip{ top: calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); }
-  /* gdy u góry jest pasek celu podróży (#navTopBar), wskaźnik zoomu schodzi pod niego */
-  body:has(#navPanel[data-navstate="search"]):not(:has(#navPanel.truck-open)):not(:has(#navPanel.billboard-open)) #zoomChip{ top: calc(env(safe-area-inset-top, 0px) + 68px); }
   #btnLocate{ left:36px; }
   #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnCompass svg{ display:block; transition: transform .12s linear; }
@@ -577,8 +575,8 @@
     font-family:'Inter', sans-serif; cursor:pointer; border:1px solid var(--panel-border);
     background:transparent; color: var(--text-main);
   }
-  .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes, .poiCard button#flagOk{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
-  #voteCard, #flagCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
+  .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
   #poiVoteRow button{ padding:7px 10px; font-size:12px; font-weight:600; }
   #poiAdminRow button, #poiEditBox button{ padding:8px 10px; font-size:13px; font-weight:700; }
   #poiEditBox{ flex-direction:column; gap:8px; }
@@ -837,11 +835,6 @@
   .alPin{ width:34px; height:34px; border-radius:50%; background:#1b6fd1; color:#fff; border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.55); font:800 15px/28px 'Inter',sans-serif; text-align:center; cursor:pointer; }
   .alPin.fuel{ background:#d9822b; }
   .alPin.sel{ transform:scale(1.25); background:#0b7a6d; z-index:2; }
-
-
-  /* chorągiewka zgłoszenia parkingu / fotoradaru (js/20): duża, łatwa do złapania palcem */
-  .report-flag{ width:64px; height:78px; cursor:grab; touch-action:none; filter: drop-shadow(0 3px 6px rgba(0,0,0,.45)); }
-  .report-flag svg{ display:block; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1586,7 +1579,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
 
-<div id="btnCompass" title="Widok mapy: 3D (za kierunkiem jazdy) → 2D" role="button" aria-label="Przełącz widok mapy: 3D, 2D">
+<div id="btnCompass" title="Widok mapy: 3D (za kierunkiem jazdy) → 3D północ u góry → 2D" role="button" aria-label="Przełącz widok mapy: 3D, 3D północ u góry, 2D">
   <svg id="compassNeedle" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
     <path d="M12 2.5 15.6 12H8.4z" fill="#e5392f"/>
     <path d="M12 21.5 8.4 12h7.2z" fill="currentColor" opacity=".55"/>
@@ -1641,15 +1634,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 </div>
 
-<div id="flagCard" class="poiCard" role="dialog" aria-live="polite">
-  <div class="poiName" id="flagTitle"></div>
-  <div class="poiAddr" id="flagSub"></div>
-  <div class="poiBtns">
-    <button id="flagCancel" type="button">✕ Usuń</button>
-    <button id="flagOk" type="button">✓ Zatwierdź</button>
-  </div>
-</div>
-
 <div id="limitEdit" class="poiCard" role="dialog">
   <div class="poiName" id="limitEditTitle">Brak limitu prędkości na tej drodze</div>
   <div class="poiAddr" id="limitEditInfo"></div>
@@ -1680,6 +1664,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div id="poiAddForm" style="display:none; flex-direction:column; gap:6px;">
     <div class="poiName">Nazwa firmy / magazynu</div>
     <input id="poiNameInput" type="text" maxlength="80" placeholder="Nazwa firmy…" autocomplete="off">
+    <input id="poiStreetInput" type="text" maxlength="120" placeholder="Adres (numer, ulica, miasto)" autocomplete="off">
+    <input id="poiPostInput" type="text" maxlength="8" placeholder="Kod pocztowy" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <div class="poiAddr" id="poiAddStatus"></div>
     <div class="poiBtns">
       <button id="poiAddCancel" type="button">Anuluj</button>
@@ -2592,7 +2578,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let northUp = false; // po kliknięciu kompasu kamera nie obraca się już za kursem pojazdu (do czasu ponownego 3D / widoku jazdy)
   function updateViewBtn(){
     const lab = document.getElementById("viewLabel"); if(!lab) return;
-    lab.textContent = is3D ? "3D" : "2D";
+    lab.textContent = !is3D ? "2D" : northUp ? "3D·N" : "3D";
   }
   function updateCompassBtn(){
     const btn = document.getElementById("btnCompass");
@@ -4764,8 +4750,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     mir(.74, -14.1, 1.2, -14.17, .55, .73, "#ff3b30", true);                                               // światła tylne: szerokie, na zderzaku
     mir(.4, -14.1, .66, -14.15, .58, .7, "#ffffff", true);                                                 // światła cofania (na zderzaku)
     let glows = [];
-    if(brake){   // światła hamowania: te same prostokąty co lampy tylne naczepy (zmieniają tylko kolor na jasnoczerwony) + łuna
-      mir(.74, -14.1, 1.2, -14.2, .55, .73, "#ff1a10", true);
+    if(brake){   // światła hamowania: jasnoczerwone, szerokie lampy na tyle naczepy + łuna
+      mir(.7, -14.1, 1.22, -14.2, .52, .78, "#ff1a10", true); bx(-.7, -14.1, .7, -14.17, .75, .82, "#ff1a10", true);
       glows.push({ x: .97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" }, { x: -.97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" });
     }
     if(sig){   // migacz: przedni w reflektorze, powtarzacz na kabinie, lampa ZA ciągnikiem (za oponami, pod naczepą — widoczna z tyłu), lampa tylna naczepy
@@ -4906,11 +4892,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const moving = currentSpeedKmh >= 3;
     if(moving) avSm.ph = (avSm.ph || 0) + 0.033 * (4 + Math.min(30, avSm.v) * .35);
     const sig = (window.turnSignal && Date.now() % 800 < 400) ? window.turnSignal : null;   // migacz: 0,45 s świeci / 0,45 s gaśnie
-    // hamowanie: spadek prędkości o ≥2 km/h (sprawdzany przy każdej klatce, odniesienie odświeżane co 0,4 s) → światła hamowania świecą od razu, min. 1,5 s
+    // hamowanie: prędkość wyraźnie spada (min. ok. 3 km/h w 0,6 s) → światła hamowania świecą min. 1 s
     const nowB = Date.now(), bk = avSm.bk || (avSm.bk = { t: nowB, v: currentSpeedKmh, until: 0 });
-    if(currentSpeedKmh > bk.v){ bk.v = currentSpeedKmh; bk.t = nowB; }
-    else if(bk.v - currentSpeedKmh >= 2 && bk.v > 8){ bk.until = nowB + 1500; bk.v = currentSpeedKmh; bk.t = nowB; }
-    else if(nowB - bk.t >= 400){ bk.v = currentSpeedKmh; bk.t = nowB; }
+    if(nowB - bk.t >= 600){ if(bk.v - currentSpeedKmh >= 3 && bk.v > 8) bk.until = nowB + 1200; bk.t = nowB; bk.v = currentSpeedKmh; }
     const model = A3_BUILD[vehicleAvatar](avatarAccent(), avSm.ph || 0, sig, nowB < bk.until);
     const s = avatarScale(a, true) * (vehicleAvatar === "truck" ? 0.82 : 1), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
     const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180)));
@@ -7473,7 +7457,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   }
 
-  function commitHgvParking(lat, lon){
+  function reportHgvParkingHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
     // Zgłoszenie pokazujemy na mapie OD RAZU, niezależnie od tego, co dalej stanie się z Supabase.
     // Wcześniej przy udanym wysłaniu do wspólnej bazy nic nie rysowaliśmy lokalnie — liczyliśmy, że
     // zaraz uda się je odczytać z powrotem z serwera. Jeśli ten odczyt po cichu zawiódł (brakująca
@@ -7496,7 +7485,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   }
 
-  function commitCamera(lat, lon){
+  function reportCameraHere(){
+    if(!lastPos){
+      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
+      return;
+    }
+    const lat = lastPos.lat, lon = lastPos.lon;
     // jw. (patrz komentarz w reportHgvParkingHere): rysujemy natychmiast, niezależnie od Supabase
     userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
     saveUserReportedCameras();
@@ -7514,59 +7508,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
     }
   }
-
-  /* ---------- chorągiewka zgłoszenia: parking HGV / fotoradar stawiany w miejscu pojazdu, można ją przesunąć przed zatwierdzeniem ---------- */
-  let flagDraft = null;        // { kind, marker, timer }
-  const FLAG_AUTO_MS = 25000;  // bez reakcji kierowcy zgłoszenie samo się zatwierdza (jedzie, nie ma czasu klikać)
-  function flagKindInfo(kind){
-    return kind === "camera" ? { ico: "📷", col: "#d93025", name: "Fotoradar" } : { ico: "🅿️", col: "#1a6fd6", name: "Parking HGV" };
-  }
-  function hideFlagCard(){ const c = document.getElementById("flagCard"); if(c) c.classList.remove("show"); }
-  function dropFlagDraft(){
-    if(!flagDraft) return;
-    if(flagDraft.timer) clearTimeout(flagDraft.timer);
-    try{ flagDraft.marker.remove(); }catch(e){}
-    flagDraft = null; hideFlagCard();
-  }
-  function commitFlagDraft(){
-    if(!flagDraft) return;
-    const d = flagDraft, ll = d.marker.getLngLat();
-    dropFlagDraft();
-    if(d.kind === "camera") commitCamera(ll.lat, ll.lng); else commitHgvParking(ll.lat, ll.lng);
-  }
-  function startReportFlag(kind){
-    if(!lastPos || !map){
-      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
-      return;
-    }
-    if(flagDraft) commitFlagDraft();   // poprzednia chorągiewka nie czeka — zatwierdzamy ją tam, gdzie stoi
-    const k = flagKindInfo(kind);
-    const el = document.createElement("div");
-    el.className = "report-flag";
-    el.innerHTML = `<svg width="64" height="78" viewBox="0 0 64 78" aria-hidden="true">
-      <rect x="6" y="4" width="4" height="72" rx="2" fill="#2b2f33" stroke="#fff" stroke-width="1.5"/>
-      <path d="M10 6 H58 Q62 6 62 10 V36 Q62 40 58 40 H10 Z" fill="${k.col}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
-      <text x="36" y="32" text-anchor="middle" font-size="26">${k.ico}</text>
-    </svg>`;
-    // dół drzewca = dokładny punkt zgłoszenia
-    const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-8, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
-      .setLngLat([lastPos.lon, lastPos.lat]).addTo(map);
-    const rearm = () => {   // po przesunięciu dajemy kierowcy jeszcze chwilę
-      if(flagDraft && flagDraft.timer) clearTimeout(flagDraft.timer);
-      if(flagDraft) flagDraft.timer = setTimeout(commitFlagDraft, FLAG_AUTO_MS);
-    };
-    marker.on("dragstart", () => { if(flagDraft && flagDraft.timer) clearTimeout(flagDraft.timer); });
-    marker.on("dragend", rearm);
-    flagDraft = { kind, marker, timer: null };
-    rearm();
-    document.getElementById("flagTitle").textContent = k.ico + " " + k.name + " — chorągiewka";
-    document.getElementById("flagSub").textContent = "Przeciągnij ją we właściwe miejsce, potem zatwierdź.";
-    document.getElementById("flagCard").classList.add("show");
-  }
-  function reportHgvParkingHere(){ startReportFlag("parking"); }
-  function reportCameraHere(){ startReportFlag("camera"); }
-  document.getElementById("flagOk").addEventListener("click", commitFlagDraft);
-  document.getElementById("flagCancel").addEventListener("click", dropFlagDraft);
 
   function wayCentroid(geometry){
     let sumLat = 0, sumLon = 0;
@@ -8198,6 +8139,152 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 </script>
 <script>
+/* ===== js/23b-smart-suggest.js — Inteligentne podpowiedzi: lokalny cache celów (licznik wyborów) + kod pocztowy → firma =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Cache (localStorage "nawigator_smart_v1") zapamiętuje każdy cel, do którego wystartowała trasa: nazwa firmy, miasto, kod pocztowy,
+   pozycja i licznik. Przy wpisywaniu nazwy / kodu pocztowego w polu celu (js/24) te wpisy trafiają NA GÓRĘ listy,
+   przed wyniki TomTom i firmy z okolicy kodu. Wynik pokazuje się jako „Nazwa firmy - Miasto”.
+   Wywołania z js/24: smartSuggestFor(q, kodPocztowy), smartMerge(smart, reszta), smartRecord(cel), smartForget(miejsce), smartClear(). */
+"use strict";
+
+  const SMART_KEY = "nawigator_smart_v1";
+  const SMART_MAX = 200;        // maks. liczba zapamiętanych celów (najrzadziej używane wypadają)
+  const SMART_SAME_M = 60;      // cel bliżej niż tyle od zapamiętanego = to samo miejsce
+  const SMART_SHOWN = 6;        // ile wpisów z cache pokazać na górze
+  let smartCache = null;        // [{ name, city, pc, label, lat, lon, count, ts }]
+
+  const smartNorm = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const smartPcKey = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  function smartFmtPc(t){ const k = smartPcKey(t); return k.length > 3 ? k.slice(0, -3) + " " + k.slice(-3) : k; }
+
+  // z etykiety adresu wyciąga kod pocztowy UK i miasto (ostatni człon po przecinku, bez kodu)
+  function smartParseLabel(label){
+    const s = String(label || "");
+    const m = s.match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i);
+    let pc = "", rest = s;
+    if(m){ pc = (m[1] + " " + m[2]).toUpperCase(); rest = s.slice(0, m.index) + s.slice(m.index + m[0].length); }
+    const parts = rest.split(",").map(x => x.trim()).filter(Boolean);
+    return { pc, city: parts.length > 1 ? parts[parts.length - 1] : "" };
+  }
+  function smartSave(){ try{ localStorage.setItem(SMART_KEY, JSON.stringify(smartCache || [])); }catch(e){} }
+  function smartLoad(){
+    if(smartCache) return smartCache;
+    let a = null;
+    try{ a = JSON.parse(localStorage.getItem(SMART_KEY)); }catch(e){}
+    let seeded = false;
+    if(!Array.isArray(a)){
+      a = []; seeded = true;   // pierwsze uruchomienie: zasil z dotychczasowej historii celów (js/24)
+      try{
+        (typeof destHistory !== "undefined" ? destHistory : []).forEach(h => {
+          const label = h.label || h.name || "Cel", p = smartParseLabel(label);
+          a.push({ name: h.name && h.name !== h.label ? h.name : "", city: p.city, pc: p.pc, label, lat: h.lat, lon: h.lon, count: h.count || 1, ts: h.ts || 0 });
+        });
+      }catch(e){}
+    }
+    smartCache = a.filter(e => e && typeof e.lat === "number" && typeof e.lon === "number");
+    if(seeded) smartSave();
+    return smartCache;
+  }
+
+  // start trasy do celu → zlicz wybór i zapamiętaj mapowanie kod pocztowy → firma / miasto
+  function smartRecord(d){
+    try{
+      if(!d || typeof d.lat !== "number" || typeof d.lon !== "number") return;
+      const list = smartLoad(), now = Date.now();
+      const label = String(d.label || "").trim(), parsed = smartParseLabel(label);
+      const pc = d.pc ? smartFmtPc(d.pc) : parsed.pc;
+      const city = d.city || parsed.city;
+      const name = d.name && d.name !== label ? String(d.name).trim() : "";
+      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M);
+      if(e){
+        if(now - e.ts < 60000) return;   // ten sam start trasy zgłoszony dwa razy
+        e.count = (e.count || 1) + 1; e.ts = now;
+        if(name) e.name = name;
+        if(pc) e.pc = pc;
+        if(city) e.city = city;
+        if(label) e.label = label;
+      } else list.push({ name, city: city || "", pc: pc || "", label: label || name || "Cel", lat: d.lat, lon: d.lon, count: 1, ts: now });
+      if(list.length > SMART_MAX){ list.sort((a, b) => (b.count || 1) - (a.count || 1) || b.ts - a.ts); list.length = SMART_MAX; }
+      smartSave();
+    }catch(err){ console.warn("smartRecord:", err); }
+  }
+  function smartForget(p){   // usunięcie wpisu z historii celów usuwa też jego licznik
+    try{
+      if(!p || typeof p.lat !== "number") return;
+      smartCache = smartLoad().filter(x => _dM(x.lat, x.lon, p.lat, p.lon) >= SMART_SAME_M);
+      smartSave();
+    }catch(e){}
+  }
+  function smartClear(){ smartCache = []; smartSave(); }
+
+  function smartToResult(e){
+    const title = e.name ? (e.city ? e.name + " - " + e.city : e.name) : (e.label || "Cel");
+    const sub = ["🕘" + ((e.count || 1) > 1 ? " " + e.count + "×" : ""), e.pc].filter(Boolean).join(" · ");
+    return { smart: true, _title: title, _sub: sub, poi: e.name ? { name: e.name } : undefined,
+      address: { freeformAddress: e.label || title, municipality: e.city, postalCode: e.pc }, position: { lat: e.lat, lon: e.lon } };
+  }
+
+  // q = tekst z pola celu (nazwa firmy / miasto albo sam kod pocztowy), pcTyped = kod z pola obok (opcjonalnie)
+  // Kolejność: trafność nazwy → zgodność kodu pocztowego → liczba wyborów → świeżość. Potem firmy z bazy kierowców/HGV.
+  function smartSuggestFor(q, pcTyped){
+    try{
+      const raw = String(q || "").trim();
+      const pr = pcTyped ? parsePostcode(pcTyped) : (raw ? parsePostcode(raw) : null);
+      const want = pr ? smartPcKey(pr.v) : "";
+      const nameQ = (pr && !pcTyped) ? "" : smartNorm(raw);       // samo pole = kod pocztowy → bez filtra nazwy
+      if(!want && !nameQ) return [];
+      const toks = nameQ ? nameQ.split(" ").filter(Boolean) : [];
+      const outwardOnly = !!(pr && pr.partial && !pr.v.includes(" "));
+      const hits = [];
+      smartLoad().forEach(e => {
+        let pcS = 0, nmS = 0;
+        if(want){
+          const k = smartPcKey(e.pc);
+          if(!k) return;
+          if(outwardOnly){ if(k.slice(0, -3) !== want) return; pcS = 1; }       // „ME2” nie łapie „ME20 …”
+          else if(k === want) pcS = 0;
+          else if(k.startsWith(want)) pcS = 1;
+          else if(!pr.partial && k.slice(0, -2) === want.slice(0, -2)) pcS = 2;   // ten sam sektor
+          else return;
+        }
+        if(nameQ){
+          const nameOnly = smartNorm(e.name || e.label), full = smartNorm(nameOnly + " " + (e.city || ""));
+          if(nameOnly.startsWith(nameQ)) nmS = 0;
+          else if((" " + full).includes(" " + nameQ)) nmS = 1;
+          else if(toks.length > 1 && toks.every(t => (" " + full).includes(" " + t))) nmS = 1.5;
+          else if(nameQ.length >= 3 && full.includes(nameQ)) nmS = 2;
+          else return;
+        }
+        hits.push({ e, nmS, pcS });
+      });
+      hits.sort((a, b) => a.nmS - b.nmS || a.pcS - b.pcS || (b.e.count || 1) - (a.e.count || 1) || b.e.ts - a.e.ts);
+      const out = hits.slice(0, SMART_SHOWN).map(h => smartToResult(h.e));
+      // dopasowania firmowe: nazwy dodane przez kierowców + firmy HGV (js/27 localNameMatches), tylko gdy wpisano nazwę
+      if(nameQ && !want && typeof localNameMatches === "function"){
+        const bias = (typeof pcCompanies !== "undefined" && pcCompanies && pcCompanies.c) ? { lat: pcCompanies.c.lat, lon: pcCompanies.c.lon } : null;
+        localNameMatches(raw, bias).forEach(r => { if(!out.some(o => _dM(o.position.lat, o.position.lon, r.position.lat, r.position.lon) < SMART_SAME_M)) out.push(r); });
+      }
+      return out;
+    }catch(err){ console.warn("smartSuggestFor:", err); return []; }
+  }
+
+  // smart na samą górę; z reszty wypadają duplikaty tego samego miejsca (ta sama nazwa albo któryś wpis bez nazwy)
+  function smartMerge(sm, rest){
+    if(!sm || !sm.length) return rest || [];
+    const out = sm.slice();
+    (rest || []).forEach(r => {
+      const p = r.position;
+      if(p && sm.some(s => {
+        if(_dM(s.position.lat, s.position.lon, p.lat, p.lon) >= SMART_SAME_M) return false;
+        const a = s.poi && s.poi.name, b = r.poi && r.poi.name;
+        return !a || !b || namesMatch(a, b);
+      })) return;
+      out.push(r);
+    });
+    return out;
+  }
+</script>
+<script>
 /* ===== js/24-nav-search-favorites.js — Nawigator: ustawienia, wyszukiwanie celu, ulubione i historia =====
    Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
 "use strict";
@@ -8366,6 +8453,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function recordHistory(d){              // wywoływane przy starcie trasy
     if(!d || typeof d.lat !== "number" || typeof d.lon !== "number") return;
+    smartRecord(d);   // js/23b: licznik wyborów + kod pocztowy → firma/miasto
     const label = d.label || "Cel", name = d.name || label;
     const h = destHistory.find(x => samePlace(x, d));
     if(h){
@@ -8408,7 +8496,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   document.getElementById("navClearHistory").addEventListener("click", () => {
     if(!destHistory.length){ showBanner("HISTORIA PUSTA", "Nie ma czego czyścić", false); return; }
     if(!confirm("Wyczyścić historię celów? Ulubione zostaną.")) return;
-    destHistory = []; writePlaceList(HIST_KEY, destHistory);
+    destHistory = []; writePlaceList(HIST_KEY, destHistory); smartClear();
     showBanner("HISTORIA WYCZYSZCZONA", "Ulubione zostały", false);
   });
 
@@ -8469,7 +8557,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         } else {
           btns.appendChild(mkBtn(findFav(it) ? "⭐" : "☆", findFav(it) ? "Usuń z ulubionych" : "Dodaj do ulubionych", () => { toggleFavorite(it); renderSaved(); refreshDestFavBtn(); }));
           btns.appendChild(mkBtn("✕", "Usuń z historii", () => {
-            destHistory = destHistory.filter(x => x !== it); writePlaceList(HIST_KEY, destHistory); renderSaved();
+            destHistory = destHistory.filter(x => x !== it); writePlaceList(HIST_KEY, destHistory); smartForget(it); renderSaved();
           }));
         }
         el.addEventListener("click", () => {
@@ -8508,7 +8596,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const item = document.createElement("div");
         item.className = "navSuggestion navSaved";
         item.innerHTML = `<div class="savedMain"><div class="addr1"></div><div class="addr2"></div></div>`;
-        item.querySelector(".addr1").textContent = (r.poi && r.poi.name) ? r.poi.name : label;
+        item.querySelector(".addr1").textContent = r._title || ((r.poi && r.poi.name) ? r.poi.name : label);
         item.querySelector(".addr2").textContent = r._sub || (r.local ? localSubLabel(r) : ((r.poi && r.poi.name) ? label : sub));
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
@@ -8572,6 +8660,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
             .then(() => rank(results.concat(local)));
         })
         .then(all => {
+          all = smartMerge(opts.smartSuggest ? opts.smartSuggest(query) : [], all);   // lokalna historia/firmy zawsze na samej górze
           if(autoPick){
             if(all.length){ clear(); if(opts.onSelect) opts.onSelect(all[0]); }
             else showNavError("Nie znaleziono takiego adresu.");
@@ -8593,17 +8682,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const q = e.target.value.trim();
       if(timer) clearTimeout(timer);
       // podpowiedzi lokalne (np. firmy z wpisanego kodu pocztowego pasujące do pierwszych liter)
+      const sm = opts.smartSuggest ? opts.smartSuggest(q) : [];   // historia + firmy (js/23b) — zawsze na górze
       if(opts.localSuggest){
         const loc = opts.localSuggest(q);
-        if(loc){ if(abort) abort.abort(); suggestionsFor = q; render(loc.list, loc.head); return; }
+        if(loc){ if(abort) abort.abort(); suggestionsFor = q; render(smartMerge(sm, loc.list), loc.head); return; }
       }
-      if(q.length < NAV_SUGGEST_MIN_CHARS){ if(q.length === 0) renderSaved(); else clear(); return; }
+      if(q.length < NAV_SUGGEST_MIN_CHARS){ if(q.length === 0) renderSaved(); else if(sm.length){ suggestionsFor = q; render(sm); } else clear(); return; }
+      if(sm.length){ suggestionsFor = q; render(sm); }   // lokalne od razu, wyniki z sieci dołożą się pod spodem
       timer = setTimeout(() => fetchSuggestions(q), NAV_SUGGEST_DEBOUNCE_MS);
     });
     input.addEventListener("focus", () => {
       if(opts.localSuggest && !(opts.hasSelection && opts.hasSelection())){
         const loc = opts.localSuggest(input.value.trim());
-        if(loc){ suggestionsFor = input.value.trim(); render(loc.list, loc.head); return; }
+        if(loc){ suggestionsFor = input.value.trim(); render(smartMerge(opts.smartSuggest ? opts.smartSuggest(input.value.trim()) : [], loc.list), loc.head); return; }
       }
       if(input.value.trim().length < NAV_SUGGEST_MIN_CHARS && !(opts.hasSelection && opts.hasSelection())) renderSaved();
     });
@@ -8656,6 +8747,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return { list: scored.slice(0, 30).map(x => x[2]), head: "Firmy w okolicy " + pcCompanies.pc + " · „" + q + "”" };
   }
 
+  // kod pocztowy z pola obok celu (tylko gdy poprawny albo poprawny początek) — używany przez podpowiedzi lokalne
+  function pcInputValue(){
+    const el = document.getElementById("navPostcode"), pr = el ? parsePostcode(el.value) : null;
+    return pr ? pr.v : "";
+  }
+
   // ---------- pole celu podróży (jak dotychczas: wybór pokazuje pinezkę do potwierdzenia) ----------
   const destSearch = createStopSearch(
     document.getElementById("navDestWrap"),
@@ -8664,6 +8761,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     {
       onTyping: () => { navSelectedDest = null; removeDestPin(); updateAddWaypointVisibility(); },
       localSuggest: pcLocalSuggest,
+      smartSuggest: q => smartSuggestFor(q, pcInputValue()),   // js/23b: historia + firmy na górze (kod z pola obok brany pod uwagę)
       bias: () => (pcCompanies && pcCompanies.c) ? { lat: pcCompanies.c.lat, lon: pcCompanies.c.lon } : null,   // z wpisanym kodem szukaj firm wokół niego
       hasSelection: () => !!navSelectedDest,
       onEnterConfirm: () => confirmDestination(),
@@ -8673,7 +8771,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const label = navResultLabel(r);
         const entry = (r.entryPoints || []).find(e => e.type === "main");
         const pos = (entry && entry.position) || r.position;
-        navSelectedDest = { lat: pos.lat, lon: pos.lon, label, name: (r.poi && r.poi.name) || null };
+        const ad = r.address || {};
+        navSelectedDest = { lat: pos.lat, lon: pos.lon, label, name: (r.poi && r.poi.name) || null,
+          pc: ad.postalCode || "", city: ad.municipality || ad.localName || "" };   // do cache podpowiedzi (js/23b)
         document.getElementById("navDest").value = label;
         updateAddWaypointVisibility();
         confirmDestination();
@@ -8761,8 +8861,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         // jeśli w polu celu są już litery — pokaż tylko pasujące firmy
         const typed = document.getElementById("navDest").value.trim();
         const loc = typed ? pcLocalSuggest(typed) : null;
-        if(loc && loc.list.length) destSearch.render(loc.list, loc.head);
-        else destSearch.render(list.slice(0, 30), "Firmy w okolicy " + pc);
+        const sm = smartSuggestFor(typed, pc);   // Twoje wcześniejsze cele i firmy z tego kodu — na górze
+        if(loc && loc.list.length) destSearch.render(smartMerge(sm, loc.list), loc.head);
+        else destSearch.render(smartMerge(sm, list.slice(0, 30)), "Firmy w okolicy " + pc);
       }catch(err){
         if(err.name === "AbortError") return;
         console.warn("Kod pocztowy — błąd:", err);
@@ -8797,6 +8898,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const pr = parsePostcode(pcInput.value);
       if(!pr){ pcToken++; pcCompanies = null; if(pcAbort) pcAbort.abort(); if(pcInput.value.length === 0) destSearch.clear(); return; }
       if(!pr.partial) pcInput.value = pr.v;
+      const smNow = smartSuggestFor(document.getElementById("navDest").value.trim(), pr.v);   // od razu, bez czekania na TomTom
+      if(smNow.length) destSearch.render(smNow, "🕘 Twoje miejsca · " + pr.v);
       pcTimer = setTimeout(() => findCompanies(pr.v), pr.partial ? 700 : 300);   // sam początek kodu: dłużej czekamy na dalsze znaki (mniej zapytań)
     });
     pcInput.addEventListener("keydown", e => {
@@ -9465,18 +9568,36 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("poiAddAsk").style.display = "";
     document.getElementById("poiAddForm").style.display = "none";
     document.getElementById("poiNameInput").value = "";
+    document.getElementById("poiStreetInput").value = ""; document.getElementById("poiPostInput").value = "";
     document.getElementById("poiAddStatus").textContent = "";
     const save = document.getElementById("poiAddSave"); save.disabled = false; save.textContent = "Zapisz nazwę";
     document.getElementById("poiAdd").classList.add("show");
     nominatimReverse(lat, lon).then(addr => {
-      if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr)
+      if(placeAddTarget && placeAddTarget.lat === lat && placeAddTarget.lon === lon && addr){
+        placeAddTarget.addr = addr;
         document.getElementById("poiAddAddr").textContent = addr;
+        // formularz już otwarty, a kierowca jeszcze niczego nie wpisał w adres → uzupełnij
+        const stI = document.getElementById("poiStreetInput"), poI = document.getElementById("poiPostInput");
+        if(document.getElementById("poiAddForm").style.display !== "none" && !stI.value && !poI.value){
+          const sp = splitAddrPostcode(addr); stI.value = sp.street; poI.value = sp.post;
+        }
+      }
     }).catch(() => {});
+  }
+  // adres z Nominatim → { street, post } (kod pocztowy UK wycięty z końca)
+  function splitAddrPostcode(addr){
+    const m = String(addr || "").match(/(?:,\s*)?\b([A-Z]{1,2}\d[A-Z\d]?\s*\d?[A-Z]{0,2})\s*$/i);
+    if(m && /\d/.test(m[1]) && m[1].length >= 2 && /^[A-Z]{1,2}\d/i.test(m[1]))
+      return { street: addr.slice(0, m.index).replace(/[,\s]+$/, ""), post: m[1].toUpperCase().replace(/\s+/g, " ").trim() };
+    return { street: String(addr || ""), post: "" };
   }
   function openPlaceForm(){
     document.getElementById("poiAddAsk").style.display = "none";
     const f = document.getElementById("poiAddForm"); f.style.display = "flex";
-    document.getElementById("poiAddStatus").textContent = document.getElementById("poiAddAddr").textContent;
+    const sp = splitAddrPostcode(placeAddTarget && placeAddTarget.addr ? placeAddTarget.addr : "");
+    document.getElementById("poiStreetInput").value = sp.street;
+    document.getElementById("poiPostInput").value = sp.post;
+    document.getElementById("poiAddStatus").textContent = "";
     document.getElementById("poiNameInput").focus();
   }
   function finishPlaceSave(name, verified, source){
@@ -9487,8 +9608,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       local.push(p);
       localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(local));
     }catch(e){}
+    const addrEdited = [document.getElementById("poiStreetInput").value.trim(), document.getElementById("poiPostInput").value.trim().toUpperCase()].filter(Boolean).join(", ");
     hidePlaceAdd();
-    showPoiAsk(name, p.lat, p.lon); // od razu zapytaj, czy wyznaczyć trasę
+    showPoiAsk(name, p.lat, p.lon, undefined, undefined, addrEdited); // od razu zapytaj, czy wyznaczyć trasę (adres z formularza)
     const tag = verified === true ? ` (potwierdzona w ${source})` : verified === false ? " (niezweryfikowana ❔)" : "";
     if(supaConfigured()){
       savePlaceNameRemote(p, source).then(ok => {
@@ -9542,6 +9664,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   document.getElementById("poiNameInput").addEventListener("input", () => {
     placeAddForce = false; const sv = document.getElementById("poiAddSave"); sv.textContent = "Zapisz nazwę"; sv.disabled = false;
   });
+  ["poiStreetInput","poiPostInput"].forEach(id => document.getElementById(id).addEventListener("keydown", e => { if(e.key === "Enter") submitPlaceName(); }));
   document.getElementById("poiNameInput").addEventListener("keydown", e => { if(e.key === "Enter") submitPlaceName(); });
 
   // środek budynku (wielokąt) — średnia z wierzchołków zewnętrznego obrysu
@@ -9571,7 +9694,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
   }
-  function showPoiAsk(name, lat, lon, placeId, ref){
+  function showPoiAsk(name, lat, lon, placeId, ref, addrOverride){
     const seq = ++poiAskSeq;
     hideVoteCard();
     poiAskTarget = { lat, lon, name, address: "", placeId, ref: ref || null };
@@ -9580,6 +9703,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
+    if(addrOverride){ // adres wpisany/poprawiony przez kierowcę — bez nadpisywania z Nominatim
+      poiAskTarget.address = addrOverride;
+      document.getElementById("poiAskAddr").textContent = addrOverride;
+      return;
+    }
     nominatimReverse(lat, lon)
       .then(addr => {
         if(seq !== poiAskSeq || !poiAskTarget || !addr) return;
@@ -9592,7 +9720,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!poiAskTarget) return;
     const t = poiAskTarget;
     const label = t.address ? `${t.name}, ${t.address}` : t.name;
-    navSelectedDest = { lat: t.lat, lon: t.lon, label };
+    navSelectedDest = { lat: t.lat, lon: t.lon, label, name: t.name };
     document.getElementById("navDest").value = label;
     hidePoiAsk();
     updateAddWaypointVisibility();
@@ -13180,11 +13308,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   });
 
 
-  // Jeden przycisk widoku (dawniej 3D/2D + kompas): kolejne dotknięcia = 3D (za kierunkiem jazdy) → 2D (płasko, północ u góry) → znowu 3D.
+  // Jeden przycisk widoku (dawniej 3D/2D + kompas): kolejne dotknięcia = 3D (za kierunkiem jazdy) → 3D z północą u góry → 2D (płasko, północ u góry) → znowu 3D.
   // Igła pokazuje północ, podpis — aktualny widok.
   document.getElementById("btnCompass").addEventListener("click", () => {
     if(!map) return;
-    if(is3D){                        // 3D → 2D
+    if(is3D && !northUp){            // 3D → 3D północ u góry (pochylenie zostaje)
+      northUp = true;
+      map.easeTo({ bearing: 0, duration: 500 });
+    } else if(is3D){                 // 3D północ → 2D
       is3D = false; northUp = false;
       applyDrivingCamera(false);
       map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
