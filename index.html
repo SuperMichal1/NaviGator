@@ -8166,6 +8166,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const parts = rest.split(",").map(x => x.trim()).filter(Boolean);
     return { pc, city: parts.length > 1 ? parts[parts.length - 1] : "" };
   }
+  // wpisy dodane ręcznie (own) nie wypadają z cache
+  function smartPrune(list){
+    if(list.length > SMART_MAX){ list.sort((a, b) => (b.own ? 1 : 0) - (a.own ? 1 : 0) || (b.count || 1) - (a.count || 1) || b.ts - a.ts); list.length = SMART_MAX; }
+  }
   function smartSave(){ try{ localStorage.setItem(SMART_KEY, JSON.stringify(smartCache || [])); }catch(e){} }
   function smartLoad(){
     if(smartCache) return smartCache;
@@ -8204,9 +8208,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(city) e.city = city;
         if(label) e.label = label;
       } else list.push({ name, city: city || "", pc: pc || "", label: label || name || "Cel", lat: d.lat, lon: d.lon, count: 1, ts: now });
-      if(list.length > SMART_MAX){ list.sort((a, b) => (b.count || 1) - (a.count || 1) || b.ts - a.ts); list.length = SMART_MAX; }
+      smartPrune(list);
       smartSave();
     }catch(err){ console.warn("smartRecord:", err); }
+  }
+  // kierowca właśnie nazwał budynek (js/27): dokładna pozycja tego budynku + adres z formularza, wpis „własny” (wyżej niż stare)
+  function smartAdd(d){
+    try{
+      if(!d || !d.name || typeof d.lat !== "number" || typeof d.lon !== "number") return;
+      const list = smartLoad(), label = String(d.label || "").trim(), parsed = smartParseLabel(label);
+      const pc = d.pc ? smartFmtPc(d.pc) : parsed.pc, city = d.city || parsed.city;
+      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M);
+      if(e){ e.name = d.name; if(pc) e.pc = pc; if(city) e.city = city; if(label) e.label = label; e.lat = d.lat; e.lon = d.lon; e.own = true; e.ts = Date.now(); }
+      else list.push({ name: d.name, city: city || "", pc: pc || "", label: label || d.name, lat: d.lat, lon: d.lon, count: 1, ts: Date.now(), own: true });
+      smartPrune(list); smartSave();
+    }catch(err){ console.warn("smartAdd:", err); }
   }
   function smartForget(p){   // usunięcie wpisu z historii celów usuwa też jego licznik
     try{
@@ -8215,11 +8231,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       smartSave();
     }catch(e){}
   }
-  function smartClear(){ smartCache = []; smartSave(); }
+  function smartClear(){ smartCache = smartLoad().filter(e => e.own).map(e => Object.assign({}, e, { count: 1 })); smartSave(); }   // ręcznie nazwane budynki zostają
 
   function smartToResult(e){
     const title = e.name ? (e.city ? e.name + " - " + e.city : e.name) : (e.label || "Cel");
-    const sub = ["🕘" + ((e.count || 1) > 1 ? " " + e.count + "×" : ""), e.pc].filter(Boolean).join(" · ");
+    const street = String(e.label || "").split(",").map(x => x.trim()).find(x => x && smartNorm(x) !== smartNorm(e.name || "") && x !== e.pc) || "";
+    const sub = [(e.own ? "📍" : "🕘") + ((e.count || 1) > 1 ? " " + e.count + "×" : ""), e.name ? street : "", e.pc].filter(Boolean).join(" · ");
     return { smart: true, _title: title, _sub: sub, poi: e.name ? { name: e.name } : undefined,
       address: { freeformAddress: e.label || title, municipality: e.city, postalCode: e.pc }, position: { lat: e.lat, lon: e.lon } };
   }
@@ -8248,7 +8265,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
           else return;
         }
         if(nameQ){
-          const nameOnly = smartNorm(e.name || e.label), full = smartNorm(nameOnly + " " + (e.city || ""));
+          const nameOnly = smartNorm(e.name || e.label), full = smartNorm(nameOnly + " " + (e.city || "") + " " + (e.label || ""));
           if(nameOnly.startsWith(nameQ)) nmS = 0;
           else if((" " + full).includes(" " + nameQ)) nmS = 1;
           else if(toks.length > 1 && toks.every(t => (" " + full).includes(" " + t))) nmS = 1.5;
@@ -8257,7 +8274,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         }
         hits.push({ e, nmS, pcS });
       });
-      hits.sort((a, b) => a.nmS - b.nmS || a.pcS - b.pcS || (b.e.count || 1) - (a.e.count || 1) || b.e.ts - a.e.ts);
+      hits.sort((a, b) => a.nmS - b.nmS || a.pcS - b.pcS || (b.e.own ? 1 : 0) - (a.e.own ? 1 : 0) || (b.e.count || 1) - (a.e.count || 1) || b.e.ts - a.e.ts);
       const out = hits.slice(0, SMART_SHOWN).map(h => smartToResult(h.e));
       // dopasowania firmowe: nazwy dodane przez kierowców + firmy HGV (js/27 localNameMatches), tylko gdy wpisano nazwę
       if(nameQ && !want && typeof localNameMatches === "function"){
@@ -9603,6 +9620,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function finishPlaceSave(name, verified, source){
     const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name, verified };
     mergePlaceNames([p]);
+    // dokładna pozycja ZAZNACZONEGO budynku + adres z formularza → cache podpowiedzi (js/23b), wpis „własny” zawsze nad TomTom
+    if(typeof smartAdd === "function"){
+      const st = document.getElementById("poiStreetInput").value.trim(), po = document.getElementById("poiPostInput").value.trim().toUpperCase();
+      smartAdd({ name, lat: p.lat, lon: p.lon, label: [st, po].filter(Boolean).join(", "), pc: po });
+    }
     try{
       const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
       local.push(p);
