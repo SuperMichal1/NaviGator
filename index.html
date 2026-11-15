@@ -794,6 +794,21 @@
   .report-flag svg{ display:block; }
   .poiCard .poiBy{ font-size:11px; font-style:italic; opacity:.55; line-height:1.2; }
   .poiCard .poiBy:empty{ display:none; }
+
+  /* okno edycji / łączenia wpisów z historii celów (js/23b) */
+  #smartEdit input[type=text]{ padding:10px 12px; border-radius:10px; border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); font:600 15px 'Inter',system-ui,sans-serif; width:100%; box-sizing:border-box; }
+  #smartEdit .seRow{ display:flex; gap:8px; }
+  #smartEdit .seRow input{ min-width:0; flex:1; }
+  #seMergeList{ display:flex; flex-direction:column; gap:2px; max-height:28vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .seMergeRow{ display:flex; align-items:center; gap:10px; padding:8px 4px; font-size:13px; line-height:1.3; cursor:pointer; }
+  .seMergeRow input{ width:20px; height:20px; flex:0 0 auto; accent-color:#0b7a6d; }
+  .poiCard button#seSave{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  .poiCard button#seDelete{ flex:0 0 auto; color:#ff6b5e; }
+
+  /* „Zapamiętaj tę pozycję” — nadpisanie błędnego punktu adresu (js/23b addrFixSave) */
+  #navFixPinBtn{ width:100%; padding:9px 12px; border-radius:10px; font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer;
+    border:1px solid #0b7a6d; background:rgba(11,122,109,.16); color:var(--text-main); }
+  #navFixPinBtn:active{ background:rgba(11,122,109,.34); }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1669,6 +1684,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 </div>
 
+<div id="smartEdit" class="poiCard" role="dialog">
+  <div class="poiName">Edytuj cel z historii</div>
+  <input id="seName" type="text" maxlength="80" placeholder="Nazwa firmy" autocomplete="off">
+  <div class="seRow">
+    <input id="seCity" type="text" maxlength="40" placeholder="Miasto" autocomplete="off">
+    <input id="sePc" type="text" maxlength="8" placeholder="Kod pocztowy" autocomplete="off" autocapitalize="characters" spellcheck="false">
+  </div>
+  <div class="poiQ" id="seMergeHead">Połącz z tymi wpisami (liczniki się zsumują)</div>
+  <div id="seMergeList"></div>
+  <div class="poiBtns">
+    <button id="seDelete" type="button">Usuń</button>
+    <button id="seCancel" type="button">Anuluj</button>
+    <button id="seSave" type="button">Zapisz</button>
+  </div>
+</div>
+
 <div id="navTopBar">
     <div id="navDestWrap" class="navStopWrap">
       <div id="navDestCombo">
@@ -1732,6 +1763,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   <div id="navConfirmBlock">
     <div id="navConfirmLabel"></div>
+    <button id="navFixPinBtn" type="button" style="display:none">📌 Zapamiętaj tę pozycję dla tego adresu</button>
     <div id="navRoutePicker">
       <div class="navRouteChoice" id="navChooseMain">
         <span class="rcTitle">Trasa TomTom</span>
@@ -3596,6 +3628,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   }
 
+  // Nazwy firm i budynków dodanych przez kierowców (warstwy hgv-companies-icon, place-names-icon).
+  // Dzień: ciemny tekst na białej obwódce (jak dotąd). Noc: jednolity jasny krem (#FFF0CC) i tylko delikatny ciemny cień zamiast białej obwódki
+  // — wybrany testem kontrastu na kolorach teł ze zrzutu mapy (min. 6,4:1 na najjaśniejszym tle, ok. 11:1 na typowym granacie).
+  const COMPANY_LABEL_NIGHT = "#FFF0CC";
+  function applyCompanyLabelStyle(night){
+    if(!map) return;
+    ["hgv-companies-icon", "place-names-icon"].forEach(id => {
+      if(!map.getLayer(id)) return;
+      try{
+        map.setPaintProperty(id, "text-color", night ? COMPANY_LABEL_NIGHT : "#333");
+        map.setPaintProperty(id, "text-halo-color", night ? "rgba(8,10,16,0.92)" : "#fff");
+        map.setPaintProperty(id, "text-halo-width", night ? 1.4 : 1.2);
+        map.setPaintProperty(id, "text-halo-blur", night ? 0.7 : 0);
+      }catch(e){ console.warn("Kolor nazw firm:", id, e); }
+    });
+  }
+
   // Ustawia kolory mapy zgodnie z aktualnym trybem (dzień = oryginał, noc = ciemny styl)
   function applyNightTheme(){
     if(!map) return;
@@ -3618,6 +3667,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     applyNightZones(night);
     applyMinorRoadZoom(night);
     try{ applySatBrightness(); }catch(e){}
+    applyCompanyLabelStyle(night);
   }
 
   // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu).
@@ -3965,6 +4015,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
           if(map.getLayer(id) && map.getLayer("restriction-signs-icon")) map.moveLayer(id, "restriction-signs-icon");
         });
       }catch(e){ console.warn("Kolejność warstw znaków/firm:", e); }
+      try{ applyCompanyLabelStyle(document.body.classList.contains("night")); }catch(e){}
 
       // źródło wyznaczonej trasy (TomTom)
       map.addSource("route-line", { type:"geojson", data: emptyFC() });
@@ -8280,6 +8331,53 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const parts = rest.split(",").map(x => x.trim()).filter(Boolean);
     return { pc, city: parts.length > 1 ? parts[parts.length - 1] : "" };
   }
+  /* ---------- ta sama firma w dwóch wpisach → jeden (liczniki się sumują) ----------
+     „Royal Mail Medway Mail Centre” i „Royal Mail - Medway Mail Centre - Rochester” to ta sama firma: znormalizowana nazwa jest identyczna.
+     Łączymy, gdy nazwa się zgadza i: punkty są bliżej niż 300 m, ALBO oba mają ten sam kod pocztowy, ALBO któryś kodu nie ma, a punkty są bliżej niż 1 km. */
+  const SMART_MERGE_NEAR_M = 300, SMART_MERGE_FAR_M = 1000;
+  function smartNewId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function smartCore(e){
+    return smartNorm(e.name || String(e.label || "").split(",")[0]).replace(/\b(ltd|limited|plc|the)\b/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function smartSameCompany(a, b){
+    const na = smartCore(a), nb = smartCore(b);
+    if(!na || !nb || na !== nb) return false;
+    const d = _dM(a.lat, a.lon, b.lat, b.lon);
+    if(d < SMART_MERGE_NEAR_M) return true;
+    const pa = smartPcKey(a.pc), pb = smartPcKey(b.pc);
+    if(pa && pb) return pa === pb;
+    return d < SMART_MERGE_FAR_M;
+  }
+  function smartScore(e){ return (e.own ? 4 : 0) + (e.pc ? 2 : 0) + (e.city ? 1 : 0) + (String(e.label || "").includes(",") ? 1 : 0); }
+  function smartMergeInto(base, other){   // other wchłaniany przez base
+    base.count = (base.count || 1) + (other.count || 1);
+    base.ts = Math.max(base.ts || 0, other.ts || 0);
+    if(other.own && !base.own){ base.own = true; base.lat = other.lat; base.lon = other.lon; }   // pozycja ręcznie nazwanego budynku wygrywa
+    if(!base.pc && other.pc) base.pc = other.pc;
+    if(!base.city && other.city) base.city = other.city;
+    if(!base.name && other.name) base.name = other.name;
+    if((!base.label || base.label === base.name) && other.label) base.label = other.label;
+    if(other.fix){   // poprawiona pozycja: zachowaj klucz i wszystkie stare (błędne) punkty ze źródeł
+      if(!base.fix) base.fix = { key: other.fix.key, orig: [] };
+      (other.fix.orig || []).forEach(o => { if(!base.fix.orig.some(x => _dM(x.lat, x.lon, o.lat, o.lon) < 30)) base.fix.orig.push(o); });
+      base.fix.orig = base.fix.orig.slice(-4);
+    }
+  }
+  function smartDedupe(list){   // true, gdy coś połączono
+    let changed = false, found;
+    do{
+      found = false;
+      outer: for(let i = 0; i < list.length; i++) for(let j = i + 1; j < list.length; j++){
+        if(!smartSameCompany(list[i], list[j])) continue;
+        const a = list[i], b = list[j];
+        const keepA = smartScore(a) > smartScore(b) || (smartScore(a) === smartScore(b) && (a.count || 1) >= (b.count || 1));
+        const keep = keepA ? a : b, drop = keepA ? b : a;
+        smartMergeInto(keep, drop); list.splice(list.indexOf(drop), 1);
+        found = changed = true; break outer;
+      }
+    }while(found);
+    return changed;
+  }
   // wpisy dodane ręcznie (own) nie wypadają z cache
   function smartPrune(list){
     if(list.length > SMART_MAX){ list.sort((a, b) => (b.own ? 1 : 0) - (a.own ? 1 : 0) || (b.count || 1) - (a.count || 1) || b.ts - a.ts); list.length = SMART_MAX; }
@@ -8300,7 +8398,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }catch(e){}
     }
     smartCache = a.filter(e => e && typeof e.lat === "number" && typeof e.lon === "number");
-    if(seeded) smartSave();
+    let touched = seeded;
+    smartCache.forEach(e => { if(!e.id){ e.id = smartNewId(); touched = true; } });
+    if(smartDedupe(smartCache)) touched = true;   // stare duplikaty tej samej firmy łączą się przy pierwszym wczytaniu
+    if(touched) smartSave();
     return smartCache;
   }
 
@@ -8313,7 +8414,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const pc = d.pc ? smartFmtPc(d.pc) : parsed.pc;
       const city = d.city || parsed.city;
       const name = d.name && d.name !== label ? String(d.name).trim() : "";
-      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M);
+      const cand = { name, label, pc, lat: d.lat, lon: d.lon };
+      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M || smartSameCompany(x, cand));
       if(e){
         if(now - e.ts < 60000) return;   // ten sam start trasy zgłoszony dwa razy
         e.count = (e.count || 1) + 1; e.ts = now;
@@ -8321,7 +8423,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(pc) e.pc = pc;
         if(city) e.city = city;
         if(label) e.label = label;
-      } else list.push({ name, city: city || "", pc: pc || "", label: label || name || "Cel", lat: d.lat, lon: d.lon, count: 1, ts: now });
+      } else list.push({ id: smartNewId(), name, city: city || "", pc: pc || "", label: label || name || "Cel", lat: d.lat, lon: d.lon, count: 1, ts: now });
+      smartDedupe(list);
       smartPrune(list);
       smartSave();
     }catch(err){ console.warn("smartRecord:", err); }
@@ -8332,10 +8435,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(!d || !d.name || typeof d.lat !== "number" || typeof d.lon !== "number") return;
       const list = smartLoad(), label = String(d.label || "").trim(), parsed = smartParseLabel(label);
       const pc = d.pc ? smartFmtPc(d.pc) : parsed.pc, city = d.city || parsed.city;
-      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M);
+      const e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M || smartSameCompany(x, { name: d.name, label, pc, lat: d.lat, lon: d.lon }));
       if(e){ e.name = d.name; if(pc) e.pc = pc; if(city) e.city = city; if(label) e.label = label; e.lat = d.lat; e.lon = d.lon; e.own = true; e.ts = Date.now(); }
-      else list.push({ name: d.name, city: city || "", pc: pc || "", label: label || d.name, lat: d.lat, lon: d.lon, count: 1, ts: Date.now(), own: true });
-      smartPrune(list); smartSave();
+      else list.push({ id: smartNewId(), name: d.name, city: city || "", pc: pc || "", label: label || d.name, lat: d.lat, lon: d.lon, count: 1, ts: Date.now(), own: true });
+      smartDedupe(list); smartPrune(list); smartSave();
     }catch(err){ console.warn("smartAdd:", err); }
   }
   function smartForget(p){   // usunięcie wpisu z historii celów usuwa też jego licznik
@@ -8350,8 +8453,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function smartToResult(e){
     const title = e.name ? (e.city ? e.name + " - " + e.city : e.name) : (e.label || "Cel");
     const street = String(e.label || "").split(",").map(x => x.trim()).find(x => x && smartNorm(x) !== smartNorm(e.name || "") && x !== e.pc) || "";
-    const sub = [(e.own ? "📍" : "🕘") + ((e.count || 1) > 1 ? " " + e.count + "×" : ""), e.name ? street : "", e.pc].filter(Boolean).join(" · ");
-    return { smart: true, _title: title, _sub: sub, poi: e.name ? { name: e.name } : undefined,
+    const sub = [(e.own ? "📍" : "🕘") + ((e.count || 1) > 1 ? " " + e.count + "×" : ""), e.fix ? "poprawiona pozycja" : "", e.name ? street : "", e.pc].filter(Boolean).join(" · ");
+    return { smart: true, _sid: e.id, _fixOrigs: e.fix ? e.fix.orig : undefined, _title: title, _sub: sub, poi: e.name ? { name: e.name } : undefined,
       address: { freeformAddress: e.label || title, municipality: e.city, postalCode: e.pc }, position: { lat: e.lat, lon: e.lon } };
   }
 
@@ -8406,6 +8509,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     (rest || []).forEach(r => {
       const p = r.position;
       if(p && sm.some(s => {
+        if(s._fixOrigs && s._fixOrigs.some(o => _dM(o.lat, o.lon, p.lat, p.lon) < 150)){   // błędny punkt tego adresu z TomTom/Photon/kodu — zastąpiony Twoją poprawką
+          const pa = smartPcKey(s.address && s.address.postalCode), pb = smartPcKey(r.address && r.address.postalCode);
+          if(!pa || !pb || pa === pb) return true;
+        }
         if(_dM(s.position.lat, s.position.lon, p.lat, p.lon) >= SMART_SAME_M) return false;
         const a = s.poi && s.poi.name, b = r.poi && r.poi.name;
         return !a || !b || namesMatch(a, b);
@@ -8413,6 +8520,104 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       out.push(r);
     });
     return out;
+  }
+
+  /* ---------- edycja i ręczne łączenie wpisów (✎ przy podpowiedzi z historii, patrz js/24 render) ---------- */
+  let smartEditId = null, smartEditDone = null;
+  function smartRelated(e){   // kandydaci do połączenia: najpierw ta sama nazwa, potem podobna, potem najbliższe
+    const core = smartCore(e);
+    return smartLoad().filter(x => x !== e).map(x => {
+      const c = smartCore(x);
+      const rank = c && c === core ? 0 : ((typeof namesMatch === "function" && (x.name || e.name) && namesMatch(x.name || x.label, e.name || e.label)) ? 1 : 2);
+      return { x, rank, d: _dM(e.lat, e.lon, x.lat, x.lon) };
+    }).sort((a, b) => a.rank - b.rank || a.d - b.d).slice(0, 8);
+  }
+  function smartEditOpen(id, done){
+    const e = smartLoad().find(x => x.id === id); if(!e) return;
+    smartEditId = id; smartEditDone = done || null;
+    document.getElementById("seName").value = e.name || "";
+    document.getElementById("seCity").value = e.city || "";
+    document.getElementById("sePc").value = e.pc || "";
+    const box = document.getElementById("seMergeList"); box.innerHTML = "";
+    const rel = smartRelated(e);
+    document.getElementById("seMergeHead").style.display = rel.length ? "" : "none";
+    rel.forEach(r => {
+      const x = r.x, row = document.createElement("label"); row.className = "seMergeRow";
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = x.id; cb.checked = r.rank === 0;   // identyczna nazwa: zaznaczone domyślnie
+      const t = document.createElement("span");
+      t.textContent = (x.name ? (x.city ? x.name + " - " + x.city : x.name) : (x.label || "Cel")) + " · " + (x.count || 1) + "×" + (x.pc ? " · " + x.pc : "");
+      row.appendChild(cb); row.appendChild(t); box.appendChild(row);
+    });
+    document.getElementById("smartEdit").classList.add("show");
+  }
+  function smartEditClose(){ document.getElementById("smartEdit").classList.remove("show"); smartEditId = null; }
+  function smartEditSave(){
+    const list = smartLoad(), e = list.find(x => x.id === smartEditId);
+    if(!e){ smartEditClose(); return; }
+    document.querySelectorAll("#seMergeList input:checked").forEach(cb => {
+      const o = list.find(x => x.id === cb.value);
+      if(o && o !== e){ smartMergeInto(e, o); list.splice(list.indexOf(o), 1); }
+    });
+    const nm = document.getElementById("seName").value.trim().replace(/\s+/g, " ");
+    const pcRaw = document.getElementById("sePc").value.trim();
+    e.name = nm; e.city = document.getElementById("seCity").value.trim(); e.pc = pcRaw ? smartFmtPc(pcRaw) : "";
+    if(nm && !String(e.label || "").trim()) e.label = nm;
+    e.own = true;   // ręcznie poprawiony wpis nie wypada z cache
+    smartDedupe(list); smartPrune(list); smartSave();
+    const done = smartEditDone; smartEditClose(); if(done) done();
+  }
+  function smartEditDelete(){
+    if(smartEditId == null) return;
+    smartCache = smartLoad().filter(x => x.id !== smartEditId); smartSave();
+    const done = smartEditDone; smartEditClose(); if(done) done();
+  }
+  document.getElementById("seSave").addEventListener("click", smartEditSave);
+  document.getElementById("seCancel").addEventListener("click", smartEditClose);
+  document.getElementById("seDelete").addEventListener("click", () => { if(confirm("Usunąć ten cel z historii?")) smartEditDelete(); });
+
+  /* ---------- poprawianie pozycji adresów (nadpisanie wyniku z wyszukiwarki) ----------
+     Kierowca przesuwa pinezkę celu na właściwe miejsce (js/26). Zapamiętujemy: gdzie wyszukiwarka postawiła pinezkę (fix.orig) i gdzie ma stać
+     naprawdę (lat/lon wpisu). Potem po wpisaniu tego adresu / kodu pocztowego wpis „własny” wskakuje na górę, a stary błędny wynik znika (smartMerge). */
+  function smartFixKey(o){
+    const pc = smartPcKey(o.pc || smartParseLabel(o.label).pc);
+    const first = smartNorm(String(o.label || "").split(",")[0]);
+    return pc + "|" + (smartPcKey(first) === pc ? "" : first);
+  }
+  // o = { lat, lon, label, pc, city, name } — pierwotny wynik; d = { lat, lon } — nowa, poprawna pozycja
+  function addrFixSave(d){
+    try{
+      const o = d && d.orig; if(!o || typeof d.lat !== "number" || typeof d.lon !== "number") return false;
+      const list = smartLoad(), now = Date.now(), parsed = smartParseLabel(o.label);
+      const pc = o.pc ? smartFmtPc(o.pc) : parsed.pc, city = o.city || parsed.city, key = smartFixKey(o);
+      let e = list.find(x => x.fix && x.fix.key === key) || list.find(x => _dM(x.lat, x.lon, o.lat, o.lon) < SMART_SAME_M);
+      if(!e){ e = { id: smartNewId(), name: o.name || "", city: city || "", pc: pc || "", label: o.label || o.name || "Cel", lat: d.lat, lon: d.lon, count: 1, ts: now }; list.push(e); }
+      e.lat = d.lat; e.lon = d.lon; e.own = true;
+      if(pc && !e.pc) e.pc = pc;
+      if(city && !e.city) e.city = city;
+      if(o.name && !e.name) e.name = o.name;
+      const fix = e.fix || (e.fix = { key, orig: [] });
+      fix.key = key;
+      if(!fix.orig.some(x => _dM(x.lat, x.lon, o.lat, o.lon) < 30)){ fix.orig.push({ lat: o.lat, lon: o.lon }); fix.orig = fix.orig.slice(-4); }
+      smartDedupe(list); smartPrune(list); smartSave();
+      return true;
+    }catch(err){ console.warn("addrFixSave:", err); return false; }
+  }
+  // pierwotny wynik dla wybranej podpowiedzi (do porównania przy późniejszej poprawce)
+  function smartOrigFor(r, pos, label, ad){
+    ad = ad || {};
+    if(r && r.smart && r._sid){
+      const e = smartLoad().find(x => x.id === r._sid);
+      if(e && e.fix && e.fix.orig && e.fix.orig.length) return { lat: e.fix.orig[0].lat, lon: e.fix.orig[0].lon, label: e.label, pc: e.pc, city: e.city, name: e.name };
+    }
+    return { lat: pos.lat, lon: pos.lon, label, pc: ad.postalCode || "", city: ad.municipality || ad.localName || "", name: (r && r.poi && r.poi.name) || null };
+  }
+  // pełny kod pocztowy → Twoja poprawiona / ręcznie nazwana pozycja (jeśli istnieje); najczęściej używana wygrywa
+  function addrFixForPostcode(pc){
+    const k = smartPcKey(pc); if(!k) return null;
+    const c = smartLoad().filter(e => (e.fix || e.own) && smartPcKey(e.pc) === k);
+    if(!c.length) return null;
+    c.sort((a, b) => (b.fix ? 1 : 0) - (a.fix ? 1 : 0) || (b.count || 1) - (a.count || 1) || b.ts - a.ts);
+    return c[0];
   }
 </script>
 <script>
@@ -8693,8 +8898,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function recordHistory(d){              // wywoływane przy starcie trasy
     if(!d || typeof d.lat !== "number" || typeof d.lon !== "number") return;
-    smartRecord(d);   // js/23b: licznik wyborów + kod pocztowy → firma/miasto
-    const label = d.label || "Cel", name = d.name || label;
+    if(d.moved && d.orig && !d.fixSaved){ if(addrFixSave(d)) d.fixSaved = true; }   // pinezka przesunięta ręcznie, trasa ruszyła → zapamiętaj poprawkę (js/23b)
+    const dd = (d.moved && d.orig) ? Object.assign({}, d, { label: d.orig.label || d.label, name: d.orig.name || d.name, pc: d.orig.pc || d.pc, city: d.orig.city || d.city }) : d;   // w historii zostaje czytelny adres, nie „Punkt wskazany na mapie”
+    smartRecord(dd);   // js/23b: licznik wyborów + kod pocztowy → firma/miasto
+    const label = dd.label || "Cel", name = dd.name || label;
     const h = destHistory.find(x => samePlace(x, d));
     if(h){
       if(Date.now() - h.ts < 60000) return;  // ten sam start trasy zgłoszony dwa razy
@@ -8840,6 +9047,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         item.querySelector(".addr2").textContent = r._sub || (r.local ? localSubLabel(r) : ((r.poi && r.poi.name) ? label : sub));
         item.addEventListener("click", () => { clear(); if(opts.onSelect) opts.onSelect(r); });
         const pl = resultPlace(r);
+        if(r.smart && r._sid){   // wpis z historii: ✎ = edycja nazwy / kodu oraz łączenie z innym wpisem (js/23b)
+          const ed = document.createElement("button");
+          ed.type = "button"; ed.className = "svBtn"; ed.title = "Edytuj lub połącz wpisy"; ed.textContent = "✎";
+          ed.addEventListener("click", ev => { ev.stopPropagation(); smartEditOpen(r._sid, () => input.dispatchEvent(new Event("input"))); });
+          item.appendChild(ed);
+        }
         const star = document.createElement("button");
         star.type = "button"; star.className = "svBtn"; star.title = "Dodaj do ulubionych";
         star.textContent = findFav(pl) ? "⭐" : "☆";
@@ -9012,7 +9225,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const pos = (entry && entry.position) || r.position;
         const ad = r.address || {};
         navSelectedDest = { lat: pos.lat, lon: pos.lon, label, name: (r.poi && r.poi.name) || null,
-          pc: ad.postalCode || "", city: ad.municipality || ad.localName || "" };   // do cache podpowiedzi (js/23b)
+          pc: ad.postalCode || "", city: ad.municipality || ad.localName || "",   // do cache podpowiedzi (js/23b)
+          orig: smartOrigFor(r, pos, label, ad) };   // pierwotny punkt wyniku — do późniejszej poprawki pozycji pinezki
         document.getElementById("navDest").value = label;
         updateAddWaypointVisibility();
         confirmDestination();
@@ -9119,11 +9333,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       showNavError("");
       pcAbort = new AbortController();
       try{
-        const hit = await geocodePc(pc, pcAbort.signal);
+        // Twoja poprawiona / ręcznie nazwana pozycja dla tego kodu ma pierwszeństwo przed wyszukiwarką (natychmiast, bez zapytania do sieci)
+        const fx = addrFixForPostcode(pc);
+        const hit = fx ? { position: { lat: fx.lat, lon: fx.lon } } : await geocodePc(pc, pcAbort.signal);
         if(token !== pcToken) return;
         if(!hit || !hit.position){ showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
         destSearch.clear();
-        navSelectedDest = { lat: hit.position.lat, lon: hit.position.lon, label: pc, name: null };
+        navSelectedDest = fx
+          ? { lat: fx.lat, lon: fx.lon, label: fx.name ? fx.name + ", " + pc : pc, name: fx.name || null, pc: fx.pc || pc, city: fx.city || "",
+              orig: smartOrigFor({ smart: true, _sid: fx.id }, { lat: fx.lat, lon: fx.lon }, pc, { postalCode: pc }) }
+          : { lat: hit.position.lat, lon: hit.position.lon, label: pc, name: null, pc,
+              orig: { lat: hit.position.lat, lon: hit.position.lon, label: pc, pc, city: (hit.address && hit.address.municipality) || "", name: null } };
         document.getElementById("navDest").value = pc;
         updateAddWaypointVisibility();
         confirmDestination();
@@ -9554,7 +9774,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function setConfirmLabel(){
     if(!navSelectedDest) return;
     document.getElementById("navConfirmLabel").textContent = "Cel: " + navSelectedDest.label;
+    updateFixBtn();
   }
+  // przycisk „Zapamiętaj tę pozycję”: widoczny, gdy kierowca przesunął pinezkę wyniku z wyszukiwarki i jeszcze tego nie zapisał
+  function updateFixBtn(){
+    const b = document.getElementById("navFixPinBtn"); if(!b) return;
+    const d = navSelectedDest;
+    b.style.display = (d && d.moved && d.orig && !d.fixSaved) ? "" : "none";
+  }
+  document.getElementById("navFixPinBtn").addEventListener("click", () => {
+    if(!navSelectedDest || !navSelectedDest.orig) return;
+    if(addrFixSave(navSelectedDest)){
+      navSelectedDest.fixSaved = true; updateFixBtn();
+      showBanner("ZAPAMIĘTANO", "Ten adres będzie teraz wskazywał to miejsce", false);
+    }
+  });
 
   // Nowy adres dla przesuniętej pinezki (odwrotne geokodowanie). Jeśli się nie uda,
   // zostaje opis "punkt wskazany na mapie" — trasa i tak liczona jest do pinezki.
@@ -9594,6 +9828,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!destPinEditable()) return;
     navSelectedDest.lat = lat;
     navSelectedDest.lon = lon;
+    navSelectedDest.moved = true; navSelectedDest.fixSaved = false;   // → przycisk „Zapamiętaj” i automatyczny zapis przy starcie trasy
     navSelectedDest.label = "Punkt wskazany na mapie";
     if(!fromDrag && destMarker) destMarker.setLngLat([lon, lat]);
     showNavError("");
@@ -9685,7 +9920,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       type:"Feature", properties:{ id: p.id, status: p.status || "", name: p.name, verified: p.verified === false ? false : true },
       geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
   }
-  function mergePlaceNames(list){
+  // opts.move = zapis kierowcy z mapy: gdy ta sama firma jest już bliżej niż PLACE_DUPLICATE_M, to NOWA pozycja (środek zaznaczonego budynku) zastępuje starą,
+  // zamiast zostać zignorowana (wcześniej nazwa „nie pojawiała się na budynku”, bo stary punkt tej firmy leżał gdzie indziej). Przy wczytywaniu z bazy wygrywa wpis z wyższym id (nowszy).
+  function mergePlaceNames(list, opts){
     const seen = new Set(placeNames.map(placeNameKey));
     list.forEach(p => {
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
@@ -9696,7 +9933,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       // ta sama nazwa w promieniu PLACE_DUPLICATE_M = duplikat (np. ten sam magazyn dodany kilka razy) — pomijamy
       const nk = nameTokens(p.name).join(" ");
       const same = placeNames.find(q => nameTokens(q.name).join(" ") === nk && _dM(q.lat, q.lon, p.lat, p.lon) < PLACE_DUPLICATE_M);
-      if(same){ adopt(same); return; }
+      if(same){
+        const newer = !!(opts && opts.move) || (p.id != null && same.id != null && Number(p.id) > Number(same.id));
+        adopt(same);
+        if(newer){ same.lat = p.lat; same.lon = p.lon; same.name = String(p.name); if(p.verified !== undefined) same.verified = p.verified; }
+        return;
+      }
       seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified, id: p.id, status: p.status });
     });
     renderPlaceNames();
@@ -9843,14 +10085,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function finishPlaceSave(name, verified, source){
     const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name, verified };
-    mergePlaceNames([p]);
+    mergePlaceNames([p], { move: true });
     // dokładna pozycja ZAZNACZONEGO budynku + adres z formularza → cache podpowiedzi (js/23b), wpis „własny” zawsze nad TomTom
     if(typeof smartAdd === "function"){
       const st = document.getElementById("poiStreetInput").value.trim(), po = document.getElementById("poiPostInput").value.trim().toUpperCase();
       smartAdd({ name, lat: p.lat, lon: p.lon, label: [st, po].filter(Boolean).join(", "), pc: po });
     }
     try{
-      const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
+      const nkNew = nameTokens(name).join(" ");
+      const local = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]")
+        .filter(q => !(nameTokens(q.name).join(" ") === nkNew && _dM(q.lat, q.lon, p.lat, p.lon) < PLACE_DUPLICATE_M));   // stary punkt tej samej firmy zastępuje nowy
       local.push(p);
       localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(local));
     }catch(e){}
