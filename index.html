@@ -84,13 +84,13 @@
   #guidanceCard.sign-local .gIcon{ background:rgba(0,0,0,.07); color:#111; }
   #guidanceCard.sign-local #gVoiceBtn{ background:rgba(0,0,0,.07); border-color:rgba(0,0,0,.35); color:#111; }
   /* noc: znaki nie rażą — przygaszone tło, tekst i ramki */
-  body.night #guidanceCard.sign-local{ background:#8e9094; color:#101010; border-color:#18181a; box-shadow:0 6px 18px rgba(0,0,0,.45); }
-  body.night #guidanceCard.sign-motorway{ background:#07456f; color:#c5ced6; border-color:#9aa6b0; box-shadow:0 0 0 2px #07456f, 0 6px 18px rgba(0,0,0,.45); }
+  body.night #guidanceCard.sign-local{ background:#b3b6ba; color:#101010; border-color:#18181a; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+  body.night #guidanceCard.sign-motorway{ background:#0a609b; color:#e6ecf1; border-color:#c3ccd4; box-shadow:0 0 0 2px #0a609b, 0 6px 18px rgba(0,0,0,.45); }
   body.night #guidanceCard.sign-primary{ background:#0a4429; color:#bda400; border-color:#bda400; box-shadow:0 0 0 2px #0a4429, 0 6px 18px rgba(0,0,0,.45); }
   body.night #guidanceCard.sign-primary .gIcon{ color:#bda400; }
-  body.night .rb-motorway{ background:#07456f; color:#c5ced6; border-color:#9aa6b0; }
+  body.night .rb-motorway{ background:#0a609b; color:#e6ecf1; border-color:#c3ccd4; }
   body.night .rb-primary{ background:#0a4429; color:#bda400; border-color:#9aa6b0; }
-  body.night .rb-local{ background:#8e9094; color:#101010; border-color:#18181a; }
+  body.night .rb-local{ background:#b3b6ba; color:#101010; border-color:#18181a; }
   body.night .hgvChip{ filter:brightness(.72); }
   #guidanceCard .gDist:empty{ display:none; }
   /* plakietki numerów dróg */
@@ -127,7 +127,7 @@
   }
   #gVoiceBtn.off{ opacity:.5; }
   body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
-  body.guidance-on #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
+  body.guidance-on #voteCard, body.guidance-on #flagCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -161,66 +161,11 @@
   }
   .banner-text .t1{ font-size:11px; letter-spacing:.03em; opacity:.85; font-weight:600;}
   .banner-text .t2{ font-size:16px; font-weight:700; margin-top:1px;}
-  /* ---------- Menu ikon: szklana pigułka wysuwana z LEWEJ krawędzi ekranu ----------
-     Domyślnie schowana — przy lewej krawędzi, na lewo od prędkościomierza, widać tylko uchwyt ›.
-     Przesunięcie palcem w prawo (albo dotknięcie uchwytu) wysuwa menu; wtedy prędkościomierz
-     (i "Centruj") podskakuje nad nie. Gdy na mapie jest zaplanowana trasa, menu jest schowane całkiem.
-     Karta nawigatora dokuje się do samego dołu ekranu (--nav-icon-row-h = 0). */
-  :root{
-    --nav-icon-row-h: 0px;   /* karta nawigatora dotyka dołu ekranu / paska nawigacji telefonu */
-    --menu-w: 318px;      /* szerokość wysuniętego menu (6 ikon + uchwyt) */
-    --menu-hw: 24px;      /* szerokość uchwytu */
-    --menu-h: 54px;
-  }
+  /* ---------- Narzędzia mapy (⛶ 🚦 🚧 🐞): wiersz ikon w panelu nawigatora (#navToolsRow), pod nagłówkiem ----------
+     Dawne wysuwane menu po lewej usunięte. Karta nawigatora dokuje się do samego dołu ekranu (--nav-icon-row-h = 0). */
+  :root{ --nav-icon-row-h: 0px; }
   #navBottomProbe{ position:fixed; left:0; bottom:0; width:1px; height:var(--nav-icon-row-h); visibility:hidden; pointer-events:none; }
-  #navIconRow{
-    position:fixed; left:0;
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + 2px);
-    z-index:47;
-    box-sizing:border-box;
-    width:var(--menu-w); height:var(--menu-h);
-    display:flex; align-items:center; justify-content:flex-start;
-    gap:4px;
-    padding:0 4px 0 6px;
-    background: rgba(255,255,255,0.10);
-    border:1px solid rgba(255,255,255,0.28);
-    border-left:none;
-    border-radius:0 27px 27px 0;
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    touch-action:none;
-    /* schowane: za lewą krawędzią ekranu, odsłonięty tylko uchwyt */
-    transform: translateX(calc(-1 * (var(--menu-w) - var(--menu-hw) - 7px)));
-    clip-path: inset(0 0 0 calc(var(--menu-w) - var(--menu-hw) - 8px) round 0 14px 14px 0);
-    transition: transform .3s cubic-bezier(.2,.85,.3,1), clip-path .3s cubic-bezier(.2,.85,.3,1), bottom .25s ease, background .3s, opacity .2s;
-  }
-  body.menu-open #navIconRow{ transform:none; clip-path: inset(0 0 0 0 round 0 27px 27px 0); }
-  body.night #navIconRow{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
-  #navIconRow .ctrl-btn{ width:42px; height:42px; flex:0 0 auto; }
-  body:not(.menu-open) #navIconRow .ctrl-btn{ pointer-events:none; }
-  /* uchwyt: szkło + strzałka (› schowane, ‹ wysunięte) */
-  #menuHandle{
-    flex:0 0 var(--menu-hw); width:var(--menu-hw); height:42px; margin-left:auto;
-    border-radius:13px; cursor:pointer; user-select:none; -webkit-user-select:none;
-    display:flex; align-items:center; justify-content:center;
-    background: rgba(255,255,255,0.12);
-    color:#14181c; font:700 20px/1 'Inter', system-ui, sans-serif;
-  }
-  #menuHandle::before{ content:"A"; }
-  body.menu-open #menuHandle::before{ content:"9"; }
-  body.night #menuHandle{ color: var(--text-main); }
-  /* zaplanowana trasa na mapie: prędkościomierz i menu schowane */
-  body.route-planning #speedCluster, body.route-planning #navIconRow{ opacity:0; visibility:hidden; pointer-events:none; }
-  /* prędkościomierz i "Centruj" skaczą nad wysunięte menu */
-  body.menu-open #speedCluster{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) - 4px + var(--menu-h) + 10px);
-  }
-  body.menu-open.locate-visible #speedCluster{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + 54px + var(--menu-h) + 10px);
-  }
-  body.menu-open #btnLocate{
-    bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 0px) + 14px)) + var(--menu-h) + 10px);
-  }
+  body.route-planning #speedCluster{ opacity:0; visibility:hidden; pointer-events:none; }
   .navIconWrap{ position:relative; display:flex; }
   .ctrl-btn{
     width:44px; height:44px;
@@ -334,6 +279,8 @@
   #zoomChip small{ font-weight:600; opacity:.7; margin-right:4px; letter-spacing:.04em; text-transform:uppercase; font-size:10px; }
   /* przy włączonej tablicy z instrukcjami wskaźnik schodzi pod nią, żeby jej nie zasłaniać */
   body.guidance-on #zoomChip{ top: calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); }
+  /* gdy u góry jest pasek celu podróży (#navTopBar), wskaźnik zoomu schodzi pod niego */
+  body:has(#navPanel[data-navstate="search"]):not(:has(#navPanel.truck-open)):not(:has(#navPanel.billboard-open)) #zoomChip{ top: calc(env(safe-area-inset-top, 0px) + 68px); }
   #btnLocate{ left:36px; }
   #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
   #btnCompass svg{ display:block; transition: transform .12s linear; }
@@ -356,9 +303,14 @@
     color: var(--text-main);
   }
 
-  /* przycisk widoku (3D / 3D·N / 2D): igła kompasu + podpis */
+  /* przycisk widoku (3D / 2D): igła kompasu + podpis */
   #btnCompass{ flex-direction:column; gap:0; }
   #btnCompass #viewLabel{ font:800 10px/1 'Inter',system-ui,sans-serif; letter-spacing:.02em; margin-top:-1px; }
+
+  #navToolsRow{ display:flex; align-items:center; gap:10px; padding:6px 0 2px; }
+  #navToolsRow .ctrl-btn{ width:44px; height:40px; border-radius:12px; flex:0 0 auto; }
+  body:not(.night) #navToolsRow .ctrl-btn{ background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.10); }
+  body:not(.night) #navToolsRow .ctrl-btn.active{ background: var(--gator-dark); color: var(--gator-on); }
   /* ---------- Nawigator: panel wyznaczania trasy ----------
      Szklana karta zadokowana przy dolnej krawędzi ekranu. Chowa się w dół
      po przeciągnięciu uchwytu #navDragHandle w dół albo po dotknięciu go / przycisku 🧭 —
@@ -575,8 +527,8 @@
     font-family:'Inter', sans-serif; cursor:pointer; border:1px solid var(--panel-border);
     background:transparent; color: var(--text-main);
   }
-  .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
-  #voteCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
+  .poiCard button#poiAskYes, .poiCard button#poiAddSave, .poiCard button#voteYes, .poiCard button#flagOk{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #voteCard, #flagCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }  /* pod czerwonym bannerem alertu */
   #poiVoteRow button{ padding:7px 10px; font-size:12px; font-weight:600; }
   #poiAdminRow button, #poiEditBox button{ padding:8px 10px; font-size:13px; font-weight:700; }
   #poiEditBox{ flex-direction:column; gap:8px; }
@@ -835,6 +787,13 @@
   .alPin{ width:34px; height:34px; border-radius:50%; background:#1b6fd1; color:#fff; border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.55); font:800 15px/28px 'Inter',sans-serif; text-align:center; cursor:pointer; }
   .alPin.fuel{ background:#d9822b; }
   .alPin.sel{ transform:scale(1.25); background:#0b7a6d; z-index:2; }
+
+
+  /* chorągiewka zgłoszenia parkingu / fotoradaru (js/20): duża, łatwa do złapania palcem */
+  .report-flag{ width:64px; height:78px; cursor:grab; touch-action:none; filter: drop-shadow(0 3px 6px rgba(0,0,0,.45)); }
+  .report-flag svg{ display:block; }
+  .poiCard .poiBy{ font-size:11px; font-style:italic; opacity:.55; line-height:1.2; }
+  .poiCard .poiBy:empty{ display:none; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1282,11 +1241,37 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     text-shadow: 0 1px 6px rgba(0,0,0,.9);
   }
 
-  /* stoper 57 mph → 0:00 (zamiast napisu MPH): niewielki; ostatnie 20 s żółty, ostatnie 10 s czerwony i miga */
-  #speedUnit.ovTimer{ font-size:15px; font-weight:800; letter-spacing:.04em; font-variant-numeric: tabular-nums; color: var(--text-main); }
-  #speedUnit.ovWarn{ color:#ffd400; }
-  #speedUnit.ovCrit{ color:#ff3b30; animation: ovBlink .5s steps(1) infinite; }
+  /* stoper 57 mph → 0:00 pod prędkościomierzem (#ovTimer, osobny element — działa też przy wyłączonym prędkościomierzu);
+     ostatnie 20 s żółty, ostatnie 10 s czerwony i miga, po zerze czerwony stały */
+  #ovTimer{
+    display:none; order:-1;   /* column-reverse: order:-1 = na samym dole klastra, pod prędkościomierzem */
+    min-width:64px; text-align:center; padding:3px 10px; border-radius:999px;
+    font-family:'Space Grotesk', sans-serif; font-size:17px; font-weight:800; letter-spacing:.04em; font-variant-numeric: tabular-nums;
+    color: var(--text-main); background:rgba(10,16,22,.78); border:1.5px solid rgba(255,255,255,.35);
+    text-shadow:0 1px 4px rgba(0,0,0,.8);
+  }
+  #ovTimer.show{ display:block; }
+  #ovTimer.ovWarn{ color:#ffd400; border-color:#ffd400; }
+  #ovTimer.ovCrit{ color:#ff3b30; border-color:#ff3b30; animation: ovBlink .5s steps(1) infinite; }
+  #ovTimer.ovDone{ color:#fff; background:#d4180d; border-color:#ff3b30; }
   @keyframes ovBlink{ 0%{ opacity:1; } 50%{ opacity:.15; } 100%{ opacity:1; } }
+
+  /* napis OVER SPEED pod skosem: 5× mignięcie na czerwono, potem ucieka z ekranu */
+  #overSpeedFx{ position:fixed; left:0; right:0; top:34%; text-align:center; pointer-events:none; z-index:70; opacity:0; }
+  #overSpeedFx span{
+    display:inline-block; transform:rotate(-12deg);
+    font-family:'Space Grotesk', sans-serif; font-weight:800; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap;
+    font-size:clamp(44px, 15vw, 96px); color:#ff2a1a;
+    -webkit-text-stroke:2px #fff; paint-order:stroke fill;
+    text-shadow:0 0 22px rgba(255,42,26,.85), 0 6px 18px rgba(0,0,0,.6);
+  }
+  #overSpeedFx.flash{ animation: ovFxFlash .5s linear 5 both; }
+  #overSpeedFx.flee{ animation: ovFxFlee .8s cubic-bezier(.5,0,1,.6) forwards; }
+  @keyframes ovFxFlash{ 0%{ opacity:0; } 12%, 70%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes ovFxFlee{
+    0%  { opacity:1; transform:translateX(0) skewX(0); }
+    100%{ opacity:1; transform:translateX(-135vw) skewX(-28deg); }
+  }
 
   #limitSign{
     width:74px; height:74px;
@@ -1579,7 +1564,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
 
-<div id="btnCompass" title="Widok mapy: 3D (za kierunkiem jazdy) → 3D północ u góry → 2D" role="button" aria-label="Przełącz widok mapy: 3D, 3D północ u góry, 2D">
+<div id="btnCompass" title="Widok mapy: 3D (za kierunkiem jazdy) → 2D" role="button" aria-label="Przełącz widok mapy: 3D, 2D">
   <svg id="compassNeedle" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
     <path d="M12 2.5 15.6 12H8.4z" fill="#e5392f"/>
     <path d="M12 21.5 8.4 12h7.2z" fill="currentColor" opacity=".55"/>
@@ -1628,9 +1613,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 <div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="voteTitle"></div>
   <div class="poiAddr" id="voteSub"></div>
-  <div class="poiBtns">
+  <div class="poiBy" id="voteBy"></div>
+  <div class="poiBtns" id="voteBtns">
     <button id="voteNo" type="button">👎 Nie ma</button>
     <button id="voteYes" type="button">👍 Jest</button>
+  </div>
+</div>
+
+<div id="flagCard" class="poiCard" role="dialog" aria-live="polite">
+  <div class="poiName" id="flagTitle"></div>
+  <div class="poiAddr" id="flagSub"></div>
+  <div class="poiBtns">
+    <button id="flagCancel" type="button">✕ Usuń</button>
+    <button id="flagOk" type="button">✓ Zatwierdź</button>
   </div>
 </div>
 
@@ -1713,6 +1708,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
     </div>
+  </div>
+
+  <div id="navToolsRow" role="toolbar" aria-label="Narzędzia mapy">
+    <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
+    <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
+    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
+    <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
   </div>
 
   <div id="navSearchBlock">
@@ -1899,13 +1901,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 </div>
 
-<div id="navIconRow">
-  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
-  <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
-  <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
-  <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
-  <div id="menuHandle" role="button" aria-label="Menu ikon: przesuń w prawo, żeby wysunąć" aria-expanded="false"></div>
-</div>
 <div id="navBottomProbe" aria-hidden="true"></div>
 
 <div id="debugConsole">
@@ -2084,7 +2079,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 </div>
 
+<div id="overSpeedFx" aria-hidden="true"><span>OVER SPEED</span></div>
 <div id="speedCluster">
+  <div id="ovTimer" aria-live="off">0:58</div>
   <div id="speedPanel">
     <div id="speedValue">0</div>
     <div id="speedUnit">KM/H</div>
@@ -2578,7 +2575,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let northUp = false; // po kliknięciu kompasu kamera nie obraca się już za kursem pojazdu (do czasu ponownego 3D / widoku jazdy)
   function updateViewBtn(){
     const lab = document.getElementById("viewLabel"); if(!lab) return;
-    lab.textContent = !is3D ? "2D" : northUp ? "3D·N" : "3D";
+    lab.textContent = is3D ? "3D" : "2D";
   }
   function updateCompassBtn(){
     const btn = document.getElementById("btnCompass");
@@ -2593,7 +2590,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // gdy na mapie pokazana jest zaplanowana trasa: bez prędkościomierza i menu ikon (więcej miejsca na trasę)
     const shown = isRouteShownUi();
     document.body.classList.toggle("route-planning", shown);
-    if(shown) document.body.classList.remove("menu-open");
     const btn = document.getElementById("btnLocate");
     if(!btn) return;
     // pokaż przycisk tylko wtedy, gdy widok NIE podąża za użytkownikiem (wymaga wyśrodkowania)
@@ -4749,17 +4745,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     bx(-.35, -14.1, .35, -14.14, .55, .7, "#f2c200", true);                                               // tablica tylna
     mir(.74, -14.1, 1.2, -14.17, .55, .73, "#ff3b30", true);                                               // światła tylne: szerokie, na zderzaku
     mir(.4, -14.1, .66, -14.15, .58, .7, "#ffffff", true);                                                 // światła cofania (na zderzaku)
+    // tylne lampy CIĄGNIKA (Tractor unit; za kołami, po bokach pod naczepą): stałe czerwone prostokąty jak lampy naczepy; hamowanie = jasna czerwień, migacz = bursztyn
+    const sdT = sig ? (sig === "R" ? 1 : -1) : 0;
+    [1, -1].forEach(s => {
+      const hx = s > 0 ? [.72, 1.34] : [-1.34, -.72], lx = s > 0 ? [.96, 1.32] : [-1.32, -.96];
+      bx(hx[0], -4.5, hx[1], -3.88, .46, .98, "#1a1d20");                                   // obudowa lampy
+      bx(lx[0], -4.58, lx[1], -4.5, .56, .76, s === sdT ? "#ffb300" : brake ? "#ff1a10" : "#ff3b30");   // soczewka: prostokąt
+    });
     let glows = [];
-    if(brake){   // światła hamowania: jasnoczerwone, szerokie lampy na tyle naczepy + łuna
-      mir(.7, -14.1, 1.22, -14.2, .52, .78, "#ff1a10", true); bx(-.7, -14.1, .7, -14.17, .75, .82, "#ff1a10", true);
-      glows.push({ x: .97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" }, { x: -.97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" });
+    if(brake){   // światła hamowania: te same prostokąty co lampy tylne naczepy (zmieniają tylko kolor na jasnoczerwony) + łuna
+      mir(.74, -14.1, 1.2, -14.2, .55, .73, "#ff1a10", true);
+      glows.push({ x: .97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" }, { x: -.97, y: -14.9, r: 2.6, tr: true, col: "#ff2a1a" },
+                 { x: 1.14, y: -5.2, r: 2.2, col: "#ff2a1a" }, { x: -1.14, y: -5.2, r: 2.2, col: "#ff2a1a" });   // + łuna spod ciągnika
     }
     if(sig){   // migacz: przedni w reflektorze, powtarzacz na kabinie, lampa ZA ciągnikiem (za oponami, pod naczepą — widoczna z tyłu), lampa tylna naczepy
       const sd = sig === "R" ? 1 : -1, amb = "#ffb300", hot = "#ffe08a", sx = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
       let q = sx(.98, 1.2); bx(q[0], 2.6, q[1], 2.76, .95, 1.12, amb);                  // przedni kierunkowskaz w obudowie reflektora
       q = sx(1.27, 1.31); bx(q[0], 1.98, q[1], 2.28, 1.0, 1.12, amb);                    // powtarzacz boczny na kabinie
-      q = sx(.72, 1.34); bx(q[0], -4.5, q[1], -3.88, .46, .98, "#1a1d20");                // obudowa lampy za kołami ciągnika
-      q = sx(.8, 1.28); bx(q[0], -4.55, q[1], -3.92, .52, .92, amb); q = sx(.9, 1.18); bx(q[0], -4.58, q[1], -3.95, .62, .82, hot);   // pomarańczowa soczewka z jasnym rdzeniem
       q = sx(.74, 1.2); bx(q[0], -14.1, q[1], -14.2, .55, .73, amb, true);               // tylna lampa naczepy też miga
       glows.push({ x: sd * 1.05, y: 3.4, r: 3.0 }, { x: sd * 1.9, y: 2.2, r: 1.8 }, { x: sd * 1.05, y: -5.3, r: 2.8 }, { x: sd * .97, y: -14.8, r: 3.0, tr: true });
     }
@@ -4892,9 +4894,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const moving = currentSpeedKmh >= 3;
     if(moving) avSm.ph = (avSm.ph || 0) + 0.033 * (4 + Math.min(30, avSm.v) * .35);
     const sig = (window.turnSignal && Date.now() % 800 < 400) ? window.turnSignal : null;   // migacz: 0,45 s świeci / 0,45 s gaśnie
-    // hamowanie: prędkość wyraźnie spada (min. ok. 3 km/h w 0,6 s) → światła hamowania świecą min. 1 s
+    // hamowanie: spadek prędkości o ≥2 km/h (sprawdzany przy każdej klatce, odniesienie odświeżane co 0,4 s) → światła hamowania świecą od razu, min. 1,5 s
     const nowB = Date.now(), bk = avSm.bk || (avSm.bk = { t: nowB, v: currentSpeedKmh, until: 0 });
-    if(nowB - bk.t >= 600){ if(bk.v - currentSpeedKmh >= 3 && bk.v > 8) bk.until = nowB + 1200; bk.t = nowB; bk.v = currentSpeedKmh; }
+    if(currentSpeedKmh > bk.v){ bk.v = currentSpeedKmh; bk.t = nowB; }
+    else if(bk.v - currentSpeedKmh >= 2 && bk.v > 8){ bk.until = nowB + 1500; bk.v = currentSpeedKmh; bk.t = nowB; }
+    else if(nowB - bk.t >= 400){ bk.v = currentSpeedKmh; bk.t = nowB; }
     const model = A3_BUILD[vehicleAvatar](avatarAccent(), avSm.ph || 0, sig, nowB < bk.until);
     const s = avatarScale(a, true) * (vehicleAvatar === "truck" ? 0.82 : 1), hr = avSm.hdg * Math.PI / 180, ch = Math.cos(hr), sh = Math.sin(hr);
     const kLat = 1 / 111320, kLon = 1 / (111320 * Math.max(0.2, Math.cos(avSm.lat * Math.PI / 180)));
@@ -7413,7 +7417,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hidePoiAsk(); // zamyka inne karty (i starą kartę głosowania)
     voteTarget = t;
     document.getElementById("voteTitle").textContent = t.title;
-    document.getElementById("voteSub").textContent = voteCountsText(t);
+    document.getElementById("voteSub").textContent = t.local ? "czeka na potwierdzenie przez innych" : voteCountsText(t);
+    const by = document.getElementById("voteBy"); if(by) by.textContent = t.by || "";
+    document.getElementById("voteBtns").style.display = t.local ? "none" : "";
     document.getElementById("voteYes").textContent = t.yes || "👍 Jest";
     document.getElementById("voteNo").textContent = t.no || "👎 Nie ma";
     document.getElementById("voteCard").classList.add("show");
@@ -7450,25 +7456,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         type:"FeatureCollection",
         features: userHgvParking.map(p => ({
           type:"Feature",
-          properties:{ addedAt: p.addedAt },
+          properties:{ addedAt: p.addedAt, mine: 1 },
           geometry:{ type:"Point", coordinates:[p.lon, p.lat] }
         }))
       });
     }
   }
 
-  function reportHgvParkingHere(){
-    if(!lastPos){
-      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
-      return;
-    }
-    const lat = lastPos.lat, lon = lastPos.lon;
+  function commitHgvParking(lat, lon){
     // Zgłoszenie pokazujemy na mapie OD RAZU, niezależnie od tego, co dalej stanie się z Supabase.
     // Wcześniej przy udanym wysłaniu do wspólnej bazy nic nie rysowaliśmy lokalnie — liczyliśmy, że
     // zaraz uda się je odczytać z powrotem z serwera. Jeśli ten odczyt po cichu zawiódł (brakująca
     // tabela/funkcja po stronie Supabase, RLS, albo zwyczajnie inne zapytanie do Overpass leciało
     // akurat w tle), zgłoszenie znikało — było wysłane, ale kierowca nigdy go nie widział.
-    userHgvParking.push({ lat, lon, addedAt: new Date().toISOString() });
+    userHgvParking.push({ lat, lon, addedAt: new Date().toISOString(), by: getDeviceId() });
     saveUserHgvParking();
     renderUserHgvParking();
     if(supaConfigured()){
@@ -7485,14 +7486,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   }
 
-  function reportCameraHere(){
-    if(!lastPos){
-      showBanner("BRAK POZYCJI", "Czekam na sygnał GPS, spróbuj za chwilę", false);
-      return;
-    }
-    const lat = lastPos.lat, lon = lastPos.lon;
+  function commitCamera(lat, lon){
     // jw. (patrz komentarz w reportHgvParkingHere): rysujemy natychmiast, niezależnie od Supabase
-    userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString() });
+    userReportedCameras.push({ lat, lon, addedAt: new Date().toISOString(), by: getDeviceId() });
     saveUserReportedCameras();
     rebuildCameraList();
     if(supaConfigured()){
@@ -7508,6 +7504,82 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       showBanner("ZGŁOSZONO LOKALNIE", "Skonfiguruj Supabase w Nawigatorze, żeby zobaczyli to inni kierowcy", false);
     }
   }
+
+  /* ---------- chorągiewka zgłoszenia: parking HGV / fotoradar ----------
+     Chorągiewka pojawia się na ŚRODKU EKRANU (nie na punkcie GPS) i podąża za środkiem mapy, dopóki kierowca jej nie złapie —
+     wtedy zostaje tam, gdzie ją puści. Dopiero gdy punkt jest ułożony i nic się nie rusza przez 5 s, pytamy o zatwierdzenie. */
+  let flagDraft = null;        // { kind, marker, docked, timer, prevFollow }
+  const FLAG_ASK_MS = 5000;
+  function flagKindInfo(kind){
+    return kind === "camera" ? { ico: "📷", col: "#d93025", name: "Fotoradar" } : { ico: "🅿️", col: "#1a6fd6", name: "Parking HGV" };
+  }
+  function screenCenterLngLat(){
+    const c = map.getContainer();
+    return map.unproject([c.clientWidth / 2, c.clientHeight / 2]);   // prawdziwy środek ekranu (getCenter() uwzględnia padding kamery jazdy)
+  }
+  function flagSetAsk(ready){
+    const d = flagDraft; if(!d) return;
+    const k = flagKindInfo(d.kind);
+    document.getElementById("flagTitle").textContent = k.ico + " " + k.name;
+    document.getElementById("flagSub").textContent = ready ? "Zatwierdzić ten punkt?" : "Przesuń mapę lub chorągiewkę w miejsce punktu.";
+    document.getElementById("flagOk").style.display = ready ? "" : "none";
+    document.getElementById("flagCard").classList.add("show");
+  }
+  function flagArm(){   // punkt ułożony → po 5 s pytanie o zatwierdzenie
+    const d = flagDraft; if(!d) return;
+    if(d.timer) clearTimeout(d.timer);
+    d.timer = setTimeout(() => { if(flagDraft === d) flagSetAsk(true); }, FLAG_ASK_MS);
+  }
+  function flagDisarm(){
+    const d = flagDraft; if(!d) return;
+    if(d.timer){ clearTimeout(d.timer); d.timer = null; }
+    flagSetAsk(false);
+  }
+  function dropFlagDraft(){
+    const d = flagDraft; if(!d) return;
+    flagDraft = null;
+    if(d.timer) clearTimeout(d.timer);
+    try{ d.marker.remove(); }catch(e){}
+    if(map){ map.off("move", d.onMove); map.off("moveend", d.onMoveEnd); }
+    document.getElementById("flagCard").classList.remove("show");
+    followUser = d.prevFollow;   // wracamy do podążania za pojazdem, jeśli tak było przed zgłoszeniem
+    if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
+  }
+  function commitFlagDraft(){
+    const d = flagDraft; if(!d) return;
+    const ll = d.marker.getLngLat(), kind = d.kind;
+    dropFlagDraft();
+    if(kind === "camera") commitCamera(ll.lat, ll.lng); else commitHgvParking(ll.lat, ll.lng);   // zapis z autorem (device id)
+  }
+  function startReportFlag(kind){
+    if(!map) return;
+    if(flagDraft) dropFlagDraft();     // niezatwierdzona poprzednia chorągiewka znika
+    const k = flagKindInfo(kind);
+    const el = document.createElement("div");
+    el.className = "report-flag";
+    el.innerHTML = `<svg width="64" height="78" viewBox="0 0 64 78" aria-hidden="true">
+      <rect x="6" y="4" width="4" height="72" rx="2" fill="#2b2f33" stroke="#fff" stroke-width="1.5"/>
+      <path d="M10 6 H58 Q62 6 62 10 V36 Q62 40 58 40 H10 Z" fill="${k.col}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+      <text x="36" y="32" text-anchor="middle" font-size="26">${k.ico}</text>
+    </svg>`;
+    // dół drzewca = dokładny punkt zgłoszenia
+    const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-8, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
+      .setLngLat(screenCenterLngLat()).addTo(map);
+    const d = { kind, marker, docked: true, timer: null, prevFollow: followUser };
+    d.onMove = () => { if(flagDraft === d && d.docked){ marker.setLngLat(screenCenterLngLat()); flagDisarm(); } };   // dopóki niezłapana: stoi na środku ekranu
+    d.onMoveEnd = () => { if(flagDraft === d && d.docked) flagArm(); };                                                // mapa ustawiona → odliczanie 5 s
+    marker.on("dragstart", () => { d.docked = false; flagDisarm(); });
+    marker.on("dragend", () => { if(flagDraft === d) flagArm(); });
+    flagDraft = d;
+    followUser = false;                // kamera nie ucieka za pojazdem, kiedy kierowca ustawia punkt
+    if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
+    map.on("move", d.onMove); map.on("moveend", d.onMoveEnd);
+    flagSetAsk(false);
+  }
+  function reportHgvParkingHere(){ startReportFlag("parking"); }
+  function reportCameraHere(){ startReportFlag("camera"); }
+  document.getElementById("flagOk").addEventListener("click", commitFlagDraft);
+  document.getElementById("flagCancel").addEventListener("click", dropFlagDraft);
 
   function wayCentroid(geometry){
     let sumLat = 0, sumLon = 0;
@@ -7954,7 +8026,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(cam.community && cam.reportId != null && supaConfigured() && !placeAddTarget){
           showVoteCard({ kind: "report", id: cam.reportId, title: "Fotoradar zgłoszony przez kierowców",
             confirmations: cam.confirmations, denials: cam.denials, status: "active",
-            yes: "👍 Jest", no: "👎 Nie ma" }, 10000);
+            yes: "👍 Jest", no: "👎 Nie ma", by: "dodane przez użytkownika" }, 10000);
         }
       } else if(d > CAMERA_ALERT_RESET_M && cam.alerted){
         cam.alerted = false; // reset histerezy, by można było ostrzec ponownie przy kolejnym podejściu
@@ -8086,33 +8158,75 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("startBtn").textContent = "Spróbuj ponownie";
   }
 
-  /* ---------- Stoper pod prędkościomierzem (zamiast napisu MPH) ----------
-     Od 57 mph zaczyna odliczać minutę do zera; gdy prędkość spadnie do 56 mph, wraca napis jednostki.
-     Ostatnie 20 s świeci na żółto, ostatnie 10 s na czerwono i miga. Prędkość liczona zawsze w mph. */
-  const OV_START_MPH = 57, OV_SECONDS = 60;
-  const ovTimer = { active:false, t0:0 };
+  /* ---------- Stoper pod prędkościomierzem (#ovTimer — osobny element, widoczny zawsze, także gdy prędkościomierz jest wyłączony) ----------
+     Od 57 mph odlicza 58 s do zera; gdy prędkość spadnie do 56 mph, stoper znika. Ostatnie 20 s: żółty + delikatny sygnał;
+     ostatnie 10 s: czerwony, miga i szybko cyka. Po zerze: „OVER SPEED” (5× mignięcie na czerwono → ucieka z ekranu), raz na przekroczenie. */
+  const OV_START_MPH = 57, OV_SECONDS = 58, OV_WARN_S = 20, OV_CRIT_S = 10, OV_TICK_MS = 250;
+  const ovTimer = { active:false, t0:0, warned:false, fxDone:false, lastTick:0 };
+
+  function ovAudio(){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }catch(e){ return null; }
+  }
+  function ovSoftSignal(){          // delikatny, krótki sygnał przy zapaleniu się żółtego
+    const ctx = ovAudio(); if(!ctx) return;
+    const now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = 660;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.12, now + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+    osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.5);
+  }
+  function ovTick(){                // suche „tyknięcie” zegara
+    const ctx = ovAudio(); if(!ctx) return;
+    const now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = "square"; osc.frequency.value = 1900;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.10, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+    osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.05);
+  }
+  function showOverSpeedFx(){       // 5 mignięć na czerwono, potem napis ucieka z ekranu
+    const fx = document.getElementById("overSpeedFx"); if(!fx) return;
+    fx.className = "";
+    void fx.offsetWidth;            // restart animacji
+    fx.classList.add("flash");
+    const onEnd = (e) => {
+      if(e.target !== fx) return;
+      if(fx.classList.contains("flash")){ fx.classList.remove("flash"); fx.classList.add("flee"); }
+      else { fx.removeEventListener("animationend", onEnd); fx.className = ""; }
+    };
+    fx.addEventListener("animationend", onEnd);
+  }
   function updateOverspeedTimer(){
-    const el = document.getElementById("speedUnit"); if(!el) return;
+    const el = document.getElementById("ovTimer"); if(!el) return;
     const mph = Math.round((currentSpeedKmh || 0) * 0.621371);
     if(mph >= OV_START_MPH){
       const now = performance.now();
-      if(!ovTimer.active){ ovTimer.active = true; ovTimer.t0 = now; }
-      const sec = Math.ceil(Math.max(0, OV_SECONDS - (now - ovTimer.t0) / 1000));
+      if(!ovTimer.active){ ovTimer.active = true; ovTimer.t0 = now; ovTimer.warned = false; ovTimer.fxDone = false; }
+      const left = Math.max(0, OV_SECONDS - (now - ovTimer.t0) / 1000), sec = Math.ceil(left);
       el.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
-      el.classList.add("ovTimer");
-      el.classList.toggle("ovWarn", sec <= 20 && sec > 10);
-      el.classList.toggle("ovCrit", sec <= 10);
+      el.classList.add("show");
+      const expired = left <= 0, crit = !expired && sec <= OV_CRIT_S, warn = !expired && !crit && sec <= OV_WARN_S;
+      el.classList.toggle("ovWarn", warn);
+      el.classList.toggle("ovCrit", crit);
+      el.classList.toggle("ovDone", expired);
+      if(warn && !ovTimer.warned){ ovTimer.warned = true; ovSoftSignal(); }
+      if(crit && now - ovTimer.lastTick >= OV_TICK_MS){ ovTimer.lastTick = now; ovTick(); }
+      if(expired && !ovTimer.fxDone){ ovTimer.fxDone = true; showOverSpeedFx(); }
     } else if(ovTimer.active){
       ovTimer.active = false;
-      el.classList.remove("ovTimer", "ovWarn", "ovCrit");
-      el.textContent = unitSystem === "mph" ? "MPH" : "KM/H";
+      el.classList.remove("show", "ovWarn", "ovCrit", "ovDone");
     }
   }
   addTick(updateOverspeedTimer, 200);
 
   function renderSpeedUI(){
     document.getElementById("speedValue").textContent = kmhToDisplay(currentSpeedKmh);
-    if(!ovTimer.active) document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
+    document.getElementById("speedUnit").textContent = unitSystem === "mph" ? "MPH" : "KM/H";
     if(currentLimit){
       document.getElementById("limitValue").textContent = kmhToDisplay(currentLimit);
       const sign = document.getElementById("limitSign");
@@ -8302,6 +8416,112 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 </script>
 <script>
+/* ===== js/23c-free-geocoder.js — Darmowa wyszukiwarka adresów (bez klucza API) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Używana, gdy nie ma klucza TomTom (albo jest nieprawidłowy) — dzięki temu podpowiedzi adresów działają od razu:
+     • kody pocztowe UK (pełne, sektor, sam początek) → postcodes.io (darmowe, oficjalne dane, CORS, bez klucza),
+     • nazwy firm, ulice, miasta → Photon (komoot, dane OpenStreetMap, stworzony pod podpowiedzi „w trakcie pisania”, CORS, bez klucza),
+     • odwrotne geokodowanie wpisów z bazy kierowców → Photon /reverse.
+   Zwraca wyniki w tym samym kształcie co TomTom ({ position, address, poi, type }), więc reszta kodu (js/24) działa bez zmian.
+   Nominatim celowo NIE jest używany: jego regulamin zabrania podpowiedzi „przy każdej literze”.
+   Wywołania z js/24: freeSearch(q, { bias, signal }), freeGeocodePc(pc, signal), freeReverse(lat, lon, signal). */
+"use strict";
+
+  const FREE_PHOTON = "https://photon.komoot.io";
+  const FREE_POSTCODES = "https://api.postcodes.io";
+  const FREE_UK_BBOX = "-8.7,49.8,1.9,60.9";           // Wielka Brytania (z Irlandią Płn.) — Photon nie filtruje po kraju, więc ograniczamy ramką i kodem kraju
+  const FREE_NON_POI_KEYS = new Set(["place", "highway", "boundary", "waterway", "natural", "landuse", "route", "junction"]);
+  const _freeCache = new Map();                        // zapytanie → wyniki (mniej zapytań przy cofaniu / dopisywaniu liter)
+
+  async function _freeJson(url, signal){
+    const r = await fetch(url, { signal });
+    if(r.status === 404) return null;
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  const _freeUniq = parts => parts.filter(Boolean).filter((p, i, a) => a.findIndex(x => String(x).toLowerCase() === String(p).toLowerCase()) === i);
+
+  // kod pocztowy UK → wynik „Geography” (środek kodu); pełny kod, sektor („B66 2”) albo sam początek („B66”)
+  async function freeGeocodePc(pc, signal){
+    const clean = String(pc || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if(clean.length < 2) return null;
+    let lat, lon, label, muni = "", postal = "";
+    if(/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(clean)){                                    // pełny kod
+      const d = await _freeJson(`${FREE_POSTCODES}/postcodes/${clean}`, signal), x = d && d.result;
+      if(!x) return null;
+      lat = x.latitude; lon = x.longitude; postal = x.postcode; muni = x.admin_district || x.parish || "";
+      label = [x.postcode, muni].filter(Boolean).join(", ");
+    } else if(/^[A-Z]{1,2}\d[A-Z\d]? ?\d$/.test(String(pc).toUpperCase().trim().replace(/ +/g, " ")) && /\d$/.test(clean) && String(pc).trim().includes(" ")){   // sektor, np. „B66 2”
+      const d = await _freeJson(`${FREE_POSTCODES}/postcodes?q=${encodeURIComponent(String(pc).trim())}&limit=1`, signal), x = d && d.result && d.result[0];
+      if(!x) return null;
+      lat = x.latitude; lon = x.longitude; muni = x.admin_district || ""; postal = String(pc).toUpperCase().trim();
+      label = [postal, muni].filter(Boolean).join(", ");
+    } else {                                                                                // sam początek kodu
+      const d = await _freeJson(`${FREE_POSTCODES}/outcodes/${clean}`, signal), x = d && d.result;
+      if(!x) return null;
+      lat = x.latitude; lon = x.longitude; muni = (x.admin_district || [])[0] || ""; postal = x.outcode;
+      label = [x.outcode, muni].filter(Boolean).join(", ");
+    }
+    if(typeof lat !== "number" || typeof lon !== "number") return null;
+    return { type: "Geography", position: { lat, lon }, address: { freeformAddress: label, postalCode: postal, municipality: muni, country: "United Kingdom" } };
+  }
+
+  // obiekt Photon (GeoJSON Feature) → wynik w kształcie TomTom
+  function _freeFromPhoton(f){
+    const p = f.properties || {}, c = f.geometry && f.geometry.coordinates;
+    if(!c || typeof c[0] !== "number") return null;
+    if(p.countrycode && p.countrycode !== "GB") return null;
+    const isPoi = !!p.name && !FREE_NON_POI_KEYS.has(p.osm_key);
+    const street = p.street || (p.osm_key === "highway" ? p.name : "");
+    const muni = p.city || p.district || p.locality || "";
+    const line = street ? ((p.housenumber ? p.housenumber + " " : "") + street) : "";
+    const isPlace = p.osm_key === "place";
+    const parts = isPlace
+      ? _freeUniq([p.name, p.district && p.district !== p.name ? p.district : "", p.county || p.state])
+      : _freeUniq([isPoi ? p.name : "", line, muni, p.postcode]);
+    const r = {
+      type: isPlace ? "Geography" : (isPoi ? "POI" : (street ? "Street" : "Geography")),
+      position: { lat: c[1], lon: c[0] },
+      address: { freeformAddress: parts.join(", ") || p.name || "Nieznany adres", streetName: street || undefined, streetNumber: p.housenumber || undefined,
+        municipality: muni || (isPlace ? p.name : "") || undefined, postalCode: p.postcode || undefined, country: p.country || "United Kingdom" }
+    };
+    if(isPoi) r.poi = { name: p.name };
+    return r;
+  }
+
+  // zapytanie tekstowe: kod pocztowy → postcodes.io, reszta → Photon (z preferencją okolicy mapy / GPS)
+  async function freeSearch(query, opts){
+    opts = opts || {};
+    const q = String(query || "").trim(); if(!q) return [];
+    const signal = opts.signal, bias = opts.bias, limit = opts.limit || 8;
+    const pr = (typeof parsePostcode === "function") ? parsePostcode(q) : null;
+    if(pr){ const hit = await freeGeocodePc(pr.v, signal); return hit ? [hit] : []; }
+    const key = q.toLowerCase() + "|" + (bias ? bias.lat.toFixed(1) + "," + bias.lon.toFixed(1) : "");
+    if(_freeCache.has(key)) return _freeCache.get(key);
+    const params = new URLSearchParams({ q, limit: String(limit + 4), lang: "en", bbox: FREE_UK_BBOX });
+    if(bias){ params.set("lat", bias.lat.toFixed(5)); params.set("lon", bias.lon.toFixed(5)); params.set("location_bias_scale", "0.4"); }
+    const d = await _freeJson(`${FREE_PHOTON}/api/?${params.toString()}`, signal);
+    const out = [];
+    ((d && d.features) || []).forEach(f => {
+      const r = _freeFromPhoton(f); if(!r) return;
+      if(out.some(o => o.address.freeformAddress === r.address.freeformAddress && _dM(o.position.lat, o.position.lon, r.position.lat, r.position.lon) < 80)) return;   // duplikaty
+      out.push(r);
+    });
+    const res = out.slice(0, limit);
+    if(_freeCache.size > 60) _freeCache.clear();
+    _freeCache.set(key, res);
+    return res;
+  }
+
+  // odwrotne geokodowanie (wpisy z bazy kierowców bez miasta / kodu) → { municipality, postalCode, streetName, streetNumber } albo null
+  async function freeReverse(lat, lon, signal){
+    const d = await _freeJson(`${FREE_PHOTON}/reverse?lat=${lat}&lon=${lon}&lang=en&limit=1`, signal);
+    const f = d && d.features && d.features[0]; if(!f) return null;
+    const p = f.properties || {};
+    return { municipality: p.city || p.district || p.locality || "", postalCode: p.postcode || "", streetName: p.street || "", streetNumber: p.housenumber || "" };
+  }
+</script>
+<script>
 /* ===== js/24-nav-search-favorites.js — Nawigator: ustawienia, wyszukiwanie celu, ulubione i historia =====
    Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
 "use strict";
@@ -8372,7 +8592,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }catch(e){ /* localStorage niedostępny - klucz zostaje tylko w pamięci sesji */ }
   }
 
-  /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead) ---------- */
+  /* ---------- podpowiedzi adresów (TomTom Search — Fuzzy Search z typeahead; bez klucza: darmowe Photon + postcodes.io, js/23c) ---------- */
   function navResultLabel(r){
     const addr = r.address || {};
     return addr.freeformAddress || r.poi?.name || "Nieznany adres";
@@ -8429,11 +8649,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const _revCache = new Map();
   // uzupełnia wpisy z bazy kierowców miastem i kodem pocztowym (odwrotne geokodowanie TomTom, z pamięcią podręczną)
   function enrichLocalAddresses(list, signal){
-    if(!tomtomApiKey || !list.length) return Promise.resolve();
+    if(!list.length) return Promise.resolve();
     return Promise.all(list.map(r => {
       const lat = r.position.lat, lon = r.position.lon, k = lat.toFixed(4) + "," + lon.toFixed(4);
       const apply = a => { if(a){ r.address = Object.assign({}, r.address, { municipality: a.municipality || a.localName, postalCode: a.postalCode, streetName: a.streetName, streetNumber: a.streetNumber }); } };
       if(_revCache.has(k)){ apply(_revCache.get(k)); return null; }
+      if(!tomtomApiKey){   // darmowy odpowiednik (js/23c)
+        return freeReverse(lat, lon, signal).then(a => { if(a){ _revCache.set(k, a); apply(a); } }).catch(err => { if(err.name === "AbortError") throw err; });
+      }
       return fetch(`${TOMTOM_REVERSE_URL}${lat},${lon}.json?key=${tomtomApiKey}&radius=150`, { signal })
         .then(x => x.ok ? x.json() : null)
         .then(d => { const a = d && d.addresses && d.addresses[0] && d.addresses[0].address; if(a){ _revCache.set(k, a); apply(a); } })
@@ -8627,43 +8850,43 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       box.classList.add("open");
     }
     function fetchSuggestions(query, autoPick){
-      if(!tomtomApiKey){
-        showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy.");
-        setNavKeyRowOpen(true);
-        return;
-      }
       showNavError("");
       if(abort) abort.abort();
       abort = new AbortController();
-
-      const params = new URLSearchParams({
-        key: tomtomApiKey,
-        typeahead: autoPick ? "false" : "true",
-        limit: "8",
-        countrySet: NAV_DEFAULT_COUNTRY
-      });
+      const signal = abort.signal;
       // wyniki faworyzują okolicę, którą widać na mapie (a bez mapy — pozycję GPS)
       const bias = (opts.bias && opts.bias()) || searchBias();
-      if(bias){
-        params.set("lat", bias.lat);
-        params.set("lon", bias.lon);
+      const freeSrc = () => freeSearch(query, { bias, signal });   // darmowa wyszukiwarka (js/23c): bez klucza API
+      let src;
+      if(!tomtomApiKey) src = freeSrc();
+      else {
+        const params = new URLSearchParams({
+          key: tomtomApiKey,
+          typeahead: autoPick ? "false" : "true",
+          limit: "8",
+          countrySet: NAV_DEFAULT_COUNTRY
+        });
+        if(bias){
+          params.set("lat", bias.lat);
+          params.set("lon", bias.lon);
+        }
+        const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
+        src = fetch(url, { signal })
+          .then(r => {
+            if(r.status === 403) throw new Error("UNAUTHORIZED");
+            if(!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(data => {
+            const results = data.results || [];
+            // brak jakiejkolwiek firmy w wynikach (np. wpisano nazwę sieci, jak "Halfords") → dodatkowe
+            // zapytanie o firmy w promieniu ~50 km, najbliższe pierwsze
+            if(bias && results.filter(hasFullAddress).length < 3) return fetchPoiNear(query, bias, signal).then(poi => poi.concat(results));
+            return results;
+          })
+          .catch(err => { if(err.message === "UNAUTHORIZED") return freeSrc(); throw err; });   // nieprawidłowy klucz → darmowa wyszukiwarka zamiast błędu
       }
-      const url = `${TOMTOM_SEARCH_URL}${encodeURIComponent(query)}.json?${params.toString()}`;
-
-      const signal = abort.signal;
-      fetch(url, { signal })
-        .then(r => {
-          if(r.status === 403) throw new Error("UNAUTHORIZED");
-          if(!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
-        })
-        .then(data => {
-          const results = data.results || [];
-          // brak jakiejkolwiek firmy w wynikach (np. wpisano nazwę sieci, jak "Halfords") → dodatkowe
-          // zapytanie o firmy w promieniu ~50 km, najbliższe pierwsze
-          if(bias && results.filter(hasFullAddress).length < 3) return fetchPoiNear(query, bias, signal).then(poi => poi.concat(results));
-          return results;
-        })
+      src
         .then(results => {
           // najpierw nazwy z bazy kierowców/firm HGV (darmowe, bez TomTom), potem wyniki TomTom
           const local = localNameMatches(query, bias).filter(l => !results.some(r =>
@@ -8688,9 +8911,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         })
         .catch(err => {
           if(err.name === "AbortError") return;
-          console.warn("TomTom search error:", err);
-          if(err.message === "UNAUTHORIZED") showNavError("Klucz API TomTom jest nieprawidłowy lub nieaktywny.");
-          else showNavError("Nie udało się pobrać podpowiedzi adresów.");
+          console.warn("Błąd wyszukiwania adresów:", err);
+          showNavError("Nie udało się pobrać podpowiedzi adresów.");
         });
     }
 
@@ -8830,15 +9052,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       return sc;
     }
     async function geocodePc(pc, signal){
+      if(!tomtomApiKey) return freeGeocodePc(pc, signal);   // darmowe postcodes.io (js/23c)
       const g = await fetch(`${TOMTOM_SEARCH_URL}${encodeURIComponent(pc)}.json?` + new URLSearchParams({ key: tomtomApiKey, limit: "5", countrySet: NAV_DEFAULT_COUNTRY, typeahead: "false" }), { signal });
-      if(g.status === 403) throw new Error("UNAUTHORIZED");
+      if(g.status === 403) return freeGeocodePc(pc, signal);   // nieprawidłowy klucz → darmowe postcodes.io
       const rs = (await g.json()).results || [];
       return rs.find(r => r.type === "Geography" && r.position) || rs.find(r => r.position) || null;   // sam początek kodu → obszar, nie ulica o podobnej nazwie
     }
     async function findCompanies(pc){
       const partial = !UK_POSTCODE_RE.test(pc), R = partial ? POSTCODE_PARTIAL_RADIUS_M : POSTCODE_RADIUS_M;
       const token = ++pcToken;
-      if(!tomtomApiKey){ showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy."); setNavKeyRowOpen(true); return; }
       showNavError("");
       if(pcAbort) pcAbort.abort();
       pcAbort = new AbortController();
@@ -8847,9 +9069,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const hit = await geocodePc(pc, signal);
         if(!hit || !hit.position){ if(token === pcToken) showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
         const c = hit.position;
-        const n = await fetch("https://api.tomtom.com/search/2/nearbySearch/.json?" + new URLSearchParams({
-          key: tomtomApiKey, lat: String(c.lat), lon: String(c.lon), radius: String(R), limit: "50", countrySet: NAV_DEFAULT_COUNTRY }), { signal });
-        const nd = n.ok ? await n.json() : { results: [] };
+        let nd = { results: [] };   // firmy w okolicy kodu: TomTom (tylko z kluczem); bez klucza zostają firmy z bazy kierowców i HGV
+        if(tomtomApiKey){
+          const n = await fetch("https://api.tomtom.com/search/2/nearbySearch/.json?" + new URLSearchParams({
+            key: tomtomApiKey, lat: String(c.lat), lon: String(c.lon), radius: String(R), limit: "50", countrySet: NAV_DEFAULT_COUNTRY }), { signal });
+          nd = n.ok ? await n.json() : { results: [] };
+        }
         const list = (nd.results || []).filter(r => r.poi && r.poi.name && r.position);
         // firmy z bazy kierowców i HGV w promieniu
         const addLocal = (name, lat, lon) => {
@@ -8884,14 +9109,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }catch(err){
         if(err.name === "AbortError") return;
         console.warn("Kod pocztowy — błąd:", err);
-        showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się pobrać firm dla kodu pocztowego.");
+        showNavError("Nie udało się pobrać firm dla kodu pocztowego.");
       }
     }
     // Enter / „Idź” w kodzie pocztowym: tylko pinezka na mapie w tym kodzie (bez wybierania firmy)
     async function pinPostcode(pc){
       const token = ++pcToken;
       if(pcAbort) pcAbort.abort();
-      if(!tomtomApiKey){ showNavError("Wklej klucz API TomTom poniżej, aby wyszukiwać adresy."); setNavKeyRowOpen(true); return; }
       showNavError("");
       pcAbort = new AbortController();
       try{
@@ -8906,7 +9130,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(typeof navSearchHistDrop === "function") navSearchHistDrop();
       }catch(err){
         if(err.name === "AbortError") return;
-        showNavError(err.message === "UNAUTHORIZED" ? "Klucz API TomTom jest nieprawidłowy lub nieaktywny." : "Nie udało się znaleźć kodu pocztowego.");
+        showNavError("Nie udało się znaleźć kodu pocztowego.");
       }
     }
     pcInput.addEventListener("input", () => {
@@ -9768,7 +9992,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
           const vp = vf[0].properties || {};
           showVoteCard({ kind: "report", id: vp.id, title: "Parking HGV zgłoszony przez kierowców",
             confirmations: vp.confirmations, denials: vp.denials, status: vp.status,
-            yes: "👍 Jest parking", no: "👎 Nie ma" });
+            yes: "👍 Jest parking", no: "👎 Nie ma", by: "dodane przez użytkownika" });
+          return;
+        }
+      }
+      // własny, jeszcze niepotwierdzony parking (🅿️❔) → informacja, kto go dodał
+      if(map.getLayer("hgv-parking-user-icon")){
+        const uf = map.queryRenderedFeatures([[e.point.x - 16, e.point.y - 16], [e.point.x + 16, e.point.y + 16]], { layers: ["hgv-parking-user-icon"] });
+        if(uf.length){
+          showVoteCard({ kind: "local", local: true, title: "Parking HGV", by: "dodane przez użytkownika (Ty)" }, 6000);
           return;
         }
       }
@@ -13290,37 +13522,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   document.addEventListener("visibilitychange", () => { if(!document.hidden && (themeMode === "sun" || themeMode === "auto")) applyThemeMode(); });
   applyThemeMode();
 
-  // Menu ikon (🔍 ⛶ 3D 🌙 🐞): szklana pigułka obok prędkościomierza. Schowana — widać tylko uchwyt;
-  // przesunięcie palcem w prawo (lub dotknięcie uchwytu) ją wysuwa, w lewo albo dotknięcie chowa.
-  safeInit("menu ikon", () => {
-    const row = document.getElementById("navIconRow"), handle = document.getElementById("menuHandle");
-    if(!row || !handle) return;
-    let menuTimer = null;
-    function setMenuOpen(on){
-      document.body.classList.toggle("menu-open", !!on);
-      handle.setAttribute("aria-expanded", on ? "true" : "false");
-      if(menuTimer){ clearTimeout(menuTimer); menuTimer = null; }
-      if(on) menuTimer = setTimeout(() => setMenuOpen(false), 5000);   // sam się chowa po 5 s
-    }
-    // dotknięcie menu (przycisk, przeciągnięcie) odnawia odliczanie, żeby nie zniknęło pod palcem
-    row.addEventListener("touchstart", () => { if(document.body.classList.contains("menu-open")) setMenuOpen(true); }, { passive:true });
-    row.addEventListener("click", () => { if(document.body.classList.contains("menu-open")) setMenuOpen(true); });
-    let sx = null, sy = null, swiped = false;
-    row.addEventListener("touchstart", e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; swiped = false; }, { passive:true });
-    row.addEventListener("touchmove", e => {
-      if(sx === null) return;
-      const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-      if(Math.abs(dx) < 22 || Math.abs(dx) < Math.abs(dy)) return;
-      swiped = true; sx = null;
-      setMenuOpen(dx > 0);
-    }, { passive:true });
-    row.addEventListener("touchend", () => { sx = null; });
-    handle.addEventListener("click", () => {
-      if(swiped){ swiped = false; return; }
-      setMenuOpen(!document.body.classList.contains("menu-open"));
-    });
-  });
-
   document.getElementById("btnLocate").addEventListener("click", () => {
     followUser = true;
     updateLocateBtnVisibility();
@@ -13330,14 +13531,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   });
 
 
-  // Jeden przycisk widoku (dawniej 3D/2D + kompas): kolejne dotknięcia = 3D (za kierunkiem jazdy) → 3D z północą u góry → 2D (płasko, północ u góry) → znowu 3D.
+  // Jeden przycisk widoku (dawniej 3D/2D + kompas): kolejne dotknięcia = 3D (za kierunkiem jazdy) → 2D (płasko, północ u góry) → znowu 3D.
   // Igła pokazuje północ, podpis — aktualny widok.
   document.getElementById("btnCompass").addEventListener("click", () => {
     if(!map) return;
-    if(is3D && !northUp){            // 3D → 3D północ u góry (pochylenie zostaje)
-      northUp = true;
-      map.easeTo({ bearing: 0, duration: 500 });
-    } else if(is3D){                 // 3D północ → 2D
+    if(is3D){                        // 3D → 2D
       is3D = false; northUp = false;
       applyDrivingCamera(false);
       map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
