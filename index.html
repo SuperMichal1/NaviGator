@@ -532,7 +532,7 @@
   #poiVoteRow button{ padding:7px 10px; font-size:12px; font-weight:600; }
   #poiAdminRow button, #poiEditBox button{ padding:8px 10px; font-size:13px; font-weight:700; }
   #poiEditBox{ flex-direction:column; gap:8px; }
-  #poiEditInput{ padding:11px 12px; border-radius:10px; border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); font:600 15px 'Inter',system-ui,sans-serif; width:100%; box-sizing:border-box; }
+  #poiEditInput, #poiEditAddr{ padding:11px 12px; border-radius:10px; border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); font:600 15px 'Inter',system-ui,sans-serif; width:100%; box-sizing:border-box; }
   #poiEditBox button#poiEditSave{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
   .poiCard button:disabled{ opacity:.5; }
   .poiCard input{
@@ -1613,6 +1613,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
   <div id="poiEditBox" style="display:none">
     <input id="poiEditInput" type="text" maxlength="80" autocomplete="off" placeholder="Aktualna nazwa firmy / budynku">
+    <input id="poiEditAddr" type="text" maxlength="140" autocomplete="off" placeholder="Adres (ulica, miasto, kod pocztowy)">
     <div class="poiBtns">
       <button id="poiEditCancel" type="button">Anuluj</button>
       <button id="poiEditSave" type="button">Zapisz</button>
@@ -3629,9 +3630,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   // Nazwy firm i budynków dodanych przez kierowców (warstwy hgv-companies-icon, place-names-icon).
-  // Dzień: ciemny tekst na białej obwódce (jak dotąd). Noc: jednolity jasny krem (#FFF0CC) i tylko delikatny ciemny cień zamiast białej obwódki
+  // Dzień: ciemny tekst na białej obwódce (jak dotąd). Noc: jednolity bursztyn (#FFD27A) i tylko delikatny ciemny cień zamiast białej obwódki
   // — wybrany testem kontrastu na kolorach teł ze zrzutu mapy (min. 6,4:1 na najjaśniejszym tle, ok. 11:1 na typowym granacie).
-  const COMPANY_LABEL_NIGHT = "#FFF0CC";
+  const COMPANY_LABEL_NIGHT = "#FFD27A";
   function applyCompanyLabelStyle(night){
     if(!map) return;
     ["hgv-companies-icon", "place-names-icon"].forEach(id => {
@@ -8619,6 +8620,29 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     c.sort((a, b) => (b.fix ? 1 : 0) - (a.fix ? 1 : 0) || (b.count || 1) - (a.count || 1) || b.ts - a.ts);
     return c[0];
   }
+
+  /* ---------- adres ustawiony ręcznie (administrator / formularz budynku) ---------- */
+  function smartSetAddress(d){   // d = { name, lat, lon, address }
+    try{
+      const list = smartLoad(), parsed = smartParseLabel(d.address || "");
+      let e = list.find(x => _dM(x.lat, x.lon, d.lat, d.lon) < SMART_SAME_M || smartSameCompany(x, { name: d.name, label: d.address, pc: parsed.pc, lat: d.lat, lon: d.lon }));
+      if(!e){ e = { id: smartNewId(), name: d.name, city: "", pc: "", label: d.address, lat: d.lat, lon: d.lon, count: 1, ts: Date.now() }; list.push(e); }
+      e.name = d.name; e.label = d.address; e.addrSet = true; e.own = true;
+      if(parsed.pc) e.pc = parsed.pc;
+      if(parsed.city) e.city = parsed.city;
+      smartDedupe(list); smartPrune(list); smartSave();
+    }catch(err){ console.warn("smartSetAddress:", err); }
+  }
+  function smartAddressAt(lat, lon, name){   // adres ustawiony ręcznie dla firmy w tym miejscu (karta firmy na mapie)
+    let best = null, bd = 1e9;
+    smartLoad().forEach(e => {
+      if(!e.addrSet || !e.label) return;
+      const d = _dM(e.lat, e.lon, lat, lon), same = name && smartCore(e) === smartCore({ name });
+      if(name ? (!same || d >= 300) : d >= 15) return;   // adres tylko dla TEJ SAMEJ firmy (wcześniej każda firma w promieniu 60 m dostawała cudzy adres)
+      if(d < bd){ best = e; bd = d; }
+    });
+    return best ? best.label : "";
+  }
 </script>
 <script>
 /* ===== js/23c-free-geocoder.js — Darmowa wyszukiwarka adresów (bez klucza API) =====
@@ -9023,6 +9047,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }
       box.classList.add("open", "saved");
     }
+    // przeciągnięcie palcem po liście: w lewo → Ulubione, w prawo → Historia
+    let swX = 0, swY = 0, swT = 0;
+    box.addEventListener("touchstart", e => { const t = e.touches[0]; swX = t.clientX; swY = t.clientY; swT = Date.now(); }, { passive: true });
+    box.addEventListener("touchend", e => {
+      if(!box.classList.contains("saved")) return;
+      const t = e.changedTouches[0], dx = t.clientX - swX, dy = t.clientY - swY;
+      if(Date.now() - swT > 800 || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      const to = dx < 0 ? "fav" : "hist";
+      if(savedTab !== to){ savedTab = to; renderSaved(); }
+    }, { passive: true });
     function render(results, head){
       box.classList.remove("saved");
       box.innerHTML = "";
@@ -9900,7 +9934,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const PLACE_NAME_MIN_ZOOM = 16; // dodawanie nazwy dopiero przy dużym zbliżeniu
   const PLACE_VERIFY_RADIUS_M = 250;
   const PLACE_DUPLICATE_M = 200;  // ta sama nazwa bliżej niż tyle = ta sama firma, nie dodajemy drugi raz
-  const PLACE_KNOWN_NEAR_M = 60;  // w tym promieniu od środka budynku uznajemy, że nazwa już istnieje
+  const PLACE_SAME_SPOT_M = 40;   // ta sama firma bliżej niż tyle = ten sam punkt; dalej (ale < PLACE_DUPLICATE_M) = pytamy, czy przenieść nazwę na budynek
+  const PLACE_MOVES_KEY = "nawigator_place_moves";      // przeniesienia etykiet: { name, fromLat, fromLon, lat, lon } — przeżywają ponowne wczytanie z bazy
+  const PLACE_HIDE_OSM_KEY = "nawigator_hide_osm";      // firmy z OSM schowane lokalnie, bo kierowca przeniósł ich nazwę na budynek
+  const PLACE_KNOWN_NEAR_M = 20;  // awaryjnie: nazwa w tym promieniu od środka/kliknięcia = ten sam budynek (wcześniej 60 m — przez to sąsiednie budynki „dziedziczyły” cudzą nazwę)
   let placeNames = [];            // [{lat, lon, name, verified}]
   let placeAddTarget = null;
   let placeAddForce = false;      // po ostrzeżeniu "nie znaleziono" drugie kliknięcie zapisuje mimo to
@@ -9913,11 +9950,34 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return 2 * R * Math.asin(Math.sqrt(a));
   }
   function placeNameKey(p){ return p.lat.toFixed(5) + "," + p.lon.toFixed(5) + "|" + p.name.toLowerCase(); }
+  function osmHiddenLocalSet(){ try{ return new Set(JSON.parse(localStorage.getItem(PLACE_HIDE_OSM_KEY) || "[]").map(Number)); }catch(e){ return new Set(); } }
+  function hideOsmCompanyLocal(id){
+    try{ const s = osmHiddenLocalSet(); s.add(Number(id)); localStorage.setItem(PLACE_HIDE_OSM_KEY, JSON.stringify([...s])); }catch(e){}
+    if(typeof reapplyCompanyOverrides === "function") reapplyCompanyOverrides();
+  }
+  function loadPlaceMoves(){ try{ return JSON.parse(localStorage.getItem(PLACE_MOVES_KEY) || "[]"); }catch(e){ return []; } }
+  function recordPlaceMove(dup, to, name){
+    try{
+      const nk = nameTokens(name).join(" ");
+      const moves = loadPlaceMoves().filter(m => !(nameTokens(m.name).join(" ") === nk && _dM(m.fromLat, m.fromLon, dup.lat, dup.lon) < 30));
+      moves.push({ name, fromLat: dup.lat, fromLon: dup.lon, lat: to.lat, lon: to.lon });
+      localStorage.setItem(PLACE_MOVES_KEY, JSON.stringify(moves.slice(-50)));
+    }catch(e){}
+  }
+  function applyPlaceMoves(){   // po wczytaniu z bazy: etykieta wraca na budynek, na który kierowca ją przeniósł
+    const moves = loadPlaceMoves(); if(!moves.length) return;
+    moves.forEach(m => {
+      const nk = nameTokens(m.name).join(" ");
+      const e = placeNames.find(q => nameTokens(q.name).join(" ") === nk && _dM(q.lat, q.lon, m.fromLat, m.fromLon) < 30);
+      if(e){ e.lat = m.lat; e.lon = m.lon; }
+    });
+    renderPlaceNames();
+  }
   function renderPlaceNames(){
     const src = map && map.getSource("place-names");
     if(!src) return;
     src.setData({ type:"FeatureCollection", features: placeNames.map(p => ({
-      type:"Feature", properties:{ id: p.id, status: p.status || "", name: p.name, verified: p.verified === false ? false : true },
+      type:"Feature", properties:{ id: p.id, status: p.status || "", name: p.name, address: p.address || "", verified: p.verified === false ? false : true },
       geometry:{ type:"Point", coordinates:[p.lon, p.lat] } })) });
   }
   // opts.move = zapis kierowcy z mapy: gdy ta sama firma jest już bliżej niż PLACE_DUPLICATE_M, to NOWA pozycja (środek zaznaczonego budynku) zastępuje starą,
@@ -9928,7 +9988,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(typeof p.lat !== "number" || typeof p.lon !== "number" || !p.name) return;
       const k = placeNameKey(p);
       // wpis z bazy wspólnej przejmuje id/status lokalnej kopii — dzięki temu można na niego głosować
-      const adopt = q => { if(q && p.id != null){ q.id = p.id; q.status = p.status; } };
+      const adopt = q => { if(q && p.id != null){ q.id = p.id; q.status = p.status; } if(q && p.address && !q.address) q.address = p.address; };
       if(seen.has(k)){ adopt(placeNames.find(q => placeNameKey(q) === k)); return; }
       // ta sama nazwa w promieniu PLACE_DUPLICATE_M = duplikat (np. ten sam magazyn dodany kilka razy) — pomijamy
       const nk = nameTokens(p.name).join(" ");
@@ -9936,20 +9996,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(same){
         const newer = !!(opts && opts.move) || (p.id != null && same.id != null && Number(p.id) > Number(same.id));
         adopt(same);
-        if(newer){ same.lat = p.lat; same.lon = p.lon; same.name = String(p.name); if(p.verified !== undefined) same.verified = p.verified; }
+        if(newer){ same.lat = p.lat; same.lon = p.lon; same.name = String(p.name); if(p.verified !== undefined) same.verified = p.verified; if(p.address) same.address = p.address; }
         return;
       }
-      seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified, id: p.id, status: p.status });
+      seen.add(k); placeNames.push({ lat:p.lat, lon:p.lon, name:String(p.name), verified: p.verified, id: p.id, status: p.status, address: p.address || "" });
     });
     renderPlaceNames();
   }
   function loadPlaceNames(){
-    try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]")); }catch(e){}
-    fetchTableFromSupabase("place_names", "id,name,lat,lon,verified,status,confirmations,denials").then(rows =>
+    try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]"), { move: true }); }catch(e){}   // lokalne wpisy są chronologiczne: późniejszy zastępuje wcześniejszy
+    applyPlaceMoves();
+    fetchTableFromSupabase("place_names", "id,name,lat,lon,verified,status,confirmations,denials,address").then(rows =>
+      rows === null ? fetchTableFromSupabase("place_names", "id,name,lat,lon,verified,status,confirmations,denials") : rows
+    ).then(rows =>
       rows === null ? fetchTableFromSupabase("place_names", "name,lat,lon,verified") : rows
     ).then(rows =>
       rows === null ? fetchTableFromSupabase("place_names", "name,lat,lon") : rows
-    ).then(rows => { if(rows && rows.length) mergePlaceNames(rows); });
+    ).then(rows => { if(rows && rows.length){ mergePlaceNames(rows); applyPlaceMoves(); } });
   }
   // zapis tylko przez funkcję add_place_name (supabase_moderacja.sql): walidacja, limity, duplikaty → głos zamiast nowego wpisu
   function savePlaceNameRemote(p, source){
@@ -10018,24 +10081,41 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function findSameNameNear(name, lat, lon){
     let best = null, bestD = PLACE_DUPLICATE_M;
     const nk = nameTokens(name).join(" ");
-    const check = (n, la, lo) => {
+    const check = (n, la, lo, extra) => {
       if(!n) return;
       const d = _dM(lat, lon, la, lo);
-      if(d < bestD && (nameTokens(n).join(" ") === nk || namesMatch(name, n))){ bestD = d; best = { name:n, lat:la, lon:lo, dist:d }; }
+      if(d < bestD && (nameTokens(n).join(" ") === nk || namesMatch(name, n))){ bestD = d; best = Object.assign({ name:n, lat:la, lon:lo, dist:d }, extra || {}); }
     };
-    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) check(f.properties && f.properties.name, c[1], c[0]); });
-    placeNames.forEach(p => check(p.name, p.lat, p.lon));
+    hgvCompaniesCache.forEach(f => { const c = f.geometry && f.geometry.coordinates; if(c) check(f.properties && f.properties.name, c[1], c[0], { companyId: f.properties && f.properties.osm_id, osmName: f.properties && (f.properties.osm_name || f.properties.name) }); });
+    placeNames.forEach(p => check(p.name, p.lat, p.lon, { placeId: p.id }));
     return best;
   }
 
-  function findKnownNameNear(lat, lon, maxM){
+  // czy punkt leży wewnątrz obrysu budynku (wielokąt lub kilka wielokątów, z uwzględnieniem dziur)
+  function ringContains(ring, lon, lat){
+    let inside = false;
+    for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if(((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function buildingContains(f, lat, lon){
+    try{
+      const g = f.geometry, polys = g.type === "Polygon" ? [g.coordinates] : (g.type === "MultiPolygon" ? g.coordinates : []);
+      return polys.some(poly => ringContains(poly[0], lon, lat) && !poly.slice(1).some(h => ringContains(h, lon, lat)));
+    }catch(e){ return false; }
+  }
+  // pred(lat, lon) — opcjonalny dodatkowy warunek (np. „punkt leży w tym budynku”)
+  function findKnownNameNear(lat, lon, maxM, pred){
     let best = null, bestD = maxM;
     hgvCompaniesCache.forEach(f => {
       const n = f.properties && f.properties.name; const c = f.geometry && f.geometry.coordinates;
       if(!n || !c) return;
-      const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, lat:c[1], lon:c[0], companyId: f.properties.osm_id, osmName: f.properties.osm_name || n, edited: !!f.properties.osm_name }; }
+      if(pred && !pred(c[1], c[0])) return;
+      const d = _dM(lat, lon, c[1], c[0]); if(d < bestD){ bestD = d; best = { name:n, address: f.properties.address, lat:c[1], lon:c[0], companyId: f.properties.osm_id, osmName: f.properties.osm_name || n, edited: !!f.properties.osm_name }; }
     });
-    placeNames.forEach(p => { const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, lat:p.lat, lon:p.lon, placeId:p.id }; } });
+    placeNames.forEach(p => { if(pred && !pred(p.lat, p.lon)) return; const d = _dM(lat, lon, p.lat, p.lon); if(d < bestD){ bestD = d; best = { name:p.name, address:p.address, lat:p.lat, lon:p.lon, placeId:p.id }; } });
     return best;
   }
 
@@ -10083,13 +10163,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("poiAddStatus").textContent = "";
     document.getElementById("poiNameInput").focus();
   }
-  function finishPlaceSave(name, verified, source){
-    const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name, verified };
+  function finishPlaceSave(name, verified, source, movedFrom){
+    const addrForm = [document.getElementById("poiStreetInput").value.trim(), document.getElementById("poiPostInput").value.trim().toUpperCase()].filter(Boolean).join(", ");
+    const p = { lat: placeAddTarget.lat, lon: placeAddTarget.lon, name, verified, address: addrForm || undefined };
     mergePlaceNames([p], { move: true });
+    if(movedFrom){   // nazwa przeniesiona na ten budynek: zapamiętaj przeniesienie, schowaj stary punkt z OSM, administrator poprawia też bazę wspólną
+      recordPlaceMove(movedFrom, p, name);
+      if(movedFrom.companyId != null) hideOsmCompanyLocal(movedFrom.companyId);
+      if(movedFrom.placeId != null && typeof isAdmin === "function" && isAdmin() && typeof supaAdminRequest === "function"){
+        supaAdminRequest("PATCH", "place_names?id=eq." + movedFrom.placeId, { lat: p.lat, lon: p.lon }, "return=minimal").catch(() => {});
+      }
+    }
     // dokładna pozycja ZAZNACZONEGO budynku + adres z formularza → cache podpowiedzi (js/23b), wpis „własny” zawsze nad TomTom
     if(typeof smartAdd === "function"){
       const st = document.getElementById("poiStreetInput").value.trim(), po = document.getElementById("poiPostInput").value.trim().toUpperCase();
       smartAdd({ name, lat: p.lat, lon: p.lon, label: [st, po].filter(Boolean).join(", "), pc: po });
+      if(addrForm && typeof smartSetAddress === "function") smartSetAddress({ name, lat: p.lat, lon: p.lon, address: addrForm });
     }
     try{
       const nkNew = nameTokens(name).join(" ");
@@ -10129,6 +10218,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       return;
     }
     const dup = findSameNameNear(name, placeAddTarget.lat, placeAddTarget.lon);
+    if(dup && dup.dist > PLACE_SAME_SPOT_M){
+      // ta sama firma jest już na mapie, ale w innym miejscu niż zaznaczony budynek → zapytaj, czy przenieść nazwę na ten budynek
+      if(confirm("„" + dup.name + "” jest już na mapie " + Math.round(dup.dist) + " m stąd, w innym miejscu.\n\nPrzenieść nazwę na ten budynek?")){
+        finishPlaceSave(name, null, null, dup);
+        return;
+      }
+    }
     if(dup){
       hidePlaceAdd();
       showPoiAsk(dup.name, dup.lat, dup.lon);
@@ -10193,6 +10289,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
+    if(!addrOverride && typeof smartAddressAt === "function"){ const ka = smartAddressAt(lat, lon, name); if(ka) addrOverride = ka; }   // adres ustawiony ręcznie (administrator / formularz)
     if(addrOverride){ // adres wpisany/poprawiony przez kierowcę — bez nadpisywania z Nominatim
       poiAskTarget.address = addrOverride;
       document.getElementById("poiAskAddr").textContent = addrOverride;
@@ -10258,11 +10355,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(!name || !f.geometry || f.geometry.type !== "Point") return;
         const px = map.project(f.geometry.coordinates);
         const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
-        if(d < bestD){ bestD = d; best = { name: String(name), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
+        if(d < bestD){ bestD = d; best = { name: String(name), address: p.address || undefined, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
           placeId: (f.layer && f.layer.id === "place-names-icon" && p.id != null) ? p.id : undefined,
           ref: (f.layer && f.layer.id === "hgv-companies-icon" && p.osm_id != null) ? { companyId: p.osm_id, osmName: p.osm_name || String(name), edited: !!p.osm_name } : null }; }
       });
-      if(best){ showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.ref); return; }
+      if(best){
+        // etykieta ma szerokie pole dotyku (cały napis) — otwieramy kartę tylko, gdy dotknięcie jest blisko punktu z nazwą; inaczej traktujemy to jak dotknięcie budynku pod napisem
+        const dM = _dM(e.lngLat.lat, e.lngLat.lng, best.lat, best.lon);
+        if(bestD <= 56 && dM <= 70){
+          console.log("[Klik] etykieta:", best.name, "—", Math.round(bestD) + " px,", Math.round(dM) + " m od dotknięcia");
+          showPoiAsk(best.name, best.lat, best.lon, best.placeId, best.ref, best.address); return;
+        }
+        console.log("[Klik] pominięto etykietę (za daleko od dotknięcia):", best.name, "—", Math.round(bestD) + " px,", Math.round(dM) + " m");
+      }
       // brak nazwy — przy dużym zbliżeniu klik w budynek pozwala dodać nazwę (zapis w Supabase)
       if(map.getZoom() >= PLACE_NAME_MIN_ZOOM){
         const bLayers = map.getStyle().layers
@@ -10272,8 +10377,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(bf.length){
           const c = buildingCenter(bf[0], { lat: e.lngLat.lat, lon: e.lngLat.lng });
           // budynek ma już nazwę (firma z Overpass/Supabase lub dodana wcześniej) → pokaż ją i zapytaj o trasę
-          const known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M) || findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M);
-          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, known.companyId != null ? { companyId: known.companyId, osmName: known.osmName, edited: known.edited } : null); return; }
+          const inB = (la, lo) => buildingContains(bf[0], la, lo);   // nazwa należy do TEGO budynku tylko, gdy jej punkt leży w jego obrysie
+          let known = null, why = "";
+          if((known = findKnownNameNear(c.lat, c.lon, 300, inB))) why = "punkt nazwy leży w obrysie budynku";
+          else if((known = findKnownNameNear(e.lngLat.lat, e.lngLat.lng, 300, inB))) why = "punkt nazwy leży w obrysie budynku";
+          else if((known = findKnownNameNear(c.lat, c.lon, PLACE_KNOWN_NEAR_M))) why = "nazwa blisko środka budynku";
+          else if((known = findKnownNameNear(e.lngLat.lat, e.lngLat.lng, PLACE_KNOWN_NEAR_M))) why = "nazwa blisko miejsca dotknięcia";
+          if(known) console.log("[Klik] budynek ze znaną nazwą:", known.name, "—", why + ",", Math.round(_dM(c.lat, c.lon, known.lat, known.lon)) + " m od środka budynku");
+          else console.log("[Klik] budynek bez znanej nazwy → pytanie o dodanie nazwy");
+          if(known){ showPoiAsk(known.name, known.lat, known.lon, known.placeId, known.companyId != null ? { companyId: known.companyId, osmName: known.osmName, edited: known.edited } : null, known.address); return; }
           // dodawanie nazw dopiero, gdy firmy/operatorzy HGV są już wczytani (inaczej nie wiemy, czy nazwa istnieje)
           if(!hgvCompaniesLoaded){
             hidePoiAsk();
@@ -14534,22 +14646,26 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   // zwraca nową listę firm z poprawionymi nazwami (ukryte pomija); oryginalna nazwa z OSM zostaje w properties.osm_name
   function applyCompanyOverrides(features){
-    if(!companyOverrides.size || !features || !features.length) return features;
+    const hiddenLocal = (typeof osmHiddenLocalSet === "function") ? osmHiddenLocalSet() : new Set();   // firmy z OSM schowane, bo kierowca przeniósł nazwę na budynek (js/27)
+    if((!companyOverrides.size && !hiddenLocal.size) || !features || !features.length) return features;
     const out = [];
     for(const f of features){
       const id = f.properties && f.properties.osm_id, ov = id != null ? companyOverrides.get(Number(id)) : null;
+      if(id != null && hiddenLocal.has(Number(id))) continue;
       if(!ov){ out.push(f); continue; }
       if(ov.hidden) continue;
-      out.push({ type:"Feature", geometry: f.geometry, properties: Object.assign({}, f.properties, { name: ov.name || f.properties.name, osm_name: f.properties.osm_name || f.properties.name }) });
+      out.push({ type:"Feature", geometry: f.geometry, properties: Object.assign({}, f.properties, { address: ov.address || (f.properties && f.properties.address) || undefined, name: ov.name || f.properties.name, osm_name: f.properties.osm_name || f.properties.name }) });
     }
     return out;
   }
   function reapplyCompanyOverrides(){ if(hgvCompaniesRaw && hgvCompaniesRaw.length) setHgvCompaniesData(hgvCompaniesRaw); }
   function loadCompanyOverridesRemote(){
-    fetchTableFromSupabase("hgv_company_overrides", "osm_id,name,hidden").then(rows => {
+    fetchTableFromSupabase("hgv_company_overrides", "osm_id,name,hidden,address").then(rows =>
+      rows === null ? fetchTableFromSupabase("hgv_company_overrides", "osm_id,name,hidden") : rows
+    ).then(rows => {
       if(!rows) return;                                       // brak tabeli / błąd → zostają poprawki lokalne
       companyOverrides.clear();
-      rows.forEach(r => companyOverrides.set(Number(r.osm_id), { name: r.name || "", hidden: !!r.hidden }));
+      rows.forEach(r => companyOverrides.set(Number(r.osm_id), { name: r.name || "", hidden: !!r.hidden, address: r.address || "" }));
       saveCompanyOverridesLocal(); reapplyCompanyOverrides();
     });
   }
@@ -14565,6 +14681,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if(!r.ok){ let t = ""; try{ t = (await r.text()).slice(0, 160); }catch(e){} throw new Error("HTTP " + r.status + (t ? " — " + t : "")); }
   }
+  const ADDR_WARN = " (adres tylko na tym urządzeniu — baza nie ma jeszcze kolumny adresu, patrz sql/adres_firm.sql)";
   const adminEmail = () => { const s = adminSessionLoad(); return (s && s.email) || null; };
 
   /* ---------- karta POI: wiersz administratora + edytor ---------- */
@@ -14578,6 +14695,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const t = poiAskTarget; if(!t) return;
     const isCompany = t.ref && t.ref.companyId != null;
     $e("poiEditInput").value = t.name;
+    $e("poiEditAddr").value = t.address || "";
     $e("poiEditRestore").style.display = isCompany && t.ref.edited ? "" : "none";
     $e("poiEditHide").textContent = isCompany ? "🚫 Ukryj firmę" : "🗑 Usuń nazwę";
     $e("poiEditMsg").textContent = isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
@@ -14586,12 +14704,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
   function editMsg(t, ok){ const m = $e("poiEditMsg"); m.textContent = t; m.style.color = ok === false ? "#ff8a80" : ""; }
-  function renamePlaceLocal(oldName, lat, lon, newName){   // newName === null → usuń
+  function renamePlaceLocal(oldName, lat, lon, newName, newAddr){   // newName === null → usuń
     try{
       const arr = JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]");
       const out = [];
       arr.forEach(p => {
-        if(p && p.name === oldName && _dM(p.lat, p.lon, lat, lon) < 10){ if(newName !== null) out.push(Object.assign({}, p, { name: newName })); }
+        if(p && p.name === oldName && _dM(p.lat, p.lon, lat, lon) < 10){ if(newName !== null) out.push(Object.assign({}, p, { name: newName }, newAddr ? { address: newAddr } : {})); }
         else out.push(p);
       });
       localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(out));
@@ -14601,6 +14719,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const t = poiAskTarget; if(!t || !isAdmin()) return;
     const isCompany = t.ref && t.ref.companyId != null;
     const newName = $e("poiEditInput").value.trim().replace(/\s+/g, " ");
+    const newAddr = $e("poiEditAddr").value.trim().replace(/\s+/g, " ");
+    const addrChanged = mode === "save" && newAddr !== (t.address || "");
     if(mode === "save" && newName.length < 2){ editMsg("Nazwa musi mieć co najmniej 2 znaki.", false); return; }
     const btns = ["poiEditSave", "poiEditCancel", "poiEditRestore", "poiEditHide"].map($e); btns.forEach(b => { b.disabled = true; });
     let warn = "";
@@ -14609,12 +14729,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const id = Number(t.ref.companyId), osmName = t.ref.osmName || t.name;
         try{
           if(mode === "restore") await supaAdminRequest("DELETE", "hgv_company_overrides?osm_id=eq." + id);
-          else await supaAdminRequest("POST", "hgv_company_overrides?on_conflict=osm_id",
-            [{ osm_id: id, name: mode === "hide" ? osmName : newName, hidden: mode === "hide", set_by: adminEmail(), updated_at: new Date().toISOString() }],
-            "resolution=merge-duplicates,return=minimal");
+          else {
+            const post = wa => supaAdminRequest("POST", "hgv_company_overrides?on_conflict=osm_id",
+              [Object.assign({ osm_id: id, name: mode === "hide" ? osmName : newName, hidden: mode === "hide", set_by: adminEmail(), updated_at: new Date().toISOString() }, wa ? { address: newAddr || null } : {})],
+              "resolution=merge-duplicates,return=minimal");
+            if(addrChanged){ try{ await post(true); }catch(e1){ await post(false); warn = ADDR_WARN; } } else await post(false);
+          }
         }catch(err){ warn = " (tylko na tym urządzeniu — baza: " + (err.message || err) + ")"; }
         if(mode === "restore") companyOverrides.delete(id);
-        else companyOverrides.set(id, { name: mode === "hide" ? osmName : newName, hidden: mode === "hide" });
+        else companyOverrides.set(id, { name: mode === "hide" ? osmName : newName, hidden: mode === "hide", address: addrChanged ? newAddr : ((companyOverrides.get(id) || {}).address || "") });
         saveCompanyOverridesLocal(); reapplyCompanyOverrides();
         if(mode === "hide"){ hidePoiAsk(); showBanner("FIRMA UKRYTA", osmName + warn, false); return; }
         const shown = mode === "restore" ? osmName : newName;
@@ -14625,15 +14748,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(t.placeId != null){
           try{
             if(mode === "hide") await supaAdminRequest("DELETE", "place_names?id=eq." + t.placeId);
-            else await supaAdminRequest("PATCH", "place_names?id=eq." + t.placeId, { name: newName }, "return=minimal");
+            else {
+              const patch = wa => supaAdminRequest("PATCH", "place_names?id=eq." + t.placeId, Object.assign({ name: newName }, wa ? { address: newAddr || null } : {}), "return=minimal");
+              if(addrChanged){ try{ await patch(true); }catch(e1){ await patch(false); warn = ADDR_WARN; } } else await patch(false);
+            }
           }catch(err){ warn = " (tylko na tym urządzeniu — baza: " + (err.message || err) + ")"; }
         } else warn = " (wpis nie jest jeszcze w bazie wspólnej — zmiana tylko na tym urządzeniu)";
-        renamePlaceLocal(t.name, t.lat, t.lon, mode === "hide" ? null : newName);
-        if(item){ if(mode === "hide") placeNames.splice(placeNames.indexOf(item), 1); else item.name = newName; renderPlaceNames(); }
+        renamePlaceLocal(t.name, t.lat, t.lon, mode === "hide" ? null : newName, addrChanged ? newAddr : null);
+        if(item){ if(mode === "hide") placeNames.splice(placeNames.indexOf(item), 1); else { item.name = newName; if(addrChanged) item.address = newAddr; } renderPlaceNames(); }
         if(mode === "hide"){ hidePoiAsk(); showBanner("NAZWA USUNIĘTA", t.name + warn, false); return; }
         t.name = newName; $e("poiAskName").textContent = newName;
       }
-      showBanner("NAZWA ZAPISANA", t.name + warn, false);
+      if(mode === "save" && addrChanged){   // adres: zapamiętaj też lokalnie w pamięci podpowiedzi (działa nawet bez kolumny w bazie) i odśwież kartę
+        if(newAddr && typeof smartSetAddress === "function") smartSetAddress({ name: t.name, lat: t.lat, lon: t.lon, address: newAddr });
+        t.address = newAddr; if(newAddr) $e("poiAskAddr").textContent = newAddr;
+      }
+      showBanner(addrChanged ? "NAZWA I ADRES ZAPISANE" : "NAZWA ZAPISANA", t.name + warn, false);
       closeEdit();
     }catch(err){ editMsg("Nie zapisano: " + (err.message || err), false); }
     finally{ btns.forEach(b => { b.disabled = false; }); }
@@ -14644,6 +14774,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   $e("poiEditRestore").addEventListener("click", () => saveEdit("restore"));
   $e("poiEditHide").addEventListener("click", () => saveEdit("hide"));
   $e("poiEditInput").addEventListener("keydown", e => { if(e.key === "Enter") saveEdit("save"); });
+  $e("poiEditAddr").addEventListener("keydown", e => { if(e.key === "Enter") saveEdit("save"); });
 </script>
 <script>
 /* ===== js/45-road-tiles.js — Własny bufor danych dróg (kafelki) =====
