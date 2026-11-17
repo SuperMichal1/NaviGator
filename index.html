@@ -220,6 +220,15 @@
   }
   body.night #reportFloat .ctrl-btn{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
   #reportFloat .reportSubMenu{ left:auto; right:0; transform:none; flex-direction:column; }
+  /* menu chorągiewki: fotoradar i parking dopiero po dużym przybliżeniu; pełny ekran (⛶) zawsze, ale znika, gdy pełny ekran jest włączony */
+  #reportFloat:not(.zoomOk) #btnReportCamera, #reportFloat:not(.zoomOk) #btnReportParking{ display:none; }
+  /* pełny ekran (⛶) stoi tuż nad flagą i znika, gdy pełny ekran jest włączony; wtedy menu fotoradaru/parkingu opada na miejsce ⛶ */
+  #reportFloat > #btnFullscreen{ position:absolute; right:0; bottom: calc(100% + 8px); }
+  #reportFloat .reportSubMenu{ bottom: calc(100% + 64px); }
+  body.is-fullscreen #reportFloat .reportSubMenu{ bottom: calc(100% + 8px); }
+  body.is-fullscreen #btnFullscreen{ display:none; }
+  /* stawianie chorągiewki (fotoradar / parking): z ekranu znika wszystko poza mapą i kartą zatwierdzenia */
+  body.flag-placing :is(#navPanel, #navTopBar, #alongSheet, #btnLocate, #reportFloat, #zoomChip, #btnCompass, #btnFitRoute, #speedCluster, #guidanceCard, #statusPill, #simBar, #alertBanner, #detourCard, #overSpeedFx){ display:none !important; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -367,9 +376,7 @@
   body:not(.night) #navTruckBtn, body:not(.night) #navBillboardBtn{ background: rgba(0,0,0,0.08); }
   body:not(.night) #navTruckBtn.active, body:not(.night) #navBillboardBtn.active{ background: var(--gator-dark); }
   /* zakładka z parametrami ciężarówki zajmuje miejsce szczegółów trasy */
-  #navTruckBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; }
-  body:not(.night) #navTruckBlock{ background: rgba(255,255,255,0.55); }
-  #navPanel.truck-open #navTruckBlock{ display:flex; }
+  #navTruckBlock{ display:flex; flex-direction:column; gap:8px; }
   /* zakładka ciężarówki rozwija się pod nagłówkiem zamiast celu podróży i szczegółów trasy */
   #navPanel.truck-open > :not(#navDragHandle):not(.navHeader):not(#navTruckBlock){ display:none !important; }
   /* zakładka billboardów (🪧) — jak zakładka ciężarówki zastępuje cel podróży */
@@ -1216,23 +1223,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .navSupaCategoryRow .catStatus{ flex:0 0 auto; font-weight:600; text-align:right; }
   .navSupaCategoryRow.catDone .catStatus{ color: var(--accent); }
 
-  /* ---------- Tryb mapy: trzy małe ikony (dzień / noc / auto) + godziny nocy dla trybu auto ---------- */
+  /* ---------- Tryb mapy: trzy małe ikony (dzień / noc / powrót do zachodu słońca) ---------- */
   .themeSeg{ display:flex; gap:8px; }
   .themeSeg button{
     width:46px; height:40px; border-radius:12px; font-size:19px; line-height:1; cursor:pointer;
     border:1px solid var(--panel-border); background:transparent; color:var(--text-main);
   }
   .themeSeg button.active{ background: var(--accent); border-color: var(--accent); }
-  .themeAutoRow{ display:none; align-items:center; gap:8px; margin-top:8px; font-size:13px; color:var(--text-main); flex-wrap:wrap; }
-  .themeAutoRow.show{ display:flex; }
-  .themeAutoRow input[type="time"]{
-    padding:8px 10px; border-radius:10px; border:1px solid var(--panel-border);
-    background: rgba(255,255,255,0.10); color:var(--text-main); font:700 15px 'Inter', system-ui, sans-serif;
-  }
-
   .themeHint{ margin-top:8px; font-size:12px; color: var(--text-dim); }
-  .themeSunBtn{ margin-top:8px; padding:8px 12px; border-radius:10px; font-size:13px; cursor:pointer;
-    border:1px solid var(--panel-border); background:transparent; color:var(--text-main); }
   /* ---------- Bottom-left: speed cluster ---------- */
   /* Prędkościomierz stoi tuż nad oknem nawigatora; znak ograniczenia prędkości NAD nim (column-reverse:
      pierwszy element w kodzie = prędkościomierz = na dole). Gdy pojawia się przycisk "Centruj" (widok nie
@@ -1521,6 +1519,78 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     #limitSign{ width:62px; height:62px; }
     #limitValue{ font-size:22px; }
   }
+/* ===== css/14-poi-sheet.css — okno firmy na dole ekranu (po kliknięciu w nazwę firmy) =====
+   Trzy wysokości: zwinięte (nazwa + przyciski), połowa ekranu, cały ekran (godziny, telefon, zdjęcia, opinie).
+   Karta #poiAsk to dawna karta „Wyznaczyć trasę?”, tu przebudowana na dolny panel; jej identyfikatory zostały. */
+  #poiAsk.poiCard{
+    top:auto; bottom:0; left:0; right:0; max-width:none; margin:0; gap:0;
+    border-radius:22px 22px 0 0; border-width:1px 0 0 0; padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
+    overflow:hidden; z-index:70; flex-direction:column; box-sizing:border-box;
+    transition: height .22s ease, transform .22s ease;
+    box-shadow:0 -8px 28px rgba(0,0,0,.45);
+  }
+  #poiAsk.poiCard.dragging{ transition:none; }
+  #poiAsk.poiCard.ps-away{ transform: translateY(110%); }
+  #psTop{ touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; flex:0 0 auto; }
+  #psGrab{ display:flex; justify-content:center; padding:9px 0 7px; cursor:grab; }
+  #psGrab span{ width:44px; height:5px; border-radius:3px; background: var(--text-main); opacity:.35; }
+  .psHead{ display:flex; align-items:flex-start; gap:10px; }
+  .psTitle{ flex:1; min-width:0; }
+  #poiAsk .poiName{ font-size:20px; font-weight:700; }
+  #poiAsk .poiAddr{ margin-top:2px; }
+  #poiAsk button.psClose{ flex:0 0 auto; width:40px; height:40px; padding:0; border-radius:50%; font-size:17px; background: rgba(128,128,128,.22); border-color:transparent; }
+  .psActions, .psAskBtns{ display:flex; gap:8px; margin:12px 0 6px; }
+  .psActions button, .psAskBtns button{ padding:12px 8px; border-radius:999px; font-size:14px; }
+  #poiAsk button#psDrive{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #poiAsk button#poiAskYes{ background: rgba(11,122,109,.18); border-color: rgba(11,122,109,.55); color: var(--text-main); }
+  .psAsking{ display:none; margin:10px 0 6px; }
+  #poiAsk.asking .psActions{ display:none; }
+  #poiAsk.asking .psAsking{ display:block; }
+  .psAskQ{ font-size:14px; font-weight:700; margin-bottom:8px; }
+  .psAskBtns{ margin:0; }
+  #poiAsk button#psAskReview, #poiAsk button#psAskPhoto{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #psBody{ display:none; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:4px 0 12px; -webkit-overflow-scrolling:touch; }
+  #poiAsk[data-state="half"] #psBody, #poiAsk[data-state="full"] #psBody{ display:block; }
+  .psSect{ padding:10px 0; border-top:1px solid var(--panel-border); }
+  .psH{ font-size:15px; font-weight:700; margin-bottom:8px; display:flex; gap:8px; align-items:baseline; }
+  .psH small{ font-weight:600; opacity:.75; font-size:13px; }
+  .psRow{ display:flex; gap:10px; padding:5px 0; font-size:14px; line-height:1.35; align-items:flex-start; }
+  .psRow .ic{ width:22px; text-align:center; flex:0 0 22px; }
+  .psRow a{ color: inherit; font-weight:700; text-decoration:underline; }
+  .psOpen{ color:#2eaa5f; font-weight:700; } .psClosed{ color:#e0524a; font-weight:700; }
+  .psHours{ font-size:13px; opacity:.9; margin:2px 0 0 32px; display:grid; grid-template-columns:auto 1fr; gap:2px 12px; }
+  .psHours b{ font-weight:700; }
+  .psMuted{ opacity:.7; font-size:13px; }
+  .psPhotos{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .psThumb{ flex:0 0 auto; width:112px; height:112px; border-radius:12px; overflow:hidden; padding:0 !important; border:1px solid var(--panel-border); position:relative; }
+  .psThumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .psThumb .del{ position:absolute; top:4px; right:4px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; width:24px; height:24px; line-height:24px; font-size:12px; text-align:center; }
+  .psReview{ padding:8px 0; border-bottom:1px solid var(--panel-border); }
+  .psReview:last-child{ border-bottom:none; }
+  .psStarsRO{ color:#f5b301; letter-spacing:1px; font-size:15px; }
+  .psReview .by{ font-size:12px; opacity:.7; margin-left:6px; }
+  .psReview p{ margin:4px 0 0; font-size:14px; line-height:1.4; word-break:break-word; white-space:pre-wrap; }
+  .psReview .rdel{ float:right; width:auto; flex:none; padding:2px 8px; font-size:12px; }
+  .psForm{ display:none; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .psForm.open{ display:flex; }
+  .psStars{ display:flex; gap:4px; }
+  #poiAsk .psStars button{ flex:none; width:44px; height:44px; padding:0; border-radius:50%; font-size:24px; line-height:1; color:#8a8f94; background:transparent; }
+  #poiAsk .psStars button.on{ color:#f5b301; }
+  #psReviewText{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font:500 15px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(255,255,255,0.12); color: var(--text-main); resize:vertical; }
+  #poiAsk button.psPrimary{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #psBody .poiBtns{ margin-top:10px; }
+  #psViewer{ position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; }
+  #psViewer.show{ display:flex; }
+  #psViewer img{ max-width:100%; max-height:100%; object-fit:contain; }
+  #psGateBar{ position:fixed; left:12px; right:12px; top:calc(env(safe-area-inset-top, 0px) + 12px); z-index:80; display:none; gap:10px; align-items:center; padding:12px 14px; border-radius:14px; background: var(--panel-bg-solid); color: var(--text-main); border:1px solid var(--panel-border); box-shadow:0 6px 24px rgba(0,0,0,.4); font-size:14px; font-weight:600; }
+  #psGateBar.show{ display:flex; }
+  #psGateBar span{ flex:1; }
+  #psGateBar button{ padding:8px 12px; border-radius:10px; font-weight:700; border:1px solid var(--panel-border); background:transparent; color: var(--text-main); }
+  /* małe, subtelne oznaczenie bramy wjazdowej (trójkąt wskazuje kierunek wjazdu), widoczne po zbliżeniu */
+  .poi-gate{ display:none; width:22px; height:22px; pointer-events:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); opacity:.92; }
+  body.gates-on .poi-gate{ display:block; }
+  /* gdy okno firmy jest otwarte, dolne przyciski nie zasłaniają go */
+  body.poi-sheet-open :is(#navPanel, #btnLocate, #reportFloat, #btnFitRoute, #btnCompass, #zoomChip){ display:none !important; }
 </style>
 </head>
 <body>
@@ -1583,6 +1653,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
     <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
   </div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
   <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
 </div>
 
@@ -1605,21 +1676,62 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </svg>
 </div>
 
-<div id="poiAsk" class="poiCard" role="dialog" aria-live="polite">
-  <div class="poiName" id="poiAskName"></div>
-  <div class="poiAddr" id="poiAskAddr"></div>
-  <div class="poiQ">Wyznaczyć trasę do tego miejsca?</div>
-  <div class="poiBtns">
-    <button id="poiAskNo" type="button">Nie</button>
-    <button id="poiAskYes" type="button">Tak, wyznacz</button>
+<div id="poiAsk" class="poiCard" role="dialog" aria-live="polite" data-state="peek">
+  <div id="psTop">
+    <div id="psGrab"><span></span></div>
+    <div class="psHead">
+      <div class="psTitle">
+        <div class="poiName" id="poiAskName"></div>
+        <div class="poiAddr" id="poiAskAddr"></div>
+      </div>
+      <button id="poiAskNo" type="button" class="psClose" aria-label="Zamknij">✕</button>
+    </div>
+    <div class="psActions" id="psActions">
+      <button id="psDrive" type="button">▲ Jedź</button>
+      <button id="poiAskYes" type="button">➜ Zaplanuj trasę</button>
+      <button id="psPublish" type="button">⬆ Opublikuj</button>
+    </div>
+    <div class="psAsking" id="psAsking">
+      <div class="psAskQ">Co chcesz dodać?</div>
+      <div class="psAskBtns">
+        <button id="psAskReview" type="button">⭐ Dodaj opinię</button>
+        <button id="psAskPhoto" type="button">📷 Dodaj zdjęcie</button>
+        <button id="psAskCancel" type="button">Anuluj</button>
+      </div>
+    </div>
   </div>
-  <div class="poiBtns" id="poiVoteRow" style="display:none">
-    <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
-    <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
-  </div>
-  <div class="poiBtns" id="poiAdminRow" style="display:none">
-    <button id="poiAdminEdit" type="button">✏️ Zmień nazwę (administrator)</button>
-  </div>
+  <div id="psBody">
+    <div class="psSect" id="psInfo" style="border-top:none"></div>
+    <div class="psSect">
+      <div class="psH">Zdjęcia</div>
+      <div id="psPhotos" class="psPhotos"></div>
+    </div>
+    <div class="psSect">
+      <div class="psH">Opinie <small id="psAvg"></small></div>
+      <div class="psForm" id="psReviewForm">
+        <div class="psStars" id="psStars" role="radiogroup" aria-label="Ocena">
+          <button type="button" data-n="1">★</button><button type="button" data-n="2">★</button><button type="button" data-n="3">★</button><button type="button" data-n="4">★</button><button type="button" data-n="5">★</button>
+        </div>
+        <textarea id="psReviewText" maxlength="500" rows="3" placeholder="Twoja opinia (np. wjazd, parking, godziny rozładunku)"></textarea>
+        <div class="poiBtns" style="margin-top:0">
+          <button id="psReviewCancel" type="button">Anuluj</button>
+          <button id="psReviewSave" type="button" class="psPrimary">Opublikuj</button>
+        </div>
+        <div class="poiAddr" id="psReviewMsg"></div>
+      </div>
+      <div id="psReviews"></div>
+    </div>
+    <div class="poiBtns" id="poiVoteRow" style="display:none">
+      <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
+      <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
+    </div>
+    <div class="poiBtns" id="poiAdminRow" style="display:none">
+      <button id="poiAdminEdit" type="button">✏️ Zmień nazwę (administrator)</button>
+    </div>
+    <div class="poiBtns adminOnly" id="poiGateRow">
+      <button id="psGateSet" type="button">🚪 Ustaw bramę wjazdową</button>
+      <button id="psGateDel" type="button" style="display:none">🗑 Usuń bramę</button>
+    </div>
   <div id="poiEditBox" style="display:none">
     <input id="poiEditInput" type="text" maxlength="80" autocomplete="off" placeholder="Aktualna nazwa firmy / budynku">
     <input id="poiEditAddr" type="text" maxlength="140" autocomplete="off" placeholder="Adres (ulica, miasto, kod pocztowy)">
@@ -1633,7 +1745,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </div>
     <div class="poiAddr" id="poiEditMsg"></div>
   </div>
+  </div>
+  <input type="file" id="psFile" accept="image/*" hidden>
 </div>
+<div id="psViewer" role="dialog" aria-label="Zdjęcie"><img alt=""></div>
+<div id="psGateBar"><span>Dotknij mapy w miejscu bramy wjazdowej</span><button id="psGateCancel" type="button">Anuluj</button></div>
 
 <div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="voteTitle"></div>
@@ -1745,14 +1861,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
     <div class="navHeaderActions">
       <div id="navBillboardBtn" class="adminOnly" title="Billboardy przy autostradzie" role="button" aria-label="Billboardy przy autostradzie" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5V21M17 12.5V21M5 21h4M15 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-      <div id="navTruckBtn" title="Parametry ciężarówki" role="button" aria-label="Parametry ciężarówki" aria-pressed="false">🚛</div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
     </div>
   </div>
 
   <div id="navToolsRow" role="toolbar" aria-label="Narzędzia mapy">
-    <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
     <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
     <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
     <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
@@ -1849,6 +1963,93 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz wyświetla się w całości (proporcje zachowane) i zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
   </div>
 
+</div>
+
+<div id="navBottomProbe" aria-hidden="true"></div>
+
+<div id="debugConsole">
+  <div id="debugConsoleHeader">
+    <span>Konsola debugowania</span>
+    <div id="debugCloseBtn" role="button" aria-label="Zamknij">✕</div>
+  </div>
+  <pre id="debugConsoleBody"></pre>
+  <div id="debugConsoleActions">
+    <button id="debugCopyBtn" type="button">Kopiuj</button>
+    <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
+  </div>
+</div>
+
+
+<div id="navSettingsPanel">
+  <div id="navSettingsBackdrop"></div>
+  <div id="navSettingsCard">
+    <span class="sheetGrip"></span>
+    <div class="navSettingsHeader">
+      <span>Ustawienia nawigatora</span>
+      <div id="navSettingsClose">✕</div>
+    </div>
+
+    <div id="setTabs" role="tablist">
+      <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
+      <button type="button" data-tab="sound">🔊 Dźwięk</button>
+      <button type="button" data-tab="truck">🚛 Ciężarówka</button>
+      <button type="button" data-tab="system" class="adminOnly">⚙️ System</button>
+    </div>
+
+    <div class="setPane active" data-pane="screen">
+      <div class="navTitle">Widoczność na ekranie</div>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
+      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
+      <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
+      <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
+      <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
+        <button type="button" data-theme="day" title="Dzień" aria-label="Dzień">☀️</button>
+        <button type="button" data-theme="night" title="Noc" aria-label="Noc">🌙</button>
+        <button type="button" data-theme="sun" title="Wróć do zachodu słońca" aria-label="Wróć do zachodu słońca">🌇</button>
+      </div>
+<div class="themeHint" id="themeHint"></div>
+      <div class="navTitle" style="margin-top:12px">Podkład mapy</div>
+      <div class="voiceSeg" id="baseSeg" role="group" aria-label="Podkład mapy">
+        <button type="button" data-base="std">🗺 Standardowa</button>
+        <button type="button" data-base="sat">🛰 Satelitarna</button>
+      </div>
+      <div id="satBox">
+        <label class="navPrefLabel"><input type="checkbox" id="satLabels"> Nazwy ulic i miejscowości na satelicie</label>
+        <div class="navTitle adminOnly" style="margin:8px 0 4px">Mapbox — Default public token</div>
+        <div class="navKeyRow adminOnly" style="display:flex; gap:6px; align-items:center;">
+          <input type="text" id="mapboxToken" class="navApiKeyInput" placeholder="pk.eyJ1…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;">
+          <button type="button" id="mapboxTokenSave" class="navPrefBtn" style="width:auto; margin:0; padding:9px 12px;">Zapisz</button>
+        </div>
+        <div id="satStatus"></div>
+      </div>
+      <div class="navTitle" style="margin-top:12px">Drogi płatne</div>
+      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
+        <button type="button" data-toll="free">Unikaj płatnych</button>
+        <button type="button" data-toll="paid">Płatne dozwolone</button>
+      </div>
+      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
+    </div>
+
+    <div class="setPane" data-pane="sound" id="soundPane">
+      <div class="navTitle">Komunikaty głosowe</div>
+      <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
+      <div class="voiceDim">
+        <div class="voiceRow">
+          <span>Głośność</span>
+          <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
+          <span id="vpVolVal">100%</span>
+        </div>
+        <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
+        <div class="voiceSeg" id="vpFreq">
+          <button type="button" data-f="1">Rzadko</button>
+          <button type="button" data-f="2">Normalnie</button>
+          <button type="button" data-f="3">Często</button>
+        </div>
+        <div id="vpFreqDesc"></div>
+      </div>
+    </div>
+
+    <div class="setPane" data-pane="truck">
   <div id="navTruckBlock" class="units-imperial">
     <div class="truckHead"><span>🚛 Parametry ciężarówki</span>
       <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · t</button><button type="button" data-u="metric">m · t</button></div>
@@ -1941,96 +2142,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       </div></div>
     </div></div>
   </div>
-</div>
-
-<div id="navBottomProbe" aria-hidden="true"></div>
-
-<div id="debugConsole">
-  <div id="debugConsoleHeader">
-    <span>Konsola debugowania</span>
-    <div id="debugCloseBtn" role="button" aria-label="Zamknij">✕</div>
-  </div>
-  <pre id="debugConsoleBody"></pre>
-  <div id="debugConsoleActions">
-    <button id="debugCopyBtn" type="button">Kopiuj</button>
-    <button id="debugClearBtn" type="button" class="secondary">Wyczyść</button>
-  </div>
-</div>
-
-
-<div id="navSettingsPanel">
-  <div id="navSettingsBackdrop"></div>
-  <div id="navSettingsCard">
-    <span class="sheetGrip"></span>
-    <div class="navSettingsHeader">
-      <span>Ustawienia nawigatora</span>
-      <div id="navSettingsClose">✕</div>
     </div>
-
-    <div id="setTabs" role="tablist">
-      <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
-      <button type="button" data-tab="sound">🔊 Dźwięk</button>
-      <button type="button" data-tab="system" class="adminOnly">⚙️ System</button>
-    </div>
-
-    <div class="setPane active" data-pane="screen">
-      <div class="navTitle">Widoczność na ekranie</div>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
-      <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
-      <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
-      <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
-      <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
-        <button type="button" data-theme="day" title="Dzień" aria-label="Dzień">☀️</button>
-        <button type="button" data-theme="night" title="Noc" aria-label="Noc">🌙</button>
-        <button type="button" data-theme="auto" title="Auto — wg godzin" aria-label="Auto">🌗</button>
-      </div>
-      <div class="themeAutoRow" id="themeAutoRow">
-        <span>Noc od</span><input type="time" id="themeNightFrom" value="20:00" aria-label="Noc od godziny">
-        <span>do</span><input type="time" id="themeNightTo" value="06:00" aria-label="Noc do godziny">
-      </div>
-      <div class="themeHint" id="themeHint"></div>
-      <button type="button" id="themeSunBtn" class="themeSunBtn">↺ Wróć do zachodu słońca</button>
-      <div class="navTitle" style="margin-top:12px">Podkład mapy</div>
-      <div class="voiceSeg" id="baseSeg" role="group" aria-label="Podkład mapy">
-        <button type="button" data-base="std">🗺 Standardowa</button>
-        <button type="button" data-base="sat">🛰 Satelitarna</button>
-      </div>
-      <div id="satBox">
-        <label class="navPrefLabel"><input type="checkbox" id="satLabels"> Nazwy ulic i miejscowości na satelicie</label>
-        <div class="navTitle adminOnly" style="margin:8px 0 4px">Mapbox — Default public token</div>
-        <div class="navKeyRow adminOnly" style="display:flex; gap:6px; align-items:center;">
-          <input type="text" id="mapboxToken" class="navApiKeyInput" placeholder="pk.eyJ1…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;">
-          <button type="button" id="mapboxTokenSave" class="navPrefBtn" style="width:auto; margin:0; padding:9px 12px;">Zapisz</button>
-        </div>
-        <div id="satStatus"></div>
-      </div>
-      <div class="navTitle" style="margin-top:12px">Drogi płatne</div>
-      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
-        <button type="button" data-toll="free">Unikaj płatnych</button>
-        <button type="button" data-toll="paid">Płatne dozwolone</button>
-      </div>
-      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
-    </div>
-
-    <div class="setPane" data-pane="sound" id="soundPane">
-      <div class="navTitle">Komunikaty głosowe</div>
-      <label class="navPrefLabel"><input type="checkbox" id="vpOn"> Komunikaty głosowe włączone</label>
-      <div class="voiceDim">
-        <div class="voiceRow">
-          <span>Głośność</span>
-          <input type="range" id="vpVol" min="0" max="100" step="5" aria-label="Głośność komunikatów">
-          <span id="vpVolVal">100%</span>
-        </div>
-        <div class="navTitle" style="margin:12px 0 6px">Jak często mówić</div>
-        <div class="voiceSeg" id="vpFreq">
-          <button type="button" data-f="1">Rzadko</button>
-          <button type="button" data-f="2">Normalnie</button>
-          <button type="button" data-f="3">Często</button>
-        </div>
-        <div id="vpFreqDesc"></div>
-      </div>
-    </div>
-
     <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
@@ -5214,8 +5326,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     refreshCustomizeUi(); syncColorPanel(false);
     document.getElementById("avatarGrid").addEventListener("click", ev => {
       const el = ev.target.closest(".avatarOpt"); if(!el) return;
-      if(el.dataset.route){ colorCtx = "route"; refreshCustomizeUi(); syncColorPanel(true); return; }
-      colorCtx = "avatar"; setVehicleAvatar(el.dataset.av); syncColorPanel(true);
+      const showPalette = () => { const pn = document.getElementById("colorPanel"), tg = document.getElementById("colorToggle"); if(pn) pn.classList.add("open"); if(tg) tg.classList.add("on"); };
+      if(el.dataset.route){ colorCtx = "route"; refreshCustomizeUi(); syncColorPanel(true); showPalette(); return; }   // ikona trasy: paleta od razu
+      colorCtx = "avatar"; setVehicleAvatar(el.dataset.av); syncColorPanel(true); showPalette();                       // avatar: paleta po wyborze avatara
     });
     const hue = document.getElementById("colorHue");
     hue.addEventListener("input", () => { cancelAnimationFrame(hueAnim); setCtxColor(hslToHex(+hue.value, colorCtx === "route" ? 95 : 80, colorCtx === "route" ? 55 : 52)); hue.style.setProperty("--thumb", currentCtxColor()); const r = document.getElementById("colorReset"); if(r) r.style.visibility = "visible"; });
@@ -7618,6 +7731,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{ d.marker.remove(); }catch(e){}
     if(map){ map.off("move", d.onMove); map.off("moveend", d.onMoveEnd); }
     document.getElementById("flagCard").classList.remove("show");
+    document.body.classList.remove("flag-placing");   // wracają ikony i pola
     followUser = d.prevFollow;   // wracamy do podążania za pojazdem, jeśli tak było przed zgłoszeniem
     if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
   }
@@ -7647,6 +7761,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     marker.on("dragstart", () => { d.docked = false; flagDisarm(); });
     marker.on("dragend", () => { if(flagDraft === d) flagArm(); });
     flagDraft = d;
+    document.body.classList.add("flag-placing");      // z ekranu znika wszystko poza mapą i chorągiewką (więcej miejsca)
     followUser = false;                // kamera nie ucieka za pojazdem, kiedy kierowca ustawia punkt
     if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
     map.on("move", d.onMove); map.on("moveend", d.onMoveEnd);
@@ -8815,6 +8930,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function setSettingsTab(name){
     document.querySelectorAll("#setTabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll(".setPane").forEach(p => p.classList.toggle("active", p.dataset.pane === name));
+    if(name === "truck") document.dispatchEvent(new Event("navtruck-open"));
   }
   function openNavSettings(tab){
     if(typeof tab === "string") setSettingsTab(tab);
@@ -10331,6 +10447,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hideVoteCard();
     poiAskTarget = null; poiAskSeq++;
     document.getElementById("poiAsk").classList.remove("show");
+    if(typeof psOnHide === "function") psOnHide();      // okno firmy (js/52)
   }
   function showPoiAsk(name, lat, lon, placeId, ref, addrOverride){
     const seq = ++poiAskSeq;
@@ -10341,6 +10458,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     document.getElementById("poiAsk").classList.add("show");
+    if(typeof psOnShow === "function") psOnShow();      // okno firmy (js/52): zwinięte, szczegóły dopiero po wysunięciu
     if(!addrOverride && typeof smartAddressAt === "function"){ const ka = smartAddressAt(lat, lon, name); if(ka) addrOverride = ka; }   // adres ustawiony ręcznie (administrator / formularz)
     if(addrOverride){ // adres wpisany/poprawiony przez kierowcę — bez nadpisywania z Nominatim
       poiAskTarget.address = addrOverride;
@@ -10355,21 +10473,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       })
       .catch(err => console.warn("Nominatim reverse geocode (POI):", err));
   }
-  function acceptPoiAsk(){
+  // mode: "go" = Jedź (od razu trasa i jazda), "plan" = Zaplanuj trasę (wybór/edycja trasy); cel = brama wjazdowa, jeśli administrator ją ustawił
+  function acceptPoiAsk(mode){
     if(!poiAskTarget) return;
     const t = poiAskTarget;
     const label = t.address ? `${t.name}, ${t.address}` : t.name;
-    navSelectedDest = { lat: t.lat, lon: t.lon, label, name: t.name };
+    const gate = (typeof poiGateFor === "function") ? poiGateFor(t) : null;
+    navSelectedDest = { lat: gate ? gate.lat : t.lat, lon: gate ? gate.lon : t.lon, label, name: t.name };
     document.getElementById("navDest").value = label;
     hidePoiAsk();
     updateAddWaypointVisibility();
     confirmDestination();
+    if(mode === "go") document.getElementById("navGoBtn").click();
+    else if(mode === "plan") document.getElementById("navPlanBtn").click();
   }
-  document.getElementById("poiAskYes").addEventListener("click", acceptPoiAsk);
-  document.getElementById("poiAskNo").addEventListener("click", hidePoiAsk);
 
   function setupPoiClick(){
     map.on("click", (e) => {
+      if(typeof psGatePlacing !== "undefined" && psGatePlacing) return;   // administrator ustawia bramę wjazdową (js/52)
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState !== "picker" && !routeEditMode && handleNoLimitMapClick(e)) return;   // admin: dotknięcie drogi bez limitu
       if(navUiState === "nav" || routeEditMode || destPinPhase()) return;
@@ -12403,11 +12524,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   document.getElementById("navSettingsBtn").addEventListener("click", openNavSettings);
 
-  // ---------- zakładka "Ciężarówka" (rozwija się zamiast celu podróży i szczegółów trasy) ----------
+  // ---------- parametry ciężarówki (Ustawienia → Ciężarówka) ----------
   // Wartości trzymane są wewnętrznie w metrach i tonach (tak ich używa Valhalla); miary angielskie to tylko widok.
   safeInit("parametry ciężarówki", () => {
-    const panel = document.getElementById("navPanel"), btn = document.getElementById("navTruckBtn");
-    const block = document.getElementById("navTruckBlock");
+        const block = document.getElementById("navTruckBlock");
     const IN_M = 0.0254, LB_T = 0.00045359237;                      // 1 cal = 2,54 cm; 1 funt = 0,4536 kg
     const UNITS_KEY = "nawigator_hgv_units";
     let units = "imperial";
@@ -12526,16 +12646,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       fill(); persist();
     });
 
-    function setOpen(on){
-      panel.classList.toggle("truck-open", on);
-      btn.classList.toggle("active", on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
-      if(on){ fill(); if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false); }
-    }
-    btn.addEventListener("click", () => setOpen(!panel.classList.contains("truck-open")));
-    const tabNav = $("navTabNav");
-    tabNav.addEventListener("click", () => setOpen(false));
-    tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); });
+    // parametry są w Ustawieniach (zakładka Ciężarówka): odświeżamy pola przy otwarciu zakładki
+    document.addEventListener("navtruck-open", fill);
     fill();
   });
   document.getElementById("navSettingsClose").addEventListener("click", closeNavSettings);
@@ -13819,7 +13931,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   function updateFullscreenBtn(){
-    document.getElementById("btnFullscreen").classList.toggle("active", isFullscreenActive());
+    const on = isFullscreenActive();
+    document.getElementById("btnFullscreen").classList.toggle("active", on);
+    document.body.classList.toggle("is-fullscreen", on);     // w pełnym ekranie ikona ⛶ znika
+    if(typeof updateReportBtnVisibility === "function") updateReportBtnVisibility();
   }
 
   document.getElementById("btnFullscreen").addEventListener("click", () => {
@@ -13846,7 +13961,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let themeMode = (() => { try{
     const v = localStorage.getItem(THEME_KEY);
     if(v === "day" || v === "night") return v;
-    if(v === "auto") return localStorage.getItem(NIGHT_FROM_KEY) ? "auto" : "sun";   // stary „auto” = wg słońca
+    // stary „auto” (godziny) = teraz wg zachodu słońca
     return "sun";
   }catch(e){ return "sun"; } })();
   function loadNightHour(key, def){ try{ const v = localStorage.getItem(key); return /^\d{2}:\d{2}$/.test(v) ? v : def; }catch(e){ return def; } }
@@ -13875,19 +13990,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function themeWantsNight(){
     if(themeMode === "night") return true;
     if(themeMode === "day") return false;
-    if(themeMode === "auto") return inNightWindow(new Date());
     const p = lastPos || THEME_DEFAULT_POS;
     const alt = sunAltitudeDeg(new Date(), p.lat, p.lon);
     return document.body.classList.contains("night") ? alt < 0 : alt < -1;
   }
   function updateThemeBtn(){
     document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("active", b.dataset.theme === themeMode));
-    const row = document.getElementById("themeAutoRow"); if(row) row.classList.toggle("show", themeMode === "auto");
-    const hint = document.getElementById("themeHint"), sunBtn = document.getElementById("themeSunBtn");
-    if(hint) hint.textContent = themeMode === "sun" ? "Domyślnie wg zachodu słońca (teraz: " + (document.body.classList.contains("night") ? "noc" : "dzień") + ")" : "";
-    if(sunBtn) sunBtn.style.display = themeMode === "sun" ? "none" : "";
-    const f = document.getElementById("themeNightFrom"), t = document.getElementById("themeNightTo");
-    if(f) f.value = nightFrom; if(t) t.value = nightTo;
+    const hint = document.getElementById("themeHint");
+    if(hint) hint.textContent = themeMode === "sun" ? "Wg zachodu słońca (teraz: " + (document.body.classList.contains("night") ? "noc" : "dzień") + ")" : "";
   }
   function setNightMode(on){
     if(document.body.classList.contains("night") !== on){
@@ -13905,31 +14015,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(announce){
       const night = document.body.classList.contains("night");
       if(m === "sun") showBanner("WG ZACHODU SŁOŃCA", "Teraz: " + (night ? "noc" : "dzień") + " — zmiana o zachodzie i wschodzie", false);
-      else if(m === "auto") showBanner("TRYB AUTO", "Noc od " + nightFrom + " do " + nightTo + " — teraz: " + (night ? "noc" : "dzień"), false);
       else showBanner(m === "day" ? "TRYB DZIEŃ" : "TRYB NOC", "Na stałe — zmienisz w Ustawieniach → Tryb mapy", false);
     }
   }
-  // trzy ikony w Ustawieniach; wybór „Auto” od razu pyta o godziny trybu nocnego (od – do)
-  document.querySelectorAll("#themeSeg button").forEach(b => b.addEventListener("click", () => {
-    const m = b.dataset.theme;
-    setThemeMode(m, false);
-    if(m === "auto"){
-      const f = document.getElementById("themeNightFrom");
-      setTimeout(() => { try{ f.focus(); if(f.showPicker) f.showPicker(); }catch(e){} }, 60);
-    }
-  }));
-  document.getElementById("themeSunBtn").addEventListener("click", () => setThemeMode("sun", true));
-  function onNightHoursChange(){
-    const f = document.getElementById("themeNightFrom").value, t = document.getElementById("themeNightTo").value;
-    if(!f || !t) return;
-    nightFrom = f; nightTo = t;
-    try{ localStorage.setItem(NIGHT_FROM_KEY, f); localStorage.setItem(NIGHT_TO_KEY, t); }catch(e){}
-    applyThemeMode();
-  }
-  document.getElementById("themeNightFrom").addEventListener("change", onNightHoursChange);
-  document.getElementById("themeNightTo").addEventListener("change", onNightHoursChange);
-  addTick(() => { if(themeMode === "sun" || themeMode === "auto") applyThemeMode(); }, 30000, true);   // w tle też: motyw dzień/noc wg zachodu słońca
-  document.addEventListener("visibilitychange", () => { if(!document.hidden && (themeMode === "sun" || themeMode === "auto")) applyThemeMode(); });
+  // trzy ikony w Ustawieniach: dzień, noc, powrót do zachodu słońca
+  document.querySelectorAll("#themeSeg button").forEach(b => b.addEventListener("click", () => setThemeMode(b.dataset.theme, b.dataset.theme === "sun")));
+  addTick(() => { if(themeMode === "sun") applyThemeMode(); }, 30000, true);   // w tle też: motyw dzień/noc wg zachodu słońca
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && themeMode === "sun") applyThemeMode(); });
   applyThemeMode();
 
   document.getElementById("btnLocate").addEventListener("click", () => {
@@ -13952,13 +14044,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     } else {                         // 2D → 3D
       is3D = true; northUp = false;
       applyDrivingCamera(true);
-      map.easeTo({ pitch: DRIVE_PITCH, bearing: currentHeading, duration: 700 });
+      if(lastPos){                   // od razu widok GPS gotowy do jazdy: na pojeździe, przybliżony, pochylony, za kierunkiem jazdy
+        followUser = true; updateLocateBtnVisibility();
+        map.easeTo({ center:[lastPos.lon, lastPos.lat], zoom: DRIVE_ZOOM, pitch: DRIVE_PITCH, bearing: currentHeading, duration: 700 });
+      } else map.easeTo({ pitch: DRIVE_PITCH, bearing: currentHeading, duration: 700 });
     }
     updateViewBtn();
   });
 
   document.getElementById("btnReportMenu").addEventListener("click", () => {
     const menu = document.getElementById("reportSubMenu");
+    if(!document.getElementById("reportFloat").classList.contains("zoomOk")){ showBanner("PRZYBLIŻ MAPĘ", "Fotoradar i parking zgłosisz po przybliżeniu mapy", false); return; }
     const open = menu.classList.toggle("open");
     document.getElementById("btnReportMenu").classList.toggle("active", open);
   });
@@ -13989,12 +14085,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     updateReportBtnVisibility();
   }
 
-  // przycisk zgłoszeń (🚩) widać dopiero, gdy mapa jest tak blisko, że pokazują się budynki
+  // chorągiewka (🚩) jest zawsze (menu: pełny ekran; fotoradar i parking dopiero, gdy mapa jest tak blisko, że pokazują się budynki
   const REPORT_BTN_MIN_ZOOM = 15;
   function updateReportBtnVisibility(){
     const box = document.getElementById("reportFloat");
     if(!box || !map) return;
-    const show = map.getZoom() >= REPORT_BTN_MIN_ZOOM;
+    const zoomOk = map.getZoom() >= REPORT_BTN_MIN_ZOOM;
+    const fs = typeof isFullscreenActive === "function" && isFullscreenActive();
+    const show = zoomOk || !fs;      // w pełnym ekranie i przy małym zoomie nie ma w menu nic do pokazania
+    box.classList.toggle("zoomOk", zoomOk);
     box.classList.toggle("visible", show);
     if(!show) closeReportMenu();
   }
@@ -14582,7 +14681,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
    Dane i rysowanie 3D: js/42 (window.nawiBillboards). Tu tylko interfejs. Zapis: localStorage (nawigator_billboards). */
 (function(){
   const $ = id => document.getElementById(id);
-  const panel = $("navPanel"), btn = $("navBillboardBtn"), truckBtn = $("navTruckBtn");
+  const panel = $("navPanel"), btn = $("navBillboardBtn");
   if(!panel || !btn || !window.nawiBillboards) return;
   const API = window.nawiBillboards;
   let sel = 0;
@@ -14670,13 +14769,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     if(on){
-      panel.classList.remove("truck-open"); if(truckBtn){ truckBtn.classList.remove("active"); truckBtn.setAttribute("aria-pressed", "false"); }
       fill();
       if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false);
     }
   }
   btn.addEventListener("click", () => setOpen(!panel.classList.contains("billboard-open")));
-  if(truckBtn) truckBtn.addEventListener("click", () => { if(panel.classList.contains("billboard-open")) setOpen(false); });
   const tabNav = $("navTabNav");
   if(tabNav){ tabNav.addEventListener("click", () => setOpen(false)); tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); }); }
 })();
@@ -14754,6 +14851,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $e("poiEditHide").textContent = isCompany ? "🚫 Ukryj firmę" : "🗑 Usuń nazwę";
     $e("poiEditMsg").textContent = isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
     $e("poiEditBox").style.display = "flex"; $e("poiAdminRow").style.display = "none";
+    if(typeof psSetState === "function") psSetState("half");
     $e("poiEditInput").focus();
   }
   function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
@@ -16314,6 +16412,407 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(cb){ cb.checked = mbtOn; cb.addEventListener("change", e => mbtSet(e.target.checked)); }
   });
   addTick(mbtApply, 4000);   // dodaje warstwę po załadowaniu mapy i odtwarza ją po przemalowaniu stylu (motyw dzień/noc)
+</script>
+<script>
+/* ===== js/52-poi-sheet.js — Nawigator: okno firmy na dole ekranu (po kliknięciu w nazwę firmy) =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   • Trzy wysokości okna: zwinięte (nazwa + Jedź / Zaplanuj trasę / Opublikuj), połowa ekranu, cały ekran.
+     Jedno pociągnięcie w górę = połowa; dłuższe pociągnięcie albo przytrzymanie uchwytu = cały ekran.
+   • W połowie/na całym ekranie: godziny, telefon, strona (TomTom), zdjęcia i opinie kierowców (Supabase, sql/poi_sheet.sql;
+     bez bazy zapis tylko na tym urządzeniu).
+   • Administrator ustawia bramę wjazdową (mały trójkąt na mapie); trasa „Jedź” prowadzi wtedy do bramy. */
+"use strict";
+
+  const PS = {
+    state: "peek", peekH: 170, detailsFor: null, seq: 0, noClick: false, ready: false,
+    infoCache: new Map(), gates: new Map(), gateMarkers: new Map(), rating: 0
+  };
+  let psGatePlacing = false;
+  const $p = id => document.getElementById(id);
+  const psSheet = () => $p("poiAsk");
+  const PS_LOCAL_KEY = "nav_poi_ugc_v1", PS_GATES_KEY = "nav_poi_gates_v1";
+  const PS_GATE_MIN_ZOOM = 16;
+  const psEsc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[c]));
+  const psNorm = s => String(s || "").toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g, "");
+  const psKey = t => psNorm(t.name) + "@" + t.lat.toFixed(4) + "," + t.lon.toFixed(4);
+
+  /* ---------- lokalny zapis (gdy brak Supabase albo tabel) ---------- */
+  function psLocalLoad(){ try{ const o = JSON.parse(localStorage.getItem(PS_LOCAL_KEY) || "{}"); return { reviews: o.reviews || [], photos: o.photos || [] }; }catch(e){ return { reviews: [], photos: [] }; } }
+  function psLocalSave(o){ try{ localStorage.setItem(PS_LOCAL_KEY, JSON.stringify(o)); return true; }catch(e){ return false; } }
+  const psNear = (r, t, d) => psNorm(r.name) === psNorm(t.name) && Math.abs(r.lat - t.lat) <= d && Math.abs(r.lon - t.lon) <= d;
+  const PS_BOX = 0.0006;   // ok. 65 m — ta sama firma bywa kafelkowana z drobnym przesunięciem
+
+  async function psRest(method, path, body, prefer){
+    if(!supaConfigured()) throw new Error("no-supabase");
+    const headers = { "apikey": supaKey, "Authorization": "Bearer " + supaKey };
+    if(body) headers["Content-Type"] = "application/json";
+    if(prefer) headers.Prefer = prefer;
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const t = await r.text(); return t ? JSON.parse(t) : null;
+  }
+  const psBoxQuery = t => `name=eq.${encodeURIComponent(t.name)}&lat=gte.${t.lat - PS_BOX}&lat=lte.${t.lat + PS_BOX}&lon=gte.${t.lon - PS_BOX}&lon=lte.${t.lon + PS_BOX}`;
+
+  /* ---------- wysokości i stany okna ---------- */
+  function psHeights(){
+    const vh = window.innerHeight || 700;
+    return { peek: PS.peekH, half: Math.max(PS.peekH + 60, Math.round(vh * 0.55)), full: Math.max(PS.peekH + 120, vh - 40) };
+  }
+  function psMeasure(){
+    const sh = psSheet(), cs = getComputedStyle(sh);
+    PS.peekH = Math.ceil($p("psTop").offsetHeight + (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0));
+  }
+  function psSetState(s){
+    const sh = psSheet(); if(!sh || !sh.classList.contains("show")) return;
+    psMeasure();
+    PS.state = s; sh.dataset.state = s;
+    sh.style.height = psHeights()[s] + "px";
+    if(s !== "peek") psLoadDetails();
+  }
+  function psOnShow(){
+    if(!PS.ready) return;
+    const sh = psSheet();
+    sh.classList.remove("asking", "ps-away");
+    $p("psReviewForm").classList.remove("open");
+    PS.detailsFor = null; PS.seq++;
+    $p("psInfo").innerHTML = ""; $p("psPhotos").innerHTML = ""; $p("psReviews").innerHTML = ""; $p("psAvg").textContent = "";
+    $p("psBody").scrollTop = 0;
+    document.body.classList.add("poi-sheet-open");
+    sh.dataset.state = "peek"; PS.state = "peek"; sh.style.height = "auto";
+    requestAnimationFrame(() => { psMeasure(); sh.style.height = PS.peekH + "px"; });
+    psGateButtons();
+  }
+  function psOnHide(){
+    document.body.classList.remove("poi-sheet-open");
+    const sh = psSheet(); if(sh){ sh.style.height = ""; sh.classList.remove("asking"); }
+    PS.seq++;
+  }
+
+  /* ---------- przeciąganie: jedno pociągnięcie = połowa, dłuższe / przytrzymanie = cały ekran ---------- */
+  function psInitDrag(){
+    const top = $p("psTop"), sh = psSheet();
+    let d = null;
+    top.addEventListener("pointerdown", e => {
+      const hs = psHeights();
+      d = { id: e.pointerId, y0: e.clientY, h0: sh.getBoundingClientRect().height, s0: PS.state, hs, moved: false, held: false,
+        hold: setTimeout(() => { if(d && !d.moved){ d.held = true; try{ navigator.vibrate && navigator.vibrate(12); }catch(_){} psSetState("full"); } }, 450) };
+    });
+    window.addEventListener("pointermove", e => {
+      if(!d || e.pointerId !== d.id || d.held) return;
+      const dy = d.y0 - e.clientY;
+      if(!d.moved && Math.abs(dy) > 8){ d.moved = true; clearTimeout(d.hold); sh.classList.add("dragging"); try{ top.setPointerCapture(e.pointerId); }catch(_){} }
+      if(d.moved) sh.style.height = Math.max(d.hs.peek * 0.85, Math.min(d.hs.full, d.h0 + dy)) + "px";
+    });
+    const end = e => {
+      if(!d || e.pointerId !== d.id) return;
+      clearTimeout(d.hold);
+      const x = d; d = null; sh.classList.remove("dragging");
+      if(x.held || x.moved){ PS.noClick = true; setTimeout(() => { PS.noClick = false; }, 80); }
+      if(x.held || !x.moved) return;
+      const dy = x.y0 - e.clientY, hNow = sh.getBoundingClientRect().height;
+      let s = x.s0;
+      if(dy > 30) s = x.s0 === "peek" ? (hNow > x.hs.full * 0.8 ? "full" : "half") : "full";
+      else if(dy < -30){
+        if(x.s0 === "peek"){ hidePoiAsk(); return; }
+        s = x.s0 === "full" ? (hNow < x.hs.half * 0.8 ? "peek" : "half") : "peek";
+      }
+      psSetState(s);
+    };
+    window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+    top.addEventListener("click", e => { if(PS.noClick){ e.stopPropagation(); e.preventDefault(); } }, true);
+    $p("psGrab").addEventListener("click", () => { if(!PS.noClick) psSetState(PS.state === "peek" ? "half" : "peek"); });
+    window.addEventListener("resize", () => { if(psSheet().classList.contains("show")) psSetState(PS.state); });
+  }
+
+  /* ---------- godziny, telefon, strona (TomTom poiSearch) ---------- */
+  const PS_DAYS = ["niedz.", "pon.", "wt.", "śr.", "czw.", "pt.", "sob."];
+  const pad2 = n => String(n).padStart(2, "0");
+  function psParseHours(oh){
+    const byDate = {};
+    ((oh && oh.timeRanges) || []).forEach(r => {
+      const sd = r.startTime && r.startTime.date; if(!sd) return;
+      (byDate[sd] = byDate[sd] || []).push({ a: r.startTime.hour * 60 + r.startTime.minute, b: (r.endTime.date === sd ? r.endTime.hour * 60 + r.endTime.minute : 1440) });
+    });
+    return byDate;
+  }
+  function psHoursHtml(byDate){
+    const dates = Object.keys(byDate).sort();
+    if(!dates.length) return "";
+    const now = new Date(), todayStr = now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const todayR = byDate[todayStr] || [];
+    const open = todayR.some(r => nowMin >= r.a && nowMin < r.b);
+    const fmt = m => pad2(Math.floor(m / 60) % 24) + ":" + pad2(m % 60);
+    let status = open ? `<span class="psOpen">Otwarte</span>` : `<span class="psClosed">Zamknięte</span>`;
+    if(open){ const r = todayR.find(r => nowMin >= r.a && nowMin < r.b); status += ` · do ${fmt(r.b)}`; }
+    const rows = dates.map(ds => {
+      const dt = new Date(ds + "T12:00:00");
+      return `<b>${PS_DAYS[dt.getDay()]}</b><span>${byDate[ds].map(r => fmt(r.a) + "–" + fmt(r.b)).join(", ")}</span>`;
+    }).join("");
+    return `<div class="psRow"><span class="ic">🕒</span><div>${status}</div></div><div class="psHours">${rows}</div>`;
+  }
+  async function psFetchInfo(t){
+    const ck = psKey(t);
+    if(PS.infoCache.has(ck)) return PS.infoCache.get(ck);
+    if(!tomtomApiKey) return null;
+    const p = new URLSearchParams({ key: tomtomApiKey, limit: "5", lat: String(t.lat), lon: String(t.lon), radius: "250", openingHours: "nextSevenDays", countrySet: NAV_DEFAULT_COUNTRY });
+    const r = await fetch(`https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(t.name)}.json?${p.toString()}`);
+    if(!r.ok) return null;
+    const res = ((await r.json()).results || []).filter(x => x.poi && x.position);
+    const nn = psNorm(t.name);
+    let best = null, bd = 1e9;
+    res.forEach(x => {
+      const d = _dM(t.lat, t.lon, x.position.lat, x.position.lon), xn = psNorm(x.poi.name);
+      const nameOk = xn && (xn.includes(nn) || nn.includes(xn));
+      if(nameOk && d < 250 && d < bd){ best = x; bd = d; }
+    });
+    if(!best){ res.forEach(x => { const d = _dM(t.lat, t.lon, x.position.lat, x.position.lon); if(d < 40 && d < bd){ best = x; bd = d; } }); }
+    const info = best ? { phone: best.poi.phone || "", url: best.poi.url || "", hours: psParseHours(best.poi.openingHours) } : { phone: "", url: "", hours: {} };
+    PS.infoCache.set(ck, info);
+    return info;
+  }
+  async function psLoadInfo(t, seq){
+    const box = $p("psInfo");
+    const gate = poiGateFor(t);
+    const base = `<div class="psRow"><span class="ic">📍</span><div>${psEsc(t.address || "")}</div></div>` +
+      (gate ? `<div class="psRow"><span class="ic">🚪</span><div>Brama wjazdowa ustawiona — trasa poprowadzi do niej.</div></div>` : "");
+    box.innerHTML = base + `<div class="psRow psMuted"><span class="ic">⏳</span><div>Wczytuję godziny i telefon…</div></div>`;
+    let info = null;
+    try{ info = await psFetchInfo(t); }catch(e){ info = null; }
+    if(seq !== PS.seq) return;
+    let html = base;
+    if(info){
+      const h = psHoursHtml(info.hours);
+      html += h || `<div class="psRow psMuted"><span class="ic">🕒</span><div>Brak godzin otwarcia w bazie.</div></div>`;
+      html += info.phone ? `<div class="psRow"><span class="ic">📞</span><div><a href="tel:${psEsc(info.phone.replace(/[^+0-9]/g, ""))}">${psEsc(info.phone)}</a></div></div>`
+                         : `<div class="psRow psMuted"><span class="ic">📞</span><div>Brak numeru telefonu w bazie.</div></div>`;
+      if(info.url){ const u = /^https?:\/\//i.test(info.url) ? info.url : "https://" + info.url; html += `<div class="psRow"><span class="ic">🌐</span><div><a href="${psEsc(u)}" target="_blank" rel="noopener">${psEsc(info.url.replace(/^https?:\/\//i, "").replace(/\/$/, ""))}</a></div></div>`; }
+    } else {
+      html += `<div class="psRow psMuted"><span class="ic">ℹ️</span><div>${tomtomApiKey ? "Brak godzin i telefonu dla tego miejsca." : "Godziny i telefon: dodaj klucz TomTom w ustawieniach."}</div></div>`;
+    }
+    box.innerHTML = html;
+  }
+
+  /* ---------- zdjęcia i opinie ---------- */
+  async function psListUgc(kind, t){      // kind: "reviews" | "photos"
+    const local = psLocalLoad()[kind].filter(r => psNear(r, t, PS_BOX));
+    let remote = [], ok = false;
+    try{
+      const cols = kind === "reviews" ? "id,rating,body,author,created_at" : "id,data,created_at";
+      remote = await psRest("GET", `poi_${kind}?select=${cols}&${psBoxQuery(t)}&order=created_at.desc&limit=${kind === "reviews" ? 40 : 12}`) || [];
+      ok = true;
+    }catch(e){ remote = []; }
+    return { items: local.concat(remote), ok };
+  }
+  const psStarsStr = n => "★".repeat(n) + "☆".repeat(5 - n);
+  async function psLoadReviews(t, seq){
+    const { items } = await psListUgc("reviews", t);
+    if(seq !== PS.seq) return;
+    const box = $p("psReviews");
+    $p("psAvg").textContent = items.length ? `★ ${(items.reduce((s, r) => s + r.rating, 0) / items.length).toFixed(1)} (${items.length})` : "";
+    if(!items.length){ box.innerHTML = `<div class="psMuted">Brak opinii. Dodaj pierwszą przez „Opublikuj”.</div>`; return; }
+    const adm = isAdmin();
+    box.innerHTML = items.map(r => `<div class="psReview"><span class="psStarsRO">${psStarsStr(r.rating)}</span><span class="by">${psEsc(r.author || "Kierowca")} · ${psEsc(String(r.created_at || "").slice(0, 10))}</span>` +
+      (adm && !String(r.id).startsWith("L") ? `<button class="rdel" data-id="${r.id}" type="button">🗑</button>` : "") +
+      (r.body ? `<p>${psEsc(r.body)}</p>` : "") + `</div>`).join("");
+  }
+  async function psLoadPhotos(t, seq){
+    const { items } = await psListUgc("photos", t);
+    if(seq !== PS.seq) return;
+    const box = $p("psPhotos"), adm = isAdmin();
+    PS.photoList = items;
+    if(!items.length){ box.innerHTML = `<div class="psMuted">Brak zdjęć. Dodaj pierwsze przez „Opublikuj”.</div>`; return; }
+    box.innerHTML = items.map((p, i) => `<button class="psThumb" type="button" data-i="${i}"><img src="${psEsc(p.data)}" alt="Zdjęcie firmy">` +
+      (adm && !String(p.id).startsWith("L") ? `<span class="del" data-del="${p.id}">🗑</span>` : "") + `</button>`).join("");
+  }
+  function psLoadDetails(){
+    const t = poiAskTarget; if(!t) return;
+    const key = psKey(t);
+    if(PS.detailsFor === key) return;
+    PS.detailsFor = key;
+    const seq = PS.seq;
+    psLoadInfo(t, seq); psLoadPhotos(t, seq); psLoadReviews(t, seq);
+  }
+  function psResizeToDataUrl(file){
+    return new Promise((res, rej) => {
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        const M = 960, k = Math.min(1, M / Math.max(img.width, img.height));
+        const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", 0.72));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); };
+      img.src = url;
+    });
+  }
+  async function psSaveUgc(kind, t, fields){
+    const row = Object.assign({ name: t.name, lat: t.lat, lon: t.lon, device: getDeviceId() }, fields);
+    try{ await psRest("POST", `poi_${kind}`, [row], "return=minimal"); return "remote"; }
+    catch(e){
+      const o = psLocalLoad();
+      o[kind].unshift(Object.assign({ id: "L" + Date.now(), created_at: new Date().toISOString() }, row));
+      o[kind] = o[kind].slice(0, kind === "photos" ? 6 : 50);
+      return psLocalSave(o) ? "local" : "fail";
+    }
+  }
+  function psAfterSave(kind, how){
+    const label = kind === "reviews" ? "Opinia" : "Zdjęcie";
+    if(how === "remote") showBanner("OPUBLIKOWANO", label + " jest już widoczna dla innych kierowców", false);
+    else if(how === "local") showBanner("ZAPISANO LOKALNIE", label + " tylko na tym urządzeniu (brak bazy — patrz sql/poi_sheet.sql)", false);
+    else showBanner("NIE ZAPISANO", "Brak miejsca na urządzeniu", false);
+    PS.detailsFor = null; if(PS.state !== "peek") psLoadDetails();
+  }
+
+  /* ---------- bramy wjazdowe ---------- */
+  function psGatesPersist(){ try{ localStorage.setItem(PS_GATES_KEY, JSON.stringify([...PS.gates.values()].filter(g => g.local))); }catch(e){} }
+  function poiGateFor(t){
+    let best = null, bd = 150;
+    PS.gates.forEach(g => { if(psNorm(g.name) !== psNorm(t.name)) return; const d = _dM(t.lat, t.lon, g.poi_lat, g.poi_lon); if(d < bd){ bd = d; best = g; } });
+    return best ? { lat: best.gate_lat, lon: best.gate_lon, key: best.key } : null;
+  }
+  function psBearing(a, b){
+    const r = Math.PI / 180, dl = (b.lon - a.lon) * r;
+    const y = Math.sin(dl) * Math.cos(b.lat * r), x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos(dl);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function psGatesRender(){
+    if(typeof map === "undefined" || !map) return;
+    PS.gateMarkers.forEach(m => m.remove()); PS.gateMarkers.clear();
+    PS.gates.forEach(g => {
+      const el = document.createElement("div"); el.className = "poi-gate";
+      el.innerHTML = `<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="#14202b" fill-opacity=".88" stroke="#fff" stroke-opacity=".85" stroke-width="1.2"/><path d="M11 5.5 L16 15 L11 12.8 L6 15 Z" fill="#7fd18c"/></svg>`;
+      const rot = psBearing({ lat: g.gate_lat, lon: g.gate_lon }, { lat: g.poi_lat, lon: g.poi_lon });   // trójkąt wskazuje kierunek wjazdu (od bramy do firmy)
+      const m = new maplibregl.Marker({ element: el, rotation: rot, rotationAlignment: "map", pitchAlignment: "viewport" }).setLngLat([g.gate_lon, g.gate_lat]).addTo(map);
+      PS.gateMarkers.set(g.key, m);
+    });
+  }
+  async function psGatesLoad(){
+    try{ (JSON.parse(localStorage.getItem(PS_GATES_KEY) || "[]")).forEach(g => PS.gates.set(g.key, Object.assign(g, { local: true }))); }catch(e){}
+    try{
+      const rows = await psRest("GET", "poi_gates?select=key,name,poi_lat,poi_lon,gate_lat,gate_lon&limit=2000") || [];
+      PS.gates.forEach((g, k) => { if(!g.local) PS.gates.delete(k); });
+      rows.forEach(g => PS.gates.set(g.key, g));
+    }catch(e){ /* brak bazy lub tabeli — zostają bramy lokalne */ }
+    psGatesRender();
+  }
+  function psGateButtons(){
+    const t = poiAskTarget, has = !!(t && poiGateFor(t));
+    const del = $p("psGateDel"); if(del) del.style.display = has ? "" : "none";
+    const set = $p("psGateSet"); if(set) set.textContent = has ? "🚪 Przesuń bramę" : "🚪 Ustaw bramę wjazdową";
+  }
+  function psGateStart(){
+    if(!poiAskTarget || !isAdmin()) return;
+    psGatePlacing = true;
+    psSheet().classList.add("ps-away");
+    document.body.classList.remove("poi-sheet-open");
+    $p("psGateBar").classList.add("show");
+  }
+  function psGateEnd(){
+    psGatePlacing = false;
+    $p("psGateBar").classList.remove("show");
+    if(poiAskTarget){ psSheet().classList.remove("ps-away"); document.body.classList.add("poi-sheet-open"); }
+  }
+  async function psGateSave(lat, lon){
+    const t = poiAskTarget; if(!t) return;
+    const old = poiGateFor(t);
+    const row = { key: old ? old.key : psKey(t), name: t.name, poi_lat: t.lat, poi_lon: t.lon, gate_lat: lat, gate_lon: lon };
+    try{
+      await supaAdminRequest("POST", "poi_gates?on_conflict=key", [Object.assign({}, row, { set_by: (typeof adminEmail === "function" && adminEmail()) || null })], "resolution=merge-duplicates,return=minimal");
+      showBanner("BRAMA ZAPISANA", "Widzą ją wszyscy kierowcy", false);
+    }catch(e){
+      row.local = true;
+      showBanner("BRAMA ZAPISANA LOKALNIE", String(e.message || e).slice(0, 90), false);
+    }
+    PS.gates.set(row.key, row); psGatesPersist(); psGatesRender(); psGateButtons();
+    PS.detailsFor = null; if(PS.state !== "peek") psLoadDetails();
+  }
+  async function psGateDelete(){
+    const t = poiAskTarget, g = t && poiGateFor(t); if(!g) return;
+    const cur = PS.gates.get(g.key);
+    if(!(cur && cur.local)){ try{ await supaAdminRequest("DELETE", "poi_gates?key=eq." + encodeURIComponent(g.key)); }catch(e){ showBanner("NIE USUNIĘTO", String(e.message || e).slice(0, 90), false); return; } }
+    PS.gates.delete(g.key); psGatesPersist(); psGatesRender(); psGateButtons();
+    PS.detailsFor = null; if(PS.state !== "peek") psLoadDetails();
+  }
+
+  /* ---------- podpięcie zdarzeń ---------- */
+  safeInit("okno firmy", () => {
+    PS.ready = true;
+    psInitDrag();
+
+    // Jedź / Zaplanuj trasę: cel = brama wjazdowa (jeśli ustawiona), potem od razu odpowiedni krok trasy
+    $p("psDrive").addEventListener("click", () => acceptPoiAsk("go"));
+    $p("poiAskYes").addEventListener("click", () => acceptPoiAsk("plan"));
+    $p("poiAskNo").addEventListener("click", hidePoiAsk);
+
+    // Opublikuj → pytanie na dole okna: opinia czy zdjęcie
+    $p("psPublish").addEventListener("click", () => psSheet().classList.add("asking"));
+    $p("psAskCancel").addEventListener("click", () => psSheet().classList.remove("asking"));
+    $p("psAskReview").addEventListener("click", () => {
+      psSheet().classList.remove("asking");
+      PS.rating = 0; $p("psReviewText").value = ""; $p("psReviewMsg").textContent = "";
+      document.querySelectorAll("#psStars button").forEach(b => b.classList.remove("on"));
+      $p("psReviewForm").classList.add("open");
+      psSetState(PS.state === "full" ? "full" : "half");
+      setTimeout(() => { try{ $p("psReviewForm").scrollIntoView({ block: "nearest" }); }catch(e){} }, 60);
+    });
+    $p("psAskPhoto").addEventListener("click", () => { psSheet().classList.remove("asking"); $p("psFile").value = ""; $p("psFile").click(); });
+    $p("psStars").addEventListener("click", e => {
+      const b = e.target.closest("button"); if(!b) return;
+      PS.rating = Number(b.dataset.n);
+      document.querySelectorAll("#psStars button").forEach(x => x.classList.toggle("on", Number(x.dataset.n) <= PS.rating));
+    });
+    $p("psReviewCancel").addEventListener("click", () => $p("psReviewForm").classList.remove("open"));
+    $p("psReviewSave").addEventListener("click", async () => {
+      if(!poiAskTarget) return;
+      if(!PS.rating){ $p("psReviewMsg").textContent = "Wybierz liczbę gwiazdek."; return; }
+      const btn = $p("psReviewSave"); btn.disabled = true;
+      const how = await psSaveUgc("reviews", poiAskTarget, { rating: PS.rating, body: $p("psReviewText").value.trim().slice(0, 500), author: "Kierowca " + getDeviceId().slice(-4) });
+      btn.disabled = false; $p("psReviewForm").classList.remove("open"); psAfterSave("reviews", how);
+    });
+    $p("psFile").addEventListener("change", async e => {
+      const f = e.target.files && e.target.files[0]; if(!f || !poiAskTarget) return;
+      try{
+        const data = await psResizeToDataUrl(f);
+        const how = await psSaveUgc("photos", poiAskTarget, { data });
+        psSetState(PS.state === "full" ? "full" : "half");
+        psAfterSave("photos", how);
+      }catch(err){ showBanner("NIE DODANO ZDJĘCIA", "Nie udało się odczytać zdjęcia", false); }
+    });
+
+    // podgląd zdjęcia i (administrator) usuwanie zdjęć / opinii
+    $p("psPhotos").addEventListener("click", async e => {
+      const del = e.target.closest("[data-del]");
+      if(del){
+        e.stopPropagation();
+        try{ await supaAdminRequest("DELETE", "poi_photos?id=eq." + del.dataset.del); PS.detailsFor = null; psLoadDetails(); }catch(err){ showBanner("NIE USUNIĘTO", String(err.message || err).slice(0, 90), false); }
+        return;
+      }
+      const b = e.target.closest(".psThumb"); if(!b) return;
+      const p = (PS.photoList || [])[Number(b.dataset.i)]; if(!p) return;
+      $p("psViewer").querySelector("img").src = p.data; $p("psViewer").classList.add("show");
+    });
+    $p("psViewer").addEventListener("click", () => $p("psViewer").classList.remove("show"));
+    $p("psReviews").addEventListener("click", async e => {
+      const b = e.target.closest(".rdel"); if(!b) return;
+      try{ await supaAdminRequest("DELETE", "poi_reviews?id=eq." + b.dataset.id); PS.detailsFor = null; psLoadDetails(); }catch(err){ showBanner("NIE USUNIĘTO", String(err.message || err).slice(0, 90), false); }
+    });
+
+    // brama wjazdowa (administrator)
+    $p("psGateSet").addEventListener("click", psGateStart);
+    $p("psGateDel").addEventListener("click", psGateDelete);
+    $p("psGateCancel").addEventListener("click", psGateEnd);
+    const whenMap = fn => { if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); } else setTimeout(() => whenMap(fn), 600); };
+    whenMap(() => {
+      map.on("click", e => {
+        if(!psGatePlacing) return;
+        const ll = e.lngLat; psGateEnd(); psGateSave(ll.lat, ll.lng);
+      });
+      const z = () => document.body.classList.toggle("gates-on", map.getZoom() >= PS_GATE_MIN_ZOOM);
+      map.on("zoom", z); z();
+      setTimeout(psGatesLoad, 2500);
+    });
+  });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
