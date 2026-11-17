@@ -1006,6 +1006,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #navPanel.compact #navDragHandle{ padding:4px 0 2px; }
   #navPanel.compact #navRouteInfo{ padding:0 12px 4px; background:transparent; }
   #navPanel.compact #navTripStats .ts b{ font-size:18px; line-height:1.15; }
+  /* zwykły kierowca (nie administrator): w jeździe okno jest zwinięte do samych czasów (pozostały czas, mile,
+     przyjazd). Przyciski, narzędzia i „Po drodze” pokazują się dopiero po wysunięciu okna (przeciągnięcie
+     uchwytu w górę albo dotknięcie czasów). Większy uchwyt, bo jest jedynym sposobem na wysunięcie. */
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact .navHeader,
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact #navToolsRow,
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact #navAlongRow,
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact #navTollNote{ display:none !important; }
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact #navDragHandle{ padding:10px 0 6px; }
+  body:not(.is-admin) #navPanel[data-navstate="nav"].compact #navTripStats{ cursor:pointer; }
   #navRouteInfo .rMain{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px; font-weight:700;
@@ -1735,7 +1744,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="navHeader">
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
     <div class="navHeaderActions">
-      <div id="navBillboardBtn" title="Billboardy przy autostradzie" role="button" aria-label="Billboardy przy autostradzie" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5V21M17 12.5V21M5 21h4M15 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div id="navBillboardBtn" class="adminOnly" title="Billboardy przy autostradzie" role="button" aria-label="Billboardy przy autostradzie" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5V21M17 12.5V21M5 21h4M15 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
       <div id="navTruckBtn" title="Parametry ciężarówki" role="button" aria-label="Parametry ciężarówki" aria-pressed="false">🚛</div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
@@ -1817,7 +1826,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </div>
   </div>
 
-  <div id="navBillboardBlock">
+  <div id="navBillboardBlock" class="adminOnly">
     <div class="truckHead"><span>🪧 Billboardy przy autostradzie</span></div>
     <div id="bbChips"></div>
     <canvas id="bbPreview" width="480" height="120"></canvas>
@@ -1961,7 +1970,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div id="setTabs" role="tablist">
       <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
       <button type="button" data-tab="sound">🔊 Dźwięk</button>
-      <button type="button" data-tab="system">⚙️ System</button>
+      <button type="button" data-tab="system" class="adminOnly">⚙️ System</button>
     </div>
 
     <div class="setPane active" data-pane="screen">
@@ -1995,6 +2004,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         </div>
         <div id="satStatus"></div>
       </div>
+      <div class="navTitle" style="margin-top:12px">Drogi płatne</div>
+      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
+        <button type="button" data-toll="free">Unikaj płatnych</button>
+        <button type="button" data-toll="paid">Płatne dozwolone</button>
+      </div>
+      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
     </div>
 
     <div class="setPane" data-pane="sound" id="soundPane">
@@ -2016,13 +2031,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       </div>
     </div>
 
-    <div class="setPane" data-pane="system">
-      <div class="navTitle">Drogi płatne</div>
-      <div id="tollSeg" class="tollSeg" role="group" aria-label="Drogi płatne">
-        <button type="button" data-toll="free">Unikaj płatnych</button>
-        <button type="button" data-toll="paid">Płatne dozwolone</button>
-      </div>
-      <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
+    <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
 
     <div class="adminOnly" id="adminRow" style="align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px;">
@@ -3646,6 +3655,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
   }
 
+  // Budynki w trybie DZIENNYM: oryginalny kolor (#e4e1da) był praktycznie taki sam jak tło terenu (#e8e1cf), więc zlewały się z mapą.
+  // Ciemniejszy, ciepły szary (kontrast z terenem ok. 1,45:1 zamiast 1,0:1) i wyraźniejszy obrys. W nocy zostaje ciemny styl.
+  const DAY_BUILDING_FILL = "#c2bcae", DAY_BUILDING_OUTLINE = "#948d7d";
+  function applyDayBuildings(night){
+    if(!map || night) return;
+    try{
+      (map.getStyle().layers || []).forEach(l => {
+        if(l.type !== "fill" || l["source-layer"] !== "building") return;
+        map.setPaintProperty(l.id, "fill-color", DAY_BUILDING_FILL);
+        map.setPaintProperty(l.id, "fill-outline-color", DAY_BUILDING_OUTLINE);
+      });
+    }catch(e){ console.warn("Kolor budynków (dzień):", e); }
+  }
+
   // Ustawia kolory mapy zgodnie z aktualnym trybem (dzień = oryginał, noc = ciemny styl)
   function applyNightTheme(){
     if(!map) return;
@@ -3669,6 +3692,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     applyMinorRoadZoom(night);
     try{ applySatBrightness(); }catch(e){}
     applyCompanyLabelStyle(night);
+    applyDayBuildings(night);
   }
 
   // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu).
@@ -9518,6 +9542,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     requestAnimationFrame(() => { if(typeof updateNavIconRowHeightVar === "function") updateNavIconRowHeightVar(); });
   }
   document.addEventListener("click", ev => { if(ev.target.closest && ev.target.closest("#navExpandHint")) setNavExpanded(true); });
+  // zwykły kierowca: dotknięcie czasów w zwiniętym oknie jazdy wysuwa resztę opcji
+  document.addEventListener("click", ev => { if(!isAdmin() && ev.target.closest && ev.target.closest("#navPanel.compact #navTripStats")) setNavExpanded(true); });
 
   function navIsDriving(){ return !!(navUiState === "nav" && activeRoute && !activeRoute.planning); }
   function setNavPanelCollapsed(collapsed){
@@ -9725,6 +9751,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(state !== "picker"){ const aw = document.getElementById("pickAddWrap"); if(aw) aw.style.display = "none"; }
     if(state !== "picker" && typeof pickReplanTimer !== "undefined") clearTimeout(pickReplanTimer);
     setNavPanelCollapsed(false); // każda zmiana etapu (cel/wybór trasy/jazda) ma być od razu widoczna
+    if(state === "nav" && !isAdmin() && navIsDriving()) setNavPanelCollapsed(true);   // zwykły kierowca: w jeździe okno zwinięte do samych czasów (reszta po wysunięciu)
     updateDestPinInteractivity();
     if(typeof updateNavPanelPeek === "function") updateNavPanelPeek();
     if(typeof navRefreshClearBtns === "function") navRefreshClearBtns();
@@ -11057,6 +11084,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(map){ map.dragPan.enable(); map.getCanvas().style.cursor = ""; }
     if(lastPos) enterDrivingView();
     renderNavRouteInfo();
+    if(!isAdmin()) setNavPanelCollapsed(true);   // zwykły kierowca: w jeździe okno zwinięte do samych czasów
   }
 </script>
 <script>
