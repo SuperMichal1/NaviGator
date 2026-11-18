@@ -655,7 +655,8 @@
   #navGoBtn:disabled{ opacity:.4; cursor:default; }
   #navGoBtn:active:not(:disabled){ transform: scale(0.98); }
   /* wiersz z przyciskami celu: "Wyznacz trasę" (TomTom) i "Zaplanuj trasę" (darmowy silnik dla ciężarówek) */
-  #navGoRow{ display:flex; gap:8px; }
+  /* „Jedź” i „Zaplanuj trasę” są teraz w oknie firmy (js/52); przyciski zostają w DOM, bo okno firmy wywołuje ich logikę */
+  #navGoRow{ display:none !important; }
   #navGoRow > button{ flex:1; }
   #navPlanBtn{
     background: transparent;
@@ -1527,28 +1528,35 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     border-radius:22px 22px 0 0; border-width:1px 0 0 0; padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
     overflow:hidden; z-index:70; flex-direction:column; box-sizing:border-box;
     transition: height .22s ease, transform .22s ease;
-    box-shadow:0 -8px 28px rgba(0,0,0,.45);
+    box-shadow:0 -6px 26px rgba(0,0,0,.22);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25); backdrop-filter: blur(20px) saturate(1.25);
   }
+  /* dzień: jasne, delikatnie przezroczyste szkło; noc: ciemne, też delikatnie przezroczyste */
+  body:not(.night) #poiAsk.poiCard{ background: rgba(250,252,253,.84); color:#0d1c24; border-top:1px solid rgba(255,255,255,.7); }
+  body.night #poiAsk.poiCard{ background: rgba(16,20,26,.80); color:#f1ece4; border-top:1px solid rgba(255,255,255,.12); }
   #poiAsk.poiCard.dragging{ transition:none; }
   #poiAsk.poiCard.ps-away{ transform: translateY(110%); }
   #psTop{ touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; flex:0 0 auto; }
   #psGrab{ display:flex; justify-content:center; padding:9px 0 7px; cursor:grab; }
-  #psGrab span{ width:44px; height:5px; border-radius:3px; background: var(--text-main); opacity:.35; }
+  #psGrab span{ width:44px; height:5px; border-radius:3px; background: currentColor; opacity:.3; }
   .psHead{ display:flex; align-items:flex-start; gap:10px; }
   .psTitle{ flex:1; min-width:0; }
   #poiAsk .poiName{ font-size:20px; font-weight:700; }
   #poiAsk .poiAddr{ margin-top:2px; }
   #poiAsk button.psClose{ flex:0 0 auto; width:40px; height:40px; padding:0; border-radius:50%; font-size:17px; background: rgba(128,128,128,.22); border-color:transparent; }
-  .psActions, .psAskBtns{ display:flex; gap:8px; margin:12px 0 6px; }
-  .psActions button, .psAskBtns button{ padding:12px 8px; border-radius:999px; font-size:14px; }
-  #poiAsk button#psDrive{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
-  #poiAsk button#poiAskYes{ background: rgba(11,122,109,.18); border-color: rgba(11,122,109,.55); color: var(--text-main); }
+  /* podłużne przyciski jak w Mapach Google: szerokie pigułki w jednym rzędzie (przewijanym, gdy się nie mieszczą) */
+  .psActions, .psAskBtns{ display:flex; gap:10px; margin:14px 0 8px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .psActions::-webkit-scrollbar, .psAskBtns::-webkit-scrollbar{ display:none; }
+  .psActions button, .psAskBtns button{ flex:0 0 auto; min-width:128px; height:50px; padding:0 22px; border-radius:999px; font-size:16px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+  #poiAsk button#psDrive{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
+  body:not(.night) #poiAsk button#poiAskYes, body:not(.night) #poiAsk button#psPublish, body:not(.night) #poiAsk button#psAskCancel{ background: rgba(13,28,36,.07); border-color: rgba(13,28,36,.14); color:#0d1c24; }
+  body.night #poiAsk button#poiAskYes, body.night #poiAsk button#psPublish, body.night #poiAsk button#psAskCancel{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color:#f1ece4; }
   .psAsking{ display:none; margin:10px 0 6px; }
   #poiAsk.asking .psActions{ display:none; }
   #poiAsk.asking .psAsking{ display:block; }
   .psAskQ{ font-size:14px; font-weight:700; margin-bottom:8px; }
   .psAskBtns{ margin:0; }
-  #poiAsk button#psAskReview, #poiAsk button#psAskPhoto{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #poiAsk button#psAskReview, #poiAsk button#psAskPhoto{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
   #psBody{ display:none; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:4px 0 12px; -webkit-overflow-scrolling:touch; }
   #poiAsk[data-state="half"] #psBody, #poiAsk[data-state="full"] #psBody{ display:block; }
   .psSect{ padding:10px 0; border-top:1px solid var(--panel-border); }
@@ -1576,9 +1584,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .psStars{ display:flex; gap:4px; }
   #poiAsk .psStars button{ flex:none; width:44px; height:44px; padding:0; border-radius:50%; font-size:24px; line-height:1; color:#8a8f94; background:transparent; }
   #poiAsk .psStars button.on{ color:#f5b301; }
-  #psReviewText{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font:500 15px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(255,255,255,0.12); color: var(--text-main); resize:vertical; }
-  #poiAsk button.psPrimary{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
-  #psBody .poiBtns{ margin-top:10px; }
+  #psReviewText{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font:500 15px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color: inherit; resize:vertical; }
+  #poiAsk button.psPrimary{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
+  #psBody .poiBtns{ margin-top:10px; flex-wrap:wrap; }
+  .poi-gate-cand{ width:28px; height:28px; border-radius:50%; background:#ffd54a; color:#1b1b1b; border:2px solid #fff; font:800 14px/24px 'Inter',system-ui,sans-serif; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.5); cursor:pointer; }
   #psViewer{ position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; }
   #psViewer.show{ display:flex; }
   #psViewer img{ max-width:100%; max-height:100%; object-fit:contain; }
@@ -1729,6 +1738,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button id="poiAdminEdit" type="button">✏️ Zmień nazwę (administrator)</button>
     </div>
     <div class="poiBtns adminOnly" id="poiGateRow">
+      <button id="psGateSuggest" type="button">💡 Podpowiedz bramę (OSM)</button>
       <button id="psGateSet" type="button">🚪 Ustaw bramę wjazdową</button>
       <button id="psGateDel" type="button" style="display:none">🗑 Usuń bramę</button>
     </div>
@@ -1749,7 +1759,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <input type="file" id="psFile" accept="image/*" hidden>
 </div>
 <div id="psViewer" role="dialog" aria-label="Zdjęcie"><img alt=""></div>
-<div id="psGateBar"><span>Dotknij mapy w miejscu bramy wjazdowej</span><button id="psGateCancel" type="button">Anuluj</button></div>
+<div id="psGateBar"><span id="psGateBarTxt">Dotknij mapy w miejscu bramy wjazdowej</span><button id="psGateCancel" type="button">Anuluj</button></div>
 
 <div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="voteTitle"></div>
@@ -4155,7 +4165,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       try{ applyCompanyLabelStyle(document.body.classList.contains("night")); }catch(e){}
 
       // źródło wyznaczonej trasy (TomTom)
-      map.addSource("route-line", { type:"geojson", data: emptyFC() });
+      map.addSource("route-line", { type:"geojson", data: emptyFC(), lineMetrics: true });   // lineMetrics: potrzebne do wygaszania neonu za pojazdem (line-gradient)
       map.addLayer({
         id:"route-line-casing",
         type:"line",
@@ -4625,6 +4635,32 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(map.getLayer("route-line-alt-main"))
       map.setPaintProperty("route-line-alt-main", "line-color", night ? "#5FA9B5" : "#86E0D4");
     if(userMarkerEl) applyUserMarkerStyle();
+    if(routeFadeP > 0) applyRouteFade(routeFadeP);
+  }
+
+  // neon gaśnie za pojazdem: odcinek już przejechany ma wygaszony kolor (line-gradient wg postępu na trasie 0..1)
+  let routeFadeP = 0;
+  function routeRgba(hex, a){
+    const h = String(hex || "#1FD6C1").replace("#", "");
+    return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+  }
+  function applyRouteFade(p){
+    if(!map || !map.getLayer("route-line-main")) return;
+    routeFadeP = p;
+    const ids = ["route-line-main", "route-line-glow", "route-line-casing"].filter(id => map.getLayer(id));
+    if(!(p > 0.001)){ ids.forEach(id => map.setPaintProperty(id, "line-gradient", null)); return; }
+    const night = document.body.classList.contains("night");
+    const c = customRouteColor || (night ? "#1DF5FF" : "#1FD6C1");
+    const cc = customRouteColor ? (night ? customRouteColor : "#0c0f12") : (night ? "#00B4FF" : "#0c0f12");
+    const q = Math.min(0.997, p), q2 = q + 0.002;
+    const grad = (col, dimA) => ["interpolate", ["linear"], ["line-progress"], 0, routeRgba(col, dimA), q, routeRgba(col, dimA), q2, routeRgba(col, 1), 1, routeRgba(col, 1)];
+    map.setPaintProperty("route-line-main", "line-gradient", grad(c, 0.28));
+    if(map.getLayer("route-line-glow")) map.setPaintProperty("route-line-glow", "line-gradient", grad(c, 0));
+    map.setPaintProperty("route-line-casing", "line-gradient", grad(cc, 0.2));
+  }
+  function routeFadeTick(p, totalM){      // wołane z updateGuidance co odczyt GPS; przerysowanie dopiero po ~25 m
+    if(p > 0 && Math.abs(p - routeFadeP) * totalM < 25) return;
+    applyRouteFade(p);
   }
 
   function userMarkerSvgInner(night){
@@ -4787,8 +4823,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const ppm = Math.pow(2, map.getZoom()) / (78271.517 * Math.cos(lat * Math.PI / 180));
     return Math.max(3.2, Math.min(7.5, ppm));
   }
+  // w 2D zawsze pierwszy trójkąt („arrow”); wybrany przez użytkownika avatar pokazujemy dopiero w widoku 3D
+  function activeAvatarKey(){ return is3D ? vehicleAvatar : "arrow"; }
   function avatarPx(){
-    const a = AVATARS[vehicleAvatar];
+    const a = AVATARS[activeAvatarKey()];
     const night = document.body.classList.contains("night");
     if(a && a.m3d) return 20;
     if(a && a.svg){
@@ -4819,7 +4857,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const night = document.body.classList.contains("night");
     const svg = userMarkerEl.querySelector("svg");
     if(!svg) return;
-    const a = AVATARS[vehicleAvatar];
+    const a = AVATARS[activeAvatarKey()];
     if(a && a.m3d){
       svg.style.display = "none";            // pojazd rysuje warstwa 3D mapy; marker zostaje jako punkt odniesienia
       svg._px = null; applyAvatarSize();
@@ -5075,7 +5113,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     avSm.t3 = 0;
   }
   function avatar3dUpdate(t, dt){
-    const a = AVATARS[vehicleAvatar];
+    const a = AVATARS[activeAvatarKey()];
     if(!a || !a.m3d || !map || t - (avSm.t3 || 0) < 28) return;
     const src = map.getSource("avatar3d"); if(!src){ ensureAvatarLayers(); return; }
     avSm.t3 = t;
@@ -5404,6 +5442,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function avatarFrame(t){
     requestAnimationFrame(avatarFrame);
     if(!userMarker || !avSm.init) return;
+    if(avSm.was3D !== is3D){ avSm.was3D = is3D; applyUserMarkerStyle(); }   // przełączenie 2D ⇄ 3D: trójkąt ⇄ wybrany avatar
     const dt = Math.min(0.1, Math.max(0.001, (t - avSm.lastT) / 1000)); avSm.lastT = t;
     // przewidywana pozycja: ostatni odczyt + prędkość × czas od odczytu (max 1,5 s)
     const age = Math.min(1.5, Math.max(0, (t - avSm.fixT) / 1000));
@@ -9390,7 +9429,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       smartSuggest: q => smartSuggestFor(q, pcInputValue()),   // js/23b: historia + firmy na górze (kod z pola obok brany pod uwagę)
       bias: () => (pcCompanies && pcCompanies.c) ? { lat: pcCompanies.c.lat, lon: pcCompanies.c.lon } : null,   // z wpisanym kodem szukaj firm wokół niego
       hasSelection: () => !!navSelectedDest,
-      onEnterConfirm: () => confirmDestination(),
+      onEnterConfirm: () => openDestinationSheet(),
       // Wybór wyniku: pinezka staje tam, dokąd GPS faktycznie ma doprowadzić — jeśli TomTom
       // podaje punkt wjazdu/dojazdu ("main entry point"), używamy go, inaczej środka adresu.
       onSelect: (r) => {
@@ -9401,9 +9440,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         navSelectedDest = { lat: pos.lat, lon: pos.lon, label, name: (r.poi && r.poi.name) || null,
           pc: ad.postalCode || "", city: ad.municipality || ad.localName || "",   // do cache podpowiedzi (js/23b)
           orig: smartOrigFor(r, pos, label, ad) };   // pierwotny punkt wyniku — do późniejszej poprawki pozycji pinezki
+        navSelectedDest.addr = ad.freeformAddress || "";
         document.getElementById("navDest").value = label;
         updateAddWaypointVisibility();
-        confirmDestination();
+        openDestinationSheet();
         if(typeof navSearchHistDrop === "function") navSearchHistDrop();
       }
     }
@@ -9520,7 +9560,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
               orig: { lat: hit.position.lat, lon: hit.position.lon, label: pc, pc, city: (hit.address && hit.address.municipality) || "", name: null } };
         document.getElementById("navDest").value = pc;
         updateAddWaypointVisibility();
-        confirmDestination();
+        openDestinationSheet();
         if(typeof navSearchHistDrop === "function") navSearchHistDrop();
       }catch(err){
         if(err.name === "AbortError") return;
@@ -10477,9 +10517,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function acceptPoiAsk(mode){
     if(!poiAskTarget) return;
     const t = poiAskTarget;
-    const label = t.address ? `${t.name}, ${t.address}` : t.name;
+    const prev = (typeof PS !== "undefined" && PS.fromSearch && navSelectedDest) ? navSelectedDest : null;   // cel wybrany z wyszukiwarki: zachowaj jego dane (historia, poprawka pinezki)
+    const label = prev ? prev.label : (t.address ? `${t.name}, ${t.address}` : t.name);
     const gate = (typeof poiGateFor === "function") ? poiGateFor(t) : null;
-    navSelectedDest = { lat: gate ? gate.lat : t.lat, lon: gate ? gate.lon : t.lon, label, name: t.name };
+    navSelectedDest = Object.assign({}, prev || {}, { lat: gate ? gate.lat : t.lat, lon: gate ? gate.lon : t.lon, label, name: prev && prev.name ? prev.name : t.name });
     document.getElementById("navDest").value = label;
     hidePoiAsk();
     updateAddWaypointVisibility();
@@ -10574,7 +10615,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
   }
 
-  // krok 1: użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie z pinezką, ale jeszcze nie licz trasy
+  // cel wybrany w wyszukiwarce (podpowiedź / Enter / kod pocztowy): zamiast starego okna z „Jedź / Zaplanuj trasę”
+  // pokazujemy okno firmy na dole ekranu (js/52) i przybliżamy mapę do miejsca
+  function openDestinationSheet(){
+    if(!navSelectedDest) return;
+    const d = navSelectedDest;
+    showNavError("");
+    followUser = false;
+    updateLocateBtnVisibility();
+    showDestPin();
+    const label = d.label || "";
+    showPoiAsk(d.name || label.split(",")[0] || label, d.lat, d.lon, null, null, d.addr || null);
+    if(typeof PS !== "undefined") PS.fromSearch = true;
+    if(map) map.easeTo({ center: [d.lon, d.lat], zoom: 16, pitch: 0, bearing: 0, offset: [0, -90], duration: 600 });
+  }
+  // krok 1 (stary): użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie z pinezką, ale jeszcze nie licz trasy
   function confirmDestination(){
     if(!navSelectedDest) return;
     showNavError("");
@@ -11526,30 +11581,25 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function ukWeight(t){ return (Math.round(t * 10) / 10).toString() + "t"; }
 
   const UK_ORD = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
-  // tekst manewru po angielsku (jak na tablicy); zwraca { html, sub }
+  // krótki, prosty tekst manewru po angielsku: czasownik + ewentualny numer drogi (bez nazw ulic i „toward”); zwraca { html, sub }
   function ukManoeuvre(step, curRef, curCls){
     const t = step.t, ref = step.ref, ex = step.exit;
     const side = /left$/.test(t) ? "left" : /right$/.test(t) ? "right" : "";
-    const dest = (prep) => ref ? " " + prep + " " + ukBadge(ref) : (step.street ? " onto " + escHtml(step.street) : "");
-    const sub = step.toward ? `<span class="to">${ukRichText(step.toward)}</span>` : "";
+    const tag = ref ? " " + ukBadge(ref) : "";
     let html;
-    if(t.indexOf("arrive") === 0) html = t === "arrive-left" ? "Destination on the left" : t === "arrive-right" ? "Destination on the right" : "Destination ahead";
+    if(t.indexOf("arrive") === 0) html = t === "arrive-left" ? "Arrive on left" : t === "arrive-right" ? "Arrive on right" : "Arrive";
     else if(/^(exit|ramp)/.test(t)){
       const motorwayish = curCls === "motorway" || (ref && ukRoadClass(ref) === "motorway");
-      if(ex) html = "Exit at " + (motorwayish ? "J" : "exit ") + escHtml(ex) + dest("to");              // „Exit at J2 to [A4600]”
-      else html = (t.indexOf("ramp") === 0 ? "Take the slip road" : "Exit") + (side ? " on the " + side : "") + dest("onto");   // „Exit on the left onto [A4600]”
+      html = ex ? "Exit " + (motorwayish ? "J" : "") + escHtml(ex) + tag : "Exit" + (side ? " " + side : "") + tag;
     }
-    else if(t === "keep-left" || t === "keep-right") html = "Keep " + t.slice(5) + (ref ? " on " + ukBadge(ref) : dest("onto"));
-    else if(t === "merge") html = "Merge" + (ref ? " onto " + ukBadge(ref) : (curRef ? " onto " + ukBadge(curRef) : dest("onto")));
-    else if(t === "roundabout") html = "At the roundabout take the " + (UK_ORD[step.rb] || (step.rb ? step.rb + "th" : "next")) + " exit" + dest("onto");
-    else if(t === "uturn") html = "Make a U-turn";
-    else if(t === "ferry") html = "Take the ferry";
-    else if(t === "straight") html = "Continue" + (ref ? " on " + ukBadge(ref) : dest("onto"));
-    else {
-      const verb = { left:"Turn left", right:"Turn right", "slight-left":"Bear left", "slight-right":"Bear right", "sharp-left":"Turn sharp left", "sharp-right":"Turn sharp right" }[t] || "Continue";
-      html = verb + dest("onto");
-    }
-    return { html, sub };
+    else if(t === "keep-left" || t === "keep-right") html = "Keep " + t.slice(5) + tag;
+    else if(t === "merge") html = "Merge" + (ref ? tag : (curRef ? " " + ukBadge(curRef) : ""));
+    else if(t === "roundabout") html = "Roundabout, " + (UK_ORD[step.rb] || (step.rb ? step.rb + "th" : "next")) + " exit" + tag;
+    else if(t === "uturn") html = "U-turn";
+    else if(t === "ferry") html = "Ferry";
+    else if(t === "straight") html = "Straight on" + tag;
+    else html = ({ left:"Left", right:"Right", "slight-left":"Slight left", "slight-right":"Slight right", "sharp-left":"Sharp left", "sharp-right":"Sharp right" }[t] || "Straight on") + tag;
+    return { html, sub: "" };
   }
 
   // jaką drogą jedziemy teraz: numer z ostatnio minionego kroku (null = jedziemy drogą bez numeru albo to początek trasy)
@@ -11604,18 +11654,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const tri = `<svg class="ico" viewBox="0 0 26 26"><path d="M13 2.5 L24.5 22.5 H1.5 Z" fill="#fff" stroke="#d1131f" stroke-width="2.6" stroke-linejoin="round"/><path d="M13 9v6.5" stroke="#111" stroke-width="2.4" stroke-linecap="round"/><circle cx="13" cy="19" r="1.4" fill="#111"/></svg>`;
     return hit.map(({ r, d, atStep }) => {
       const warn = r.sev === "warn";
-      const when = atStep ? "at junction · " : "";
-      let ico, val, lbl, mine;
+      let ico, val, lbl;
       if(r.kind === "height"){
-        ico = tri; val = ukFtIn(r.value); lbl = "Low bridge"; mine = "your vehicle " + ukFtIn(HGV_PROFILE.height);
+        ico = tri; val = ukFtIn(r.value); lbl = "Low bridge";
       } else if(r.kind === "weight"){
         ico = ring('<text x="13" y="16.5" text-anchor="middle" font-size="9" font-weight="800" fill="#111" font-family="Arial,sans-serif">' + ukWeight(r.value).replace("t", "") + 't</text>');
-        val = ukWeight(r.value); lbl = "Max gross weight"; mine = "your vehicle " + ukWeight(HGV_PROFILE.weight);
+        val = ukWeight(r.value); lbl = "Weight limit";
       } else {
         ico = ring('<path d="M7 13h12M7 13l3-3M7 13l3 3M19 13l-3-3M19 13l-3 3" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>');
-        val = ukFtIn(r.value); lbl = "Width limit · narrow road"; mine = "your vehicle " + ukFtIn(HGV_PROFILE.width);
+        val = ukFtIn(r.value); lbl = "Width limit";
       }
-      return `<div class="hgvChip${warn ? " warn" : ""}">${ico}<span class="hv">${val}</span><span class="hl">${lbl}<small>${when}in ${escHtml(ukDistMiles(d))} · ${mine}${warn ? " · tight" : ""}</small></span></div>`;
+      return `<div class="hgvChip${warn ? " warn" : ""}">${ico}<span class="hv">${val}</span><span class="hl">${lbl}<small>in ${escHtml(ukDistMiles(d))}${warn ? " · tight" : ""}</small></span></div>`;
     }).join("");
   }
 
@@ -11627,12 +11676,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const keepOn = !arrive && curRef && dist > 2400 && step.t !== "straight";   // długi odcinek jedną drogą
     let cls, distTxt, main;
     if(arrive && dist <= 35){
-      cls = "local"; distTxt = ""; main = { html:"You have arrived", sub:"" };
+      cls = "local"; distTxt = ""; main = { html:"Arrived", sub:"" };
     } else if(keepOn){
       const side = /right/.test(step.t) ? "right" : "left";
       cls = curCls;
-      distTxt = "";
-      main = { html: (curCls === "motorway" ? "Keep " + side + " on " : "Continue on ") + ukBadge(curRef) + " for " + escHtml(ukDist(dist)), sub:"" };
+      distTxt = ukDist(dist);
+      main = { html: "Stay on " + ukBadge(curRef), sub:"" };
     } else {
       cls = curCls || "local";    // tło = droga, po której jedziemy teraz (plakietki w treści mają kolor drogi docelowej)
       distTxt = dist < 25 && !arrive ? "Now" : ukDist(dist);
@@ -11648,11 +11697,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const then = [];
     if(keepOn){
       const m = ukManoeuvre(step, curRef, curCls);
-      then.push("Then: " + m.html.replace(/<[^>]+>/g, "") );
+      then.push("Then " + m.html.replace(/<[^>]+>/g, "").toLowerCase());
     } else if(next && next.t !== "straight" && next.t.indexOf("arrive") !== 0 && next.d - step.d < 400){
-      then.push("Then: " + ukManoeuvre(next, ref_of(step, curRef), curCls).html.replace(/<[^>]+>/g, "") + " (in " + ukDist(next.d - step.d) + ")");
+      then.push("Then " + ukManoeuvre(next, ref_of(step, curRef), curCls).html.replace(/<[^>]+>/g, "").toLowerCase());
     }
-    if(g.approx) then.push("Approximate directions");
+    if(g.approx) then.push("Approx. route");
     document.getElementById("gThen").textContent = then.join(" · ");
     const hgv = document.getElementById("gHgv");
     const chips = arrive ? "" : ukHgvChips(along, step);
@@ -11703,6 +11752,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const f = Math.max(0, Math.min(1, (totalM - along) / totalM));
       activeRoute._remain = { ref: activeRoute.coords, m: activeRoute.distanceM * f, s: activeRoute.timeS * f };
       updateNavTripStats();
+      try{ routeFadeTick(1 - f, totalM); }catch(e){ console.warn("Wygaszanie neonu:", e); }
     }
     try{ restrictionTick(along); }catch(e){ console.warn("Alerty ograniczeń:", e); }
     while(g.ptr < g.steps.length - 1 && g.steps[g.ptr].d < along - 25) g.ptr++;
@@ -13460,6 +13510,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   function setRouteLineCoords(coords, sourceId){
     sourceId = sourceId || "route-line";
+    if(sourceId === "route-line" && typeof applyRouteFade === "function") applyRouteFade(0);   // nowa/zmieniona trasa: cała znów w pełnym neonie
     if(sourceId === "route-line-alt" && (!coords || coords.length < 2)) removeAltLabel();
     if(map && map.getSource(sourceId)){
       map.getSource(sourceId).setData({
@@ -16425,7 +16476,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   const PS = {
     state: "peek", peekH: 170, detailsFor: null, seq: 0, noClick: false, ready: false,
-    infoCache: new Map(), gates: new Map(), gateMarkers: new Map(), rating: 0
+    infoCache: new Map(), gates: new Map(), gateMarkers: new Map(), rating: 0, fromSearch: false, gateMode: null, candMarkers: []
   };
   let psGatePlacing = false;
   const $p = id => document.getElementById(id);
@@ -16473,6 +16524,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!PS.ready) return;
     const sh = psSheet();
     sh.classList.remove("asking", "ps-away");
+    PS.fromSearch = false;      // ustawia dopiero openDestinationSheet (js/28), gdy okno otwarto z wyszukiwarki
     $p("psReviewForm").classList.remove("open");
     PS.detailsFor = null; PS.seq++;
     $p("psInfo").innerHTML = ""; $p("psPhotos").innerHTML = ""; $p("psReviews").innerHTML = ""; $p("psAvg").textContent = "";
@@ -16482,7 +16534,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     requestAnimationFrame(() => { psMeasure(); sh.style.height = PS.peekH + "px"; });
     psGateButtons();
   }
+  // zamknięcie okna przez użytkownika (✕ / przeciągnięcie w dół): cel wybrany w wyszukiwarce przepada razem z pinezką
+  function dismissPoiAsk(){
+    const fs = PS.fromSearch;
+    hidePoiAsk();
+    if(fs){ try{ removeDestPin(); }catch(e){} navSelectedDest = null; try{ updateAddWaypointVisibility(); }catch(e){} }
+  }
   function psOnHide(){
+    PS.fromSearch = false;
     document.body.classList.remove("poi-sheet-open");
     const sh = psSheet(); if(sh){ sh.style.height = ""; sh.classList.remove("asking"); }
     PS.seq++;
@@ -16513,7 +16572,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       let s = x.s0;
       if(dy > 30) s = x.s0 === "peek" ? (hNow > x.hs.full * 0.8 ? "full" : "half") : "full";
       else if(dy < -30){
-        if(x.s0 === "peek"){ hidePoiAsk(); return; }
+        if(x.s0 === "peek"){ dismissPoiAsk(); return; }
         s = x.s0 === "full" ? (hNow < x.hs.half * 0.8 ? "peek" : "half") : "peek";
       }
       psSetState(s);
@@ -16547,13 +16606,71 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(open){ const r = todayR.find(r => nowMin >= r.a && nowMin < r.b); status += ` · do ${fmt(r.b)}`; }
     const rows = dates.map(ds => {
       const dt = new Date(ds + "T12:00:00");
-      return `<b>${PS_DAYS[dt.getDay()]}</b><span>${byDate[ds].map(r => fmt(r.a) + "–" + fmt(r.b)).join(", ")}</span>`;
+      return `<b>${PS_DAYS[dt.getDay()]}</b><span>${byDate[ds].length ? byDate[ds].map(r => fmt(r.a) + "–" + fmt(r.b)).join(", ") : "zamknięte"}</span>`;
     }).join("");
     return `<div class="psRow"><span class="ic">🕒</span><div>${status}</div></div><div class="psHours">${rows}</div>`;
   }
-  async function psFetchInfo(t){
-    const ck = psKey(t);
-    if(PS.infoCache.has(ck)) return PS.infoCache.get(ck);
+  /* ---------- OpenStreetMap: telefon, strona, godziny (dane na licencji ODbL — wolno je zapisywać w naszej bazie) ---------- */
+  const PS_INFO_TTL_FULL = 60 * 864e5, PS_INFO_TTL_EMPTY = 14 * 864e5;   // pełne wpisy odświeżamy po 60 dniach, puste po 14
+  const PS_WD = { mo: 0, tu: 1, we: 2, th: 3, fr: 4, sa: 5, su: 6 };
+  const PS_T = "\\d{1,2}:\\d{2}\\s*-\\s*\\d{1,2}:\\d{2}", PS_D = "(?:Mo|Tu|We|Th|Fr|Sa|Su)";
+  const PS_RULE = new RegExp(`^((?:${PS_D}(?:\\s*-\\s*${PS_D})?)(?:\\s*,\\s*${PS_D}(?:\\s*-\\s*${PS_D})?)*)?\\s*(off|closed|${PS_T}(?:\\s*,\\s*${PS_T})*)$`, "i");
+  function psOsmHours(str){          // prosty parser opening_hours; przy nietypowym zapisie zwraca null (pokażemy tekst bez „Otwarte/Zamknięte”)
+    const raw = String(str || "").trim(); if(!raw) return null;
+    const week = [[], [], [], [], [], [], []];
+    if(/^24\/7$/i.test(raw)){ for(let i = 0; i < 7; i++) week[i] = [{ a: 0, b: 1440 }]; return week; }
+    for(const part of raw.split(";")){
+      const rule = part.trim(); if(!rule) continue;
+      if(/\bPH\b|\bSH\b/i.test(rule)) continue;       // święta pomijamy
+      const m = rule.match(PS_RULE); if(!m) return null;
+      const days = [];
+      if(m[1]) m[1].split(",").forEach(x => {
+        const p = x.trim().toLowerCase().split(/\s*-\s*/), a = PS_WD[p[0]], b = p[1] != null ? PS_WD[p[1]] : a;
+        for(let d = a; ; d = (d + 1) % 7){ days.push(d); if(d === b) break; }
+      }); else for(let d = 0; d < 7; d++) days.push(d);
+      const times = /^(off|closed)$/i.test(m[2]) ? [] : m[2].split(",").map(x => {
+        const q = x.trim().match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/), a = +q[1] * 60 + +q[2]; let b = +q[3] * 60 + +q[4];
+        if(b <= a) b += 1440; return { a, b };
+      });
+      days.forEach(d => { week[d] = times.map(x => Object.assign({}, x)); });
+    }
+    return week;
+  }
+  function psWeekToDates(week){        // 7 najbliższych dni w formacie jak z TomTom: { "RRRR-MM-DD": [{a,b}] }
+    const out = {}, now = new Date();
+    for(let i = 0; i < 7; i++){
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 12);
+      out[d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())] = week[(d.getDay() + 6) % 7];
+    }
+    return out;
+  }
+  async function psOsmLookup(t){        // null = nie udało się zapytać (wtedy niczego nie zapisujemy)
+    const q = `[out:json][timeout:12];nwr(around:90,${t.lat},${t.lon})["name"];out tags center 25;`;
+    let data = null;
+    for(let i = 0; i < Math.min(2, OVERPASS_ENDPOINTS.length) && !data; i++){
+      try{
+        const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 9000);
+        const r = await fetch(OVERPASS_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctl.signal });
+        clearTimeout(to); if(r.ok) data = await r.json();
+      }catch(e){}
+    }
+    if(!data) return null;
+    const nn = psNorm(t.name); let best = null, bd = 1e9;
+    (data.elements || []).forEach(el => {
+      const tg = el.tags || {}, xn = psNorm(tg.name); if(!xn || !(xn.includes(nn) || nn.includes(xn))) return;
+      const c = el.center || { lat: el.lat, lon: el.lon }; if(c.lat == null) return;
+      const d = _dM(t.lat, t.lon, c.lat, c.lon); if(d < bd){ bd = d; best = tg; }
+    });
+    const tg = best || {};
+    return { phone: tg.phone || tg["contact:phone"] || tg.mobile || tg["contact:mobile"] || "", url: tg.website || tg["contact:website"] || tg.url || "", hours: tg.opening_hours || "" };
+  }
+  async function psInfoDbGet(t){ try{ const rows = await psRest("GET", `poi_info?select=key,phone,url,hours,fetched_at&${psBoxQuery(t)}&limit=1`); return (rows && rows[0]) || null; }catch(e){ return null; } }
+  async function psInfoDbPut(t, o){
+    try{ await psRest("POST", "poi_info?on_conflict=key", [{ key: psKey(t), name: t.name, lat: t.lat, lon: t.lon, phone: o.phone || "", url: o.url || "", hours: o.hours || "", source: "osm", fetched_at: new Date().toISOString() }], "resolution=merge-duplicates,return=minimal"); }catch(e){}
+  }
+
+  /* ---------- TomTom (tylko uzupełnienie braków; wyniki NIE trafiają do bazy — warunki licencji TomTom) ---------- */
+  async function psTomTomInfo(t){
     if(!tomtomApiKey) return null;
     const p = new URLSearchParams({ key: tomtomApiKey, limit: "5", lat: String(t.lat), lon: String(t.lon), radius: "250", openingHours: "nextSevenDays", countrySet: NAV_DEFAULT_COUNTRY });
     const r = await fetch(`https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(t.name)}.json?${p.toString()}`);
@@ -16568,6 +16685,31 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
     if(!best){ res.forEach(x => { const d = _dM(t.lat, t.lon, x.position.lat, x.position.lon); if(d < 40 && d < bd){ best = x; bd = d; } }); }
     const info = best ? { phone: best.poi.phone || "", url: best.poi.url || "", hours: psParseHours(best.poi.openingHours) } : { phone: "", url: "", hours: {} };
+    return info;
+  }
+
+  async function psFetchInfo(t){
+    const ck = psKey(t);
+    if(PS.infoCache.has(ck)) return PS.infoCache.get(ck);
+    let osm = null;
+    const row = await psInfoDbGet(t);                                   // 1) nasza baza (dane z OSM zapisane wcześniej)
+    if(row){
+      const age = Date.now() - new Date(row.fetched_at).getTime(), full = row.phone || row.url || row.hours;
+      if(age < (full ? PS_INFO_TTL_FULL : PS_INFO_TTL_EMPTY)) osm = { phone: row.phone, url: row.url, hours: row.hours };
+    }
+    if(!osm){ osm = await psOsmLookup(t); if(osm) psInfoDbPut(t, osm); }   // 2) OpenStreetMap, wynik zapisujemy w bazie
+    const info = { phone: (osm && osm.phone) || "", url: (osm && osm.url) || "", hoursRaw: (osm && osm.hours) || "", byDate: null, src: { osm: !!(osm && (osm.phone || osm.url || osm.hours)), tomtom: false } };
+    if(info.hoursRaw){ const wk = psOsmHours(info.hoursRaw); if(wk) info.byDate = psWeekToDates(wk); }
+    if(!info.phone || !info.url || (!info.byDate && !info.hoursRaw)){   // 3) TomTom tylko na braki, bez zapisu
+      try{
+        const tt = await psTomTomInfo(t);
+        if(tt){
+          if(!info.phone && tt.phone){ info.phone = tt.phone; info.src.tomtom = true; }
+          if(!info.url && tt.url){ info.url = tt.url; info.src.tomtom = true; }
+          if(!info.byDate && !info.hoursRaw && Object.keys(tt.hours).length){ info.byDate = tt.hours; info.src.tomtom = true; }
+        }
+      }catch(e){}
+    }
     PS.infoCache.set(ck, info);
     return info;
   }
@@ -16582,13 +16724,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(seq !== PS.seq) return;
     let html = base;
     if(info){
-      const h = psHoursHtml(info.hours);
+      const h = info.byDate ? psHoursHtml(info.byDate) : (info.hoursRaw ? `<div class="psRow"><span class="ic">🕒</span><div>${psEsc(info.hoursRaw)}</div></div>` : "");
       html += h || `<div class="psRow psMuted"><span class="ic">🕒</span><div>Brak godzin otwarcia w bazie.</div></div>`;
       html += info.phone ? `<div class="psRow"><span class="ic">📞</span><div><a href="tel:${psEsc(info.phone.replace(/[^+0-9]/g, ""))}">${psEsc(info.phone)}</a></div></div>`
                          : `<div class="psRow psMuted"><span class="ic">📞</span><div>Brak numeru telefonu w bazie.</div></div>`;
       if(info.url){ const u = /^https?:\/\//i.test(info.url) ? info.url : "https://" + info.url; html += `<div class="psRow"><span class="ic">🌐</span><div><a href="${psEsc(u)}" target="_blank" rel="noopener">${psEsc(info.url.replace(/^https?:\/\//i, "").replace(/\/$/, ""))}</a></div></div>`; }
-    } else {
-      html += `<div class="psRow psMuted"><span class="ic">ℹ️</span><div>${tomtomApiKey ? "Brak godzin i telefonu dla tego miejsca." : "Godziny i telefon: dodaj klucz TomTom w ustawieniach."}</div></div>`;
+      const srcs = [info.src.osm ? "© autorzy OpenStreetMap" : "", info.src.tomtom ? "TomTom" : ""].filter(Boolean).join(" · ");
+      if(srcs) html += `<div class="psMuted" style="margin:6px 0 0 32px;font-size:11px">Źródło: ${srcs}</div>`;
     }
     box.innerHTML = html;
   }
@@ -16701,15 +16843,60 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const del = $p("psGateDel"); if(del) del.style.display = has ? "" : "none";
     const set = $p("psGateSet"); if(set) set.textContent = has ? "🚪 Przesuń bramę" : "🚪 Ustaw bramę wjazdową";
   }
-  function psGateStart(){
-    if(!poiAskTarget || !isAdmin()) return;
-    psGatePlacing = true;
+  function psGateBarOpen(text, mode){
+    PS.gateMode = mode; psGatePlacing = true;
+    $p("psGateBarTxt").textContent = text;
     psSheet().classList.add("ps-away");
     document.body.classList.remove("poi-sheet-open");
     $p("psGateBar").classList.add("show");
   }
+  function psGateStart(){
+    if(!poiAskTarget || !isAdmin()) return;
+    psGateBarOpen("Dotknij mapy w miejscu bramy wjazdowej", "place");
+  }
+  // podpowiedzi bramy z OpenStreetMap: bramy (barrier=gate…) i wejścia (entrance=…) w promieniu ok. 220 m od firmy
+  async function psOsmGateCandidates(t){
+    const q = `[out:json][timeout:12];(node(around:220,${t.lat},${t.lon})["barrier"~"^(gate|lift_gate|sliding_gate|swing_gate)$"];node(around:220,${t.lat},${t.lon})["entrance"~"^(main|yes|service|home)$"];);out 40;`;
+    let data = null;
+    for(let i = 0; i < Math.min(2, OVERPASS_ENDPOINTS.length) && !data; i++){
+      try{
+        const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 9000);
+        const r = await fetch(OVERPASS_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctl.signal });
+        clearTimeout(to); if(r.ok) data = await r.json();
+      }catch(e){}
+    }
+    if(!data) throw new Error("overpass");
+    return (data.elements || []).filter(e => e.lat != null && !(e.tags && (e.tags.access === "no"))).map(e => {
+      const tg = e.tags || {};
+      const kind = tg.barrier ? "Brama" : tg.entrance === "service" ? "Wejście serwisowe" : tg.entrance === "main" ? "Wejście główne" : "Wejście";
+      return { lat: e.lat, lon: e.lon, kind, d: _dM(t.lat, t.lon, e.lat, e.lon) };
+    }).sort((a, b) => a.d - b.d).slice(0, 6);
+  }
+  async function psGateSuggest(){
+    const t = poiAskTarget; if(!t || !isAdmin()) return;
+    const btn = $p("psGateSuggest"), old = btn.textContent;
+    btn.disabled = true; btn.textContent = "Szukam…";
+    let cands = [], failed = false;
+    try{ cands = await psOsmGateCandidates(t); }catch(e){ failed = true; }
+    btn.disabled = false; btn.textContent = old;
+    if(!poiAskTarget) return;
+    if(failed){ showBanner("BRAK POŁĄCZENIA", "Nie udało się zapytać OpenStreetMap — spróbuj za chwilę", false); return; }
+    if(!cands.length){ showBanner("BRAK PODPOWIEDZI", "W OpenStreetMap nie ma bramy ani wejścia przy tym miejscu — ustaw ręcznie", false); return; }
+    psGateBarOpen("Dotknij żółtej podpowiedzi, aby ustawić bramę", "pick");
+    cands.forEach((c, i) => {
+      const el = document.createElement("div"); el.className = "poi-gate-cand"; el.textContent = String(i + 1); el.title = c.kind + " · " + Math.round(c.d) + " m od firmy";
+      el.addEventListener("click", ev => { ev.stopPropagation(); psGateEnd(); psGateSave(c.lat, c.lon); });
+      PS.candMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([c.lon, c.lat]).addTo(map));
+    });
+    try{
+      const b = new maplibregl.LngLatBounds([t.lon, t.lat], [t.lon, t.lat]);
+      cands.forEach(c => b.extend([c.lon, c.lat]));
+      map.fitBounds(b, { padding: { top: 120, bottom: 90, left: 60, right: 60 }, maxZoom: 18, duration: 500 });
+    }catch(e){}
+  }
   function psGateEnd(){
-    psGatePlacing = false;
+    psGatePlacing = false; PS.gateMode = null;
+    PS.candMarkers.forEach(m => m.remove()); PS.candMarkers = [];
     $p("psGateBar").classList.remove("show");
     if(poiAskTarget){ psSheet().classList.remove("ps-away"); document.body.classList.add("poi-sheet-open"); }
   }
@@ -16743,7 +16930,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // Jedź / Zaplanuj trasę: cel = brama wjazdowa (jeśli ustawiona), potem od razu odpowiedni krok trasy
     $p("psDrive").addEventListener("click", () => acceptPoiAsk("go"));
     $p("poiAskYes").addEventListener("click", () => acceptPoiAsk("plan"));
-    $p("poiAskNo").addEventListener("click", hidePoiAsk);
+    $p("poiAskNo").addEventListener("click", dismissPoiAsk);
 
     // Opublikuj → pytanie na dole okna: opinia czy zdjęcie
     $p("psPublish").addEventListener("click", () => psSheet().classList.add("asking"));
@@ -16800,12 +16987,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
     // brama wjazdowa (administrator)
     $p("psGateSet").addEventListener("click", psGateStart);
+    $p("psGateSuggest").addEventListener("click", psGateSuggest);
     $p("psGateDel").addEventListener("click", psGateDelete);
     $p("psGateCancel").addEventListener("click", psGateEnd);
     const whenMap = fn => { if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); } else setTimeout(() => whenMap(fn), 600); };
     whenMap(() => {
       map.on("click", e => {
-        if(!psGatePlacing) return;
+        if(!psGatePlacing || PS.gateMode !== "place") return;   // w trybie „pick” dotknięcie pustej mapy nic nie robi
         const ll = e.lngLat; psGateEnd(); psGateSave(ll.lat, ll.lng);
       });
       const z = () => document.body.classList.toggle("gates-on", map.getZoom() >= PS_GATE_MIN_ZOOM);
