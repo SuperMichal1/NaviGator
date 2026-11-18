@@ -221,14 +221,14 @@
   body.night #reportFloat .ctrl-btn{ background: rgba(255,255,255,0.05); border-color: rgba(255,176,32,0.25); }
   #reportFloat .reportSubMenu{ left:auto; right:0; transform:none; flex-direction:column; }
   /* menu chorągiewki: fotoradar i parking dopiero po dużym przybliżeniu; pełny ekran (⛶) zawsze, ale znika, gdy pełny ekran jest włączony */
-  #reportFloat:not(.zoomOk) #btnReportCamera, #reportFloat:not(.zoomOk) #btnReportParking{ display:none; }
+  #reportFloat:not(.zoomOk) :is(#btnReportCamera, #btnReportParking, #btnReportWeight, #btnReportHeight){ display:none; }
   /* pełny ekran (⛶) stoi tuż nad flagą i znika, gdy pełny ekran jest włączony; wtedy menu fotoradaru/parkingu opada na miejsce ⛶ */
   #reportFloat > #btnFullscreen{ position:absolute; right:0; bottom: calc(100% + 8px); }
   #reportFloat .reportSubMenu{ bottom: calc(100% + 64px); }
   body.is-fullscreen #reportFloat .reportSubMenu{ bottom: calc(100% + 8px); }
   body.is-fullscreen #btnFullscreen{ display:none; }
   /* stawianie chorągiewki (fotoradar / parking): z ekranu znika wszystko poza mapą i kartą zatwierdzenia */
-  body.flag-placing :is(#navPanel, #navTopBar, #alongSheet, #btnLocate, #reportFloat, #zoomChip, #btnCompass, #btnFitRoute, #speedCluster, #guidanceCard, #statusPill, #simBar, #alertBanner, #detourCard, #overSpeedFx){ display:none !important; }
+  body.flag-placing :is(#navPanel, #navTopBar, #alongSheet, #btnLocate, #reportFloat, #zoomChip, #btnCompass, #btnFitRoute, #speedCluster, #guidanceCard, #statusPill, #alertBanner, #detourCard, #overSpeedFx){ display:none !important; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -730,25 +730,30 @@
   }
   body:has(#navPanel[data-navstate="search"]) #navTopBar{ display:flex; }
   body:has(#navPanel.truck-open) #navTopBar, body:has(#navPanel.billboard-open) #navTopBar{ display:none !important; }
-  #navTopBar{ gap:8px; }
+  /* punkt początkowy i cel podróży wyglądają jak jedno pole: jedno pod drugim, wspólna ramka w kolorze motywu */
+  #navTopBar{ gap:0; --fieldBorder: rgba(11,122,109,0.65); --fieldBg:#fff; --fieldAccent:#0b7a6d; }
+  body.night #navTopBar{ --fieldBorder: rgba(255,176,32,0.55); --fieldBg:#17120a; --fieldAccent:#ffb020; }
   #navTopBar .navTopRow{ display:flex; gap:8px; align-items:flex-start; min-height:0; }
   #navTopBar #navDestWrap, #navTopBar #navOriginWrap{ flex:1 1 auto; min-width:0; }
   #navTopBar #navDestRow{ min-height:0; }
-  #navTopBar .navTopBtn{ flex:0 0 48px; width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-    font-size:22px; font-weight:700; cursor:pointer; user-select:none; -webkit-user-select:none; background:#fff; color:#0b7a6d; border:1px solid rgba(0,0,0,0.18); }
+  #navTopBar .navTopBtn{ flex:0 0 48px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-size:22px; font-weight:700; cursor:pointer; user-select:none; -webkit-user-select:none; background:var(--fieldBg); color:var(--fieldAccent); border:1.5px solid var(--fieldBorder); box-sizing:border-box; }
   #navTopBar .navTopBtn:active{ transform:scale(.94); }
-  body.night #navTopBar .navTopBtn{ background:#17120a; color:#ffb020; border-color: rgba(255,176,32,0.35); }
-  /* punkt początkowy: tylko gdy GPS nie jest włączony; przy włączonym GPS zostaje sam przycisk „＋” (punkt pośredni) po prawej */
+  /* wiersz punktu początkowego: tylko gdy użytkownik planuje trasę bez GPS (body.show-origin) */
   #navTopBar #navOriginRow{ display:none; }
-  body.no-gps #navTopBar #navOriginRow{ display:flex; }
-  body.has-dest:not(.no-gps) #navTopBar #navOriginRow{ display:flex; justify-content:flex-end; }
-  body:not(.no-gps) #navTopBar #navOriginWrap{ display:none; }
-  body:not(.no-gps) #navTopBar #navSwapBtn{ display:none; }
-  #navTopBar #navOrigin{ font-size:15px; padding:0 14px; height:48px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,0.18); }
-  body.night #navTopBar #navOrigin{ background:#17120a; color:#f5e6d0; border-color: rgba(255,176,32,0.35); }
+  body.show-origin #navTopBar #navOriginRow{ display:flex; }
+  #navTopBar #navAddWaypointBtn, #navTopBar #navAddWaypointBtn2, #navTopBar #navSwapBtn{ display:none; }
+  body.has-dest:not(.wp-max) #navTopBar #navAddWaypointBtn{ display:flex; }
+  body.has-dest:not(.show-origin):not(.wp-max) #navTopBar #navAddWaypointBtn2{ display:flex; }
+  body.show-origin #navTopBar #navSwapBtn{ display:flex; }
+  #navTopBar #navOrigin, #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:48px; padding:0 14px; box-sizing:border-box; width:100%; background:var(--fieldBg); color:inherit;
+    border:1.5px solid var(--fieldBorder); border-bottom:none; border-radius:14px 14px 0 0; }
+  #navTopBar .navWaypointWrap .navStopInput{ height:44px; border-radius:0; }
+  body.night #navTopBar #navOrigin, body.night #navTopBar .navWaypointWrap .navStopInput{ color:#f5e6d0; }
+  #navTopBar #navOrigin:focus, #navTopBar .navWaypointWrap .navStopInput:focus{ border-color: var(--fieldAccent); }
   #navTopBar #navWaypointsList:empty{ display:none; }
-  #navTopBar #navWaypointsList{ gap:8px; }
-  #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:44px; border-radius:12px; padding:0 14px; }
+  #navTopBar #navWaypointsList{ gap:0; }
+  #navTopBar .navWaypointWrap{ margin-top:0; }
   /* listy podpowiedzi punktu początkowego i pośrednich: nakładka pod polem (bez przesuwania pozostałych pól) */
   #navTopBar .navStopWrap:not(#navDestWrap) .navSuggestions{ position:absolute; left:0; right:0; top:100%; margin-top:4px; max-height:46vh; overflow-y:auto; z-index:20; -webkit-overflow-scrolling:touch; }
   #navTopBar #navDestWrap{ display:flex; flex-direction:column; min-height:0; }
@@ -761,10 +766,11 @@
   #navTopBar .navSuggestion{ padding:13px 14px; font-size:14px; }
 
   /* pasek u góry: tła prawie nieprzezroczyste, żeby wpisany tekst był dobrze widoczny */
-  #navTopBar #navDestCombo{ background:#fff; border-color: rgba(0,0,0,0.18); }
+  #navTopBar #navDestCombo{ background:var(--fieldBg); border:1.5px solid var(--fieldBorder); border-radius:14px; }
+  body.show-origin #navTopBar #navDestCombo, body:has(#navWaypointsList .navWaypointWrap) #navTopBar #navDestCombo{ border-radius:0 0 14px 14px; }
+  #navTopBar #navDestCombo:focus-within{ border-color: var(--fieldAccent); }
   #navTopBar #navSuggestions{ background: rgba(255,255,255,0.98); }
   #navTopBar .navSavedTabs, #navTopBar .navSavedHead{ background:#eef0f2; }
-  body.night #navTopBar #navDestCombo{ background:#17120a; border-color: rgba(255,176,32,0.35); }
   body.night #navTopBar #navSuggestions{ background: rgba(23,18,10,0.985); }
   body.night #navTopBar .navSavedTabs, body.night #navTopBar .navSavedHead{ background:#241c0f; }
   /* X do szybkiego czyszczenia pól (widoczny tylko gdy w polu jest tekst) */
@@ -927,23 +933,6 @@
   #detourGo{ background:#ff5a4d; color:#fff; }
   #detourGo:disabled{ opacity:.65; }
   #detourSkip{ background:rgba(255,255,255,.16); color:#fff; }
-
-  /* pasek symulatora: ▶ jazda, prędkość, skok przed ograniczenie, od początku (js/47) */
-  #simBar{ position:fixed; left:10px; bottom:calc(env(safe-area-inset-bottom, 0px) + 31vh); z-index:8800; display:none; align-items:center; gap:6px;
-    padding:6px 8px; border-radius:18px; background:rgba(8,14,22,.82); border:1px solid rgba(255,255,255,.18); box-shadow:0 6px 20px rgba(0,0,0,.45); }
-  #simBar.show{ display:flex; }
-  /* wysuwany z lewej krawędzi jak menu ikon: schowany = widać tylko uchwyt ›, po 5 s bez dotyku sam się chowa (js/47) */
-  #simBar{ left:0; padding:6px 6px 6px 8px; border-left:none; border-radius:0 18px 18px 0;
-    transform:translateX(calc(-100% + 34px)); transition:transform .3s cubic-bezier(.2,.85,.3,1); }
-  #simBar.open{ transform:none; }
-  #simBar:not(.open) button{ pointer-events:none; }
-  #simHandle{ flex:0 0 26px; width:26px; height:44px; border-radius:12px; cursor:pointer; background:rgba(255,255,255,.14); color:#fff;
-    display:flex; align-items:center; justify-content:center; font:700 20px/1 'Inter',system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
-  #simHandle::before{ content:"A"; }
-  #simBar.open #simHandle::before{ content:"9"; }
-  #simBar button{ width:44px; height:44px; border-radius:12px; border:0; background:rgba(255,255,255,.14); color:#fff; font:700 20px 'Inter',system-ui,sans-serif; cursor:pointer; }
-  #simBar #simPlay{ background:#19a05a; font-size:22px; }
-  #simBar #simSpeed{ min-width:58px; text-align:center; color:#fff; font:800 14px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
 
 /* haczyk „Natężenie ruchu” w wyborze trasy: mały, stonowany (tap-target dzięki paddingowi etykiety) */
 #pickChecks{ display:flex; flex-direction:column; }
@@ -1437,77 +1426,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   /* ---------- Camera map icon glow (added marker via layer, css not needed) ---------- */
-  /* Loading splash */
-  #splash{
-    position:absolute; inset:0; z-index:100;
-    background:#0c0f12;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:14px;
-    transition: opacity .5s ease;
-  }
-  #splash .logo{
-    font-family:'Space Grotesk', sans-serif;
-    font-size:26px; font-weight:700; color:#EAF3F1; letter-spacing:.01em;
-  }
-  #splash .logo span{ color: var(--gator); }
-  #splash .sub{ color:#8CA0A0; font-size:13px; }
-  #splash .spinner{
-    width:34px; height:34px; border-radius:50%;
-    border: 3px solid rgba(255,255,255,.12);
-    border-top-color: var(--gator);
-    animation: spin 0.9s linear infinite;
-  }
-  #splash .spinner.hidden{ display:none; }
-  @keyframes spin{ to{ transform: rotate(360deg); } }
-  #splash .startBtn{
-    margin-top:6px;
-    background: var(--gator-dark);
-    color: var(--gator-on);
-    border:none;
-    padding:13px 26px;
-    border-radius:14px;
-    font-size:15px;
-    font-weight:700;
-    font-family:'Inter', sans-serif;
-    cursor:pointer;
-  }
-  #splash .startBtn:active{ transform: scale(0.97); }
-  #splash .startBtn2{ margin-top:12px; background:transparent; border:1px solid currentColor; opacity:.85; box-shadow:none; }
-  #splash .hint{
-    max-width: 320px;
-    text-align:center;
-    font-size:12px;
-    color:#6b7d7d;
-    line-height:1.5;
-    padding: 0 20px;
-  }
-  #splash .hint.hidden, #splash .startBtn.hidden{ display:none; }
-
-  .gpsModeToggle{
-    display:flex;
-    gap:4px;
-    background: rgba(255,255,255,.06);
-    padding:4px;
-    border-radius:12px;
-    margin-top:2px;
-  }
-  .gpsModeOpt{
-    border:none;
-    background:transparent;
-    color:#8CA0A0;
-    font-family:'Inter', sans-serif;
-    font-size:12.5px;
-    font-weight:600;
-    padding:8px 12px;
-    border-radius:9px;
-    cursor:pointer;
-    transition: background .15s, color .15s;
-    white-space:nowrap;
-  }
-  .gpsModeOpt.active{
-    background: var(--gator-dark);
-    color: var(--gator-on);
-  }
   /* ---------- Tryb dzienny: przyciski w ciemnej zieleni aligatora (jak wybór GPS na ekranie startowym) ---------- */
   /* Przyciski ikon, "Centruj", "Cała trasa", kompas i zgłoszenia zostają w dzień przezroczyste (szkło);
      ciemna zieleń aligatora pojawia się dopiero, gdy przycisk jest wciśnięty albo włączony (.active). */
@@ -1625,40 +1543,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   body.gates-on .poi-gate{ display:block; }
   /* gdy okno firmy jest otwarte, dolne przyciski nie zasłaniają go */
   body.poi-sheet-open :is(#navPanel, #btnLocate, #reportFloat, #btnFitRoute, #btnCompass, #zoomChip){ display:none !important; }
+
+  /* zgłoszenia ograniczeń: karta chorągiewki i lista administratora */
+  #flagCard .psForm{ margin:8px 0; }
+  #flagCard .psLbl input{ background: rgba(128,128,128,.12); color: inherit; }
+  .rpBadge{ display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; border-radius:999px; background:#d93025; color:#fff; font-size:11px; line-height:18px; text-align:center; }
+  .rpItem{ padding:10px 0; border-top:1px solid var(--panel-border); }
+  .rpHead{ display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .rpKind{ font-weight:700; font-size:14px; }
+  .rpVal{ font-size:16px; }
+  .rpPlace{ font-size:14px; margin:3px 0 2px; word-break:break-word; }
+  .rpNote{ font-size:13px; margin-top:3px; opacity:.9; }
+  .rpAct{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .rpAct button{ flex:1 1 auto; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:700; }
+  .rpInput{ flex:1 1 90px; min-width:0; padding:8px 10px; border-radius:10px; font:600 14px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color:inherit; box-sizing:border-box; }
 </style>
 </head>
 <body>
 
-<div id="splash">
-  <div class="logo">nawi<span>gator</span></div>
-  <div class="spinner hidden" id="splashSpinner"></div>
-  <div class="sub" id="splashSub">Aplikacja potrzebuje dostępu do Twojej lokalizacji.</div>
-
-  <div class="gpsModeToggle" id="gpsModeToggle">
-    <button type="button" class="gpsModeOpt" id="gpsModeReal" data-mode="real">📡 Prawdziwy GPS</button>
-    <button type="button" class="gpsModeOpt" id="gpsModeMock" data-mode="mock">🧪 Symulator</button>
-  </div>
-
-  <button class="startBtn" id="startBtn">Włącz GPS</button>
-  <button class="startBtn startBtn2" id="noGpsBtn" type="button">Uruchom bez GPS</button>
-  <div class="hint hidden" id="splashHint">
-    Jeśli po kliknięciu nic się nie dzieje albo przeglądarka nie pyta o zgodę,
-    ten podgląd może blokować lokalizację. Otwórz plik bezpośrednio w przeglądarce
-    (pobierz plik i otwórz go, albo otwórz link w nowej karcie) i spróbuj ponownie.
-  </div>
-</div>
-
-<div id="map"></div>
-
-<div id="simBar" aria-label="Sterowanie symulatorem">
-  <button id="simPlay" type="button">▶</button>
-  <button id="simSlower" type="button" aria-label="Wolniej">−</button>
-  <span id="simSpeed">50 mph</span>
-  <button id="simFaster" type="button" aria-label="Szybciej">+</button>
-  <button id="simJump" type="button" title="Skok przed ograniczenie" aria-label="Skok przed ograniczenie">⏩</button>
-  <button id="simRestart" type="button" title="Od początku trasy" aria-label="Od początku trasy">⏮</button>
-  <div id="simHandle" role="button" aria-label="Panel symulatora: dotknij, żeby wysunąć lub schować" aria-expanded="false"></div>
-</div>
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
   <div id="detourText"></div>
@@ -1687,6 +1589,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="reportSubMenu" id="reportSubMenu">
     <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
     <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
+    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)">⚖️</div>
+    <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości">🌉</div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
   <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
@@ -1817,6 +1721,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 <div id="flagCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="flagTitle"></div>
   <div class="poiAddr" id="flagSub"></div>
+  <div class="psForm" id="flagRestr">
+    <label class="psLbl"><span id="flagValLbl">Limit</span><input id="flagVal" type="text" inputmode="decimal" maxlength="20" autocomplete="off"></label>
+    <label class="psLbl">Uwagi (nieobowiązkowo)<input id="flagNote" type="text" maxlength="200" autocomplete="off" placeholder="np. dotyczy też pojazdów dostawczych"></label>
+  </div>
   <div class="poiBtns">
     <button id="flagCancel" type="button">✕ Usuń</button>
     <button id="flagOk" type="button">✓ Zatwierdź</button>
@@ -1900,6 +1808,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       </div>
       <div id="navSuggestions" class="navSuggestions"></div>
     </div>
+    <div id="navAddWaypointBtn2" class="navTopBtn" role="button" title="Dodaj punkt pośredni" aria-label="Dodaj punkt pośredni">＋</div>
     <div id="navSwapBtn" class="navTopBtn" role="button" title="Zamień cel z punktem początkowym" aria-label="Zamień cel z punktem początkowym">⇅</div>
     </div>
 </div>
@@ -2048,6 +1957,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button type="button" data-tab="screen" class="active">🖥 Ekran</button>
       <button type="button" data-tab="sound">🔊 Dźwięk</button>
       <button type="button" data-tab="truck">🚛 Ciężarówka</button>
+      <button type="button" data-tab="reports" class="adminOnly">🚧 Zgłoszenia <b id="rpBadge" class="rpBadge" style="display:none"></b></button>
       <button type="button" data-tab="system" class="adminOnly">⚙️ System</button>
     </div>
 
@@ -2197,6 +2107,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       </div></div>
     </div></div>
   </div>
+    </div>
+    <div class="setPane adminOnly" data-pane="reports">
+      <div class="navTitle">Zgłoszenia ograniczeń <span id="rpCount"></span></div>
+      <div class="psMuted" style="margin-bottom:8px">Kierowcy zgłaszają ograniczenia 7,5 t i niskie mosty chorągiewką 🚩 na mapie. Ty dodajesz własne tą samą chorągiewką — od razu obowiązują.</div>
+      <div class="poiBtns" style="margin:0 0 8px"><button id="rpRefresh" type="button">↻ Odśwież listę</button></div>
+      <div id="rpList"></div>
+      <div class="navTitle" style="margin-top:14px">Zatwierdzone</div>
+      <div id="rpApproved"></div>
     </div>
     <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
@@ -2744,7 +2662,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   ============================================================ */
   let map, userMarkerEl, userMarker;
   let lastPos = null;           // {lat,lon,t}
-  let noGpsMode = false;        // aplikacja uruchomiona bez GPS: mapa działa, a punkt początkowy wpisuje się ręcznie
+  let noGpsMode = true;         // do pierwszego odczytu GPS: mapa działa, a punkt początkowy trasy wpisuje się ręcznie
   let currentSpeedKmh = 0;
   let unitSystem = "mph"; // aplikacja ograniczona do Wielkiej Brytanii — zawsze mile/h, bez zgadywania kraju
   let lastUnitCheckPos = null;
@@ -7785,6 +7703,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let flagDraft = null;        // { kind, marker, docked, timer, prevFollow }
   const FLAG_ASK_MS = 5000;
   function flagKindInfo(kind){
+    if(kind === "weight") return { ico: "⚖️", col: "#b3261e", name: "Ograniczenie tonażu (7,5 t)" };
+    if(kind === "height") return { ico: "🌉", col: "#d97706", name: "Niski most / wysokość" };
     return kind === "camera" ? { ico: "📷", col: "#d93025", name: "Fotoradar" } : { ico: "🅿️", col: "#1a6fd6", name: "Parking HGV" };
   }
   function screenCenterLngLat(){
@@ -7797,6 +7717,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("flagTitle").textContent = k.ico + " " + k.name;
     document.getElementById("flagSub").textContent = ready ? "Zatwierdzić ten punkt?" : "Przesuń mapę lub chorągiewkę w miejsce punktu.";
     document.getElementById("flagOk").style.display = ready ? "" : "none";
+    const restr = d.kind === "weight" || d.kind === "height";            // ograniczenia: formularz z limitem
+    document.getElementById("flagRestr").classList.toggle("open", restr);
+    if(restr){
+      document.getElementById("flagValLbl").textContent = d.kind === "weight" ? "Limit tonażu (tony)" : (typeof isAdmin === "function" && isAdmin() ? "Wysokość (np. 13'6\" albo 4.1 m)" : "Wysokość, jeśli znasz (np. 13'6\" albo 4.1 m)");
+      document.getElementById("flagSub").textContent = (typeof isAdmin === "function" && isAdmin() ? "Dodajesz jako administrator — ograniczenie obowiązuje od razu. " : "Zgłoszenie sprawdzi administrator. ") + (ready ? "Zatwierdzić ten punkt?" : "Ustaw chorągiewkę na drodze z ograniczeniem.");
+    }
     document.getElementById("flagCard").classList.add("show");
   }
   function flagArm(){   // punkt ułożony → po 5 s pytanie o zatwierdzenie
@@ -7823,6 +7749,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function commitFlagDraft(){
     const d = flagDraft; if(!d) return;
     const ll = d.marker.getLngLat(), kind = d.kind;
+    if(kind === "weight" || kind === "height"){
+      const valTxt = document.getElementById("flagVal").value, note = document.getElementById("flagNote").value;
+      if(typeof isAdmin === "function" && isAdmin() && hgvParseValue(kind, valTxt) == null){      // administrator musi podać limit
+        document.getElementById("flagSub").textContent = kind === "weight" ? "Podaj limit w tonach, np. 7.5" : "Podaj wysokość, np. 13'6\" albo 4.1";
+        return;
+      }
+      dropFlagDraft();
+      commitRestrictionReport(kind, ll.lat, ll.lng, valTxt, note);
+      return;
+    }
     dropFlagDraft();
     if(kind === "camera") commitCamera(ll.lat, ll.lng); else commitHgvParking(ll.lat, ll.lng);   // zapis z autorem (device id)
   }
@@ -7840,6 +7776,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // dół drzewca = dokładny punkt zgłoszenia
     const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-8, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
       .setLngLat(screenCenterLngLat()).addTo(map);
+    if(kind === "weight" || kind === "height"){       // formularz ograniczenia: domyślnie 7,5 t albo pusta wysokość
+      document.getElementById("flagVal").value = kind === "weight" ? "7.5" : "";
+      document.getElementById("flagNote").value = "";
+    }
     const d = { kind, marker, docked: true, timer: null, prevFollow: followUser };
     d.onMove = () => { if(flagDraft === d && d.docked){ marker.setLngLat(screenCenterLngLat()); flagDisarm(); } };   // dopóki niezłapana: stoi na środku ekranu
     d.onMoveEnd = () => { if(flagDraft === d && d.docked) flagArm(); };                                                // mapa ustawiona → odliczanie 5 s
@@ -8388,12 +8328,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
     lastPos = { lat, lon, t: now };
 
-    if(!map){
-      initMap(lat, lon);
-      document.getElementById("splash").style.opacity = "0";
-      setTimeout(()=> document.getElementById("splash").style.display = "none", 500);
-    } else {
-      if(noGpsMode && !userMarker) exitNoGpsMode(lat, lon);   // GPS włączył się po starcie bez niego
+    if(map){
+      if(noGpsMode && !userMarker && map.loaded()) exitNoGpsMode(lat, lon);   // pierwszy odczyt GPS po starcie (mapa już otwarta)
       updateUserMarker(lat, lon, currentHeading);
       maybeRefetch(lat, lon);
     }
@@ -8427,14 +8363,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   function onPositionError(err){
     console.warn("Błąd geolokalizacji:", err);
-    clearTimeout(firstFixTimer);
-    setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");
-    if(!MOCK_GPS){ startNoGps(describeGeoError(err)); return; }   // aplikacja uruchamia się mimo braku GPS
-    document.getElementById("splashSpinner").classList.add("hidden");
-    document.getElementById("splashSub").textContent = describeGeoError(err);
-    document.getElementById("splashHint").classList.remove("hidden");
-    document.getElementById("startBtn").classList.remove("hidden");
-    document.getElementById("startBtn").textContent = "Spróbuj ponownie";
+    if(!lastPos) setStatus("error", "Brak GPS — mapa działa, punkt początkowy wpiszesz ręcznie");
+    else setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");
   }
 
   /* ---------- Stoper pod prędkościomierzem (#ovTimer — osobny element, widoczny zawsze, także gdy prędkościomierz jest wyłączony) ----------
@@ -9019,6 +8949,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.querySelectorAll("#setTabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll(".setPane").forEach(p => p.classList.toggle("active", p.dataset.pane === name));
     if(name === "truck") document.dispatchEvent(new Event("navtruck-open"));
+    document.dispatchEvent(new CustomEvent("navtab", { detail: name }));
   }
   function openNavSettings(tab){
     if(typeof tab === "string") setSettingsTab(tab);
@@ -9702,9 +9633,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function updateAddWaypointVisibility(){
     const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
+    const originEl = document.getElementById("navOrigin");
+    if(!hasDest && typeof pendingRouteMode !== "undefined") pendingRouteMode = null;
+    // pole punktu początkowego pokazujemy dopiero, gdy użytkownik planuje trasę, a GPS nie jest włączony
+    const planning = (typeof pendingRouteMode !== "undefined" && !!pendingRouteMode) || !!navSelectedOrigin || !!(originEl.value || "").trim();
     document.body.classList.toggle("has-dest", hasDest);
+    document.body.classList.toggle("show-origin", hasDest && noGpsMode && planning);
+    document.body.classList.toggle("wp-max", rows >= NAV_MAX_WAYPOINTS);
     document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
-    document.getElementById("navAddWaypointBtn").style.display = (!hasDest || rows >= NAV_MAX_WAYPOINTS) ? "none" : "";
     refreshDestFavBtn();
   }
   function addWaypointRow(){
@@ -9738,6 +9674,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     input.focus();
   }
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
+  document.getElementById("navAddWaypointBtn2").addEventListener("click", addWaypointRow);
 
   // ⇅ zamiana celu z punktem początkowym (razem z odwróceniem kolejności punktów pośrednich)
   function swapOriginAndDest(){
@@ -10584,6 +10521,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   let pendingRouteMode = null;
   function runPendingRoute(){
     const m = pendingRouteMode; pendingRouteMode = null;
+    updateAddWaypointVisibility();
     if(!m || !navSelectedDest) return;
     confirmDestination();
     if(m === "go") document.getElementById("navGoBtn").click(); else if(m === "plan") document.getElementById("navPlanBtn").click();
@@ -10601,6 +10539,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     updateAddWaypointVisibility();
     if(noGpsMode && !navSelectedOrigin){      // bez GPS: cel trafia do pola „cel podróży”, a nad nim czeka pole punktu początkowego
       pendingRouteMode = mode || null;
+      updateAddWaypointVisibility();            // dopiero teraz pojawia się pole punktu początkowego
       showDestPin();
       showBanner("PUNKT POCZĄTKOWY", "Wpisz, skąd ruszasz — trasa wyznaczy się sama", false);
       setTimeout(() => { try{ document.getElementById("navOrigin").focus(); }catch(e){} }, 60);
@@ -14158,7 +14097,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   applyThemeMode();
 
   document.getElementById("btnLocate").addEventListener("click", () => {
-    if(noGpsMode){ retryGps(); return; }       // bez GPS: spróbuj go włączyć
+    if(noGpsMode && !lastPos){ retryGps(); return; }       // bez GPS: spróbuj go włączyć
     followUser = true;
     updateLocateBtnVisibility();
     if(map && lastPos){
@@ -14233,196 +14172,98 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 </script>
 <script>
-/* ===== js/40-start-gps.js — Start: tryb GPS/symulator, uruchomienie geolokalizacji =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html. */
+/* ===== js/40-start-gps.js — Start: od razu mapa (w ostatnim miejscu), GPS włącza się w tle =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Aplikacja otwiera mapę niezależnie od tego, czy GPS jest włączony. Mapa startuje w miejscu, w którym ostatnio ją zamknięto
+   (nav_last_view), a gdy go nie ma — w ostatniej znanej pozycji albo na środku Anglii. Pierwszy odczyt GPS włącza znacznik pojazdu
+   i (jeśli nie ruszałeś mapą) centruje widok na pozycji. */
 "use strict";
 
-  /* ============================================================
-     START
-  ============================================================ */
-  let firstFixTimer = null;
   let watchId = null;
   let started = false;
+  let mapTouched = false;     // użytkownik już przesunął/przybliżył mapę — pierwszy odczyt GPS nie odbierze mu widoku
 
-  // === TRYB TESTOWY / SYMULATOR GPS ===================================
-  // Użytkownik wybiera na ekranie startowym: prawdziwy GPS albo symulator.
-  // Wybór jest zapamiętywany w telefonie (localStorage), więc nie trzeba
-  // wybierać go ponownie przy każdym uruchomieniu aplikacji.
-  const GPS_MODE_KEY = "nav_gps_mode"; // "real" albo "mock"
-  function loadGpsMode(){
-    try{ return localStorage.getItem(GPS_MODE_KEY) === "mock" ? "mock" : "real"; }
-    catch(e){ return "real"; }
-  }
-  function saveGpsMode(mode){
-    try{ localStorage.setItem(GPS_MODE_KEY, mode); }catch(e){ /* ignoruj — np. tryb prywatny */ }
-  }
-  let MOCK_GPS = loadGpsMode() === "mock";
-  const MOCK_START_LAT = 52.4835; // zjazd 3 autostrady M6 (Coventry) — przykładowa trasa symulatora
-  const MOCK_START_LON = -1.6230;
-  let mockIntervalId = null;
-
-  function updateGpsModeUI(){
-    const btnReal = document.getElementById("gpsModeReal");
-    const btnMock = document.getElementById("gpsModeMock");
-    btnReal.classList.toggle("active", !MOCK_GPS);
-    btnMock.classList.toggle("active", MOCK_GPS);
-    document.getElementById("startBtn").textContent = MOCK_GPS ? "Uruchom symulator" : "Włącz GPS";
-  }
-  document.getElementById("gpsModeReal").addEventListener("click", () => {
-    if(started) return; // nie zmieniaj trybu w trakcie działania nawigacji
-    MOCK_GPS = false;
-    saveGpsMode("real");
-    updateGpsModeUI();
-  });
-  document.getElementById("gpsModeMock").addEventListener("click", () => {
-    if(started) return;
-    MOCK_GPS = true;
-    saveGpsMode("mock");
-    updateGpsModeUI();
-  });
-  updateGpsModeUI();
-
-  // Symuluje odczyt GPS bez żadnego wywołania navigator.geolocation —
-  // te same argumenty (obiekt "pos") co prawdziwa Geolocation API,
-  // więc cała reszta aplikacji (onPosition, mapa, prędkościomierz) działa bez zmian.
-  function makeMockPosition(){
-    const h = (typeof simHold !== "undefined") ? simHold : null;   // js/47: po jeździe symulatora pojazd stoi tam, gdzie stanął
-    return {
-      coords: {
-        latitude: h ? h.lat : MOCK_START_LAT,
-        longitude: h ? h.lon : MOCK_START_LON,
-        speed: 0,
-        heading: null,
-        accuracy: 8
-      },
-      timestamp: Date.now()
-    };
-  }
-
-  function startMockGeolocation(){
-    clearTimeout(firstFixTimer);
-    onPosition(makeMockPosition());
-    attachWhenReady();
-
-    if(mockIntervalId !== null) clearInterval(mockIntervalId);
-    // odświeżanie co 2 s, żeby np. zegar/status pozostawał "żywy" podczas testów UI
-    mockIntervalId = setInterval(() => {
-      if(typeof simDriving !== "undefined" && simDriving) return;   // jedzie (js/47) — pozycje podaje symulator jazdy
-      onPosition(makeMockPosition());
-    }, 2000);
-  }
-
-  function startGeolocation(){
-    if(started) return;
-    started = true;
-    requestWakeLock();
-
-    document.getElementById("startBtn").classList.add("hidden");
-    document.getElementById("splashHint").classList.add("hidden");
-    document.getElementById("splashSpinner").classList.remove("hidden");
-    document.getElementById("splashSub").textContent = "Szukam sygnału GPS…";
-
-    if(MOCK_GPS){
-      startMockGeolocation();
-      return;
-    }
-
-    if(!navigator.geolocation){
-      setStatus("error", "Ta przeglądarka nie obsługuje geolokalizacji");
-      document.getElementById("splashSpinner").classList.add("hidden");
-      document.getElementById("splashSub").textContent = "Ta przeglądarka nie obsługuje geolokalizacji.";
-      document.getElementById("splashHint").classList.remove("hidden");
-      return;
-    }
-
-    // twardy limit czasu — jeśli po 30 s nic się nie wydarzyło, pokaż diagnostykę
-    // zamiast wiecznego spinnera (typowe gdy podgląd blokuje API po cichu)
-    firstFixTimer = setTimeout(() => {
-      if(!map) startNoGps("brak odpowiedzi z GPS");
-    }, 30000);
-
-    function tryLowAccuracyFallback(){
-      document.getElementById("splashSub").textContent =
-        "Precyzyjny GPS się guzdrze — próbuję z przybliżoną lokalizacją…";
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
-        onPositionError,
-        { enableHighAccuracy:false, timeout:15000, maximumAge:60000 }
-      );
-    }
-
-    try{
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(firstFixTimer); onPosition(pos); attachWhenReady(); },
-        err => {
-          // jeśli precyzyjny GPS nie zdążył złapać sygnału, spróbuj szybszej, mniej dokładnej lokalizacji
-          if(err && err.code === 3){
-            tryLowAccuracyFallback();
-          } else {
-            onPositionError(err);
-          }
-        },
-        { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
-      );
-      if(watchId !== null) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition(
-        onPosition,
-        onPositionError,
-        { enableHighAccuracy:true, timeout:25000, maximumAge:1000 }
-      );
-    } catch(e){
-      onPositionError({ code:0, message: String(e) });
-    }
-  }
-
-  document.getElementById("startBtn").addEventListener("click", startGeolocation);
-
-  /* ---------- start bez GPS ----------
-     Mapa działa bez Twojej pozycji (środek Anglii albo ostatnie znane miejsce); punkt początkowy trasy wpisuje się ręcznie
-     w górnym pasku. Gdy GPS się włączy, aplikacja sama przechodzi do normalnej pracy. */
   function setNoGpsMode(on){
     noGpsMode = !!on;
     document.body.classList.toggle("no-gps", noGpsMode);
     try{ updateAddWaypointVisibility(); }catch(e){}
   }
-  function startNoGps(reason){
-    clearTimeout(firstFixTimer);
-    if(map){ try{ setStatus("error", "Brak GPS — " + (reason || "lokalizacja niedostępna")); }catch(e){} return; }
+
+  function saveMapView(){
+    if(!map) return;
+    try{ const c = map.getCenter(); localStorage.setItem("nav_last_view", JSON.stringify({ lat: c.lat, lon: c.lng, zoom: map.getZoom() })); }catch(e){}
+  }
+
+  function startApp(){
+    if(started) return;
     started = true;
-    setNoGpsMode(true);
-    let lat = 52.8, lon = -1.6, zoom = 6.4;
-    try{ const p = JSON.parse(localStorage.getItem("nav_last_pos") || "null"); if(p && isFinite(p.lat) && isFinite(p.lon)){ lat = p.lat; lon = p.lon; zoom = 11; } }catch(e){}
+    setNoGpsMode(true);                      // do pierwszego odczytu GPS
+    let lat = 52.8, lon = -1.6, zoom = 6.4;  // środek Anglii
+    try{
+      const v = JSON.parse(localStorage.getItem("nav_last_view") || "null");
+      const p = JSON.parse(localStorage.getItem("nav_last_pos") || "null");
+      if(v && isFinite(v.lat) && isFinite(v.lon)){ lat = v.lat; lon = v.lon; zoom = isFinite(v.zoom) ? v.zoom : 12; }
+      else if(p && isFinite(p.lat) && isFinite(p.lon)){ lat = p.lat; lon = p.lon; zoom = 13; }
+    }catch(e){}
     initMap(lat, lon, zoom);
     followUser = false;
     updateLocateBtnVisibility();
-    document.getElementById("splash").style.opacity = "0";
-    setTimeout(() => { document.getElementById("splash").style.display = "none"; }, 500);
-    setStatus("error", "Brak GPS — mapa działa bez Twojej pozycji");
+    requestWakeLock();
     attachWhenReady();
-    setTimeout(() => { try{ showBanner("BEZ GPS", "Punkt początkowy wpiszesz w polu nad celem. Przycisk lokalizacji spróbuje włączyć GPS.", false); }catch(e){} }, 1200);
+    let saveT = null;
+    map.on("moveend", () => { clearTimeout(saveT); saveT = setTimeout(saveMapView, 800); });
+    map.on("dragstart", () => { mapTouched = true; });
+    map.on("zoomstart", e => { if(e && e.originalEvent) mapTouched = true; });
+    window.addEventListener("pagehide", saveMapView);
+    document.addEventListener("visibilitychange", () => { if(document.hidden) saveMapView(); });
+    startGps();
   }
-  function exitNoGpsMode(lat, lon){
+
+  function exitNoGpsMode(lat, lon){          // pierwszy odczyt GPS
     setNoGpsMode(false);
     addUserMarker(lat, lon);
-    followUser = true;
-    updateLocateBtnVisibility();
-    if(map) map.easeTo({ center:[lon, lat], zoom: 16.5, duration: 800 });
+    if(!mapTouched){
+      followUser = true;
+      updateLocateBtnVisibility();
+      if(map) map.easeTo({ center:[lon, lat], zoom: 16.5, duration: 800 });
+    }
+  }
+
+  // GPS w tle: brak zgody lub wyłączony GPS niczego nie blokuje — mapa działa, punkt początkowy trasy wpisuje się ręcznie
+  function startGps(){
+    if(!navigator.geolocation){ setStatus("error", "Ta przeglądarka nie obsługuje geolokalizacji"); return; }
+    try{
+      navigator.geolocation.getCurrentPosition(
+        pos => onPosition(pos),
+        err => {
+          if(err && err.code === 3){        // precyzyjny GPS się guzdrze — spróbuj szybszej, mniej dokładnej lokalizacji
+            navigator.geolocation.getCurrentPosition(pos => onPosition(pos), onPositionError, { enableHighAccuracy:false, timeout:15000, maximumAge:60000 });
+          } else onPositionError(err);
+        },
+        { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+      );
+      if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, timeout:25000, maximumAge:1000 });
+    }catch(e){
+      onPositionError({ code:0, message: String(e) });
+    }
   }
   function retryGps(){                       // przycisk lokalizacji bez GPS: ponów próbę włączenia
-    if(MOCK_GPS) return;
-    started = false; startGeolocation();
+    startGps();
     try{ showBanner("SZUKAM GPS", "Włącz lokalizację w telefonie i zaczekaj chwilę", false); }catch(e){}
   }
-  document.getElementById("noGpsBtn").addEventListener("click", () => startNoGps("uruchomiono bez GPS"));
+
   function attachWhenReady(){
     const iv = setInterval(() => {
-      if(map){ 
+      if(map){
         map.once("load", attachDragListener);
         if(map.loaded()) attachDragListener();
         clearInterval(iv);
       }
     }, 200);
   }
+
+  window.addEventListener("load", startApp);     // dopiero gdy wszystkie skrypty są załadowane
 </script>
 <script>
 /* ===== js/41-wake-lock.js — Blokada wygaszania ekranu (Wake Lock) =====
@@ -14918,7 +14759,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     rd.readAsDataURL(f);
   });
   $("bbTest").addEventListener("click", () => {
-    if(!API.spawn(cur().id)){ try{ showBanner("BILLBOARD", "Najpierw uruchom jazdę (GPS lub symulator) — znak stanie kilkaset metrów przed pojazdem.", false); }catch(e){} }
+    if(!API.spawn(cur().id)){ try{ showBanner("BILLBOARD", "Najpierw uruchom jazdę — znak stanie kilkaset metrów przed pojazdem.", false); }catch(e){} }
   });
   $("bbDelete").addEventListener("click", () => {
     const list = API.all(); list.splice(sel, 1);
@@ -15479,129 +15320,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(detour.r && detour.r.nhUid && !detour.r.confirmed && typeof nhVote === "function") nhVote(detour.r.nhUid, "no");   // kierowca: „nie jest zamknięta u mnie” → ukryj na 6 h
     detourHide();
   });
-</script>
-<script>
-/* ===== js/47-simulator-play.js — Symulator: przycisk Play, wirtualna jazda po wyznaczonej trasie =====
-   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
-   W trybie symulatora (ekran startowy → 🧪 Symulator) wyznacz trasę do celu i dotknij ▶ — pojazd pojedzie wirtualnie po trasie,
-   a aplikacja zachowa się jak podczas prawdziwej jazdy (prędkościomierz, limity, stoper 57 mph, alerty, objazd, komunikaty głosowe).
-   Przyciski: ▶/⏸ jazda, − / + prędkość (mph), ⏩ skok na ~3 mile przed pierwszym przekroczonym ograniczeniem, ⏮ od początku trasy. */
-"use strict";
-
-  const sim = { playing: false, along: 0, mph: 50, route: null, cum: null, timer: null, tLast: 0 };
-  let simDriving = false;      // js/40: gdy true, statyczny odczyt symulatora jest wstrzymany
-  let simHold = null;          // ostatnia pozycja symulowana — w pauzie pojazd stoi tam, gdzie stanął
-  const $s = id => document.getElementById(id);
-
-  function simBuild(route){
-    const c = route.coords, cum = [0];
-    for(let i = 1; i < c.length; i++) cum.push(cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0]));
-    sim.route = route; sim.cum = cum;
-  }
-  function simPointAt(a){
-    const c = sim.route.coords, cum = sim.cum, total = cum[cum.length - 1];
-    a = Math.max(0, Math.min(total, a));
-    let lo = 0, hi = cum.length - 1;
-    while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(cum[mid] <= a) lo = mid; else hi = mid; }
-    const seg = cum[hi] - cum[lo], f = seg > 0 ? (a - cum[lo]) / seg : 0;
-    return { lat: c[lo][1] + (c[hi][1] - c[lo][1]) * f, lon: c[lo][0] + (c[hi][0] - c[lo][0]) * f };
-  }
-  function simProject(lat, lon){            // pozycja wzdłuż trasy najbliższa podanemu punktowi
-    const c = sim.route.coords; let best = Infinity, along = 0;
-    for(let i = 0; i < c.length - 1; i++){
-      const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
-      if(q.distM < best){ best = q.distM; along = sim.cum[i] + haversine(c[i][1], c[i][0], q.lat, q.lon); }
-    }
-    return along;
-  }
-  function simEmit(speedMps){
-    const p = simPointAt(sim.along), q = simPointAt(sim.along + 20), total = sim.cum[sim.cum.length - 1];
-    const hdg = sim.along + 20 <= total ? bearingBetween(p.lat, p.lon, q.lat, q.lon) : null;
-    simHold = { lat: p.lat, lon: p.lon };
-    onPosition({ coords: { latitude: p.lat, longitude: p.lon, speed: speedMps, heading: hdg, accuracy: 5 }, timestamp: Date.now() });
-  }
-  function simTick(){
-    if(!sim.playing) return;
-    // trasa zmieniona (np. włączony objazd) — jedziemy dalej po nowej od najbliższego punktu
-    if(activeRoute !== sim.route){
-      if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2){ simStop(); return; }
-      simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0;
-    }
-    const now = performance.now(), dt = Math.min(1.5, (now - sim.tLast) / 1000); sim.tLast = now;
-    const v = sim.mph * 0.44704, total = sim.cum[sim.cum.length - 1];
-    sim.along = Math.min(total, sim.along + v * dt);
-    if(sim.along >= total - 8){
-      sim.along = total; simEmit(0); simStop();
-      showBanner("CEL OSIĄGNIĘTY", "Koniec jazdy symulatora", false);
-      return;
-    }
-    simEmit(v);
-  }
-  function simPlay(){
-    if(!MOCK_GPS || !started) return;
-    if(!activeRoute || !activeRoute.coords || activeRoute.coords.length < 2){
-      showBanner("SYMULATOR", "Najpierw wyznacz trasę do celu (pole „Wpisz cel podróży”), potem dotknij ▶", false); return;
-    }
-    if(activeRoute !== sim.route){ simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0; }
-    sim.playing = true; simDriving = true; sim.tLast = performance.now();
-    if(sim.timer) clearInterval(sim.timer);
-    sim.timer = setInterval(simTick, 500);
-    simUi();
-  }
-  function simStop(){
-    sim.playing = false; simDriving = false;
-    if(sim.timer){ clearInterval(sim.timer); sim.timer = null; }
-    simUi();
-  }
-  function simUi(){
-    $s("simPlay").textContent = sim.playing ? "⏸" : "▶";
-    $s("simPlay").setAttribute("aria-label", sim.playing ? "Pauza" : "Jazda");
-    $s("simSpeed").textContent = sim.mph + " mph";
-  }
-  function simJump(){
-    if(!activeRoute){ showBanner("SYMULATOR", "Najpierw wyznacz trasę do celu", false); return; }
-    if(activeRoute !== sim.route){ simBuild(activeRoute); sim.along = lastPos ? simProject(lastPos.lat, lastPos.lon) : 0; }
-    const list = routeRestrictionsRaw(activeRoute).filter(r => r.sev === "danger" && r.along > sim.along + 150);
-    if(!list.length){
-      showBanner("SYMULATOR", "Na trasie przed pojazdem nie ma ograniczeń przekraczanych przez Twoją ciężarówkę. Zwiększ wysokość/masę w panelu 🚛 albo wybierz inną trasę.", false); return;
-    }
-    const r = list[0];
-    let target = Math.max(sim.along, r.along - RESTR_FIRST_M - 100);
-    if(target <= sim.along + 5) target = Math.max(sim.along, r.along - RESTR_SECOND_M - 100);
-    sim.along = target; simEmit(sim.playing ? sim.mph * 0.44704 : 0);
-    showBanner("SYMULATOR", "Skok: ograniczenie za " + ukDistMiles(r.along - target), false);
-  }
-  function simRestart(){
-    if(!activeRoute) return;
-    simBuild(activeRoute); sim.along = 0;
-    activeRoute._restr = null; if(typeof detourHide === "function") detourHide();   // alerty i objazd zadziałają od nowa
-    simEmit(sim.playing ? sim.mph * 0.44704 : 0);
-  }
-  $s("simPlay").addEventListener("click", () => sim.playing ? simStop() : simPlay());
-  $s("simSlower").addEventListener("click", () => { sim.mph = Math.max(10, sim.mph - 5); simUi(); });
-  $s("simFaster").addEventListener("click", () => { sim.mph = Math.min(120, sim.mph + 5); simUi(); });
-  $s("simJump").addEventListener("click", simJump);
-  $s("simRestart").addEventListener("click", simRestart);
-  // wysuwanie / chowanie paska (jak menu ikon): uchwyt albo przeciągnięcie w prawo wysuwa, sam chowa się po 5 s
-  let simBarTimer = null;
-  function simBarOpen(on){
-    $s("simBar").classList.toggle("open", !!on);
-    $s("simHandle").setAttribute("aria-expanded", on ? "true" : "false");
-    if(simBarTimer){ clearTimeout(simBarTimer); simBarTimer = null; }
-    if(on) simBarTimer = setTimeout(() => simBarOpen(false), 5000);
-  }
-  const simBarEl = $s("simBar"), isOpen = () => simBarEl.classList.contains("open");
-  $s("simHandle").addEventListener("click", () => simBarOpen(!isOpen()));
-  simBarEl.addEventListener("click", e => { if(isOpen() && e.target !== $s("simHandle")) simBarOpen(true); });   // użycie przycisku odnawia 5 s
-  let simSx = null;
-  simBarEl.addEventListener("touchstart", e => { simSx = e.touches[0].clientX; }, { passive:true });
-  simBarEl.addEventListener("touchmove", e => {
-    if(simSx === null) return; const dx = e.touches[0].clientX - simSx;
-    if(Math.abs(dx) > 22){ simBarOpen(dx > 0); simSx = null; }
-  }, { passive:true });
-  // pasek widoczny tylko w trybie symulatora po uruchomieniu
-  addTick(() => { $s("simBar").classList.toggle("show", !!(MOCK_GPS && started && map)); }, 1000);
-  simUi();
 </script>
 <script>
 /* ===== js/48-traffic-layer.js — Ruch, roboty drogowe i zamknięcia NA TRASIE (TomTom Routing, jedno zapytanie) =====
@@ -17238,6 +16956,260 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const z = () => document.body.classList.toggle("gates-on", map.getZoom() >= PS_GATE_MIN_ZOOM);
       map.on("zoom", z); z();
       setTimeout(psGatesLoad, 2500);
+    });
+  });
+</script>
+<script>
+/* ===== js/53-hgv-reports.js — Ograniczenia 7,5 t i wysokości: zgłoszenia kierowców + dodawanie przez administratora =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   • Kierowca stawia chorągiewkę (menu 🚩 → ⚖️ / 🌉) i zgłasza ograniczenie: trafia do tabeli hgv_reports ze statusem „pending”.
+   • Administrator dodaje ograniczenie tą samą chorągiewką — od razu „approved” — i w Ustawieniach → 🚧 Zgłoszenia dostaje listę
+     zgłoszeń (miejsce, typ, limit, uwagi) z przyciskami: pokaż na mapie, zatwierdź (z poprawką limitu), odrzuć.
+   • Zatwierdzone ograniczenia wchodzą do tych samych danych co znaki z OSM (setRestrictionsData w js/16), więc działają:
+     znaki na mapie, alerty na trasie (js/33) i objazd (js/46). Do alertów potrzebna jest geometria drogi (z Overpass) —
+     wyznaczamy ją przy dodawaniu zgłoszenia; bez niej ograniczenie jest tylko znakiem na mapie.
+   • Tabele i uprawnienia: sql/poi_sheet.sql, sekcja 7. */
+"use strict";
+
+  const HGVC = { h: [], w: [], s: [], base: { h: [], w: [], d: [], s: [] }, rows: [], pending: [] };
+  const HGV_LOCAL_KEY = "nav_hgv_local_v1";
+  const HGV_RATE_KEY = "nav_hgv_rate_v1";
+  const hgvEl = id => document.getElementById(id);
+  const hgvEsc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[c]));
+  const hgvLocalLoad = () => { try{ return JSON.parse(localStorage.getItem(HGV_LOCAL_KEY) || "[]"); }catch(e){ return []; } };
+  const hgvLocalSave = a => { try{ localStorage.setItem(HGV_LOCAL_KEY, JSON.stringify(a.slice(-60))); }catch(e){} };
+
+  /* ---------- wartości: tony / metry (wysokość także w stopach i calach: 13'6", 12-6) ---------- */
+  function hgvParseValue(kind, txt){
+    const t = String(txt || "").trim().toLowerCase().replace(",", ".");
+    if(!t) return null;
+    if(kind === "weight"){
+      const m = t.match(/(\d+(?:\.\d+)?)/), v = m ? parseFloat(m[1]) : NaN;
+      return isFinite(v) && v > 0 && v <= 100 ? v : null;
+    }
+    const ft = t.match(/(\d+)\s*(?:'|ft|feet|-)\s*(\d+)?/);
+    if(ft && /['f-]/.test(t)) return Math.round((parseInt(ft[1], 10) * 12 + parseInt(ft[2] || "0", 10)) * 0.0254 * 100) / 100;
+    const m = t.match(/(\d+(?:\.\d+)?)/); if(!m) return null;
+    let v = parseFloat(m[1]); if(/cm/.test(t)) v /= 100;
+    return isFinite(v) && v >= 1.5 && v <= 8 ? Math.round(v * 100) / 100 : null;
+  }
+  const hgvValueLabel = (kind, v) => v == null ? "?" : (kind === "weight" ? formatWeightLabel(v) : formatHeightLabel(v));
+  const HGV_KIND = { weight: { ico: "⚖️", name: "Ograniczenie tonażu" }, height: { ico: "🌉", name: "Ograniczenie wysokości / niski most" } };
+
+  /* ---------- geometria drogi z Overpass: odcinek ok. 90 m wzdłuż najbliższej drogi (kierunek potrzebny alertom trasy) ---------- */
+  async function hgvRoadGeometry(lat, lon){
+    const q = `[out:json][timeout:10];way(around:40,${lat},${lon})[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|service|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];out geom 8;`;
+    let data = null;
+    for(let i = 0; i < Math.min(2, OVERPASS_ENDPOINTS.length) && !data; i++){
+      try{
+        const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 9000);
+        const r = await fetch(OVERPASS_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctl.signal });
+        clearTimeout(to); if(r.ok) data = await r.json();
+      }catch(e){}
+    }
+    const ways = ((data && data.elements) || []).filter(e => e.geometry && e.geometry.length >= 2);
+    if(!ways.length) return null;
+    const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+    let best = null;
+    ways.forEach(w => {
+      const pts = w.geometry.map(g => [(g.lon - lon) * kx, (g.lat - lat) * ky]);
+      for(let i = 0; i < pts.length - 1; i++){
+        const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0] - ax, by = pts[i + 1][1] - ay, L2 = bx * bx + by * by;
+        const t = L2 ? Math.max(0, Math.min(1, -(ax * bx + ay * by) / L2)) : 0;
+        const d = Math.hypot(ax + bx * t, ay + by * t);
+        if(!best || d < best.d) best = { d, pts, i, t };
+      }
+    });
+    if(!best || best.d > 40) return null;
+    const { pts, i, t } = best;
+    const S = [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t];
+    const walk = dir => {
+      const out = []; let cur = S, idx = dir > 0 ? i + 1 : i, rem = 45;
+      while(rem > 0 && idx >= 0 && idx < pts.length){
+        const n = pts[idx], d = Math.hypot(n[0] - cur[0], n[1] - cur[1]);
+        if(d >= rem && d > 0){ const f = rem / d; out.push([cur[0] + (n[0] - cur[0]) * f, cur[1] + (n[1] - cur[1]) * f]); break; }
+        out.push(n); rem -= d; cur = n; idx += dir;
+      }
+      return out;
+    };
+    const poly = walk(-1).reverse().concat([S], walk(1));
+    if(poly.length < 2) return null;
+    return poly.map(p => [Math.round((lon + p[0] / kx) * 1e6) / 1e6, Math.round((lat + p[1] / ky) * 1e6) / 1e6]);
+  }
+
+  /* ---------- włączenie zatwierdzonych ograniczeń do wspólnych danych (znaki, alerty trasy, objazd) ---------- */
+  function hgvBuildFeatures(rows){
+    const h = [], w = [], s = [];
+    rows.forEach(r => {
+      if(r.status !== "approved" || r.value == null || !isFinite(r.value)) return;
+      const lbl = hgvValueLabel(r.kind, r.value);
+      s.push({ type: "Feature", properties: { kind: r.kind, label: lbl, custom: 1 }, geometry: { type: "Point", coordinates: [r.lon, r.lat] } });
+      if(Array.isArray(r.coords) && r.coords.length >= 2){
+        const f = { type: "Feature", properties: { [r.kind === "weight" ? "maxweight" : "maxheight"]: r.value, osm_id: "c" + (r.id || r.lat + "," + r.lon) }, geometry: { type: "LineString", coordinates: r.coords } };
+        (r.kind === "weight" ? w : h).push(f);
+      }
+    });
+    HGVC.h = h; HGVC.w = w; HGVC.s = s;
+  }
+  // znaki z OSM/Supabase przychodzą przez setRestrictionsData — dokładamy do nich nasze (bez dublowania przy odświeżeniu)
+  const hgvSetRestrictionsBase = setRestrictionsData;
+  setRestrictionsData = function(h, w, d, s){
+    HGVC.base = { h: h || [], w: w || [], d: d || [], s: s || [] };
+    return hgvSetRestrictionsBase(HGVC.base.h.concat(HGVC.h), HGVC.base.w.concat(HGVC.w), HGVC.base.d, HGVC.base.s.concat(HGVC.s));
+  };
+  function hgvRefreshMap(){ try{ setRestrictionsData(HGVC.base.h, HGVC.base.w, HGVC.base.d, HGVC.base.s); }catch(e){ console.warn("Ograniczenia użytkowników:", e); } }
+  async function hgvCustomLoad(){
+    let rows = [];
+    try{ rows = await psRest("GET", "hgv_reports?select=id,kind,value,lat,lon,place,note,coords,status,source,created_at&status=eq.approved&limit=3000") || []; }catch(e){}
+    const local = hgvLocalLoad().filter(r => r.status === "approved");      // dodane przez administratora bez dostępu do bazy
+    HGVC.rows = rows.concat(local);
+    hgvBuildFeatures(HGVC.rows);
+    hgvRefreshMap();
+  }
+
+  /* ---------- zgłoszenie z chorągiewki ---------- */
+  function hgvRateOk(){
+    try{
+      const today = new Date().toISOString().slice(0, 10), o = JSON.parse(localStorage.getItem(HGV_RATE_KEY) || "{}");
+      if(o.d !== today){ o.d = today; o.n = 0; }
+      if(o.n >= 10) return false;
+      o.n++; localStorage.setItem(HGV_RATE_KEY, JSON.stringify(o)); return true;
+    }catch(e){ return true; }
+  }
+  async function hgvPlaceLabel(lat, lon){
+    try{
+      const r = await freeReverse(lat, lon);
+      const parts = r ? [r.streetName, r.municipality, r.postalCode].filter(Boolean) : [];
+      if(parts.length) return parts.join(", ");
+    }catch(e){}
+    return lat.toFixed(5) + ", " + lon.toFixed(5);
+  }
+  async function commitRestrictionReport(kind, lat, lon, valueTxt, note){
+    const admin = isAdmin();
+    const value = hgvParseValue(kind, valueTxt);
+    if(!admin && !hgvRateOk()){ showBanner("LIMIT ZGŁOSZEŃ", "Dziś wysłano już 10 zgłoszeń — spróbuj jutro", false); return; }
+    showBanner(admin ? "DODAJĘ OGRANICZENIE" : "WYSYŁAM ZGŁOSZENIE", "Sprawdzam drogę i miejsce…", false);
+    const [place, coords] = await Promise.all([hgvPlaceLabel(lat, lon), hgvRoadGeometry(lat, lon)]);
+    const row = { kind, value, lat, lon, place, note: String(note || "").trim().slice(0, 200), coords,
+      status: admin ? "approved" : "pending", source: admin ? "admin" : "user" };
+    let how = "remote";
+    try{
+      if(admin) await supaAdminRequest("POST", "hgv_reports", [row], "return=minimal");
+      else await psRest("POST", "hgv_reports", [Object.assign({ device: getDeviceId() }, row)], "return=minimal");
+    }catch(e){
+      how = "local";
+      const a = hgvLocalLoad(); a.push(Object.assign({ id: "L" + Date.now(), created_at: new Date().toISOString() }, row)); hgvLocalSave(a);
+    }
+    const what = (HGV_KIND[kind].name) + (value != null ? " " + hgvValueLabel(kind, value) : "");
+    const warnGeo = admin && !coords ? " Brak geometrii drogi — będzie tylko znakiem na mapie, bez alertów trasy." : "";
+    if(how === "local") showBanner("ZAPISANO LOKALNIE", "Brak połączenia z bazą (patrz sql/poi_sheet.sql) — widoczne tylko na tym urządzeniu." + warnGeo, false);
+    else showBanner(admin ? "OGRANICZENIE DODANE" : "ZGŁOSZENIE WYSŁANE", (admin ? what + " widzą już wszyscy kierowcy." : "Dziękujemy! Administrator sprawdzi: " + what + ".") + warnGeo, false);
+    if(admin){ await hgvCustomLoad(); }
+    hgvPendingRefreshCount();
+  }
+
+  /* ---------- panel administratora: lista zgłoszeń ---------- */
+  async function hgvAdminGet(path){
+    const token = await supaAdminToken();
+    if(!token) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+    const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, { headers: { "apikey": supaKey, "Authorization": "Bearer " + token } });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  const hgvDate = s => String(s || "").slice(0, 10);
+  function hgvItemHtml(r, pending){
+    const k = HGV_KIND[r.kind] || HGV_KIND.weight;
+    const id = hgvEsc(r.id);
+    const cur = r.value != null ? (r.kind === "weight" ? String(r.value) : formatHeightLabel(r.value)) : "";
+    return `<div class="rpItem" data-id="${id}">
+      <div class="rpHead"><span class="rpKind">${k.ico} ${hgvEsc(k.name)}</span><b class="rpVal">${hgvEsc(hgvValueLabel(r.kind, r.value))}</b></div>
+      <div class="rpPlace">📍 ${hgvEsc(r.place || (Number(r.lat).toFixed(5) + ", " + Number(r.lon).toFixed(5)))}</div>
+      <div class="psMuted">${Number(r.lat).toFixed(5)}, ${Number(r.lon).toFixed(5)} · ${hgvEsc(hgvDate(r.created_at))} · ${r.source === "admin" ? "administrator" : "kierowca"}${r.coords ? "" : " · brak geometrii drogi"}</div>
+      ${r.note ? `<div class="rpNote">📝 ${hgvEsc(r.note)}</div>` : ""}
+      <div class="rpAct">
+        ${pending ? `<input class="rpInput" type="text" inputmode="decimal" placeholder="${r.kind === "weight" ? "limit, t" : "wys., np. 13'6\" lub 4.1"}" value="${hgvEsc(cur)}" aria-label="Limit">` : ""}
+        <button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">📍 Pokaż</button>
+        ${pending ? `<button type="button" data-act="ok" class="psPrimary">✔ Zatwierdź</button><button type="button" data-act="no">✖ Odrzuć</button>`
+                  : `<button type="button" data-act="del">🗑 Usuń</button>`}
+      </div></div>`;
+  }
+  async function hgvPanelLoad(){
+    const list = hgvEl("rpList"), appr = hgvEl("rpApproved");
+    list.innerHTML = `<div class="psMuted">Wczytuję…</div>`; appr.innerHTML = "";
+    let pend = [], ok = [];
+    try{
+      const cols = "id,kind,value,lat,lon,place,note,coords,status,source,created_at";
+      pend = await hgvAdminGet(`hgv_reports?select=${cols}&status=eq.pending&order=created_at.desc&limit=200`);
+      ok = await hgvAdminGet(`hgv_reports?select=${cols}&status=eq.approved&order=created_at.desc&limit=100`);
+    }catch(e){
+      list.innerHTML = `<div class="psMuted">Nie udało się pobrać zgłoszeń: ${hgvEsc(e.message || e)}. Czy uruchomiono sql/poi_sheet.sql (sekcja 7)?</div>`;
+      return;
+    }
+    HGVC.pending = pend;
+    hgvSetBadge(pend.length);
+    list.innerHTML = pend.length ? pend.map(r => hgvItemHtml(r, true)).join("") : `<div class="psMuted">Brak nowych zgłoszeń.</div>`;
+    appr.innerHTML = ok.length ? ok.map(r => hgvItemHtml(r, false)).join("") : `<div class="psMuted">Brak zatwierdzonych ograniczeń.</div>`;
+  }
+  function hgvSetBadge(n){
+    const b = hgvEl("rpBadge"); if(b){ b.textContent = n ? String(n) : ""; b.style.display = n ? "" : "none"; }
+    const c = hgvEl("rpCount"); if(c) c.textContent = n ? "(" + n + ")" : "";
+  }
+  async function hgvPendingRefreshCount(){
+    if(!isAdmin() || !supaConfigured()) return 0;
+    try{ const rows = await hgvAdminGet("hgv_reports?select=id&status=eq.pending&limit=200"); hgvSetBadge(rows.length); return rows.length; }catch(e){ return 0; }
+  }
+  let hgvPin = null;
+  function hgvShowOnMap(lat, lon){
+    try{
+      if(hgvPin) hgvPin.remove();
+      const el = document.createElement("div"); el.textContent = "📍"; el.style.cssText = "font-size:34px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))";
+      hgvPin = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([lon, lat]).addTo(map);
+      followUser = false; if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
+      document.getElementById("navSettingsCard").classList.remove("show");
+      map.easeTo({ center: [lon, lat], zoom: 17, pitch: 0, duration: 700 });
+      setTimeout(() => { if(hgvPin){ hgvPin.remove(); hgvPin = null; } }, 60000);
+    }catch(e){}
+  }
+  async function hgvPanelAct(btn){
+    const item = btn.closest(".rpItem"); if(!item) return;
+    const act = btn.dataset.act, id = item.dataset.id;
+    if(act === "show"){ hgvShowOnMap(Number(btn.dataset.lat), Number(btn.dataset.lon)); return; }
+    const row = HGVC.pending.find(r => String(r.id) === String(id));
+    try{
+      if(act === "ok"){
+        const kind = row ? row.kind : "weight";
+        const value = hgvParseValue(kind, item.querySelector(".rpInput").value);
+        if(value == null){ showBanner("PODAJ LIMIT", kind === "weight" ? "Wpisz limit w tonach, np. 7.5" : "Wpisz wysokość, np. 13'6\" albo 4.1", false); return; }
+        const body = { status: "approved", value, reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null };
+        if(row && !row.coords){ const g = await hgvRoadGeometry(row.lat, row.lon); if(g) body.coords = g; }
+        await supaAdminRequest("PATCH", `hgv_reports?id=eq.${encodeURIComponent(id)}`, body, "return=minimal");
+        showBanner("ZATWIERDZONE", "Ograniczenie widzą już wszyscy kierowcy", false);
+      } else if(act === "no"){
+        await supaAdminRequest("PATCH", `hgv_reports?id=eq.${encodeURIComponent(id)}`, { status: "rejected", reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, "return=minimal");
+      } else if(act === "del"){
+        if(!window.confirm("Usunąć to ograniczenie?")) return;
+        await supaAdminRequest("DELETE", `hgv_reports?id=eq.${encodeURIComponent(id)}`);
+      }
+    }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); return; }
+    await hgvCustomLoad(); hgvPanelLoad();
+  }
+
+  /* ---------- podpięcie ---------- */
+  safeInit("zgłoszenia ograniczeń", () => {
+    hgvEl("btnReportWeight").addEventListener("click", () => { closeReportMenu(); startReportFlag("weight"); });
+    hgvEl("btnReportHeight").addEventListener("click", () => { closeReportMenu(); startReportFlag("height"); });
+    ["flagVal", "flagNote"].forEach(id => hgvEl(id).addEventListener("focus", () => { if(typeof flagDraft !== "undefined" && flagDraft) flagDraft.docked = false; }));   // klawiatura nie przesuwa chorągiewki
+    hgvEl("rpRefresh").addEventListener("click", hgvPanelLoad);
+    hgvEl("rpList").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
+    hgvEl("rpApproved").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
+    document.addEventListener("navtab", e => { if(e.detail === "reports" && isAdmin()) hgvPanelLoad(); });
+    const whenMap = fn => { if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); } else setTimeout(() => whenMap(fn), 600); };
+    whenMap(() => {
+      setTimeout(hgvCustomLoad, 3500);
+      setTimeout(async () => {                     // administrator po starcie dostaje informację o nowych zgłoszeniach
+        const n = await hgvPendingRefreshCount();
+        if(n > 0) showBanner("NOWE ZGŁOSZENIA", n + " ograniczeń czeka na decyzję (Ustawienia → 🚧 Zgłoszenia)", false);
+      }, 8000);
     });
   });
 </script>
