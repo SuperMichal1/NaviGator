@@ -511,11 +511,6 @@
     background: rgba(255,255,255,0.12); color:#fff; font-size:13px; cursor:pointer;
   }
   .navWaypointRemove:active{ transform: scale(0.94); }
-  #navAddWaypointBtn{
-    align-self:flex-start;
-    font-size:12px; font-weight:600; color: var(--accent);
-    padding:4px 2px; cursor:pointer;
-  }
   #navAddWaypointBtn:active{ opacity:0.7; }
   /* karta pytania po kliknięciu w firmę/sklep/hotel na mapie */
   .poiCard{
@@ -735,6 +730,27 @@
   }
   body:has(#navPanel[data-navstate="search"]) #navTopBar{ display:flex; }
   body:has(#navPanel.truck-open) #navTopBar, body:has(#navPanel.billboard-open) #navTopBar{ display:none !important; }
+  #navTopBar{ gap:8px; }
+  #navTopBar .navTopRow{ display:flex; gap:8px; align-items:flex-start; min-height:0; }
+  #navTopBar #navDestWrap, #navTopBar #navOriginWrap{ flex:1 1 auto; min-width:0; }
+  #navTopBar #navDestRow{ min-height:0; }
+  #navTopBar .navTopBtn{ flex:0 0 48px; width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-size:22px; font-weight:700; cursor:pointer; user-select:none; -webkit-user-select:none; background:#fff; color:#0b7a6d; border:1px solid rgba(0,0,0,0.18); }
+  #navTopBar .navTopBtn:active{ transform:scale(.94); }
+  body.night #navTopBar .navTopBtn{ background:#17120a; color:#ffb020; border-color: rgba(255,176,32,0.35); }
+  /* punkt początkowy: tylko gdy GPS nie jest włączony; przy włączonym GPS zostaje sam przycisk „＋” (punkt pośredni) po prawej */
+  #navTopBar #navOriginRow{ display:none; }
+  body.no-gps #navTopBar #navOriginRow{ display:flex; }
+  body.has-dest:not(.no-gps) #navTopBar #navOriginRow{ display:flex; justify-content:flex-end; }
+  body:not(.no-gps) #navTopBar #navOriginWrap{ display:none; }
+  body:not(.no-gps) #navTopBar #navSwapBtn{ display:none; }
+  #navTopBar #navOrigin{ font-size:15px; padding:0 14px; height:48px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,0.18); }
+  body.night #navTopBar #navOrigin{ background:#17120a; color:#f5e6d0; border-color: rgba(255,176,32,0.35); }
+  #navTopBar #navWaypointsList:empty{ display:none; }
+  #navTopBar #navWaypointsList{ gap:8px; }
+  #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:44px; border-radius:12px; padding:0 14px; }
+  /* listy podpowiedzi punktu początkowego i pośrednich: nakładka pod polem (bez przesuwania pozostałych pól) */
+  #navTopBar .navStopWrap:not(#navDestWrap) .navSuggestions{ position:absolute; left:0; right:0; top:100%; margin-top:4px; max-height:46vh; overflow-y:auto; z-index:20; -webkit-overflow-scrolling:touch; }
   #navTopBar #navDestWrap{ display:flex; flex-direction:column; min-height:0; }
   #navTopBar #navDestCombo{ flex:0 0 auto; min-height:48px; }
   #navTopBar #navDest{ font-size:16px; padding:13px 8px 13px 14px; }
@@ -831,7 +847,7 @@
   body:not(.night) #navRouteInfo .rTraffic{ color:#8a4f00; }
   body:not(.night) #navRouteInfo .rTraffic.heavy{ color:#c4162a; }
   body:not(.night) .navWaypointRemove{ background: rgba(0,0,0,0.10); color:#0d1c24; }
-  body:not(.night) #navAddWaypointBtn{ color:#0b7a6d; }
+  
   body:not(.night) #navError{ color:#c4162a; }
   #navError{
     font-size:12px; color: var(--danger); display:none;
@@ -1456,6 +1472,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cursor:pointer;
   }
   #splash .startBtn:active{ transform: scale(0.97); }
+  #splash .startBtn2{ margin-top:12px; background:transparent; border:1px solid currentColor; opacity:.85; box-shadow:none; }
   #splash .hint{
     max-width: 320px;
     text-align:center;
@@ -1536,29 +1553,33 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   body.night #poiAsk.poiCard{ background: rgba(16,20,26,.80); color:#f1ece4; border-top:1px solid rgba(255,255,255,.12); }
   #poiAsk.poiCard.dragging{ transition:none; }
   #poiAsk.poiCard.ps-away{ transform: translateY(110%); }
-  #psTop{ touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; flex:0 0 auto; }
-  #psGrab{ display:flex; justify-content:center; padding:9px 0 7px; cursor:grab; }
+  #psGrab{ display:flex; justify-content:center; padding:9px 0 7px; cursor:grab; touch-action:none; flex:0 0 auto; user-select:none; -webkit-user-select:none; }
+  /* jedna ciągła całość: nagłówek, przyciski i szczegóły w jednym bloku; pociągnięcie w górę podnosi cały panel,
+     dopiero na całym ekranie zawartość przewija się palcem */
+  #psScroll{ flex:1 1 auto; min-height:0; overflow-y:hidden; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  #poiAsk[data-state="full"] #psScroll{ overflow-y:auto; touch-action:pan-y; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; user-select:text; -webkit-user-select:text; }
+  #poiAsk .psHead{ touch-action:none; }
+  #poiAsk textarea, #poiAsk input[type="text"], #poiAsk input[type="tel"]{ user-select:text; -webkit-user-select:text; }
   #psGrab span{ width:44px; height:5px; border-radius:3px; background: currentColor; opacity:.3; }
   .psHead{ display:flex; align-items:flex-start; gap:10px; }
   .psTitle{ flex:1; min-width:0; }
   #poiAsk .poiName{ font-size:20px; font-weight:700; }
   #poiAsk .poiAddr{ margin-top:2px; }
   #poiAsk button.psClose{ flex:0 0 auto; width:40px; height:40px; padding:0; border-radius:50%; font-size:17px; background: rgba(128,128,128,.22); border-color:transparent; }
-  /* podłużne przyciski jak w Mapach Google: szerokie pigułki w jednym rzędzie (przewijanym, gdy się nie mieszczą) */
-  .psActions, .psAskBtns{ display:flex; gap:10px; margin:14px 0 8px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  /* podłużne przyciski jak w Mapach Google, ale mniejsze: pigułki w jednym rzędzie (przewijanym, gdy się nie mieszczą) */
+  .psActions, .psAskBtns{ display:flex; gap:8px; margin:10px 0 6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
   .psActions::-webkit-scrollbar, .psAskBtns::-webkit-scrollbar{ display:none; }
-  .psActions button, .psAskBtns button{ flex:0 0 auto; min-width:128px; height:50px; padding:0 22px; border-radius:999px; font-size:16px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
-  #poiAsk button#psDrive{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
-  body:not(.night) #poiAsk button#poiAskYes, body:not(.night) #poiAsk button#psPublish, body:not(.night) #poiAsk button#psAskCancel{ background: rgba(13,28,36,.07); border-color: rgba(13,28,36,.14); color:#0d1c24; }
-  body.night #poiAsk button#poiAskYes, body.night #poiAsk button#psPublish, body.night #poiAsk button#psAskCancel{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color:#f1ece4; }
+  .psActions button, .psAskBtns button{ flex:0 0 auto; min-width:0; height:40px; padding:0 16px; border-radius:999px; font-size:14px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  /* kolory: główny przycisk — ciemna zieleń z białym tekstem; pozostałe — jasny odcień zieleni z zielonym tekstem (czytelny w dzień i w nocy) */
+  #poiAsk button#psDrive, #poiAsk button#psAskReview, #poiAsk button#psAskPhoto{ background:#26756d; border-color:#26756d; color:#fff; }
+  body:not(.night) #poiAsk button#poiAskYes, body:not(.night) #poiAsk button#psPublish, body:not(.night) #poiAsk button#psAskCancel{ background: rgba(38,117,109,.12); border-color: rgba(38,117,109,.35); color:#1b5e57; }
+  body.night #poiAsk button#poiAskYes, body.night #poiAsk button#psPublish, body.night #poiAsk button#psAskCancel{ background: rgba(94,200,188,.14); border-color: rgba(94,200,188,.38); color:#9be6dc; }
   .psAsking{ display:none; margin:10px 0 6px; }
   #poiAsk.asking .psActions{ display:none; }
   #poiAsk.asking .psAsking{ display:block; }
   .psAskQ{ font-size:14px; font-weight:700; margin-bottom:8px; }
   .psAskBtns{ margin:0; }
-  #poiAsk button#psAskReview, #poiAsk button#psAskPhoto{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
-  #psBody{ display:none; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:4px 0 12px; -webkit-overflow-scrolling:touch; }
-  #poiAsk[data-state="half"] #psBody, #poiAsk[data-state="full"] #psBody{ display:block; }
+    #psBody{ display:block; padding:4px 0 24px; }
   .psSect{ padding:10px 0; border-top:1px solid var(--panel-border); }
   .psH{ font-size:15px; font-weight:700; margin-bottom:8px; display:flex; gap:8px; align-items:baseline; }
   .psH small{ font-weight:600; opacity:.75; font-size:13px; }
@@ -1579,13 +1600,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .psReview .by{ font-size:12px; opacity:.7; margin-left:6px; }
   .psReview p{ margin:4px 0 0; font-size:14px; line-height:1.4; word-break:break-word; white-space:pre-wrap; }
   .psReview .rdel{ float:right; width:auto; flex:none; padding:2px 8px; font-size:12px; }
+  .psLbl{ display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; opacity:.9; }
+  .psLbl input, .psLbl textarea{ padding:9px 11px; border-radius:10px; font:500 14px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color:inherit; width:100%; box-sizing:border-box; }
+  .psMine{ float:right; display:flex; gap:6px; }
+  #poiAsk button.psMiniBtn{ flex:none; width:auto; padding:2px 9px; font-size:12px; border-radius:999px; }
   .psForm{ display:none; flex-direction:column; gap:8px; margin-bottom:10px; }
   .psForm.open{ display:flex; }
   .psStars{ display:flex; gap:4px; }
   #poiAsk .psStars button{ flex:none; width:44px; height:44px; padding:0; border-radius:50%; font-size:24px; line-height:1; color:#8a8f94; background:transparent; }
   #poiAsk .psStars button.on{ color:#f5b301; }
   #psReviewText{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; font:500 15px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color: inherit; resize:vertical; }
-  #poiAsk button.psPrimary{ background:#2f8f86; border-color:#2f8f86; color:#fff; }
+  #poiAsk button.psPrimary{ background:#26756d; border-color:#26756d; color:#fff; }
   #psBody .poiBtns{ margin-top:10px; flex-wrap:wrap; }
   .poi-gate-cand{ width:28px; height:28px; border-radius:50%; background:#ffd54a; color:#1b1b1b; border:2px solid #fff; font:800 14px/24px 'Inter',system-ui,sans-serif; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.5); cursor:pointer; }
   #psViewer{ position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; }
@@ -1615,6 +1640,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 
   <button class="startBtn" id="startBtn">Włącz GPS</button>
+  <button class="startBtn startBtn2" id="noGpsBtn" type="button">Uruchom bez GPS</button>
   <div class="hint hidden" id="splashHint">
     Jeśli po kliknięciu nic się nie dzieje albo przeglądarka nie pyta o zgodę,
     ten podgląd może blokować lokalizację. Otwórz plik bezpośrednio w przeglądarce
@@ -1686,8 +1712,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 </div>
 
 <div id="poiAsk" class="poiCard" role="dialog" aria-live="polite" data-state="peek">
+  <div id="psGrab"><span></span></div>
+  <div id="psScroll">
   <div id="psTop">
-    <div id="psGrab"><span></span></div>
     <div class="psHead">
       <div class="psTitle">
         <div class="poiName" id="poiAskName"></div>
@@ -1711,6 +1738,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
   <div id="psBody">
     <div class="psSect" id="psInfo" style="border-top:none"></div>
+    <div class="psSect adminOnly" id="psInfoEdit">
+      <button id="psInfoEditBtn" type="button">✏️ Edytuj dane firmy (administrator)</button>
+      <div class="psForm" id="psInfoForm">
+        <label class="psLbl">Telefon<input id="psfPhone" type="tel" maxlength="40" autocomplete="off"></label>
+        <label class="psLbl">Strona www<input id="psfUrl" type="text" maxlength="200" autocomplete="off" placeholder="np. firma.co.uk"></label>
+        <label class="psLbl">Godziny otwarcia<input id="psfHours" type="text" maxlength="300" autocomplete="off" placeholder="Mo-Fr 08:00-17:00; Sa 08:00-12:00; Su off"></label>
+        <label class="psLbl">Uwagi dla kierowców<textarea id="psfNote" maxlength="500" rows="2" placeholder="np. wjazd od tyłu, rozładunek do 14:00"></textarea></label>
+        <div class="poiBtns" style="margin-top:0">
+          <button id="psfCancel" type="button">Anuluj</button>
+          <button id="psfReset" type="button">↩ Dane automatyczne</button>
+          <button id="psfSave" type="button" class="psPrimary">Zapisz</button>
+        </div>
+        <div class="poiAddr" id="psfMsg"></div>
+      </div>
+    </div>
     <div class="psSect">
       <div class="psH">Zdjęcia</div>
       <div id="psPhotos" class="psPhotos"></div>
@@ -1754,6 +1796,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button id="poiEditHide" type="button">🚫 Ukryj firmę</button>
     </div>
     <div class="poiAddr" id="poiEditMsg"></div>
+  </div>
   </div>
   </div>
   <input type="file" id="psFile" accept="image/*" hidden>
@@ -1837,6 +1880,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 </div>
 
 <div id="navTopBar">
+    <div class="navTopRow" id="navOriginRow">
+      <div id="navOriginWrap" class="navStopWrap">
+        <input type="text" id="navOrigin" class="navStopInput" placeholder="Wpisz punkt początkowy…" autocomplete="off">
+        <div id="navOriginSuggestions" class="navSuggestions"></div>
+      </div>
+      <div id="navAddWaypointBtn" class="navTopBtn" role="button" title="Dodaj punkt pośredni" aria-label="Dodaj punkt pośredni">＋</div>
+    </div>
+    <div id="navWaypointsList"></div>
+    <div class="navTopRow" id="navDestRow">
     <div id="navDestWrap" class="navStopWrap">
       <div id="navDestCombo">
         <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
@@ -1847,6 +1899,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <button id="navPostcodeClear" class="navClearBtn" type="button" aria-label="Wyczyść kod pocztowy">✕</button>
       </div>
       <div id="navSuggestions" class="navSuggestions"></div>
+    </div>
+    <div id="navSwapBtn" class="navTopBtn" role="button" title="Zamień cel z punktem początkowym" aria-label="Zamień cel z punktem początkowym">⇅</div>
     </div>
 </div>
 
@@ -1880,15 +1934,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
     <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
     <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
-  </div>
-
-  <div id="navSearchBlock">
-    <div id="navOriginWrap" class="navStopWrap">
-      <input type="text" id="navOrigin" class="navStopInput" placeholder="Miejsce początkowe (domyślnie: Twoja pozycja)…" autocomplete="off">
-      <div id="navOriginSuggestions" class="navSuggestions"></div>
-    </div>
-    <div id="navWaypointsList"></div>
-    <div id="navAddWaypointBtn" role="button">+ Dodaj punkt pośredni</div>
   </div>
 
   <div id="navError"></div>
@@ -2699,6 +2744,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   ============================================================ */
   let map, userMarkerEl, userMarker;
   let lastPos = null;           // {lat,lon,t}
+  let noGpsMode = false;        // aplikacja uruchomiona bez GPS: mapa działa, a punkt początkowy wpisuje się ręcznie
   let currentSpeedKmh = 0;
   let unitSystem = "mph"; // aplikacja ograniczona do Wielkiej Brytanii — zawsze mile/h, bez zgadywania kraju
   let lastUnitCheckPos = null;
@@ -3979,13 +4025,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
   }
 
-  function initMap(lat, lon){
+  function initMap(lat, lon, startZoom){
     map = new maplibregl.Map({
       container: "map",
       style: OFM_STYLE,
       antialias: true,          // MSAA: gładsze krawędzie dróg, budynków i ikon (domyślnie w MapLibre wyłączone)
       center: [lon, lat],
-      zoom: 16.5,
+      zoom: startZoom || 16.5,
       pitch: 0,
       bearing: 0,
       attributionControl: false,
@@ -4323,7 +4369,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         console.warn("Nie udało się włączyć przesuwania pinezki celu:", e);
       }
 
-      addUserMarker(lat, lon);
+      if(!noGpsMode) addUserMarker(lat, lon);     // bez GPS znacznik pojawi się dopiero przy pierwszym odczycie
       renderUserHgvParking();
       fetchOverpassData(lat, lon);
       // Pokaż panel postępu od razu przy starcie (nie tylko po pierwszym skonfigurowaniu Supabase),
@@ -8347,9 +8393,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       document.getElementById("splash").style.opacity = "0";
       setTimeout(()=> document.getElementById("splash").style.display = "none", 500);
     } else {
+      if(noGpsMode && !userMarker) exitNoGpsMode(lat, lon);   // GPS włączył się po starcie bez niego
       updateUserMarker(lat, lon, currentHeading);
       maybeRefetch(lat, lon);
     }
+    if(now - (onPosition._saved || 0) > 30000){ onPosition._saved = now; try{ localStorage.setItem("nav_last_pos", JSON.stringify({ lat, lon })); }catch(e){} }
 
     try{ checkOffRoute(rawLat, rawLon, pos.coords.accuracy); }catch(e){ console.warn("Wykrywanie zjechania z trasy:", e); }
     try{ updateGuidance(lat, lon); }catch(e){ console.warn("Prowadzenie:", e); }
@@ -8381,6 +8429,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     console.warn("Błąd geolokalizacji:", err);
     clearTimeout(firstFixTimer);
     setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");
+    if(!MOCK_GPS){ startNoGps(describeGeoError(err)); return; }   // aplikacja uruchamia się mimo braku GPS
     document.getElementById("splashSpinner").classList.add("hidden");
     document.getElementById("splashSub").textContent = describeGeoError(err);
     document.getElementById("splashHint").classList.remove("hidden");
@@ -9637,6 +9686,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const pos = r.position;
         navSelectedOrigin = { lat: pos.lat, lon: pos.lon, label };
         document.getElementById("navOrigin").value = label;
+        if(typeof runPendingRoute === "function") runPendingRoute();   // użytkownik wcześniej kliknął „Jedź / Zaplanuj trasę”, a brakowało punktu początkowego
       }
     }
   );
@@ -9652,7 +9702,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function updateAddWaypointVisibility(){
     const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
-    document.getElementById("navOriginWrap").style.display = hasDest ? "" : "none";
+    document.body.classList.toggle("has-dest", hasDest);
     document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
     document.getElementById("navAddWaypointBtn").style.display = (!hasDest || rows >= NAV_MAX_WAYPOINTS) ? "none" : "";
     refreshDestFavBtn();
@@ -9688,6 +9738,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     input.focus();
   }
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
+
+  // ⇅ zamiana celu z punktem początkowym (razem z odwróceniem kolejności punktów pośrednich)
+  function swapOriginAndDest(){
+    const o = navSelectedOrigin, d = navSelectedDest;
+    const oIn = document.getElementById("navOrigin"), dIn = document.getElementById("navDest");
+    if(!o && !d && !oIn.value && !dIn.value) return;
+    navSelectedOrigin = d ? { lat: d.lat, lon: d.lon, label: d.label } : null;
+    navSelectedDest = o ? { lat: o.lat, lon: o.lon, label: o.label } : null;
+    const oTxt = oIn.value, dTxt = dIn.value;
+    oIn.value = dTxt; dIn.value = oTxt;
+    const list = document.getElementById("navWaypointsList");
+    Array.from(list.children).reverse().forEach(c => list.appendChild(c));
+    try{ if(navSelectedDest) showDestPin(); else removeDestPin(); }catch(e){}
+    if(typeof pendingRouteMode !== "undefined") pendingRouteMode = null;
+    updateAddWaypointVisibility(); navRefreshClearBtns();
+  }
+  document.getElementById("navSwapBtn").addEventListener("click", swapOriginAndDest);
   updateAddWaypointVisibility();
 
   // rozwinięcie okna jazdy: avatar pojazdu i kolor trasy
@@ -10513,6 +10580,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       })
       .catch(err => console.warn("Nominatim reverse geocode (POI):", err));
   }
+  // Jedź / Zaplanuj trasę kliknięte bez GPS i bez punktu początkowego: czekamy, aż użytkownik wpisze punkt początkowy
+  let pendingRouteMode = null;
+  function runPendingRoute(){
+    const m = pendingRouteMode; pendingRouteMode = null;
+    if(!m || !navSelectedDest) return;
+    confirmDestination();
+    if(m === "go") document.getElementById("navGoBtn").click(); else if(m === "plan") document.getElementById("navPlanBtn").click();
+  }
   // mode: "go" = Jedź (od razu trasa i jazda), "plan" = Zaplanuj trasę (wybór/edycja trasy); cel = brama wjazdowa, jeśli administrator ją ustawił
   function acceptPoiAsk(mode){
     if(!poiAskTarget) return;
@@ -10524,6 +10599,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("navDest").value = label;
     hidePoiAsk();
     updateAddWaypointVisibility();
+    if(noGpsMode && !navSelectedOrigin){      // bez GPS: cel trafia do pola „cel podróży”, a nad nim czeka pole punktu początkowego
+      pendingRouteMode = mode || null;
+      showDestPin();
+      showBanner("PUNKT POCZĄTKOWY", "Wpisz, skąd ruszasz — trasa wyznaczy się sama", false);
+      setTimeout(() => { try{ document.getElementById("navOrigin").focus(); }catch(e){} }, 60);
+      return;
+    }
     confirmDestination();
     if(mode === "go") document.getElementById("navGoBtn").click();
     else if(mode === "plan") document.getElementById("navPlanBtn").click();
@@ -14076,6 +14158,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   applyThemeMode();
 
   document.getElementById("btnLocate").addEventListener("click", () => {
+    if(noGpsMode){ retryGps(); return; }       // bez GPS: spróbuj go włączyć
     followUser = true;
     updateLocateBtnVisibility();
     if(map && lastPos){
@@ -14255,16 +14338,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // twardy limit czasu — jeśli po 30 s nic się nie wydarzyło, pokaż diagnostykę
     // zamiast wiecznego spinnera (typowe gdy podgląd blokuje API po cichu)
     firstFixTimer = setTimeout(() => {
-      if(!map){
-        setStatus("error", "Brak odpowiedzi z GPS");
-        document.getElementById("splashSpinner").classList.add("hidden");
-        document.getElementById("splashSub").textContent =
-          "Przeglądarka nie odpowiada na żądanie lokalizacji.";
-        document.getElementById("splashHint").classList.remove("hidden");
-        document.getElementById("startBtn").classList.remove("hidden");
-        document.getElementById("startBtn").textContent = "Spróbuj ponownie";
-        started = false;
-      }
+      if(!map) startNoGps("brak odpowiedzi z GPS");
     }, 30000);
 
     function tryLowAccuracyFallback(){
@@ -14302,6 +14376,44 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   document.getElementById("startBtn").addEventListener("click", startGeolocation);
+
+  /* ---------- start bez GPS ----------
+     Mapa działa bez Twojej pozycji (środek Anglii albo ostatnie znane miejsce); punkt początkowy trasy wpisuje się ręcznie
+     w górnym pasku. Gdy GPS się włączy, aplikacja sama przechodzi do normalnej pracy. */
+  function setNoGpsMode(on){
+    noGpsMode = !!on;
+    document.body.classList.toggle("no-gps", noGpsMode);
+    try{ updateAddWaypointVisibility(); }catch(e){}
+  }
+  function startNoGps(reason){
+    clearTimeout(firstFixTimer);
+    if(map){ try{ setStatus("error", "Brak GPS — " + (reason || "lokalizacja niedostępna")); }catch(e){} return; }
+    started = true;
+    setNoGpsMode(true);
+    let lat = 52.8, lon = -1.6, zoom = 6.4;
+    try{ const p = JSON.parse(localStorage.getItem("nav_last_pos") || "null"); if(p && isFinite(p.lat) && isFinite(p.lon)){ lat = p.lat; lon = p.lon; zoom = 11; } }catch(e){}
+    initMap(lat, lon, zoom);
+    followUser = false;
+    updateLocateBtnVisibility();
+    document.getElementById("splash").style.opacity = "0";
+    setTimeout(() => { document.getElementById("splash").style.display = "none"; }, 500);
+    setStatus("error", "Brak GPS — mapa działa bez Twojej pozycji");
+    attachWhenReady();
+    setTimeout(() => { try{ showBanner("BEZ GPS", "Punkt początkowy wpiszesz w polu nad celem. Przycisk lokalizacji spróbuje włączyć GPS.", false); }catch(e){} }, 1200);
+  }
+  function exitNoGpsMode(lat, lon){
+    setNoGpsMode(false);
+    addUserMarker(lat, lon);
+    followUser = true;
+    updateLocateBtnVisibility();
+    if(map) map.easeTo({ center:[lon, lat], zoom: 16.5, duration: 800 });
+  }
+  function retryGps(){                       // przycisk lokalizacji bez GPS: ponów próbę włączenia
+    if(MOCK_GPS) return;
+    started = false; startGeolocation();
+    try{ showBanner("SZUKAM GPS", "Włącz lokalizację w telefonie i zaczekaj chwilę", false); }catch(e){}
+  }
+  document.getElementById("noGpsBtn").addEventListener("click", () => startNoGps("uruchomiono bez GPS"));
   function attachWhenReady(){
     const iv = setInterval(() => {
       if(map){ 
@@ -14902,7 +15014,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $e("poiEditHide").textContent = isCompany ? "🚫 Ukryj firmę" : "🗑 Usuń nazwę";
     $e("poiEditMsg").textContent = isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
     $e("poiEditBox").style.display = "flex"; $e("poiAdminRow").style.display = "none";
-    if(typeof psSetState === "function") psSetState("half");
+    if(typeof psSetState === "function") psSetState("full");
     $e("poiEditInput").focus();
   }
   function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
@@ -16487,17 +16599,25 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const psNorm = s => String(s || "").toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g, "");
   const psKey = t => psNorm(t.name) + "@" + t.lat.toFixed(4) + "," + t.lon.toFixed(4);
 
+  /* ---------- „moje” wpisy: identyfikatory opinii i zdjęć dodanych z tego urządzenia (edycja / usuwanie przez autora) ---------- */
+  const PS_MINE_KEY = "nav_poi_mine_v1";
+  function psMine(){ try{ const o = JSON.parse(localStorage.getItem(PS_MINE_KEY) || "{}"); return { reviews: o.reviews || [], photos: o.photos || [] }; }catch(e){ return { reviews: [], photos: [] }; } }
+  function psMineAdd(kind, id){ const m = psMine(); m[kind].push(String(id)); try{ localStorage.setItem(PS_MINE_KEY, JSON.stringify(m)); }catch(e){} }
+  const psIsMine = (kind, id) => String(id).startsWith("L") || psMine()[kind].includes(String(id));
+  const psDevHeader = () => ({ "x-device-id": getDeviceId() });   // baza porównuje go z kolumną device (sql/poi_sheet.sql)
+
   /* ---------- lokalny zapis (gdy brak Supabase albo tabel) ---------- */
   function psLocalLoad(){ try{ const o = JSON.parse(localStorage.getItem(PS_LOCAL_KEY) || "{}"); return { reviews: o.reviews || [], photos: o.photos || [] }; }catch(e){ return { reviews: [], photos: [] }; } }
   function psLocalSave(o){ try{ localStorage.setItem(PS_LOCAL_KEY, JSON.stringify(o)); return true; }catch(e){ return false; } }
   const psNear = (r, t, d) => psNorm(r.name) === psNorm(t.name) && Math.abs(r.lat - t.lat) <= d && Math.abs(r.lon - t.lon) <= d;
   const PS_BOX = 0.0006;   // ok. 65 m — ta sama firma bywa kafelkowana z drobnym przesunięciem
 
-  async function psRest(method, path, body, prefer){
+  async function psRest(method, path, body, prefer, extra){
     if(!supaConfigured()) throw new Error("no-supabase");
     const headers = { "apikey": supaKey, "Authorization": "Bearer " + supaKey };
     if(body) headers["Content-Type"] = "application/json";
     if(prefer) headers.Prefer = prefer;
+    if(extra) Object.assign(headers, extra);
     const r = await fetch(normSupaUrl(supaUrl) + "/rest/v1/" + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if(!r.ok) throw new Error("HTTP " + r.status);
     const t = await r.text(); return t ? JSON.parse(t) : null;
@@ -16511,7 +16631,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function psMeasure(){
     const sh = psSheet(), cs = getComputedStyle(sh);
-    PS.peekH = Math.ceil($p("psTop").offsetHeight + (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0));
+    PS.peekH = Math.ceil($p("psGrab").offsetHeight + $p("psTop").offsetHeight + (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0));
   }
   function psSetState(s){
     const sh = psSheet(); if(!sh || !sh.classList.contains("show")) return;
@@ -16525,10 +16645,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const sh = psSheet();
     sh.classList.remove("asking", "ps-away");
     PS.fromSearch = false;      // ustawia dopiero openDestinationSheet (js/28), gdy okno otwarto z wyszukiwarki
-    $p("psReviewForm").classList.remove("open");
+    $p("psReviewForm").classList.remove("open"); PS.editReviewId = null;
+    $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").style.display = ""; PS.curInfo = null;
     PS.detailsFor = null; PS.seq++;
     $p("psInfo").innerHTML = ""; $p("psPhotos").innerHTML = ""; $p("psReviews").innerHTML = ""; $p("psAvg").textContent = "";
-    $p("psBody").scrollTop = 0;
+    $p("psScroll").scrollTop = 0;
     document.body.classList.add("poi-sheet-open");
     sh.dataset.state = "peek"; PS.state = "peek"; sh.style.height = "auto";
     requestAnimationFrame(() => { psMeasure(); sh.style.height = PS.peekH + "px"; });
@@ -16549,9 +16670,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   /* ---------- przeciąganie: jedno pociągnięcie = połowa, dłuższe / przytrzymanie = cały ekran ---------- */
   function psInitDrag(){
-    const top = $p("psTop"), sh = psSheet();
+    const top = psSheet(), sh = psSheet();      // przeciąganie działa na całym oknie (jedna całość), a na pełnym ekranie zawartość przewija się natywnie
     let d = null;
     top.addEventListener("pointerdown", e => {
+      if(e.target.closest("textarea, input, select")) return;
+      if(PS.state === "full" && e.target.closest("#psScroll") && !e.target.closest(".psHead")) return;
       const hs = psHeights();
       d = { id: e.pointerId, y0: e.clientY, h0: sh.getBoundingClientRect().height, s0: PS.state, hs, moved: false, held: false,
         hold: setTimeout(() => { if(d && !d.moved){ d.held = true; try{ navigator.vibrate && navigator.vibrate(12); }catch(_){} psSetState("full"); } }, 450) };
@@ -16691,16 +16814,18 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   async function psFetchInfo(t){
     const ck = psKey(t);
     if(PS.infoCache.has(ck)) return PS.infoCache.get(ck);
+    const ov = await psOverrideGet(t);      // 0) dane wpisane przez administratora — najważniejsze
+    const complete = !!(ov && ov.phone && ov.url && ov.hours);
     let osm = null;
-    const row = await psInfoDbGet(t);                                   // 1) nasza baza (dane z OSM zapisane wcześniej)
+    const row = complete ? null : await psInfoDbGet(t);                                   // 1) nasza baza (dane z OSM zapisane wcześniej)
     if(row){
       const age = Date.now() - new Date(row.fetched_at).getTime(), full = row.phone || row.url || row.hours;
       if(age < (full ? PS_INFO_TTL_FULL : PS_INFO_TTL_EMPTY)) osm = { phone: row.phone, url: row.url, hours: row.hours };
     }
-    if(!osm){ osm = await psOsmLookup(t); if(osm) psInfoDbPut(t, osm); }   // 2) OpenStreetMap, wynik zapisujemy w bazie
+    if(!osm && !complete){ osm = await psOsmLookup(t); if(osm) psInfoDbPut(t, osm); }   // 2) OpenStreetMap, wynik zapisujemy w bazie
     const info = { phone: (osm && osm.phone) || "", url: (osm && osm.url) || "", hoursRaw: (osm && osm.hours) || "", byDate: null, src: { osm: !!(osm && (osm.phone || osm.url || osm.hours)), tomtom: false } };
     if(info.hoursRaw){ const wk = psOsmHours(info.hoursRaw); if(wk) info.byDate = psWeekToDates(wk); }
-    if(!info.phone || !info.url || (!info.byDate && !info.hoursRaw)){   // 3) TomTom tylko na braki, bez zapisu
+    if(!complete && (!info.phone || !info.url || (!info.byDate && !info.hoursRaw))){   // 3) TomTom tylko na braki, bez zapisu
       try{
         const tt = await psTomTomInfo(t);
         if(tt){
@@ -16709,6 +16834,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
           if(!info.byDate && !info.hoursRaw && Object.keys(tt.hours).length){ info.byDate = tt.hours; info.src.tomtom = true; }
         }
       }catch(e){}
+    }
+    info.ov = ov; info.note = "";
+    if(ov){                                  // nadpisania administratora mają pierwszeństwo
+      if(ov.phone) info.phone = ov.phone;
+      if(ov.url) info.url = ov.url;
+      if(ov.hours){ info.hoursRaw = ov.hours; const wk = psOsmHours(ov.hours); info.byDate = wk ? psWeekToDates(wk) : null; }
+      info.note = ov.note || ""; info.src.admin = true;
     }
     PS.infoCache.set(ck, info);
     return info;
@@ -16722,6 +16854,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     let info = null;
     try{ info = await psFetchInfo(t); }catch(e){ info = null; }
     if(seq !== PS.seq) return;
+    PS.curInfo = info;
     let html = base;
     if(info){
       const h = info.byDate ? psHoursHtml(info.byDate) : (info.hoursRaw ? `<div class="psRow"><span class="ic">🕒</span><div>${psEsc(info.hoursRaw)}</div></div>` : "");
@@ -16729,7 +16862,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       html += info.phone ? `<div class="psRow"><span class="ic">📞</span><div><a href="tel:${psEsc(info.phone.replace(/[^+0-9]/g, ""))}">${psEsc(info.phone)}</a></div></div>`
                          : `<div class="psRow psMuted"><span class="ic">📞</span><div>Brak numeru telefonu w bazie.</div></div>`;
       if(info.url){ const u = /^https?:\/\//i.test(info.url) ? info.url : "https://" + info.url; html += `<div class="psRow"><span class="ic">🌐</span><div><a href="${psEsc(u)}" target="_blank" rel="noopener">${psEsc(info.url.replace(/^https?:\/\//i, "").replace(/\/$/, ""))}</a></div></div>`; }
-      const srcs = [info.src.osm ? "© autorzy OpenStreetMap" : "", info.src.tomtom ? "TomTom" : ""].filter(Boolean).join(" · ");
+      if(info.note) html += `<div class="psRow"><span class="ic">📝</span><div>${psEsc(info.note)}</div></div>`;
+      const srcs = [info.src.admin ? "dane administratora" : "", info.src.osm ? "© autorzy OpenStreetMap" : "", info.src.tomtom ? "TomTom" : ""].filter(Boolean).join(" · ");
       if(srcs) html += `<div class="psMuted" style="margin:6px 0 0 32px;font-size:11px">Źródło: ${srcs}</div>`;
     }
     box.innerHTML = html;
@@ -16754,8 +16888,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $p("psAvg").textContent = items.length ? `★ ${(items.reduce((s, r) => s + r.rating, 0) / items.length).toFixed(1)} (${items.length})` : "";
     if(!items.length){ box.innerHTML = `<div class="psMuted">Brak opinii. Dodaj pierwszą przez „Opublikuj”.</div>`; return; }
     const adm = isAdmin();
+    PS.reviewList = items;
     box.innerHTML = items.map(r => `<div class="psReview"><span class="psStarsRO">${psStarsStr(r.rating)}</span><span class="by">${psEsc(r.author || "Kierowca")} · ${psEsc(String(r.created_at || "").slice(0, 10))}</span>` +
-      (adm && !String(r.id).startsWith("L") ? `<button class="rdel" data-id="${r.id}" type="button">🗑</button>` : "") +
+      `<span class="psMine">` +
+      (psIsMine("reviews", r.id) ? `<button class="psMiniBtn" data-edit="${r.id}" type="button">✏️ Edytuj</button>` : "") +
+      (adm && !String(r.id).startsWith("L") ? `<button class="psMiniBtn" data-id="${r.id}" type="button">🗑</button>` : "") + `</span>` +
       (r.body ? `<p>${psEsc(r.body)}</p>` : "") + `</div>`).join("");
   }
   async function psLoadPhotos(t, seq){
@@ -16765,7 +16902,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     PS.photoList = items;
     if(!items.length){ box.innerHTML = `<div class="psMuted">Brak zdjęć. Dodaj pierwsze przez „Opublikuj”.</div>`; return; }
     box.innerHTML = items.map((p, i) => `<button class="psThumb" type="button" data-i="${i}"><img src="${psEsc(p.data)}" alt="Zdjęcie firmy">` +
-      (adm && !String(p.id).startsWith("L") ? `<span class="del" data-del="${p.id}">🗑</span>` : "") + `</button>`).join("");
+      ((adm && !String(p.id).startsWith("L")) || psIsMine("photos", p.id) ? `<span class="del" data-del="${p.id}" data-adm="${adm && !psIsMine("photos", p.id) ? 1 : 0}">🗑</span>` : "") + `</button>`).join("");
   }
   function psLoadDetails(){
     const t = poiAskTarget; if(!t) return;
@@ -16790,7 +16927,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   async function psSaveUgc(kind, t, fields){
     const row = Object.assign({ name: t.name, lat: t.lat, lon: t.lon, device: getDeviceId() }, fields);
-    try{ await psRest("POST", `poi_${kind}`, [row], "return=minimal"); return "remote"; }
+    try{
+      const res = await psRest("POST", `poi_${kind}?select=id`, [row], "return=representation");
+      if(res && res[0] && res[0].id != null) psMineAdd(kind, res[0].id);
+      return "remote";
+    }
     catch(e){
       const o = psLocalLoad();
       o[kind].unshift(Object.assign({ id: "L" + Date.now(), created_at: new Date().toISOString() }, row));
@@ -16804,6 +16945,76 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     else if(how === "local") showBanner("ZAPISANO LOKALNIE", label + " tylko na tym urządzeniu (brak bazy — patrz sql/poi_sheet.sql)", false);
     else showBanner("NIE ZAPISANO", "Brak miejsca na urządzeniu", false);
     PS.detailsFor = null; if(PS.state !== "peek") psLoadDetails();
+  }
+
+  async function psUpdateReview(id, rating, body){
+    if(String(id).startsWith("L")){
+      const o = psLocalLoad(), r = o.reviews.find(x => String(x.id) === String(id)); if(!r) return false;
+      r.rating = rating; r.body = body; return psLocalSave(o);
+    }
+    try{
+      const res = await psRest("PATCH", `poi_reviews?id=eq.${encodeURIComponent(id)}&select=id`, { rating, body }, "return=representation", psDevHeader());
+      return !!(res && res.length);          // pusta odpowiedź = to nie Twój wpis
+    }catch(e){ return false; }
+  }
+  async function psDeleteUgc(kind, id, asAdmin){
+    if(String(id).startsWith("L")){
+      const o = psLocalLoad(); o[kind] = o[kind].filter(x => String(x.id) !== String(id)); return psLocalSave(o);
+    }
+    try{
+      if(asAdmin){ await supaAdminRequest("DELETE", `poi_${kind}?id=eq.${encodeURIComponent(id)}`); return true; }
+      const res = await psRest("DELETE", `poi_${kind}?id=eq.${encodeURIComponent(id)}&select=id`, null, "return=representation", psDevHeader());
+      return !!(res && res.length);
+    }catch(e){ return false; }
+  }
+
+  /* ---------- dane firmy poprawione przez administratora (mają pierwszeństwo przed OSM i TomTom) ---------- */
+  const PS_OV_KEY = "nav_poi_override_v1";
+  const psOvLocal = () => { try{ return JSON.parse(localStorage.getItem(PS_OV_KEY) || "[]"); }catch(e){ return []; } };
+  const psOvLocalSave = arr => { try{ localStorage.setItem(PS_OV_KEY, JSON.stringify(arr)); }catch(e){} };
+  async function psOverrideGet(t){
+    let row = null;
+    try{ const rows = await psRest("GET", `poi_overrides?select=key,phone,url,hours,note&${psBoxQuery(t)}&order=updated_at.desc&limit=1`); row = (rows && rows[0]) || null; }catch(e){}
+    if(!row){ const l = psOvLocal().find(r => psNear(r, t, PS_BOX)); if(l) row = Object.assign({ local: true }, l); }
+    return row;
+  }
+  function psInfoFormOpen(){
+    if(!poiAskTarget || !isAdmin()) return;
+    const i = PS.curInfo || {}, ov = i.ov || {};
+    $p("psfPhone").value = ov.phone || i.phone || "";
+    $p("psfUrl").value = ov.url || i.url || "";
+    $p("psfHours").value = ov.hours || i.hoursRaw || "";
+    $p("psfNote").value = ov.note || i.note || "";
+    $p("psfMsg").textContent = ""; $p("psfReset").style.display = i.ov ? "" : "none";
+    $p("psInfoForm").classList.add("open"); $p("psInfoEditBtn").style.display = "none";
+    psSetState("full");
+  }
+  function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").style.display = ""; }
+  async function psInfoSave(reset){
+    const t = poiAskTarget; if(!t || !isAdmin()) return;
+    const old = PS.curInfo && PS.curInfo.ov, key = old && old.key ? old.key : psKey(t);
+    const btn = reset ? $p("psfReset") : $p("psfSave"); btn.disabled = true;
+    try{
+      if(reset){
+        if(!(old && old.local)) await supaAdminRequest("DELETE", "poi_overrides?key=eq." + encodeURIComponent(key));
+        psOvLocalSave(psOvLocal().filter(r => r.key !== key));
+        showBanner("PRZYWRÓCONO", "Dane firmy znów pochodzą z automatycznych źródeł", false);
+      } else {
+        const v = id => $p(id).value.trim();
+        const row = { key, name: t.name, lat: t.lat, lon: t.lon, phone: v("psfPhone"), url: v("psfUrl"), hours: v("psfHours"), note: v("psfNote") };
+        try{
+          await supaAdminRequest("POST", "poi_overrides?on_conflict=key", [Object.assign({}, row, { updated_by: (typeof adminEmail === "function" && adminEmail()) || null })], "resolution=merge-duplicates,return=minimal");
+          psOvLocalSave(psOvLocal().filter(r => r.key !== key));
+          showBanner("DANE ZAPISANE", "Widzą je wszyscy kierowcy", false);
+        }catch(e){
+          psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([row]));
+          showBanner("ZAPISANO LOKALNIE", String(e.message || e).slice(0, 90), false);
+        }
+      }
+    }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 90), false); btn.disabled = false; return; }
+    btn.disabled = false;
+    PS.infoCache.delete(psKey(t)); psInfoFormClose();
+    PS.detailsFor = null; psLoadDetails();
   }
 
   /* ---------- bramy wjazdowe ---------- */
@@ -16940,7 +17151,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       PS.rating = 0; $p("psReviewText").value = ""; $p("psReviewMsg").textContent = "";
       document.querySelectorAll("#psStars button").forEach(b => b.classList.remove("on"));
       $p("psReviewForm").classList.add("open");
-      psSetState(PS.state === "full" ? "full" : "half");
+      psSetState("full");
       setTimeout(() => { try{ $p("psReviewForm").scrollIntoView({ block: "nearest" }); }catch(e){} }, 60);
     });
     $p("psAskPhoto").addEventListener("click", () => { psSheet().classList.remove("asking"); $p("psFile").value = ""; $p("psFile").click(); });
@@ -16949,12 +17160,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       PS.rating = Number(b.dataset.n);
       document.querySelectorAll("#psStars button").forEach(x => x.classList.toggle("on", Number(x.dataset.n) <= PS.rating));
     });
-    $p("psReviewCancel").addEventListener("click", () => $p("psReviewForm").classList.remove("open"));
+    $p("psReviewCancel").addEventListener("click", () => { PS.editReviewId = null; $p("psReviewForm").classList.remove("open"); });
     $p("psReviewSave").addEventListener("click", async () => {
       if(!poiAskTarget) return;
       if(!PS.rating){ $p("psReviewMsg").textContent = "Wybierz liczbę gwiazdek."; return; }
       const btn = $p("psReviewSave"); btn.disabled = true;
-      const how = await psSaveUgc("reviews", poiAskTarget, { rating: PS.rating, body: $p("psReviewText").value.trim().slice(0, 500), author: "Kierowca " + getDeviceId().slice(-4) });
+      const body = $p("psReviewText").value.trim().slice(0, 500);
+      if(PS.editReviewId != null){
+        const ok = await psUpdateReview(PS.editReviewId, PS.rating, body);
+        PS.editReviewId = null; btn.disabled = false; $p("psReviewForm").classList.remove("open");
+        if(ok){ showBanner("ZAPISANO ZMIANY", "Twoja opinia została poprawiona", false); PS.detailsFor = null; psLoadDetails(); }
+        else showBanner("NIE ZAPISANO", "Nie udało się zmienić opinii (można poprawiać tylko własne)", false);
+        return;
+      }
+      const how = await psSaveUgc("reviews", poiAskTarget, { rating: PS.rating, body, author: "Kierowca " + getDeviceId().slice(-4) });
       btn.disabled = false; $p("psReviewForm").classList.remove("open"); psAfterSave("reviews", how);
     });
     $p("psFile").addEventListener("change", async e => {
@@ -16967,12 +17186,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }catch(err){ showBanner("NIE DODANO ZDJĘCIA", "Nie udało się odczytać zdjęcia", false); }
     });
 
-    // podgląd zdjęcia i (administrator) usuwanie zdjęć / opinii
+    // podgląd zdjęcia; usuwanie zdjęcia (autor własnego, administrator każdego)
     $p("psPhotos").addEventListener("click", async e => {
       const del = e.target.closest("[data-del]");
       if(del){
         e.stopPropagation();
-        try{ await supaAdminRequest("DELETE", "poi_photos?id=eq." + del.dataset.del); PS.detailsFor = null; psLoadDetails(); }catch(err){ showBanner("NIE USUNIĘTO", String(err.message || err).slice(0, 90), false); }
+        if(!window.confirm("Usunąć to zdjęcie?")) return;
+        const ok = await psDeleteUgc("photos", del.dataset.del, del.dataset.adm === "1");
+        if(ok){ PS.detailsFor = null; psLoadDetails(); } else showBanner("NIE USUNIĘTO", "Nie udało się usunąć zdjęcia", false);
         return;
       }
       const b = e.target.closest(".psThumb"); if(!b) return;
@@ -16981,9 +17202,27 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
     $p("psViewer").addEventListener("click", () => $p("psViewer").classList.remove("show"));
     $p("psReviews").addEventListener("click", async e => {
-      const b = e.target.closest(".rdel"); if(!b) return;
-      try{ await supaAdminRequest("DELETE", "poi_reviews?id=eq." + b.dataset.id); PS.detailsFor = null; psLoadDetails(); }catch(err){ showBanner("NIE USUNIĘTO", String(err.message || err).slice(0, 90), false); }
+      const ed = e.target.closest("[data-edit]");
+      if(ed){                                      // edycja własnej opinii: ocena i komentarz
+        const r = (PS.reviewList || []).find(x => String(x.id) === ed.dataset.edit); if(!r) return;
+        PS.editReviewId = r.id; PS.rating = r.rating;
+        $p("psReviewText").value = r.body || ""; $p("psReviewMsg").textContent = "Poprawiasz swoją opinię.";
+        document.querySelectorAll("#psStars button").forEach(x => x.classList.toggle("on", Number(x.dataset.n) <= PS.rating));
+        $p("psReviewForm").classList.add("open"); psSetState("full");
+        setTimeout(() => { try{ $p("psReviewForm").scrollIntoView({ block: "nearest" }); }catch(err){} }, 60);
+        return;
+      }
+      const b = e.target.closest("[data-id]"); if(!b) return;      // administrator usuwa opinię
+      if(!window.confirm("Usunąć tę opinię?")) return;
+      const ok = await psDeleteUgc("reviews", b.dataset.id, true);
+      if(ok){ PS.detailsFor = null; psLoadDetails(); } else showBanner("NIE USUNIĘTO", "Nie udało się usunąć opinii", false);
     });
+
+    // administrator: edycja telefonu, godzin, strony i uwag
+    $p("psInfoEditBtn").addEventListener("click", psInfoFormOpen);
+    $p("psfCancel").addEventListener("click", psInfoFormClose);
+    $p("psfSave").addEventListener("click", () => psInfoSave(false));
+    $p("psfReset").addEventListener("click", () => psInfoSave(true));
 
     // brama wjazdowa (administrator)
     $p("psGateSet").addEventListener("click", psGateStart);
