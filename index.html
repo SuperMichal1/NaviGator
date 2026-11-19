@@ -14236,6 +14236,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     updateLocateBtnVisibility();
     requestWakeLock();
     attachWhenReady();
+    // mapa startuje od razu po załadowaniu strony — gdy rozmiar ekranu jeszcze się ustala (paski przeglądarki, obrót, klawiatura),
+    // płótno mapy bywało węższe od ekranu (czarny pasek po prawej). Dopasowujemy je za każdym razem, gdy zmieni się kontener.
+    const fitMap = () => { try{ map.resize(); }catch(e){} };
+    const mapEl = document.getElementById("map");
+    if(window.ResizeObserver) new ResizeObserver(fitMap).observe(mapEl);
+    window.addEventListener("resize", fitMap);
+    window.addEventListener("orientationchange", () => setTimeout(fitMap, 300));
+    if(window.visualViewport) window.visualViewport.addEventListener("resize", fitMap);
+    map.once("load", () => { fitMap(); setTimeout(fitMap, 400); setTimeout(fitMap, 1500); });
+    // strona nigdy nie ma się przewijać (overflow:hidden nie blokuje przewinięcia przez fokus pola / przeglądarkę): każde przesunięcie
+    // dokumentu cofamy, bo wtedy mapa i panele „uciekają” w lewo, a po prawej widać czarne tło
+    const noPageScroll = () => {
+      if(window.scrollX || window.scrollY || document.documentElement.scrollLeft || document.documentElement.scrollTop || document.body.scrollLeft || document.body.scrollTop){
+        window.scrollTo(0, 0); document.documentElement.scrollLeft = 0; document.documentElement.scrollTop = 0; document.body.scrollLeft = 0; document.body.scrollTop = 0;
+      }
+    };
+    window.addEventListener("scroll", noPageScroll, { passive: true });
+    document.body.addEventListener("scroll", noPageScroll, { passive: true });
     let saveT = null;
     map.on("moveend", () => { clearTimeout(saveT); saveT = setTimeout(saveMapView, 800); });
     map.on("dragstart", () => { mapTouched = true; });
@@ -16449,6 +16467,37 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     top.addEventListener("click", e => { if(PS.noClick){ e.stopPropagation(); e.preventDefault(); } }, true);
     $p("psGrab").addEventListener("click", () => { if(!PS.noClick) psSetState(PS.state === "peek" ? "half" : "peek"); });
     window.addEventListener("resize", () => { if(psSheet().classList.contains("show")) psSetState(PS.state); });
+
+    // na pełnym ekranie zawartość przewija się palcem; gdy jest przewinięta na samą górę, pociągnięcie w dół z DOWOLNEGO miejsca
+    // chowa panel (tak samo łatwo jak go wyciągnąć) — bez celowania w uchwyt
+    const sc = $p("psScroll");
+    let tg = null;
+    sc.addEventListener("touchstart", e => {
+      if(PS.state !== "full" || e.touches.length !== 1){ tg = null; return; }
+      tg = { y0: e.touches[0].clientY, h0: sh.getBoundingClientRect().height, atTop: sc.scrollTop <= 1, drag: false, hs: psHeights() };
+    }, { passive: true });
+    sc.addEventListener("touchmove", e => {
+      if(!tg) return;
+      const dy = e.touches[0].clientY - tg.y0;               // w dół = dodatnie
+      if(!tg.drag){
+        if(dy < -4) tg.atTop = false;                        // użytkownik przewija treść w górę — to zwykłe przewijanie
+        if(!(tg.atTop && dy > 8 && sc.scrollTop <= 1)) return;
+        tg.drag = true; sh.classList.add("dragging");
+      }
+      if(e.cancelable) e.preventDefault();
+      sh.style.height = Math.max(tg.hs.peek * 0.85, Math.min(tg.hs.full, tg.h0 - dy)) + "px";
+    }, { passive: false });
+    const tEnd = e => {
+      if(!tg) return;
+      const x = tg; tg = null;
+      if(!x.drag) return;
+      sh.classList.remove("dragging");
+      PS.noClick = true; setTimeout(() => { PS.noClick = false; }, 80);
+      const t = (e.changedTouches && e.changedTouches[0]) || null;
+      const dy = t ? t.clientY - x.y0 : 0, hNow = sh.getBoundingClientRect().height;
+      psSetState(dy > 30 ? (hNow < x.hs.half * 0.8 ? "peek" : "half") : "full");
+    };
+    sc.addEventListener("touchend", tEnd); sc.addEventListener("touchcancel", tEnd);
   }
 
   /* ---------- godziny, telefon, strona (TomTom poiSearch) ---------- */
