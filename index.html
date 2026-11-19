@@ -750,6 +750,10 @@
     border:1.5px solid var(--fieldBorder); border-bottom:none; border-radius:14px 14px 0 0; }
   #navTopBar .navWaypointWrap .navStopInput{ height:44px; border-radius:0; }
   body.night #navTopBar #navOrigin, body.night #navTopBar .navWaypointWrap .navStopInput{ color:#f5e6d0; }
+  #navTopBar #navOriginWrap{ position:relative; }
+  #navTopBar #navOrigin{ padding-right:52px; }
+  #navTopBar .navOriginGps{ position:absolute; right:7px; top:6px; width:36px; height:36px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    background: color-mix(in srgb, var(--fieldAccent) 16%, transparent); font-size:18px; cursor:pointer; z-index:2; user-select:none; -webkit-user-select:none; }
   #navTopBar #navOrigin:focus, #navTopBar .navWaypointWrap .navStopInput:focus{ border-color: var(--fieldAccent); }
   #navTopBar #navWaypointsList:empty{ display:none; }
   #navTopBar #navWaypointsList{ gap:0; }
@@ -1561,6 +1565,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 </head>
 <body>
 
+<div id="map"></div>
+
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
   <div id="detourText"></div>
@@ -1791,6 +1797,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="navTopRow" id="navOriginRow">
       <div id="navOriginWrap" class="navStopWrap">
         <input type="text" id="navOrigin" class="navStopInput" placeholder="Wpisz punkt początkowy…" autocomplete="off">
+        <div id="navOriginGps" class="navOriginGps" role="button" title="Start z mojej pozycji GPS" aria-label="Start z mojej pozycji GPS">📍</div>
         <div id="navOriginSuggestions" class="navSuggestions"></div>
       </div>
       <div id="navAddWaypointBtn" class="navTopBtn" role="button" title="Dodaj punkt pośredni" aria-label="Dodaj punkt pośredni">＋</div>
@@ -9630,15 +9637,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       .filter(Boolean);
   }
   // miejsce początkowe, punkty pośrednie i przycisk ich dodawania pojawiają się dopiero po wybraniu celu
+  // 📍 w polu punktu początkowego: wraca do startu z pozycji GPS (widoczne, gdy wybrano inne miejsce, a GPS działa)
+  function refreshOriginGpsChip(){
+    const chip = document.getElementById("navOriginGps"), el = document.getElementById("navOrigin");
+    if(chip) chip.style.display = (lastPos && (navSelectedOrigin || (el.value || "").trim())) ? "flex" : "none";
+  }
   function updateAddWaypointVisibility(){
     const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
     const originEl = document.getElementById("navOrigin");
     if(!hasDest && typeof pendingRouteMode !== "undefined") pendingRouteMode = null;
-    // pole punktu początkowego pokazujemy dopiero, gdy użytkownik planuje trasę, a GPS nie jest włączony
-    const planning = (typeof pendingRouteMode !== "undefined" && !!pendingRouteMode) || !!navSelectedOrigin || !!(originEl.value || "").trim();
+    // pole punktu początkowego pojawia się, gdy użytkownik planuje trasę (wybrał cel): domyślnie start z GPS, można wybrać inne miejsce
     document.body.classList.toggle("has-dest", hasDest);
-    document.body.classList.toggle("show-origin", hasDest && noGpsMode && planning);
+    document.body.classList.toggle("show-origin", hasDest);
+    originEl.placeholder = lastPos ? "Moja pozycja (GPS) — albo wpisz inne miejsce" : "Wpisz punkt początkowy…";
+    refreshOriginGpsChip();
     document.body.classList.toggle("wp-max", rows >= NAV_MAX_WAYPOINTS);
     document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
     refreshDestFavBtn();
@@ -9674,16 +9687,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     input.focus();
   }
   document.getElementById("navAddWaypointBtn").addEventListener("click", addWaypointRow);
+  document.getElementById("navOrigin").addEventListener("input", refreshOriginGpsChip);
+  document.getElementById("navOriginGps").addEventListener("click", () => {
+    navSelectedOrigin = null; document.getElementById("navOrigin").value = ""; refreshOriginGpsChip();
+    showBanner("START Z GPS", "Trasa ruszy z Twojej aktualnej pozycji", false);
+  });
   document.getElementById("navAddWaypointBtn2").addEventListener("click", addWaypointRow);
 
   // ⇅ zamiana celu z punktem początkowym (razem z odwróceniem kolejności punktów pośrednich)
   function swapOriginAndDest(){
-    const o = navSelectedOrigin, d = navSelectedDest;
     const oIn = document.getElementById("navOrigin"), dIn = document.getElementById("navDest");
+    const gpsStart = !navSelectedOrigin && !(oIn.value || "").trim() && lastPos;       // start z GPS: po zamianie to pozycja GPS zostaje celem
+    const o = navSelectedOrigin || (gpsStart ? { lat: lastPos.lat, lon: lastPos.lon, label: "Moja pozycja (GPS)" } : null), d = navSelectedDest;
     if(!o && !d && !oIn.value && !dIn.value) return;
     navSelectedOrigin = d ? { lat: d.lat, lon: d.lon, label: d.label } : null;
     navSelectedDest = o ? { lat: o.lat, lon: o.lon, label: o.label } : null;
-    const oTxt = oIn.value, dTxt = dIn.value;
+    const oTxt = gpsStart ? "Moja pozycja (GPS)" : oIn.value, dTxt = dIn.value;
     oIn.value = dTxt; dIn.value = oTxt;
     const list = document.getElementById("navWaypointsList");
     Array.from(list.children).reverse().forEach(c => list.appendChild(c));
