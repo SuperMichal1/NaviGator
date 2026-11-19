@@ -1648,9 +1648,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
   <div id="psBody">
     <div class="psSect" id="psInfo" style="border-top:none"></div>
-    <div class="psSect adminOnly" id="psInfoEdit">
-      <button id="psInfoEditBtn" type="button">✏️ Edytuj dane firmy (administrator)</button>
+    <div class="psSect" id="psInfoEdit">
+      <div class="poiBtns" style="margin-top:0">
+        <button id="psInfoEditBtn" type="button">✏️ Zgłoś poprawkę danych</button>
+        <button id="psInfoConfirmBtn" type="button" style="display:none">✔ Potwierdź dane z OSM</button>
+      </div>
       <div class="psForm" id="psInfoForm">
+        <div class="psMuted" id="psfHint">Wpisz tylko to, co sam sprawdziłeś. Pola z danymi z TomTom zostają puste — nie kopiujemy ich. Administrator zatwierdzi zmianę.</div>
         <label class="psLbl">Telefon<input id="psfPhone" type="tel" maxlength="40" autocomplete="off"></label>
         <label class="psLbl">Strona www<input id="psfUrl" type="text" maxlength="200" autocomplete="off" placeholder="np. firma.co.uk"></label>
         <label class="psLbl">Godziny otwarcia<input id="psfHours" type="text" maxlength="300" autocomplete="off" placeholder="Mo-Fr 08:00-17:00; Sa 08:00-12:00; Su off"></label>
@@ -1658,7 +1662,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <div class="poiBtns" style="margin-top:0">
           <button id="psfCancel" type="button">Anuluj</button>
           <button id="psfReset" type="button">↩ Dane automatyczne</button>
-          <button id="psfSave" type="button" class="psPrimary">Zapisz</button>
+          <button id="psfSave" type="button" class="psPrimary">Wyślij do sprawdzenia</button>
         </div>
         <div class="poiAddr" id="psfMsg"></div>
       </div>
@@ -2122,6 +2126,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div id="rpList"></div>
       <div class="navTitle" style="margin-top:14px">Zatwierdzone</div>
       <div id="rpApproved"></div>
+      <div class="navTitle" style="margin-top:14px">Poprawki danych firm <span id="rpSugCount"></span></div>
+      <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
+      <div id="rpSug"></div>
     </div>
     <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
@@ -16383,7 +16390,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     sh.classList.remove("asking", "ps-away");
     PS.fromSearch = false;      // ustawia dopiero openDestinationSheet (js/28), gdy okno otwarto z wyszukiwarki
     $p("psReviewForm").classList.remove("open"); PS.editReviewId = null;
-    $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").style.display = ""; PS.curInfo = null;
+    $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").parentNode.style.display = ""; PS.curInfo = null; $p("psInfoConfirmBtn").style.display = "none";
+    $p("psInfoEditBtn").textContent = isAdmin() ? "✏️ Edytuj dane firmy (administrator)" : "✏️ Zgłoś poprawkę danych";
     PS.detailsFor = null; PS.seq++;
     $p("psInfo").innerHTML = ""; $p("psPhotos").innerHTML = ""; $p("psReviews").innerHTML = ""; $p("psAvg").textContent = "";
     $p("psScroll").scrollTop = 0;
@@ -16560,23 +16568,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(age < (full ? PS_INFO_TTL_FULL : PS_INFO_TTL_EMPTY)) osm = { phone: row.phone, url: row.url, hours: row.hours };
     }
     if(!osm && !complete){ osm = await psOsmLookup(t); if(osm) psInfoDbPut(t, osm); }   // 2) OpenStreetMap, wynik zapisujemy w bazie
-    const info = { phone: (osm && osm.phone) || "", url: (osm && osm.url) || "", hoursRaw: (osm && osm.hours) || "", byDate: null, src: { osm: !!(osm && (osm.phone || osm.url || osm.hours)), tomtom: false } };
+    const info = { phone: (osm && osm.phone) || "", url: (osm && osm.url) || "", hoursRaw: (osm && osm.hours) || "", byDate: null, src: { osm: !!(osm && (osm.phone || osm.url || osm.hours)), tomtom: false },
+      from: { phone: osm && osm.phone ? "osm" : "", url: osm && osm.url ? "osm" : "", hours: osm && osm.hours ? "osm" : "" } };   // from: osm | tt (TomTom) | ov (nasze potwierdzone)
     if(info.hoursRaw){ const wk = psOsmHours(info.hoursRaw); if(wk) info.byDate = psWeekToDates(wk); }
     if(!complete && (!info.phone || !info.url || (!info.byDate && !info.hoursRaw))){   // 3) TomTom tylko na braki, bez zapisu
       try{
         const tt = await psTomTomInfo(t);
         if(tt){
-          if(!info.phone && tt.phone){ info.phone = tt.phone; info.src.tomtom = true; }
-          if(!info.url && tt.url){ info.url = tt.url; info.src.tomtom = true; }
-          if(!info.byDate && !info.hoursRaw && Object.keys(tt.hours).length){ info.byDate = tt.hours; info.src.tomtom = true; }
+          if(!info.phone && tt.phone){ info.phone = tt.phone; info.src.tomtom = true; info.from.phone = "tt"; }
+          if(!info.url && tt.url){ info.url = tt.url; info.src.tomtom = true; info.from.url = "tt"; }
+          if(!info.byDate && !info.hoursRaw && Object.keys(tt.hours).length){ info.byDate = tt.hours; info.src.tomtom = true; info.from.hours = "tt"; }
         }
       }catch(e){}
     }
     info.ov = ov; info.note = "";
     if(ov){                                  // nadpisania administratora mają pierwszeństwo
-      if(ov.phone) info.phone = ov.phone;
-      if(ov.url) info.url = ov.url;
-      if(ov.hours){ info.hoursRaw = ov.hours; const wk = psOsmHours(ov.hours); info.byDate = wk ? psWeekToDates(wk) : null; }
+      if(ov.phone){ info.phone = ov.phone; info.from.phone = "ov"; }
+      if(ov.url){ info.url = ov.url; info.from.url = "ov"; }
+      if(ov.hours){ info.hoursRaw = ov.hours; info.from.hours = "ov"; const wk = psOsmHours(ov.hours); info.byDate = wk ? psWeekToDates(wk) : null; }
       info.note = ov.note || ""; info.src.admin = true;
     }
     PS.infoCache.set(ck, info);
@@ -16604,6 +16613,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(srcs) html += `<div class="psMuted" style="margin:6px 0 0 32px;font-size:11px">Źródło: ${srcs}</div>`;
     }
     box.innerHTML = html;
+    const cb = $p("psInfoConfirmBtn"), fr = (info && info.from) || {};      // „Potwierdź” tylko dla admina, gdy są dane z OSM jeszcze niepotwierdzone
+    if(cb) cb.style.display = (isAdmin() && info && !info.ov && (fr.phone === "osm" || fr.url === "osm" || fr.hours === "osm")) ? "" : "none";
   }
 
   /* ---------- zdjęcia i opinie ---------- */
@@ -16716,19 +16727,74 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return row;
   }
   function psInfoFormOpen(){
-    if(!poiAskTarget || !isAdmin()) return;
-    const i = PS.curInfo || {}, ov = i.ov || {};
-    $p("psfPhone").value = ov.phone || i.phone || "";
-    $p("psfUrl").value = ov.url || i.url || "";
-    $p("psfHours").value = ov.hours || i.hoursRaw || "";
+    if(!poiAskTarget) return;
+    const adm = isAdmin();
+    const i = PS.curInfo || {}, ov = i.ov || {}, f = i.from || {};
+    const own = (k, ovv, val) => ovv || (f[k] === "tt" ? "" : (val || ""));      // wartości z TomTom nie trafiają do formularza (nie kopiujemy ich)
+    $p("psfPhone").value = own("phone", ov.phone, i.phone);
+    $p("psfUrl").value = own("url", ov.url, i.url);
+    $p("psfHours").value = own("hours", ov.hours, i.hoursRaw);
     $p("psfNote").value = ov.note || i.note || "";
-    $p("psfMsg").textContent = ""; $p("psfReset").style.display = i.ov ? "" : "none";
-    $p("psInfoForm").classList.add("open"); $p("psInfoEditBtn").style.display = "none";
+    $p("psfMsg").textContent = "";
+    $p("psfReset").style.display = adm && i.ov ? "" : "none";
+    $p("psfHint").style.display = adm ? "none" : "";
+    $p("psfSave").textContent = adm ? "Zapisz" : "Wyślij do sprawdzenia";
+    $p("psInfoForm").classList.add("open"); $p("psInfoEditBtn").parentNode.style.display = "none";
     psSetState("full");
   }
-  function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").style.display = ""; }
+  function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").parentNode.style.display = ""; }
+
+  // zapis własnych (potwierdzonych) danych firmy — to nasze dane, wolno je trzymać bezterminowo
+  async function psOverrideWrite(t, vals, old){
+    const key = old && old.key ? old.key : psKey(t);
+    const row = { key, name: t.name, lat: t.lat, lon: t.lon, phone: vals.phone || "", url: vals.url || "", hours: vals.hours || "", note: vals.note || "" };
+    try{
+      await supaAdminRequest("POST", "poi_overrides?on_conflict=key", [Object.assign({}, row, { updated_by: (typeof adminEmail === "function" && adminEmail()) || null })], "resolution=merge-duplicates,return=minimal");
+      psOvLocalSave(psOvLocal().filter(r => r.key !== key));
+      return "remote";
+    }catch(e){
+      psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([row]));
+      return "local";
+    }
+  }
+  const PS_SUGG_KEY = "nav_poi_sugg_v1";
+  function psSuggRateOk(){
+    try{
+      const today = new Date().toISOString().slice(0, 10), o = JSON.parse(localStorage.getItem(PS_SUGG_KEY + "_rate") || "{}");
+      if(o.d !== today){ o.d = today; o.n = 0; }
+      if(o.n >= 10) return false;
+      o.n++; localStorage.setItem(PS_SUGG_KEY + "_rate", JSON.stringify(o)); return true;
+    }catch(e){ return true; }
+  }
+  async function psSuggestSave(){          // kierowca proponuje poprawkę; administrator zatwierdza w Ustawieniach → 🚧 Zgłoszenia
+    const t = poiAskTarget; if(!t) return;
+    const v = id => $p(id).value.trim();
+    const vals = { phone: v("psfPhone").slice(0, 40), url: v("psfUrl").slice(0, 200), hours: v("psfHours").slice(0, 300), note: v("psfNote").slice(0, 500) };
+    if(!vals.phone && !vals.url && !vals.hours && !vals.note){ $p("psfMsg").textContent = "Wpisz przynajmniej jedną informację."; return; }
+    if(!psSuggRateOk()){ showBanner("LIMIT POPRAWEK", "Dziś wysłano już 10 poprawek — spróbuj jutro", false); return; }
+    const btn = $p("psfSave"); btn.disabled = true;
+    const row = Object.assign({ name: t.name, lat: t.lat, lon: t.lon, status: "pending", device: getDeviceId() }, vals);
+    try{
+      await psRest("POST", "poi_suggestions", [row], "return=minimal");
+      showBanner("WYSŁANO", "Dziękujemy! Administrator sprawdzi poprawkę danych firmy.", false);
+    }catch(e){
+      try{ const a = JSON.parse(localStorage.getItem(PS_SUGG_KEY) || "[]"); a.push(row); localStorage.setItem(PS_SUGG_KEY, JSON.stringify(a.slice(-30))); }catch(err){}
+      showBanner("ZAPISANO LOKALNIE", "Brak połączenia z bazą — poprawka została tylko na tym urządzeniu.", false);
+    }
+    btn.disabled = false; psInfoFormClose();
+  }
+  async function psInfoConfirm(){          // administrator potwierdza dane z OSM jako sprawdzone (stają się naszymi danymi)
+    const t = poiAskTarget, i = PS.curInfo; if(!t || !i || !isAdmin()) return;
+    const f = i.from || {};
+    const vals = { phone: f.phone === "osm" ? i.phone : "", url: f.url === "osm" ? i.url : "", hours: f.hours === "osm" ? i.hoursRaw : "", note: "" };
+    if(!vals.phone && !vals.url && !vals.hours){ showBanner("BRAK DANYCH", "Nie ma danych z OSM do potwierdzenia — użyj ✏️ i wpisz własne", false); return; }
+    const how = await psOverrideWrite(t, vals, i.ov);
+    showBanner(how === "remote" ? "POTWIERDZONE" : "ZAPISANO LOKALNIE", how === "remote" ? "Dane firmy zapisane jako sprawdzone" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
+    PS.infoCache.delete(psKey(t)); PS.detailsFor = null; psLoadDetails();
+  }
   async function psInfoSave(reset){
-    const t = poiAskTarget; if(!t || !isAdmin()) return;
+    const t = poiAskTarget; if(!t) return;
+    if(!isAdmin()){ if(!reset) psSuggestSave(); return; }
     const old = PS.curInfo && PS.curInfo.ov, key = old && old.key ? old.key : psKey(t);
     const btn = reset ? $p("psfReset") : $p("psfSave"); btn.disabled = true;
     try{
@@ -16738,15 +16804,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         showBanner("PRZYWRÓCONO", "Dane firmy znów pochodzą z automatycznych źródeł", false);
       } else {
         const v = id => $p(id).value.trim();
-        const row = { key, name: t.name, lat: t.lat, lon: t.lon, phone: v("psfPhone"), url: v("psfUrl"), hours: v("psfHours"), note: v("psfNote") };
-        try{
-          await supaAdminRequest("POST", "poi_overrides?on_conflict=key", [Object.assign({}, row, { updated_by: (typeof adminEmail === "function" && adminEmail()) || null })], "resolution=merge-duplicates,return=minimal");
-          psOvLocalSave(psOvLocal().filter(r => r.key !== key));
-          showBanner("DANE ZAPISANE", "Widzą je wszyscy kierowcy", false);
-        }catch(e){
-          psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([row]));
-          showBanner("ZAPISANO LOKALNIE", String(e.message || e).slice(0, 90), false);
-        }
+        const how = await psOverrideWrite(t, { phone: v("psfPhone"), url: v("psfUrl"), hours: v("psfHours"), note: v("psfNote") }, old);
+        showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
       }
     }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 90), false); btn.disabled = false; return; }
     btn.disabled = false;
@@ -16957,6 +17016,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
     // administrator: edycja telefonu, godzin, strony i uwag
     $p("psInfoEditBtn").addEventListener("click", psInfoFormOpen);
+    $p("psInfoConfirmBtn").addEventListener("click", psInfoConfirm);
     $p("psfCancel").addEventListener("click", psInfoFormClose);
     $p("psfSave").addEventListener("click", () => psInfoSave(false));
     $p("psfReset").addEventListener("click", () => psInfoSave(true));
@@ -17152,6 +17212,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
                   : `<button type="button" data-act="del">🗑 Usuń</button>`}
       </div></div>`;
   }
+  function sugItemHtml(r){
+    const rows = [["📞", r.phone], ["🌐", r.url], ["🕒", r.hours], ["📝", r.note]].filter(x => x[1]).map(x => `<div class="rpNote">${x[0]} ${hgvEsc(x[1])}</div>`).join("");
+    return `<div class="rpItem" data-id="${hgvEsc(r.id)}">
+      <div class="rpHead"><span class="rpKind">🏢 ${hgvEsc(r.name)}</span></div>
+      <div class="psMuted">${Number(r.lat).toFixed(5)}, ${Number(r.lon).toFixed(5)} · ${hgvEsc(hgvDate(r.created_at))} · kierowca</div>
+      ${rows}
+      <div class="rpAct"><button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">📍 Pokaż</button>
+        <button type="button" data-act="sok" class="psPrimary">✔ Zatwierdź</button><button type="button" data-act="sno">✖ Odrzuć</button></div></div>`;
+  }
   async function hgvPanelLoad(){
     const list = hgvEl("rpList"), appr = hgvEl("rpApproved");
     list.innerHTML = `<div class="psMuted">Wczytuję…</div>`; appr.innerHTML = "";
@@ -17165,7 +17234,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       return;
     }
     HGVC.pending = pend;
-    hgvSetBadge(pend.length);
+    let sug = [];
+    try{ sug = await hgvAdminGet("poi_suggestions?select=id,name,lat,lon,phone,url,hours,note,created_at&status=eq.pending&order=created_at.desc&limit=100"); }catch(e){}
+    HGVC.sugg = sug;
+    hgvEl("rpSug").innerHTML = sug.length ? sug.map(sugItemHtml).join("") : `<div class="psMuted">Brak propozycji poprawek.</div>`;
+    hgvEl("rpSugCount").textContent = sug.length ? "(" + sug.length + ")" : "";
+    hgvSetBadge(pend.length + sug.length);
     list.innerHTML = pend.length ? pend.map(r => hgvItemHtml(r, true)).join("") : `<div class="psMuted">Brak nowych zgłoszeń.</div>`;
     appr.innerHTML = ok.length ? ok.map(r => hgvItemHtml(r, false)).join("") : `<div class="psMuted">Brak zatwierdzonych ograniczeń.</div>`;
   }
@@ -17175,7 +17249,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   async function hgvPendingRefreshCount(){
     if(!isAdmin() || !supaConfigured()) return 0;
-    try{ const rows = await hgvAdminGet("hgv_reports?select=id&status=eq.pending&limit=200"); hgvSetBadge(rows.length); return rows.length; }catch(e){ return 0; }
+    try{
+      const rows = await hgvAdminGet("hgv_reports?select=id&status=eq.pending&limit=200");
+      let n2 = 0; try{ n2 = (await hgvAdminGet("poi_suggestions?select=id&status=eq.pending&limit=200")).length; }catch(e){}
+      hgvSetBadge(rows.length + n2); return rows.length + n2;
+    }catch(e){ return 0; }
   }
   let hgvPin = null;
   function hgvShowOnMap(lat, lon){
@@ -17194,6 +17272,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const act = btn.dataset.act, id = item.dataset.id;
     if(act === "show"){ hgvShowOnMap(Number(btn.dataset.lat), Number(btn.dataset.lon)); return; }
     const row = HGVC.pending.find(r => String(r.id) === String(id));
+    if(act === "sok" || act === "sno"){                  // propozycja poprawki danych firmy
+      const sg = (HGVC.sugg || []).find(r => String(r.id) === String(id)); if(!sg) return;
+      try{
+        if(act === "sok"){
+          const t = { name: sg.name, lat: sg.lat, lon: sg.lon };
+          const old = await psOverrideGet(t);                 // dotychczasowe nasze dane łączymy z propozycją (puste pola nie kasują starych)
+          const vals = { phone: sg.phone || (old && old.phone) || "", url: sg.url || (old && old.url) || "", hours: sg.hours || (old && old.hours) || "", note: sg.note || (old && old.note) || "" };
+          const how = await psOverrideWrite(t, vals, old);
+          if(how !== "remote"){ showBanner("NIE ZAPISANO W BAZIE", "Poprawka zostałaby tylko na tym urządzeniu — sprawdź połączenie i sql/poi_sheet.sql", false); return; }
+        }
+        await supaAdminRequest("PATCH", `poi_suggestions?id=eq.${encodeURIComponent(id)}`, { status: act === "sok" ? "approved" : "rejected", reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, "return=minimal");
+        if(act === "sok") showBanner("ZATWIERDZONE", "Dane firmy zapisane — widzą je wszyscy kierowcy", false);
+        if(typeof PS !== "undefined") PS.infoCache.clear();
+      }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); return; }
+      hgvPanelLoad(); return;
+    }
     try{
       if(act === "ok"){
         const kind = row ? row.kind : "weight";
@@ -17221,6 +17315,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hgvEl("rpRefresh").addEventListener("click", hgvPanelLoad);
     hgvEl("rpList").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
     hgvEl("rpApproved").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
+    hgvEl("rpSug").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
     document.addEventListener("navtab", e => { if(e.detail === "reports" && isAdmin()) hgvPanelLoad(); });
     const whenMap = fn => { if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); } else setTimeout(() => whenMap(fn), 600); };
     whenMap(() => {
