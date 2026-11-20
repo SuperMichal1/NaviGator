@@ -867,6 +867,8 @@
   #navFixPinBtn{ width:100%; padding:9px 12px; border-radius:10px; font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer;
     border:1px solid #0b7a6d; background:rgba(11,122,109,.16); color:var(--text-main); }
   #navFixPinBtn:active{ background:rgba(11,122,109,.34); }
+
+  .poiCard .poiAddr:empty{ display:none; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1585,6 +1587,68 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .rpAct{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .rpAct button{ flex:1 1 auto; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:700; }
   .rpInput{ flex:1 1 90px; min-width:0; padding:8px 10px; border-radius:10px; font:600 14px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color:inherit; box-sizing:border-box; }
+/* ---------- ostrzeżenia pogodowe na trasie (js/55) ---------- */
+  #wxChip{ position:absolute; left:10px; top:calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); z-index:48; display:none; max-width:min(78vw, 380px);
+    padding:7px 12px; border-radius:12px; background:#b45309; color:#fff; font:700 13px/1.3 'Inter',system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.4); border:1.5px solid rgba(255,255,255,.55); }
+  #wxChip.show{ display:block; }
+  #wxChip.danger{ background:#b3261e; }
+  #wxChip .wxRow{ margin-top:5px; padding-top:5px; border-top:1px solid rgba(255,255,255,.35); font-weight:600; }
+  body.night #wxChip{ filter:brightness(.8); }
+  body.flag-placing #wxChip{ display:none !important; }
+  body.no-gps:not(.guidance-on) #wxChip{ top:calc(env(safe-area-inset-top, 0px) + 76px); }
+
+  /* ---------- karta parkingu HGV z ocenami (js/56) ---------- */
+  #parkCard{ top:auto; bottom:calc(env(safe-area-inset-bottom, 0px) + 12px); max-height:72vh; overflow-y:auto; z-index:70; }
+  #parkCard .psHead{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  #parkCard .psClose{ flex:0 0 36px; width:36px; padding:6px 0; }
+  #parkSum{ font-size:14px; line-height:1.45; display:flex; flex-direction:column; gap:3px; }
+  #parkSum .pkNone, #parkSum .pkCount{ opacity:.7; font-size:12px; }
+  #parkForm{ display:none; flex-direction:column; gap:6px; }
+  #parkForm.open{ display:flex; }
+  #parkForm .pkLbl{ font-size:12px; font-weight:700; opacity:.8; margin-top:2px; }
+  #parkForm .pkRow{ display:flex; gap:6px; }
+  #parkForm .pkRow.pkWrap{ flex-wrap:wrap; }
+  #parkForm .pkRow button{ min-height:42px; font-size:15px; }
+  #parkForm .pkRow button.on{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #parkForm #pkStars button{ font-size:24px; padding:4px 0; }
+  #parkForm #pkStars button.on{ background:#d97706; border-color:#d97706; }
+  #parkForm .pkRow.pkWrap button{ flex:1 1 40%; }
+  #parkCard button#parkYes, #parkCard button#pkSend{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  body.flag-placing #parkCard{ display:none !important; }
+  #wxChip .wxNote{ font-weight:500; font-size:12px; opacity:.9; }
+  /* zwinięta karta parkingu: jedna linia, szczegóły po dotknięciu */
+  #parkSum .pkDetail{ display:none; flex-direction:column; gap:3px; margin-top:2px; }
+  #parkSum.open .pkDetail{ display:flex; }
+  #parkSum .pkShort{ font-weight:700; font-size:14px; cursor:pointer; }
+  #parkSum .pkMore{ opacity:.6; margin-left:4px; }
+  #parkSum.open .pkMore{ display:inline-block; transform:rotate(180deg); }
+  #parkCard{ gap:5px; padding:9px 12px; }
+  #parkCard .poiName{ font-size:14px; }
+
+  /* spokojny widok w jeździe (js/57): po kilku sekundach bez dotyku znikają przyciski z boku; dotknięcie ekranu przywraca je */
+  #reportFloat, #btnCompass, #btnFitRoute, #zoomChip, #btnLocate{ transition: opacity .5s ease; }
+  body.ui-calm :is(#reportFloat, #btnCompass, #btnFitRoute, #zoomChip, #btnLocate){ opacity:0 !important; pointer-events:none !important; }
+
+  /* ---------- własny zestaw ikon (zamiast emoji) ---------- */
+  .ctrl-btn svg.ico{ width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+  .ctrl-btn svg.ico .f{ fill:currentColor; stroke:none; }
+  #reportFloat .ctrl-btn{ color:var(--gator-on); }
+  body:not(.night) #reportFloat .ctrl-btn{ color:#1b3a2e; }
+
+  /* ---------- jednolity wygląd kart: szkło + zieleń, tak jak okno firmy ---------- */
+  .poiCard:not(#poiAsk){ border-radius:18px; -webkit-backdrop-filter:blur(18px) saturate(1.25); backdrop-filter:blur(18px) saturate(1.25); box-shadow:0 8px 26px rgba(0,0,0,.28); }
+  body:not(.night) .poiCard:not(#poiAsk){ background:rgba(250,252,253,.88); color:#0d1c24; border:1px solid rgba(255,255,255,.7); }
+  body.night .poiCard:not(#poiAsk){ background:rgba(16,20,26,.84); color:#f1ece4; border:1px solid rgba(255,255,255,.12); }
+  .poiCard:not(#poiAsk) button{ border-radius:999px; min-height:40px; font-weight:600; }
+  body:not(.night) .poiCard:not(#poiAsk) button{ background:rgba(38,117,109,.12); border:1px solid rgba(38,117,109,.35); color:#1b5e57; }
+  body.night .poiCard:not(#poiAsk) button{ background:rgba(94,200,188,.14); border:1px solid rgba(94,200,188,.38); color:#9be6dc; }
+  .poiCard:not(#poiAsk) button#poiAddSave, .poiCard:not(#poiAsk) button#voteYes, .poiCard:not(#poiAsk) button#flagOk, .poiCard:not(#poiAsk) button#parkYes, .poiCard:not(#poiAsk) button#pkSend,
+  .poiCard:not(#poiAsk) button#parkGo, .poiCard:not(#poiAsk) button#limitEditSave, .poiCard:not(#poiAsk) button#seSave{ background:#26756d; border-color:#26756d; color:#fff; }
+  #parkForm .pkRow button.on{ background:#26756d !important; border-color:#26756d !important; color:#fff !important; }
+  #parkForm #pkStars button.on{ background:#d97706 !important; border-color:#d97706 !important; }
+  body:not(.night) .poiCard:not(#poiAsk) input{ background:rgba(38,117,109,.08); border-color:rgba(38,117,109,.3); color:#0d1c24; }
+  body.night .poiCard:not(#poiAsk) input{ background:rgba(255,255,255,.08); border-color:rgba(94,200,188,.28); color:#f1ece4; }
+  #wxChip{ border-radius:14px; }
 </style>
 </head>
 <body>
@@ -1617,13 +1681,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="reportFloat">
   <div class="reportSubMenu" id="reportSubMenu">
-    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu">📷</div>
-    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu">🅿️</div>
-    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)">⚖️</div>
-    <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości">🌉</div>
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="3.5"/><path d="M9.5 17V8h3.3a2.9 2.9 0 0 1 0 5.8H9.5"/></svg></div>
+    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 20h9.6l-1.7-9H8.9z"/><circle cx="12" cy="6.6" r="2.3"/></svg></div>
+    <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M3 18v-3c3.4-5.6 14.6-5.6 18 0v3M8 18v-4.2M12 18v-5M16 18v-4.2"/></svg></div>
   </div>
-  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran">⛶</div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV">🚩</div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 5h11l-2.5 3.6L17 12H6" fill="currentColor" fill-opacity=".28"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -1752,6 +1816,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 </div>
 
+<div id="parkCard" class="poiCard" role="dialog" aria-live="polite">
+  <div class="psHead">
+    <div class="poiName" id="parkName"></div>
+    <button id="parkClose" type="button" class="psClose" aria-label="Zamknij">✕</button>
+  </div>
+  <div id="parkSum"></div>
+  <div class="poiBtns" id="parkVote" style="display:none">
+    <button id="parkNo" type="button">👎 Nie ma</button>
+    <button id="parkYes" type="button">👍 Jest parking</button>
+  </div>
+  <div class="poiBtns">
+    <button id="parkGo" type="button">▲ Jedź</button>
+    <button id="parkRate" type="button">⭐ Oceń parking</button>
+  </div>
+  <div id="parkForm"></div>
+</div>
+
 <div id="flagCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="flagTitle"></div>
   <div class="poiAddr" id="flagSub"></div>
@@ -1876,9 +1957,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 
   <div id="navToolsRow" role="toolbar" aria-label="Narzędzia mapy">
-    <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)">🚦</div>
-    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways">🚧</div>
-    <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)">🐞</div>
+    <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="18" rx="3"/><circle class="f" cx="12" cy="7.8" r="1.3"/><circle class="f" cx="12" cy="12" r="1.3"/><circle class="f" cx="12" cy="16.2" r="1.3"/></svg></div>
+    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l5 15H7z"/><path d="M4.5 20h15M9.6 11h4.8M8.4 15h7.2"/></svg></div>
+    <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8.5" width="8" height="11" rx="4"/><path d="M12 8.5v11M8 13H4M16 13h4M8.6 10 6 7.4M15.4 10 18 7.4M8.6 17 6 19.6M15.4 17l2.6 2.6M10 6.5a2 2 0 0 1 4 0"/></svg></div>
   </div>
 
   <div id="navError"></div>
@@ -2268,6 +2349,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="gLanes" id="gLanes"></div>
   <div class="gHgv" id="gHgv"></div>
 </div>
+
+<div id="wxChip" role="status"></div>
 
 <div id="statusPill">
   <div class="dot searching" id="statusDot"></div>
@@ -10589,7 +10672,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(typeof poiAdminRefresh === "function") poiAdminRefresh();   // administrator: „✏️ Zmień nazwę” (js/44)
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
     document.getElementById("poiAskName").textContent = name;
-    document.getElementById("poiAskAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    document.getElementById("poiAskAddr").textContent = "";   // adres wpisze się sam, gdy będzie znany (bez pokazywania współrzędnych)
     document.getElementById("poiAsk").classList.add("show");
     if(typeof psOnShow === "function") psOnShow();      // okno firmy (js/52): zwinięte, szczegóły dopiero po wysunięciu
     if(!addrOverride && typeof smartAddressAt === "function"){ const ka = smartAddressAt(lat, lon, name); if(ka) addrOverride = ka; }   // adres ustawiony ręcznie (administrator / formularz)
@@ -10650,6 +10733,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const poiLayers = map.getStyle().layers
         .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon" || l.id === "place-names-icon")
         .map(l => l.id).filter(id => map.getLayer(id));
+      if(typeof parkingClickAt === "function" && parkingClickAt(e)) return;   // parking HGV → karta z ocenami kierowców (js/56)
       // parking HGV zgłoszony przez kierowców → karta głosowania (potwierdzam / nie ma)
       if(map.getLayer("hgv-parking-community-icon")){
         const vf = map.queryRenderedFeatures([[e.point.x - 16, e.point.y - 16], [e.point.x + 16, e.point.y + 16]], { layers: ["hgv-parking-community-icon"] });
@@ -11545,15 +11629,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       + '<path d="' + arm(ex, r) + '" stroke-width="5"/>' + head
       + (n ? '<text x="24" y="29" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor" stroke="none" font-family="Arial,sans-serif">' + n + '</text>' : '') + '</svg>';
   }
-  // pasy ruchu przed rondem (zasada z brytyjskiego Highway Code, nie dane o pasach z mapy): 1. zjazd = lewy pas, 2. = lewy/środkowy, 3. i dalsze = prawy pas
-  function guideLanesHtml(s){
-    if(!s || s.t !== "roundabout" || !s.rb) return "";
-    const n = s.rb, dirs = ["left", "straight", "right"], on = n === 1 ? [0] : n === 2 ? [0, 1] : [2];
-    const arrow = d => d === "straight" ? '<path d="M12 22V5M6 11l6-6 6 6"/>'
-      : '<g transform="' + (d === "left" ? "translate(24 0) scale(-1 1)" : "") + '"><path d="M8 22v-5c0-5 3-8 8-10M12 6h6v6"/></g>';
-    const lane = (d, i) => '<svg class="gLane' + (on.indexOf(i) >= 0 ? " on" : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' + arrow(d) + '</svg>';
-    return dirs.map(lane).join("");
-  }
   function guideIcon(s){
     const wrap = inner => '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
     const straight = deg => wrap('<g transform="rotate(' + deg + ' 24 24)"><path d="M24 40V10M12 22l12-12 12 12"/></g>');
@@ -11833,7 +11908,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // migacz ciężarówki 3D: gdy do skrętu / zjazdu / „trzymaj się strony” zostało ≤ 400 m (do 25 m za manewrem)
     window.turnSignal = (!arrive && !keepOn && dist <= 400 && /left|right|uturn/.test(step.t)) ? (/right/.test(step.t) ? "R" : "L") : null;
     document.getElementById("gIcon").innerHTML = guideIcon(step);
-    { const gl = document.getElementById("gLanes"), lh = (!arrive && !keepOn && dist <= 900) ? guideLanesHtml(step) : "";
+    { const gl = document.getElementById("gLanes"), lh = (!arrive && !keepOn) ? guideLanesHtml(step, g, dist) : "";
       gl.innerHTML = lh; gl.classList.toggle("show", !!lh); }
     document.getElementById("gDist").textContent = distTxt;
     document.getElementById("gText").innerHTML = main.html + (main.sub || "");
@@ -17476,6 +17551,405 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }, 8000);
     });
   });
+</script>
+<script>
+/* ===== js/54-lane-data.js — pasy ruchu przed manewrem z danych OpenStreetMap (turn:lanes, lanes) =====
+   Klasyczny <script> (bez IIFE). Zasada: ~1,5 km przed manewrem pobieramy z Overpass drogę dojazdową (punkt ok. 40 m przed manewrem),
+   czytamy turn:lanes (albo samą liczbę pasów) i wyznaczamy, które pasy prowadzą w stronę manewru. Brak danych w OSM = brak pasów na tablicy
+   (niczego nie zgadujemy). Wynik w g.lanes[indeks kroku]: undefined = jeszcze nie pytano, "loading", null = brak danych, albo { lanes:[{ t:[…], on:bool }] }. */
+"use strict";
+
+  const LANE_ASK_M = 1500;            // od tej odległości przed manewrem pytamy o pasy
+  const LANE_SHOW_M = 1000;           // od tej odległości pokazujemy pasy na tablicy
+  const LANE_SKIP_HW = /^(footway|path|cycleway|steps|pedestrian|bridleway|track|construction|proposed|raceway)$/;
+
+  const laneNorm = v => {
+    const s = String(v || "").trim().toLowerCase();
+    return (!s || s === "none") ? "through" : s;
+  };
+  // "left|through|through;right" → [["left"],["through"],["through","right"]]
+  function laneParseTurn(tag){
+    if(!tag) return null;
+    const out = String(tag).split("|").map(p => p.split(";").map(laneNorm));
+    return out.length ? out : null;
+  }
+  const L_LEFT = ["left", "slight_left", "sharp_left"], L_RIGHT = ["right", "slight_right", "sharp_right"];
+  // jakie znaczniki pasa pasują do manewru (null = nie dotyczy)
+  function laneWanted(s){
+    const t = s.t;
+    if(t === "roundabout") return s.rb === 1 ? { set: L_LEFT, side: "L" } : s.rb === 2 ? { set: ["through"], side: "" } : s.rb ? { set: L_RIGHT, side: "R" } : null;
+    if(t === "left" || t === "sharp-left") return { set: L_LEFT, side: "L" };
+    if(t === "right" || t === "sharp-right") return { set: L_RIGHT, side: "R" };
+    if(t === "slight-left" || t === "keep-left" || t === "exit-left" || t === "ramp-left") return { set: ["slight_left", "left", "sharp_left"], side: "L" };
+    if(t === "slight-right" || t === "keep-right" || t === "exit-right" || t === "ramp-right") return { set: ["slight_right", "right", "sharp_right"], side: "R" };
+    if(t === "straight") return { set: ["through"], side: "" };
+    return null;
+  }
+  function laneCompute(tags, forward, step){
+    const want = laneWanted(step); if(!want) return null;
+    const oneway = tags.oneway === "yes" || tags.junction === "roundabout" || tags.highway === "motorway" || tags.highway === "motorway_link";
+    let turn = null, n = null;
+    if(oneway && forward){ turn = tags["turn:lanes"] || tags["turn:lanes:forward"]; n = parseInt(tags.lanes, 10) || parseInt(tags["lanes:forward"], 10) || null; }
+    else if(!oneway){
+      turn = tags[forward ? "turn:lanes:forward" : "turn:lanes:backward"];
+      n = parseInt(tags[forward ? "lanes:forward" : "lanes:backward"], 10) || null;
+    } else return null;   // jedziemy pod prąd w stosunku do drogi jednokierunkowej — dane nie pasują
+    const parsed = laneParseTurn(turn);
+    if(parsed && parsed.length >= 2){
+      const lanes = parsed.map(t => ({ t, on: t.some(x => want.set.indexOf(x) >= 0) }));
+      if(!lanes.some(l => l.on)) return null;
+      return { lanes };
+    }
+    // sama liczba pasów: wskazujemy tylko skrajny pas dla skrętu w lewo / prawo (bez zgadywania dla jazdy prosto)
+    if(n && n >= 2 && n <= 6 && want.side){
+      const lanes = []; for(let i = 0; i < n; i++) lanes.push({ t: [], on: want.side === "L" ? i === 0 : i === n - 1 });
+      return { lanes };
+    }
+    return null;
+  }
+  function laneApproachPoint(g, step){
+    const c = g.coordsRef; if(!c || !c.length) return null;
+    const i = Math.max(0, Math.min(c.length - 1, step.i));
+    let j = i; while(j > 0 && g.cum[i] - g.cum[j] < 40) j--;
+    if(j === i) return null;
+    const a = c[j], b = c[Math.min(c.length - 1, j + 1)];
+    return { lat: a[1], lon: a[0], hdg: bearingBetween(a[1], a[0], b[1], b[0]) };
+  }
+  function laneFetch(g, step){
+    const key = step.i;
+    g.lanes[key] = "loading";
+    const p = laneApproachPoint(g, step);
+    if(!p || !laneWanted(step)){ g.lanes[key] = null; return; }
+    const q = "[out:json][timeout:12];way(around:30," + p.lat.toFixed(6) + "," + p.lon.toFixed(6) + ")[highway];out tags geom;";
+    tryEndpoints(q, 1, 12000, true).then(data => {
+      let best = null, bestD = 1e9, bestFwd = true;
+      ((data && data.elements) || []).forEach(w => {
+        const tg = w.tags || {}, geo = w.geometry;
+        if(!geo || geo.length < 2 || LANE_SKIP_HW.test(tg.highway || "")) return;
+        for(let k = 0; k < geo.length - 1; k++){
+          const a = geo[k], b = geo[k + 1];
+          const pr = projectPointToSegment(p.lat, p.lon, [a.lon, a.lat], [b.lon, b.lat]);
+          if(pr.distM < bestD){
+            bestD = pr.distM; best = tg;
+            const wb = bearingBetween(a.lat, a.lon, b.lat, b.lon);
+            bestFwd = Math.cos((wb - p.hdg) * Math.PI / 180) >= 0;
+          }
+        }
+      });
+      g.lanes[key] = (best && bestD <= 25) ? laneCompute(best, bestFwd, step) : null;
+    }).catch(() => { g.lanes[key] = null; });
+  }
+  // wywoływane z renderGuidance: zwraca dane pasów dla kroku (i w razie potrzeby zleca pobranie)
+  function laneDataFor(g, step, dist){
+    if(!g) return null;
+    if(!g.lanes) g.lanes = {};
+    const v = g.lanes[step.i];
+    if(v === undefined){ if(dist <= LANE_ASK_M && !g.approx) laneFetch(g, step); return null; }
+    return v === "loading" ? null : v;
+  }
+
+  // rysowanie: zalecane pasy jasne, pozostałe przygaszone; strzałki wg turn:lanes
+  const LANE_ARROW = {
+    through: '<path d="M12 22V5M6 11l6-6 6 6"/>',
+    left: '<path d="M18 22v-6a6 6 0 0 0-6-6H6M11 5l-5 5 5 5"/>',
+    right: '<path d="M6 22v-6a6 6 0 0 1 6-6h6M13 5l5 5-5 5"/>',
+    slight_left: '<g transform="rotate(-35 12 22)"><path d="M12 22V5M6 11l6-6 6 6"/></g>',
+    slight_right: '<g transform="rotate(35 12 22)"><path d="M12 22V5M6 11l6-6 6 6"/></g>',
+    reverse: '<path d="M7 22V10a5 5 0 0 1 10 0v6M13 12l4 5 4-5"/>'
+  };
+  function laneArrowSvg(tokens){
+    const key = t => t === "sharp_left" ? "left" : t === "sharp_right" ? "right" : t;
+    const uniq = []; (tokens.length ? tokens : ["through"]).forEach(t => { const k = key(t); if(LANE_ARROW[k] && uniq.indexOf(k) < 0) uniq.push(k); });
+    if(!uniq.length) uniq.push("through");
+    return uniq.map(k => LANE_ARROW[k]).join("");
+  }
+  function guideLanesHtml(step, g, dist){
+    if(dist > LANE_SHOW_M) return "";
+    const d = laneDataFor(g, step, dist);
+    if(!d || !d.lanes) return "";
+    const known = d.lanes.some(l => l.t.length);
+    return d.lanes.slice(0, 6).map(l => '<svg class="gLane' + (l.on ? " on" : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+      + (known ? laneArrowSvg(l.t) : LANE_ARROW.through) + '</svg>').join("");
+  }
+</script>
+<script>
+/* ===== js/55-weather-alerts.js — ostrzeżenia o pogodzie na trasie (wiatr, gołoledź/śnieg, mgła, ulewa) =====
+   Klasyczny <script> (bez IIFE). Darmowe dane Open-Meteo (bez klucza): jedno zapytanie na trasę dla punktów co ~30 mil (do 180 mil przed pojazdem),
+   prognoza na godzinę, w której kierowca tam dojedzie. Odświeżanie co 20 min i po zmianie trasy. Pasek #wxChip pod tablicą prowadzenia; dotknięcie rozwija listę.
+   Progi pod HGV (wysokie naczepy): porywy ≥40 mph = uwaga, ≥50 mph = ostrzeżenie. Jednostki: mph, mile, °C. */
+"use strict";
+
+  const WX_STEP_M = 30 * 1609.344, WX_MAX_M = 180 * 1609.344, WX_REFRESH_MS = 20 * 60000;
+  const WX_SNOW = [71, 73, 75, 77, 85, 86], WX_FREEZING = [56, 57, 66, 67], WX_FOG = [45, 48];
+  /* ---------- płatne strefy niskiej emisji (CAZ / ULEZ / LEZ) na trasie ----------
+     Przybliżone obszary (koło wokół centrum miasta, Londyn: uproszczony wielokąt wewnątrz granic) — to ostrzeżenie „trasa przechodzi przez strefę”, nie dokładna granica.
+     Opłata dotyczy tylko ciężarówek poniżej normy Euro VI; aplikacja nie zna normy pojazdu, więc zawsze tylko informuje. Stan: wg gov.uk i stron miast (2026). */
+  const ZONES = [
+    { n: "Londyn ULEZ/LEZ", poly: [[51.675,-0.250],[51.670,-0.030],[51.630,0.140],[51.590,0.270],[51.500,0.230],[51.430,0.140],[51.360,0.070],[51.300,-0.050],[51.335,-0.240],[51.385,-0.390],[51.455,-0.470],[51.535,-0.480],[51.630,-0.370]] },
+    { n: "Birmingham CAZ", c: [52.4790, -1.9000], r: 1400 }, { n: "Bristol CAZ", c: [51.4545, -2.5880], r: 900 },
+    { n: "Bath CAZ", c: [51.3813, -2.3590], r: 900 }, { n: "Bradford CAZ", c: [53.7900, -1.7500], r: 2500 },
+    { n: "Sheffield CAZ", c: [53.3800, -1.4700], r: 800 }, { n: "Portsmouth CAZ", c: [50.7960, -1.1000], r: 900 },
+    { n: "Newcastle i Gateshead CAZ", c: [54.9670, -1.6060], r: 1100 },
+    { n: "Glasgow LEZ", c: [55.8600, -4.2530], r: 900 }, { n: "Edynburg LEZ", c: [55.9500, -3.1950], r: 1300 },
+    { n: "Aberdeen LEZ", c: [57.1450, -2.0950], r: 700 }, { n: "Dundee LEZ", c: [56.4610, -2.9700], r: 700 }
+  ];
+  function zoneHas(z, lat, lon){
+    if(z.c) return haversine(lat, lon, z.c[0], z.c[1]) <= z.r;
+    let inside = false;
+    for(let i = 0, j = z.poly.length - 1; i < z.poly.length; j = i++){
+      const a = z.poly[i], b = z.poly[j];
+      if((a[1] > lon) !== (b[1] > lon) && lat < (b[0] - a[0]) * (lon - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+  function zoneScan(r){
+    const c = r.coords; if(!c || c.length < 2) return [];
+    if(!r._wxCum){ const cum = [0]; for(let i = 1; i < c.length; i++) cum.push(cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0])); r._wxCum = cum; }
+    const found = {}; let lastAlong = -1e9;
+    for(let i = 0; i < c.length; i++){
+      if(r._wxCum[i] - lastAlong < 60 && i < c.length - 1) continue;   // próbkujemy co ~60 m
+      lastAlong = r._wxCum[i];
+      ZONES.forEach(z => { if(!found[z.n] && zoneHas(z, c[i][1], c[i][0])) found[z.n] = { type: "zone", sev: 1, along: r._wxCum[i], name: z.n }; });
+    }
+    return Object.keys(found).map(k => found[k]).sort((a, b) => a.along - b.along);
+  }
+  let wxState = { route: null, at: 0, busy: false, alerts: [], base: 0, spoken: {}, open: false, zoneRoute: null, zones: [] };
+
+  function wxSamples(r){
+    const c = r.coords; if(!c || c.length < 2) return [];
+    if(!r._wxCum){ const cum = [0]; for(let i = 1; i < c.length; i++) cum.push(cum[i - 1] + haversine(c[i - 1][1], c[i - 1][0], c[i][1], c[i][0])); r._wxCum = cum; }
+    const cum = r._wxCum, total = cum[cum.length - 1];
+    let start = 0;
+    if(lastPos){ let bd = 1e12; for(let i = 0; i < c.length; i++){ const d = haversine(lastPos.lat, lastPos.lon, c[i][1], c[i][0]); if(d < bd){ bd = d; start = i; } } }
+    const base = cum[start], pace = r.timeS && total ? r.timeS / total : 1;   // s na metr
+    const out = []; let next = base, j = start;
+    while(next <= Math.min(total, base + WX_MAX_M)){
+      while(j < c.length - 1 && cum[j] < next) j++;
+      out.push({ lat: c[j][1], lon: c[j][0], along: cum[j], eta: Date.now() + (cum[j] - base) * pace * 1000 });
+      next += WX_STEP_M;
+    }
+    wxState.base = base;
+    return out;
+  }
+  function wxEval(h, i){
+    const gust = h.wind_gusts_10m[i], t = h.temperature_2m[i], pr = h.precipitation[i] || 0, code = h.weather_code[i], vis = h.visibility[i];
+    const res = [];
+    if(gust >= 40) res.push({ type: "wind", sev: gust >= 50 ? 2 : 1, val: Math.round(gust) });
+    if(WX_SNOW.indexOf(code) >= 0) res.push({ type: "snow", sev: 2, val: Math.round(t) });
+    else if(t <= 1 && (pr > 0 || WX_FREEZING.indexOf(code) >= 0)) res.push({ type: "ice", sev: (t <= 0 || WX_FREEZING.indexOf(code) >= 0) ? 2 : 1, val: Math.round(t) });
+    if(vis !== null && vis !== undefined && vis < 1000) res.push({ type: "fog", sev: vis < 200 ? 2 : 1, val: Math.round(vis / 10) * 10 });
+    else if(WX_FOG.indexOf(code) >= 0) res.push({ type: "fog", sev: 1, val: null });
+    if(pr >= 4) res.push({ type: "rain", sev: 1, val: Math.round(pr) });
+    return res;
+  }
+  async function wxRefresh(r){
+    wxState.busy = true; wxState.route = r; wxState.at = Date.now();
+    try{
+      const pts = wxSamples(r); if(!pts.length){ wxState.alerts = []; return; }
+      const url = "https://api.open-meteo.com/v1/forecast?latitude=" + pts.map(p => p.lat.toFixed(3)).join(",") + "&longitude=" + pts.map(p => p.lon.toFixed(3)).join(",")
+        + "&hourly=temperature_2m,precipitation,weather_code,wind_gusts_10m,visibility&wind_speed_unit=mph&timezone=GMT&forecast_days=2";
+      const resp = await fetch(url); if(!resp.ok) throw new Error("HTTP " + resp.status);
+      let data = await resp.json(); if(!Array.isArray(data)) data = [data];
+      const worst = {};
+      pts.forEach((p, k) => {
+        const h = data[k] && data[k].hourly; if(!h || !h.time) return;
+        const iso = new Date(p.eta).toISOString().slice(0, 13) + ":00";
+        const i = h.time.indexOf(iso); if(i < 0) return;
+        wxEval(h, i).forEach(a => {
+          const w = worst[a.type];
+          if(!w || a.sev > w.sev) worst[a.type] = Object.assign({ along: p.along }, a);
+        });
+      });
+      wxState.alerts = Object.keys(worst).map(k => worst[k]).sort((a, b) => b.sev - a.sev || a.along - b.along);
+    }catch(e){ console.warn("Pogoda na trasie:", e); }
+    finally{ wxState.busy = false; }
+  }
+  const wxWhere0 = m => m < 1609 ? "tu" : "za " + Math.round(m / 1609.344) + " mi";
+  const wxWhere = m => m < 1609 ? "tutaj" : "za " + Math.round(m / 1609.344) + " mi";
+  function wxText(a, m){
+    const w = wxWhere(m);
+    if(a.type === "zone") return "🏙️ Płatna strefa: " + a.name + ", " + (m < 1 ? "jesteś w strefie" : wxWhere0(m));
+    if(a.type === "wind") return "💨 Porywy " + a.val + " mph, " + w;
+    if(a.type === "snow") return "❄️ Śnieg, " + w;
+    if(a.type === "ice") return "🧊 Gołoledź, " + a.val + "°C, " + w;
+    if(a.type === "fog") return "🌫️ Mgła" + (a.val ? ", widoczność " + a.val + " m" : "") + ", " + w;
+    return "🌧️ Silny deszcz, " + w;
+  }
+  function wxSpoken(a, m){
+    const n = Math.max(1, Math.round(m / 1609.344)), w = m < 1609 ? "tutaj" : "za " + n + " mil";
+    if(a.type === "zone") return "Uwaga, trasa przechodzi przez płatną strefę " + a.name.replace(/ (CAZ|LEZ|ULEZ\/LEZ)$/, "") + ", " + w;
+    if(a.type === "wind") return "Uwaga, silny wiatr, porywy " + a.val + " mil na godzinę, " + w;
+    if(a.type === "snow") return "Uwaga, śnieg na trasie, " + w;
+    if(a.type === "ice") return "Uwaga, ryzyko gołoledzi, " + w;
+    if(a.type === "fog") return "Uwaga, mgła, " + w;
+    return "Uwaga, silny deszcz, " + w;
+  }
+  function wxRender(){
+    const chip = document.getElementById("wxChip"); if(!chip) return;
+    const r = activeRoute;
+    const all = wxState.alerts.concat(wxState.zones);
+    if(!r || !r.coords || !all.length){ chip.classList.remove("show", "open"); return; }
+    const along = r._remain ? Math.max(0, r.distanceM - r._remain.m) : wxState.base;
+    const list = all.map(a => ({ a, m: Math.max(0, a.along - along) })).filter(x => x.a.type === "zone" || x.m <= WX_MAX_M + 2000).sort((p, q) => q.a.sev - p.a.sev || p.m - q.m);
+    if(!list.length){ chip.classList.remove("show", "open"); return; }
+    const top = list[0];
+    chip.classList.toggle("danger", list.some(x => x.a.sev >= 2));
+    chip.innerHTML = '<div class="wxMain">⚠️ ' + wxText(top.a, top.m).replace(/^\S+\s/, "") + (list.length > 1 ? ' <b>+' + (list.length - 1) + '</b>' : "") + "</div>"
+      + (chip.classList.contains("open") ? list.map(x => '<div class="wxRow">' + wxText(x.a, x.m) + "</div>").join("") + (list.some(x => x.a.type === "zone") ? '<div class="wxRow wxNote">Opłata tylko dla ciężarówek poniżej normy Euro VI — sprawdź na gov.uk/clean-air-zones</div>' : "") : "");
+    chip.classList.add("show");
+    if(typeof guideActive === "function" && guideActive()){
+      list.forEach(x => { const k = x.a.type + x.a.sev + (x.a.name || ""); if(!wxState.spoken[k] && x.m < (x.a.type === "zone" ? 15 : 60) * 1609.344){ wxState.spoken[k] = 1; try{ guideSay(wxSpoken(x.a, x.m), 1); }catch(e){} } });
+    }
+  }
+  function wxTick(){
+    const r = activeRoute;
+    if(!r || !r.coords){ if(wxState.route || wxState.zoneRoute){ wxState = { route: null, at: 0, busy: false, alerts: [], base: 0, spoken: {}, open: false, zoneRoute: null, zones: [] }; } wxRender(); return; }
+    if(r !== wxState.zoneRoute){ wxState.zoneRoute = r; wxState.zones = zoneScan(r); wxState.spoken = {}; }
+    if(!wxState.busy && (r !== wxState.route || Date.now() - wxState.at > WX_REFRESH_MS)){
+      wxRefresh(r).then(wxRender);
+    }
+    wxRender();
+  }
+  document.getElementById("wxChip").addEventListener("click", () => {
+    const chip = document.getElementById("wxChip"); chip.classList.toggle("open"); wxRender();
+  });
+  addTick(wxTick, 5000, false);
+</script>
+<script>
+/* ===== js/56-parking-reports.js — karta parkingu HGV z ocenami kierowców =====
+   Klasyczny <script> (bez IIFE). Dotknięcie ikony parkingu (OSM / zgłoszony przez kierowców / własny) otwiera kartę #parkCard:
+   podsumowanie z ocen (bezpieczeństwo, cena, udogodnienia, wolne miejsca z ostatnich 6 h) + formularz „Oceń parking”.
+   Dane: tabela hgv_parking_reports (sql/parking_reports.sql); bez bazy lub tabeli zapis lokalny na telefonie (nav_park_local_v1). */
+"use strict";
+
+  const PK_LOCAL = "nav_park_local_v1", PK_BOX = 0.0004, PK_SPACES_MS = 6 * 3600 * 1000;
+  const PK_AM = [["showers", "🚿", "Prysznice"], ["toilets", "🚻", "Toalety"], ["food", "🍔", "Jedzenie"], ["cctv", "📹", "Monitoring"]];
+  const PK_SP = { none: "brak wolnych", few: "mało wolnych", many: "dużo wolnych" };
+  let PK = { cur: null, form: null, rows: [] };
+  const $k = id => document.getElementById(id);
+
+  function pkLocalLoad(){ try{ return JSON.parse(localStorage.getItem(PK_LOCAL) || "[]"); }catch(e){ return []; } }
+  function pkLocalSave(a){ try{ localStorage.setItem(PK_LOCAL, JSON.stringify(a.slice(-200))); }catch(e){} }
+  const pkNear = (r, c) => Math.abs(r.lat - c.lat) <= PK_BOX && Math.abs(r.lon - c.lon) <= PK_BOX;
+  function pkAgo(iso){
+    const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    return m < 60 ? m + " min temu" : m < 1440 ? Math.round(m / 60) + " h temu" : Math.round(m / 1440) + " dni temu";
+  }
+  async function pkLoad(c){
+    let rows = pkLocalLoad().filter(r => pkNear(r, c));
+    try{
+      const remote = await psRest("GET", `hgv_parking_reports?lat=gte.${c.lat - PK_BOX}&lat=lte.${c.lat + PK_BOX}&lon=gte.${c.lon - PK_BOX}&lon=lte.${c.lon + PK_BOX}&order=created_at.desc&limit=60`);
+      rows = rows.concat(remote || []);
+    }catch(e){}
+    return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+  function pkSummaryHtml(rows){
+    if(!rows.length) return '<div class="pkNone">Brak ocen — bądź pierwszy i oceń ten parking.</div>';
+    const latest = {}; rows.forEach(r => { const k = r.device || ("x" + r.id); if(!latest[k]) latest[k] = r; });   // najnowsza opinia każdego kierowcy
+    const uniq = Object.keys(latest).map(k => latest[k]);
+    const secs = uniq.filter(r => r.security).map(r => r.security);
+    const out = [];
+    if(secs.length) out.push("🛡️ Bezpieczeństwo: <b>" + (secs.reduce((a, b) => a + b, 0) / secs.length).toFixed(1) + "/5</b> (" + secs.length + ")");
+    const pr = rows.find(r => r.price);
+    if(pr) out.push("💷 Cena: <b>" + escHtml(pr.price) + "</b> · " + pkAgo(pr.created_at));
+    const am = PK_AM.filter(a => uniq.filter(r => r[a[0]]).length > uniq.filter(r => !r[a[0]]).length).map(a => a[1] + " " + a[2]);
+    if(am.length) out.push(am.join(" · "));
+    const sp = rows.find(r => r.spaces && Date.now() - new Date(r.created_at).getTime() < PK_SPACES_MS);
+    if(sp) out.push("🅿️ <b>" + PK_SPACES_LABEL(sp.spaces) + "</b> · " + pkAgo(sp.created_at));
+    const note = rows.find(r => r.note);
+    if(note) out.push("💬 „" + escHtml(note.note) + "”");
+    out.push('<span class="pkCount">Opinie: ' + rows.length + "</span>");
+    const short = [];   // jedna linia w zwiniętej karcie: tylko to, co najważniejsze
+    if(secs.length) short.push("🛡️ " + (secs.reduce((a, b) => a + b, 0) / secs.length).toFixed(1));
+    if(pr) short.push("💷 " + escHtml(pr.price));
+    if(sp) short.push("🅿️ " + PK_SPACES_LABEL(sp.spaces));
+    if(am.length) short.push(PK_AM.filter(a => uniq.filter(r => r[a[0]]).length > uniq.filter(r => !r[a[0]]).length).map(a => a[1]).join(""));
+    return '<div class="pkShort">' + (short.join(" · ") || "Opinie: " + rows.length) + ' <span class="pkMore">▾</span></div><div class="pkDetail">' + out.map(x => "<div>" + x + "</div>").join("") + "</div>";
+  }
+  const PK_SPACES_LABEL = s => PK_SP[s] || "";
+  function pkRenderForm(){
+    const f = PK.form;
+    $k("parkForm").innerHTML =
+      '<div class="pkLbl">Bezpieczeństwo</div><div class="pkRow" id="pkStars">' + [1, 2, 3, 4, 5].map(n => '<button type="button" data-n="' + n + '" class="' + (f.sec >= n ? "on" : "") + '">★</button>').join("") + "</div>"
+      + '<div class="pkLbl">Cena (opcjonalnie)</div><input id="pkPrice" type="text" maxlength="20" autocomplete="off" placeholder="np. £15 / 24 h albo bezpłatny" value="' + escHtml(f.price) + '">'
+      + '<div class="pkLbl">Udogodnienia</div><div class="pkRow pkWrap" id="pkAm">' + PK_AM.map(a => '<button type="button" data-k="' + a[0] + '" class="' + (f.am[a[0]] ? "on" : "") + '">' + a[1] + " " + a[2] + "</button>").join("") + "</div>"
+      + '<div class="pkLbl">Wolne miejsca teraz</div><div class="pkRow" id="pkSp">' + [["none", "Brak"], ["few", "Mało"], ["many", "Dużo"]].map(a => '<button type="button" data-s="' + a[0] + '" class="' + (f.spaces === a[0] ? "on" : "") + '">' + a[1] + "</button>").join("") + "</div>"
+      + '<input id="pkNote" type="text" maxlength="200" autocomplete="off" placeholder="Uwagi (nieobowiązkowo)" value="' + escHtml(f.note) + '">'
+      + '<div class="poiBtns"><button type="button" id="pkCancel">Anuluj</button><button type="button" id="pkSend">✓ Wyślij</button></div>';
+    $k("pkStars").onclick = e => { const b = e.target.closest("button"); if(!b) return; f.sec = +b.dataset.n; pkSyncForm(); pkRenderForm(); };
+    $k("pkAm").onclick = e => { const b = e.target.closest("button"); if(!b) return; f.am[b.dataset.k] = !f.am[b.dataset.k]; pkSyncForm(); pkRenderForm(); };
+    $k("pkSp").onclick = e => { const b = e.target.closest("button"); if(!b) return; f.spaces = f.spaces === b.dataset.s ? "" : b.dataset.s; pkSyncForm(); pkRenderForm(); };
+    $k("pkCancel").onclick = () => { $k("parkForm").classList.remove("open"); };
+    $k("pkSend").onclick = pkSend;
+  }
+  function pkSyncForm(){ const p = $k("pkPrice"), n = $k("pkNote"); if(p) PK.form.price = p.value; if(n) PK.form.note = n.value; }
+  async function pkSend(){
+    pkSyncForm();
+    const f = PK.form, c = PK.cur;
+    if(!f.sec && !f.price.trim() && !f.spaces && !PK_AM.some(a => f.am[a[0]]) && !f.note.trim()){ showBanner("OCENA", "Zaznacz coś albo wpisz cenę", false); return; }
+    const row = { lat: +c.lat.toFixed(5), lon: +c.lon.toFixed(5), name: c.name || null, security: f.sec || null, price: f.price.trim() || null,
+      showers: !!f.am.showers, toilets: !!f.am.toilets, food: !!f.am.food, cctv: !!f.am.cctv, spaces: f.spaces || null, note: f.note.trim() || null, device: getDeviceId() };
+    try{ await psRest("POST", "hgv_parking_reports", row, "return=minimal"); }
+    catch(e){ const a = pkLocalLoad(); a.push(Object.assign({ id: "L" + Date.now(), created_at: new Date().toISOString() }, row)); pkLocalSave(a); }
+    showBanner("DZIĘKI", "Opinia o parkingu zapisana", false);
+    $k("parkForm").classList.remove("open");
+    pkRefresh();
+  }
+  async function pkRefresh(){
+    const c = PK.cur; if(!c) return;
+    $k("parkSum").innerHTML = '<div class="pkNone">Ładuję oceny…</div>';
+    const rows = await pkLoad(c);
+    if(PK.cur === c) $k("parkSum").innerHTML = pkSummaryHtml(rows);
+  }
+  function parkHide(){ $k("parkCard").classList.remove("show"); $k("parkForm").classList.remove("open"); PK.cur = null; }
+  function parkOpen(c){
+    hidePoiAsk(); hideVoteCard();
+    PK.cur = c; PK.form = { sec: 0, price: "", am: {}, spaces: "", note: "" };
+    $k("parkName").textContent = c.name || "Parking HGV";
+    $k("parkVote").style.display = c.reportId != null ? "flex" : "none";
+    $k("parkSum").classList.remove("open");
+    $k("parkForm").classList.remove("open");
+    $k("parkCard").classList.add("show");
+    pkRefresh();
+  }
+  // wołane z js/28 przy dotknięciu mapy: zwraca true, gdy dotknięto ikony parkingu
+  function parkingClickAt(e){
+    const layers = ["hgv-parking-icon", "hgv-parking-community-icon", "hgv-parking-user-icon"].filter(id => map.getLayer(id));
+    if(!layers.length) return false;
+    const fs = map.queryRenderedFeatures([[e.point.x - 16, e.point.y - 16], [e.point.x + 16, e.point.y + 16]], { layers });
+    if(!fs.length) return false;
+    const f = fs[0], p = f.properties || {}, co = f.geometry.coordinates;
+    const community = f.layer.id === "hgv-parking-community-icon";
+    parkOpen({ lat: co[1], lon: co[0], name: community ? "Parking HGV (od kierowców)" : (p.name || "Parking HGV"), reportId: community ? p.id : null });
+    return true;
+  }
+  $k("parkClose").addEventListener("click", parkHide);
+  $k("parkSum").addEventListener("click", () => { $k("parkSum").classList.toggle("open"); });
+  $k("parkRate").addEventListener("click", () => { const f = $k("parkForm"); pkRenderForm(); f.classList.toggle("open"); });
+  $k("parkGo").addEventListener("click", () => {
+    const c = PK.cur; if(!c) return;
+    parkHide();
+    poiAskTarget = { lat: c.lat, lon: c.lon, name: c.name || "Parking HGV", address: "", placeId: undefined, ref: null };
+    acceptPoiAsk("go");
+  });
+  $k("parkYes").addEventListener("click", () => { const c = PK.cur; if(c && c.reportId != null){ voteTarget = { kind: "report", id: c.reportId }; castVote(1); } });
+  $k("parkNo").addEventListener("click", () => { const c = PK.cur; if(c && c.reportId != null){ voteTarget = { kind: "report", id: c.reportId }; castVote(-1); } });
+</script>
+<script>
+/* ===== js/57-calm-ui.js — spokojny widok w jeździe =====
+   Klasyczny <script> (bez IIFE). Gdy trwa prowadzenie (body.guidance-on) i przez CALM_MS nie było dotknięcia ekranu, dodaje body.ui-calm
+   (css/15: znikają przyciski z boku i zoom, zostaje tablica wskazówek, prędkość, limit i panel z czasami). Każde dotknięcie przywraca przyciski. */
+"use strict";
+
+  const CALM_MS = 7000;
+  let calmLast = Date.now();
+  const calmTouch = () => { calmLast = Date.now(); document.body.classList.remove("ui-calm"); };
+  ["pointerdown", "touchstart", "keydown"].forEach(ev => document.addEventListener(ev, calmTouch, { capture: true, passive: true }));
+  addTick(() => {
+    const b = document.body;
+    const driving = b.classList.contains("guidance-on") && !b.classList.contains("route-planning") && !b.classList.contains("flag-placing");
+    b.classList.toggle("ui-calm", driving && Date.now() - calmLast > CALM_MS);
+  }, 1000, false);
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
