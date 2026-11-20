@@ -58,6 +58,7 @@
   #map{
     position:absolute; inset:0; width:100%; height:100%;
   }
+  #map .maplibregl-canvas-container, #map canvas.maplibregl-canvas{ width:100% !important; height:100% !important; }
   /* ---------- Prowadzenie zakręt po zakręcie ---------- */
   #guidanceCard{
     position:absolute; top:max(10px, env(safe-area-inset-top)); left:10px; right:10px;
@@ -128,6 +129,14 @@
   #gVoiceBtn.off{ opacity:.5; }
   body.guidance-on #alertBanner{ padding-top:calc(max(14px, env(safe-area-inset-top)) + var(--guidance-h, 0px)); }
   body.guidance-on #voteCard, body.guidance-on #flagCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
+
+  /* pasy przed rondem (jak na tablicach z pasami): zalecany pas jasny, pozostałe przygaszone */
+  .gLanes{ flex:0 0 100%; display:none; justify-content:center; gap:22px; padding-top:6px; border-top:1px solid rgba(255,255,255,.35); }
+  #guidanceCard.sign-local .gLanes{ border-top-color:rgba(0,0,0,.25); }
+  .gLanes.show{ display:flex; }
+  .gLanes .gLane{ width:38px; height:38px; opacity:.4; }
+  .gLanes .gLane.on{ opacity:1; }
+  #guidanceCard .gIcon svg{ overflow:visible; }
   /* ---------- Top bar: alert banner ---------- */
   #alertBanner{
     position:absolute; top:0; left:0; right:0;
@@ -227,8 +236,20 @@
   #reportFloat .reportSubMenu{ bottom: calc(100% + 64px); }
   body.is-fullscreen #reportFloat .reportSubMenu{ bottom: calc(100% + 8px); }
   body.is-fullscreen #btnFullscreen{ display:none; }
+  /* bez GPS: bez znaku limitu prędkości i przycisku „Centruj” */
+  body.no-gps :is(#limitSign, #btnLocate){ display:none !important; }
   /* stawianie chorągiewki (fotoradar / parking): z ekranu znika wszystko poza mapą i kartą zatwierdzenia */
-  body.flag-placing :is(#navPanel, #navTopBar, #alongSheet, #btnLocate, #reportFloat, #zoomChip, #btnCompass, #btnFitRoute, #speedCluster, #guidanceCard, #statusPill, #alertBanner, #detourCard, #overSpeedFx){ display:none !important; }
+  body.flag-placing :is(#navPanel, #navTopBar, #alongSheet, #btnLocate, #reportFloat, #zoomChip, #btnCompass, #btnFitRoute, #speedCluster, #guidanceCard, #statusPill, #alertBanner, #detourCard, #overSpeedFx, #limitSign, #limitEdit, #voteCard, #poiAsk, #btnFullscreen, #navSettingsPanel, #voicePanel, #avatarPanel){ display:none !important; }
+  /* karta zatwierdzenia chorągiewki: mała, przy samym dole, nie zasłania punktu na środku mapy */
+  body.flag-placing #flagCard{ top:auto !important; bottom:calc(env(safe-area-inset-bottom, 0px) + 8px); left:10px; right:10px; padding:7px 10px; gap:3px; border-radius:12px; }
+  body.flag-placing #flagCard .poiName{ font-size:13px; }
+  body.flag-placing #flagCard .poiAddr{ font-size:11px; }
+  body.flag-placing #flagCard .psForm{ margin:2px 0; display:none; gap:4px; }
+  body.flag-placing #flagCard .psForm.open{ display:flex; flex-direction:column; }
+  body.flag-placing #flagCard .psLbl{ font-size:11px; }
+  body.flag-placing #flagCard input{ padding:6px 10px; font-size:14px; }
+  body.flag-placing #flagCard .poiBtns{ margin-top:2px; }
+  body.flag-placing #flagCard button{ padding:7px 10px; font-size:13px; }
   .ctrl-btn .label{
     position:absolute; font-size:9px; font-weight:700; bottom:4px; letter-spacing:.02em;
   }
@@ -542,7 +563,10 @@
     font-family:'Inter', sans-serif; border:1px solid var(--panel-border);
     background: rgba(255,255,255,0.12); color: var(--text-main);
   }
-  #navOriginWrap #navOrigin{ font-size:13px; }
+  #navOriginWrap #navOrigin{ font-size:13px; padding-right:104px; }
+  #navOriginWrap #navOriginPc{ position:absolute; right:0; top:0; bottom:0; width:98px; padding:0 8px; background:transparent !important; border:none !important; border-left:1px solid rgba(128,128,128,.35) !important; border-radius:0 !important; text-transform:uppercase; text-align:center; font-size:13px; font-weight:600; letter-spacing:.03em; outline:none; }
+  #navOriginWrap #navOriginPc::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
+  #navTopBar #navOriginWrap .navOriginGps{ right:102px; }
   #navDest, .navStopInput{
     width:100%;
     background: rgba(255,255,255,0.88);
@@ -1801,6 +1825,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="navTopRow" id="navOriginRow">
       <div id="navOriginWrap" class="navStopWrap">
         <input type="text" id="navOrigin" class="navStopInput" placeholder="Wpisz punkt początkowy…" autocomplete="off">
+        <input type="text" id="navOriginPc" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy punktu początkowego">
         <div id="navOriginGps" class="navOriginGps" role="button" title="Start z mojej pozycji GPS" aria-label="Start z mojej pozycji GPS">📍</div>
         <div id="navOriginSuggestions" class="navSuggestions"></div>
       </div>
@@ -2240,6 +2265,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="gThen" id="gThen"></div>
   </div>
   <button id="gVoiceBtn" type="button" title="Dotknij: wł./wył. · Przytrzymaj: ustawienia głosu" aria-label="Komunikaty głosowe">🔊</button>
+  <div class="gLanes" id="gLanes"></div>
   <div class="gHgv" id="gHgv"></div>
 </div>
 
@@ -3517,13 +3543,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   // żeby sieć dróg była zawsze widoczna): z daleka stonowana zieleń wtopiona w tło, po przybliżeniu
   // wyraźna, nasycona zieleń — przejście płynne między NIGHT_ROADS.majorColorZoom[0] a [1].
   const NIGHT_ROADS = {
-    motorway: { fillFar: "#4a86bd", casingFar: "#0e2a45",    // z daleka: stonowany niebieski (jak tablice autostrad UK)
-                fillNear: "#5b9bd5", casingNear: "#0f2f4f" },  // po przybliżeniu: wyraźny niebieski #5b9bd5
+    motorway: { fillFar: "#4a86bd", casingFar: "#2a5a88",    // z daleka: stonowany niebieski (jak tablice autostrad UK)
+                fillNear: "#5b9bd5", casingNear: "#2c6199" },  // po przybliżeniu: wyraźny niebieski #5b9bd5
     major:    {
       fillFar: "#2E8B57", casingFar: "#17402b",        // drogi A w nocy: #2E8B57
       fillNear: "#2E8B57", casingNear: "#17402b"        // ten sam kolor po przybliżeniu
     },
-    motorway3d: { fill: "#455154", casing: "#232b2d" },  // widok 3D (noc): jak asfalt autostrady z js/11a, zamiast niebieskiego
+    motorway3d: { fill: "#455154", casing: "#313c3f" },  // widok 3D (noc): jak asfalt autostrady z js/11a, zamiast niebieskiego
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
     mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
     minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
@@ -7735,7 +7761,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("flagRestr").classList.toggle("open", restr);
     if(restr){
       document.getElementById("flagValLbl").textContent = d.kind === "weight" ? "Limit tonażu (tony)" : (typeof isAdmin === "function" && isAdmin() ? "Wysokość (np. 13'6\" albo 4.1 m)" : "Wysokość, jeśli znasz (np. 13'6\" albo 4.1 m)");
-      document.getElementById("flagSub").textContent = (typeof isAdmin === "function" && isAdmin() ? "Dodajesz jako administrator — ograniczenie obowiązuje od razu. " : "Zgłoszenie sprawdzi administrator. ") + (ready ? "Zatwierdzić ten punkt?" : "Ustaw chorągiewkę na drodze z ograniczeniem.");
+      document.getElementById("flagSub").textContent = (ready ? "Zatwierdzić ten punkt?" : "Ustaw chorągiewkę na drodze.");
     }
     document.getElementById("flagCard").classList.add("show");
   }
@@ -9480,6 +9506,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const rs = (await g.json()).results || [];
       return rs.find(r => r.type === "Geography" && r.position) || rs.find(r => r.position) || null;   // sam początek kodu → obszar, nie ulica o podobnej nazwie
     }
+    window.navGeocodePc = geocodePc;   // używane przez kod pocztowy punktu początkowego
     async function findCompanies(pc){
       const partial = !UK_POSTCODE_RE.test(pc), R = partial ? POSTCODE_PARTIAL_RADIUS_M : POSTCODE_RADIUS_M;
       const token = ++pcToken;
@@ -9636,6 +9663,41 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   );
 
+  // kod pocztowy punktu początkowego (działa bez GPS): poprawny kod → punkt startu, potem ewentualnie czekająca trasa
+  (function(){
+    const pcEl = document.getElementById("navOriginPc"), oEl = document.getElementById("navOrigin");
+    let tok = 0, tmr = null;
+    async function setOriginFromPc(pc){
+      const my = ++tok;
+      try{
+        const hit = await window.navGeocodePc(pc, undefined);
+        if(my !== tok) return;
+        if(!hit || !hit.position){ showNavError("Nie znaleziono takiego kodu pocztowego."); return; }
+        showNavError("");
+        navSelectedOrigin = { lat: hit.position.lat, lon: hit.position.lon, label: pc };
+        oEl.value = pc;
+        if(map) map.easeTo({ center: [hit.position.lon, hit.position.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
+        refreshOriginGpsChip();
+        if(typeof runPendingRoute === "function") runPendingRoute();
+      }catch(err){ showNavError("Nie udało się znaleźć kodu pocztowego."); }
+    }
+    pcEl.addEventListener("input", () => {
+      pcEl.value = pcEl.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+      if(tmr) clearTimeout(tmr);
+      const pr = parsePostcode(pcEl.value);
+      if(pr && !pr.partial){ pcEl.value = pr.v; tmr = setTimeout(() => setOriginFromPc(pr.v), 400); }
+    });
+    pcEl.addEventListener("keydown", e => {
+      if(e.key !== "Enter") return;
+      e.preventDefault();
+      const pr = parsePostcode(pcEl.value);
+      if(pr && !pr.partial){ if(tmr) clearTimeout(tmr); pcEl.blur(); setOriginFromPc(pr.v); }
+      else showNavError("Wpisz pełny kod pocztowy UK, np. M1 1AE.");
+    });
+    oEl.addEventListener("input", () => { pcEl.value = ""; });
+    document.getElementById("navOriginGps").addEventListener("click", () => { pcEl.value = ""; });
+  })();
+
   // ---------- punkty pośrednie: dowolna liczba pól dodawanych przyciskiem "+" ----------
   const NAV_MAX_WAYPOINTS = 3;
   function getOrderedWaypoints(){
@@ -9708,6 +9770,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const o = navSelectedOrigin || (gpsStart ? { lat: lastPos.lat, lon: lastPos.lon, label: "Moja pozycja (GPS)" } : null), d = navSelectedDest;
     if(!o && !d && !oIn.value && !dIn.value) return;
     navSelectedOrigin = d ? { lat: d.lat, lon: d.lon, label: d.label } : null;
+    { const opc = document.getElementById("navOriginPc"); if(opc) opc.value = ""; }
     navSelectedDest = o ? { lat: o.lat, lon: o.lon, label: o.label } : null;
     const oTxt = gpsStart ? "Moja pozycja (GPS)" : oIn.value, dTxt = dIn.value;
     oIn.value = dTxt; dIn.value = oTxt;
@@ -10773,7 +10836,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       setNavKeyRowOpen(true);
       return;
     }
-    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
+    if(!lastPos && !navSelectedOrigin){ showNavError("Czekam na sygnał GPS albo wpisz punkt początkowy."); return; }
     if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
 
     // pełny ekran włączamy tu (synchronicznie, w reakcji na klik), żeby przeglądarka
@@ -10897,6 +10960,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     northUp = false;
     updateViewBtn();
     applyDrivingCamera(true);
+    if(!lastPos) return;   // bez GPS (trasa między wpisanymi punktami): bez kamery jazdy
     map.easeTo({
       center: [lastPos.lon, lastPos.lat],
       zoom: DRIVE_ZOOM,
@@ -11093,7 +11157,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     clearTimeout(pickReplanTimer); pickDirty = false;
     showNavError("");
     routeBeforeEdit = null;
-    if(!lastPos){ showNavError("Czekam na sygnał GPS…"); return; }
+    if(!lastPos && !navSelectedOrigin){ showNavError("Czekam na sygnał GPS albo wpisz punkt początkowy."); return; }
     if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
 
     enterFullscreen(); // w reakcji na klik, żeby przeglądarka to zaakceptowała
@@ -11460,6 +11524,36 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function guidePick(list, maxD){ let best = null; list.forEach(c => { if(c <= maxD) best = c; }); return best; }
 
+  // rondo: pierścień + wjazd od dołu; trasa (jasna) obiega rondo zgodnie z ruchem wskazówek zegara (ruch lewostronny) do wybranego zjazdu,
+  // pozostałe zjazdy przygaszone. Kąty zjazdów: 1. w lewo, 2. prosto, 3. w prawo, 4. i dalsze coraz bliżej wjazdu.
+  function guideRoundaboutIcon(n){
+    const cx = 24, cy = 25, r = 9, r2 = 19;
+    const pt = (a, rad) => { const t = a * Math.PI / 180; return [cx + rad * Math.sin(t), cy - rad * Math.cos(t)]; };
+    const f = v => v.toFixed(1);
+    const ex = { 1: 270, 2: 360, 3: 450, 4: 510 }[n] || (n >= 5 ? 540 : 360);   // kąt (od 180° = wjazd, rośnie zgodnie z zegarem)
+    const arm = (a, rad0) => { const p0 = pt(a, rad0), p1 = pt(a, r2); return "M" + f(p0[0]) + " " + f(p0[1]) + "L" + f(p1[0]) + " " + f(p1[1]); };
+    let dim = "";
+    [270, 360, 450].forEach(a => { if(a !== ex) dim += '<path d="' + arm(a, r) + '" opacity=".4"/>'; });
+    const a0 = pt(180, r), a1 = pt(ex, r), sweep = ex - 180;
+    const route = '<path d="M24 46V' + f(a0[1]) + 'M' + f(a0[0]) + ' ' + f(a0[1]) + 'A' + r + ' ' + r + ' 0 ' + (sweep > 180 ? 1 : 0) + ' 1 ' + f(a1[0]) + ' ' + f(a1[1]) + '" stroke-width="5"/>';
+    const tip = pt(ex, r2), back = pt(ex, r2 - 7), dir = ex % 360, rad = dir * Math.PI / 180;
+    const head = (() => { const l = pt(dir + 150, 0); const ux = Math.sin(rad), uy = -Math.cos(rad), px = -uy, py = ux;
+      const b1 = [tip[0] - ux * 7 + px * 5, tip[1] - uy * 7 + py * 5], b2 = [tip[0] - ux * 7 - px * 5, tip[1] - uy * 7 - py * 5];
+      return '<path d="M' + f(b1[0]) + ' ' + f(b1[1]) + 'L' + f(tip[0]) + ' ' + f(tip[1]) + 'L' + f(b2[0]) + ' ' + f(b2[1]) + '" stroke-width="4"/>'; })();
+    return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" opacity=".4"/>' + dim + route
+      + '<path d="' + arm(ex, r) + '" stroke-width="5"/>' + head
+      + (n ? '<text x="24" y="29" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor" stroke="none" font-family="Arial,sans-serif">' + n + '</text>' : '') + '</svg>';
+  }
+  // pasy ruchu przed rondem (zasada z brytyjskiego Highway Code, nie dane o pasach z mapy): 1. zjazd = lewy pas, 2. = lewy/środkowy, 3. i dalsze = prawy pas
+  function guideLanesHtml(s){
+    if(!s || s.t !== "roundabout" || !s.rb) return "";
+    const n = s.rb, dirs = ["left", "straight", "right"], on = n === 1 ? [0] : n === 2 ? [0, 1] : [2];
+    const arrow = d => d === "straight" ? '<path d="M12 22V5M6 11l6-6 6 6"/>'
+      : '<g transform="' + (d === "left" ? "translate(24 0) scale(-1 1)" : "") + '"><path d="M8 22v-5c0-5 3-8 8-10M12 6h6v6"/></g>';
+    const lane = (d, i) => '<svg class="gLane' + (on.indexOf(i) >= 0 ? " on" : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' + arrow(d) + '</svg>';
+    return dirs.map(lane).join("");
+  }
   function guideIcon(s){
     const wrap = inner => '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
     const straight = deg => wrap('<g transform="rotate(' + deg + ' 24 24)"><path d="M24 40V10M12 22l12-12 12 12"/></g>');
@@ -11472,7 +11566,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       case "keep-left": case "exit-left": case "ramp-left": return straight(-30);
       case "right": return bent(false);          case "left": return bent(true);
       case "uturn": return wrap('<path d="M16 42V20a8 8 0 0 1 16 0v14M24 26l8 10 8-10"/>');
-      case "roundabout": return wrap('<circle cx="24" cy="26" r="12"/><path d="M24 14V6m-5 5 5-5 5 5"/>') ;
+      case "roundabout": return guideRoundaboutIcon(s.rb);
       case "ferry": return "⛴";
       default: return (s.t.indexOf("arrive") === 0) ? "🏁" : straight(0);
     }
@@ -11739,6 +11833,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // migacz ciężarówki 3D: gdy do skrętu / zjazdu / „trzymaj się strony” zostało ≤ 400 m (do 25 m za manewrem)
     window.turnSignal = (!arrive && !keepOn && dist <= 400 && /left|right|uturn/.test(step.t)) ? (/right/.test(step.t) ? "R" : "L") : null;
     document.getElementById("gIcon").innerHTML = guideIcon(step);
+    { const gl = document.getElementById("gLanes"), lh = (!arrive && !keepOn && dist <= 900) ? guideLanesHtml(step) : "";
+      gl.innerHTML = lh; gl.classList.toggle("show", !!lh); }
     document.getElementById("gDist").textContent = distTxt;
     document.getElementById("gText").innerHTML = main.html + (main.sub || "");
     const then = [];
@@ -14239,6 +14335,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // mapa startuje od razu po załadowaniu strony — gdy rozmiar ekranu jeszcze się ustala (paski przeglądarki, obrót, klawiatura),
     // płótno mapy bywało węższe od ekranu (czarny pasek po prawej). Dopasowujemy je za każdym razem, gdy zmieni się kontener.
     const fitMap = () => { try{ map.resize(); }catch(e){} };
+    // zabezpieczenie: gdy płótno mapy jest węższe/niższe od kontenera (czarny pasek po prawej), dopasuj je
+    addTick(() => { try{
+      const c = map.getCanvas(), k = map.getContainer();
+      if(Math.abs(c.clientWidth - k.clientWidth) > 1 || Math.abs(c.clientHeight - k.clientHeight) > 1) map.resize();
+    }catch(e){} }, 1000, false);
     const mapEl = document.getElementById("map");
     if(window.ResizeObserver) new ResizeObserver(fitMap).observe(mapEl);
     window.addEventListener("resize", fitMap);
