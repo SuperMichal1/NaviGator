@@ -1629,26 +1629,49 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #reportFloat, #btnCompass, #btnFitRoute, #zoomChip, #btnLocate{ transition: opacity .5s ease; }
   body.ui-calm :is(#reportFloat, #btnCompass, #btnFitRoute, #zoomChip, #btnLocate){ opacity:0 !important; pointer-events:none !important; }
 
-  /* ---------- własny zestaw ikon (zamiast emoji) ---------- */
-  .ctrl-btn svg.ico{ width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
-  .ctrl-btn svg.ico .f{ fill:currentColor; stroke:none; }
+  /* ---------- własny zestaw ikon: małe, kolorowe, w stylu znaków drogowych ---------- */
+  .ctrl-btn svg.ico{ width:28px; height:28px; fill:none; stroke:none; pointer-events:none; filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }
   #reportFloat .ctrl-btn{ color:var(--gator-on); }
   body:not(.night) #reportFloat .ctrl-btn{ color:#1b3a2e; }
+  #reportFloat .reportSubMenu .ctrl-btn, #navToolsRow .ctrl-btn{ background:rgba(255,255,255,.92); }
+  body.night #reportFloat .reportSubMenu .ctrl-btn, body.night #navToolsRow .ctrl-btn{ background:rgba(236,240,243,.9); }
 
-  /* ---------- jednolity wygląd kart: szkło + zieleń, tak jak okno firmy ---------- */
-  .poiCard:not(#poiAsk){ border-radius:18px; -webkit-backdrop-filter:blur(18px) saturate(1.25); backdrop-filter:blur(18px) saturate(1.25); box-shadow:0 8px 26px rgba(0,0,0,.28); }
-  body:not(.night) .poiCard:not(#poiAsk){ background:rgba(250,252,253,.88); color:#0d1c24; border:1px solid rgba(255,255,255,.7); }
-  body.night .poiCard:not(#poiAsk){ background:rgba(16,20,26,.84); color:#f1ece4; border:1px solid rgba(255,255,255,.12); }
-  .poiCard:not(#poiAsk) button{ border-radius:999px; min-height:40px; font-weight:600; }
-  body:not(.night) .poiCard:not(#poiAsk) button{ background:rgba(38,117,109,.12); border:1px solid rgba(38,117,109,.35); color:#1b5e57; }
-  body.night .poiCard:not(#poiAsk) button{ background:rgba(94,200,188,.14); border:1px solid rgba(94,200,188,.38); color:#9be6dc; }
+  /* ---------- karty: tło jak dawniej (ciemne, pełne), ale ze spójnymi przyciskami-pigułkami w zieleni ---------- */
+  .poiCard:not(#poiAsk){ border-radius:16px; box-shadow:0 8px 26px rgba(0,0,0,.4); background:var(--panel-bg-solid); color:var(--text-main); border:1px solid var(--panel-border); }
+  .poiCard:not(#poiAsk) button{ border-radius:999px; min-height:40px; font-weight:600; background:rgba(94,200,188,.14); border:1px solid rgba(94,200,188,.38); color:#9be6dc; }
   .poiCard:not(#poiAsk) button#poiAddSave, .poiCard:not(#poiAsk) button#voteYes, .poiCard:not(#poiAsk) button#flagOk, .poiCard:not(#poiAsk) button#parkYes, .poiCard:not(#poiAsk) button#pkSend,
   .poiCard:not(#poiAsk) button#parkGo, .poiCard:not(#poiAsk) button#limitEditSave, .poiCard:not(#poiAsk) button#seSave{ background:#26756d; border-color:#26756d; color:#fff; }
   #parkForm .pkRow button.on{ background:#26756d !important; border-color:#26756d !important; color:#fff !important; }
   #parkForm #pkStars button.on{ background:#d97706 !important; border-color:#d97706 !important; }
-  body:not(.night) .poiCard:not(#poiAsk) input{ background:rgba(38,117,109,.08); border-color:rgba(38,117,109,.3); color:#0d1c24; }
-  body.night .poiCard:not(#poiAsk) input{ background:rgba(255,255,255,.08); border-color:rgba(94,200,188,.28); color:#f1ece4; }
+  .poiCard:not(#poiAsk) input{ background:rgba(255,255,255,.1); border-color:rgba(94,200,188,.28); color:var(--text-main); }
+  .poiCard:not(#poiAsk) input::placeholder{ color:var(--text-dim); }
   #wxChip{ border-radius:14px; }
+
+  /* ---------- mniej tekstu, więcej ikon (punkt 4) ---------- */
+  #btnLocate{ width:52px; height:52px; padding:0; gap:0; justify-content:center; left:16px; }
+  #btnLocate .locate-label{ display:none; }
+  #btnLocate .locate-icon{ width:24px; height:24px; }
+  #reportFloat .ctrl-btn{ width:52px; height:52px; }   /* większe cele dotyku */
+  .ctrl-btn, #navToolsRow .ctrl-btn{ min-width:46px; min-height:46px; }
+  #parkCard #parkGo, #parkCard #parkRate{ flex:0 0 auto; min-width:52px; padding:0 16px; }
+  #parkCard #parkGo{ flex:1 1 auto; }
+
+  /* ---------- płynniejsze animacje (punkt 5) ---------- */
+  @keyframes cardInUp{ from{ opacity:0; transform:translateY(16px) scale(.98); } to{ opacity:1; transform:none; } }
+  @keyframes cardInDown{ from{ opacity:0; transform:translateY(-14px) scale(.98); } to{ opacity:1; transform:none; } }
+  @keyframes chipIn{ from{ opacity:0; transform:translateX(-10px); } to{ opacity:1; transform:none; } }
+  #parkCard.show, #limitEdit.show{ animation: cardInUp .26s cubic-bezier(.2,.8,.2,1); }
+  #voteCard.show, #flagCard.show{ animation: cardInDown .26s cubic-bezier(.2,.8,.2,1); }
+  #guidanceCard.show{ animation: cardInDown .3s cubic-bezier(.2,.8,.2,1); }
+  #wxChip.show{ animation: chipIn .3s ease; }
+  #bannerCard.show{ animation: cardInDown .25s cubic-bezier(.2,.8,.2,1); }
+  /* delikatne wciśnięcie przycisków */
+  .ctrl-btn, .poiCard button, #btnLocate, #btnFitRoute, #btnCompass, #navPanel button{ transition: transform .12s ease, background-color .18s ease, opacity .25s ease; }
+  .ctrl-btn:active, .poiCard button:active, #navPanel button:active{ transform: scale(.94); }
+  #parkSum .pkDetail{ animation: cardInUp .2s ease; }
+  @media (prefers-reduced-motion: reduce){
+    #parkCard.show, #limitEdit.show, #voteCard.show, #flagCard.show, #guidanceCard.show, #wxChip.show, #bannerCard.show, #parkSum .pkDetail{ animation:none; }
+  }
 </style>
 </head>
 <body>
@@ -1681,13 +1704,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="reportFloat">
   <div class="reportSubMenu" id="reportSubMenu">
-    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
-    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="3.5"/><path d="M9.5 17V8h3.3a2.9 2.9 0 0 1 0 5.8H9.5"/></svg></div>
-    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 20h9.6l-1.7-9H8.9z"/><circle cx="12" cy="6.6" r="2.3"/></svg></div>
-    <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M3 18v-3c3.4-5.6 14.6-5.6 18 0v3M8 18v-4.2M12 18v-5M16 18v-4.2"/></svg></div>
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 22 20H2z" fill="#fff" stroke="#d1131f" stroke-width="2.2" stroke-linejoin="round"/><path d="M7.8 17.4v-4.6h1.5l.8-1.1h3.8l.8 1.1h1.5v4.6z" fill="#111"/><circle cx="12" cy="14.8" r="1.2" fill="#fff"/></svg></div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="#1a6fd6"/><path d="M9.5 18V6.6h3.7a3.2 3.2 0 0 1 0 6.4H9.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.4" fill="#fff" stroke="#d1131f" stroke-width="2.6"/><text x="12" y="14.9" text-anchor="middle" font-size="7.6" font-weight="800" font-family="Arial,sans-serif" fill="#111">7.5t</text></svg></div>
+    <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.4" fill="#fff" stroke="#d1131f" stroke-width="2.6"/><path d="M12 6.2v11.6M9.4 8.8 12 6.2l2.6 2.6M9.4 15.2 12 17.8l2.6-2.6" fill="none" stroke="#111" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
-  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 5h11l-2.5 3.6L17 12H6" fill="currentColor" fill-opacity=".28"/></svg></div>
+  <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21.2V3.4" stroke="#cfd6dc" stroke-width="2.3" stroke-linecap="round"/><path d="M6.6 4.4h13l-3 4.3 3 4.3h-13z" fill="#e5392f"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -1957,9 +1980,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   </div>
 
   <div id="navToolsRow" role="toolbar" aria-label="Narzędzia mapy">
-    <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="18" rx="3"/><circle class="f" cx="12" cy="7.8" r="1.3"/><circle class="f" cx="12" cy="12" r="1.3"/><circle class="f" cx="12" cy="16.2" r="1.3"/></svg></div>
-    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l5 15H7z"/><path d="M4.5 20h15M9.6 11h4.8M8.4 15h7.2"/></svg></div>
-    <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8.5" width="8" height="11" rx="4"/><path d="M12 8.5v11M8 13H4M16 13h4M8.6 10 6 7.4M15.4 10 18 7.4M8.6 17 6 19.6M15.4 17l2.6 2.6M10 6.5a2 2 0 0 1 4 0"/></svg></div>
+    <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.8" y="2.4" width="10.4" height="19.2" rx="4.2" fill="#2b3138" stroke="#8ea0a8" stroke-width="1"/><circle cx="12" cy="7.2" r="1.9" fill="#e5392f"/><circle cx="12" cy="12" r="1.9" fill="#ffb020"/><circle cx="12" cy="16.8" r="1.9" fill="#2fbf71"/></svg></div>
+    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 17.8 19H6.2z" fill="#f97316"/><path d="M9 11.4h6l.9 2.7H8.1z" fill="#fff"/><rect x="4" y="19" width="16" height="2.6" rx="1.2" fill="#6b747a"/></svg></div>
+    <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14" rx="4.6" ry="6" fill="#2fbf71"/><circle cx="12" cy="7.2" r="2.4" fill="#1f8f55"/><path d="M7.4 11.5H3.8M7.2 15H3.6M7.6 18.4 5 20.6M16.6 11.5h3.6M16.8 15h3.6M16.4 18.4l2.6 2.2M10.4 5.4 8.6 3.4M13.6 5.4l1.8-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
 
   <div id="navError"></div>
