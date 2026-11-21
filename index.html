@@ -1729,11 +1729,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   body.night .poiCard:not(#poiAsk) button#limitEditSave, body.night .poiCard:not(#poiAsk) button#seSave{ background:#b8780f; border-color:#b8780f; color:#1a1206; }
   body.night #parkForm .pkRow button.on{ background:#b8780f !important; border-color:#b8780f !important; color:#1a1206 !important; }
   body.night .poiCard:not(#poiAsk) input{ border-color:rgba(255,176,32,.3); }
+
+  /* mgiełka na horyzoncie w widoku 3D (js/59) */
+  #skyFog{ position:absolute; left:0; right:0; top:0; height:0; pointer-events:none; z-index:1; opacity:0; transition:opacity .3s ease; }
+  body.route-planning #skyFog{ opacity:0 !important; }
 </style>
 </head>
 <body>
 
 <div id="map"></div>
+<div id="skyFog" aria-hidden="true"></div>
 
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
@@ -18130,6 +18135,86 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     map.on("touchend", seUp); map.on("touchcancel", seUp); map.on("mouseup", seUp);
     map.on("click", seClick);
     map.on("pitch", flatCheck); map.on("pitchend", flatCheck);
+  }));
+</script>
+<script>
+/* ===== js/59-map-polish.js — wygląd mapy: czytelniejsze drogi HGV, mgiełka/horyzont w 3D, ładniejsze budynki 3D =====
+   Klasyczny <script> (bez IIFE). Wszystko rusza dopiero po załadowaniu mapy (mpWhenMap).
+   • Drogi: trunk/primary (A-ki) grubsze, secondary lekko, drobne drogi cieńsze i bledsze przy oddaleniu; tablice numerów dróg większe.
+   • 3D: warstwa #skyFog (gradient nad mapą) — mgiełka na horyzoncie rosnąca z pochyleniem mapy; kolor wg dnia/nocy.
+   • Budynki 3D: kolor zależny od wysokości, delikatny gradient pionowy, płynne pojawianie się przy zbliżaniu. */
+"use strict";
+
+  const MP = { roadsDone: false, raf: 0 };
+  function mpWhenMap(fn){
+    if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); }
+    else setTimeout(() => mpWhenMap(fn), 600);
+  }
+
+  /* ---------- drogi ---------- */
+  function mpRoads(){
+    if(MP.roadsDone) return; MP.roadsDone = true;
+    (map.getStyle().layers || []).forEach(l => {
+      if(l.type !== "line" || l["source-layer"] !== "transportation") return;
+      let f = 1, quiet = false;
+      if(/motorway/i.test(l.id)) return;                                     // autostrady: js/07 (×2,2)
+      if(/trunk|primary/i.test(l.id)) f = 1.4;
+      else if(/secondary|tertiary/i.test(l.id)) f = 1.15;
+      else if(/minor|service|track/i.test(l.id)){ f = 0.85; quiet = true; }
+      try{
+        if(f !== 1){ const w = map.getPaintProperty(l.id, "line-width"); if(w !== undefined && w !== null) map.setPaintProperty(l.id, "line-width", scaleWidthExpression(w, f)); }
+        if(quiet) map.setPaintProperty(l.id, "line-opacity", ["interpolate", ["linear"], ["zoom"], 11, 0.5, 14.5, 0.85, 16, 1]);
+      }catch(e){ console.warn("Wygląd drogi:", l.id, e); }
+    });
+    try{
+      (typeof SHIELD_GROUPS !== "undefined" ? SHIELD_GROUPS : []).forEach(g => {
+        if(!map.getLayer(g.id)) return;
+        const ts = map.getLayoutProperty(g.id, "text-size");
+        if(ts !== undefined && ts !== null) map.setLayoutProperty(g.id, "text-size", scaleWidthExpression(ts, 1.2));
+      });
+    }catch(e){ console.warn("Tablice numerów dróg:", e); }
+  }
+
+  /* ---------- budynki 3D ---------- */
+  const MP_BLD = {
+    day:   [0, "#d8d2c5", 30, "#cdc6b7", 120, "#bfb7a6"],
+    night: [0, "#1d5054", 30, "#25595e", 120, "#2f6e73"]
+  };
+  function mpBuildings(){
+    if(!map) return;
+    const night = document.body.classList.contains("night");
+    const c = night ? MP_BLD.night : MP_BLD.day;
+    (map.getStyle().layers || []).forEach(l => {
+      if(l.type !== "fill-extrusion" || l["source-layer"] !== "building") return;
+      try{
+        map.setPaintProperty(l.id, "fill-extrusion-color", ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 8], c[0], c[1], c[2], c[3], c[4], c[5]]);
+        map.setPaintProperty(l.id, "fill-extrusion-opacity", ["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, night ? 0.75 : 0.8, 16.8, night ? 0.9 : 0.94]);
+        map.setPaintProperty(l.id, "fill-extrusion-vertical-gradient", true);
+      }catch(e){ console.warn("Budynki 3D:", l.id, e); }
+    });
+  }
+  // po każdej zmianie motywu (dzień/noc) nasze kolory budynków wchodzą na wierzch
+  const mpApplyNightTheme = applyNightTheme;
+  applyNightTheme = function(){ const r = mpApplyNightTheme.apply(this, arguments); try{ if(map && map.loaded()){ mpBuildings(); mpSkyUpdate(); } }catch(e){} return r; };
+
+  /* ---------- mgiełka / horyzont w 3D ---------- */
+  function mpSkyUpdate(){
+    const el = document.getElementById("skyFog"); if(!el || !map) return;
+    const pitch = map.getPitch(), k = Math.max(0, Math.min(1, (pitch - 35) / 25));
+    if(k <= 0){ el.style.opacity = "0"; return; }
+    const h = map.getContainer().clientHeight || window.innerHeight, pad = (map.getPadding && map.getPadding().top) || 0;
+    const p = pitch * Math.PI / 180, cy = (h + pad) / 2, f = (h / 2) / Math.tan(0.3217);
+    const hz = Math.max(0, cy - f * Math.tan(Math.PI / 2 - p));       // wysokość linii horyzontu od góry ekranu
+    const fog = Math.round(h * 0.2), rgb = document.body.classList.contains("night") ? "9,20,24" : "214,228,240";
+    el.style.background = `linear-gradient(to bottom, rgba(${rgb},.97) 0px, rgba(${rgb},.92) ${Math.round(hz)}px, rgba(${rgb},0) ${Math.round(hz + fog)}px)`;
+    el.style.height = Math.round(hz + fog) + "px";
+    el.style.opacity = String(k);
+  }
+  function mpSkyQueue(){ if(MP.raf) return; MP.raf = requestAnimationFrame(() => { MP.raf = 0; mpSkyUpdate(); }); }
+
+  safeInit("wygląd mapy", () => mpWhenMap(() => {
+    mpRoads(); mpBuildings(); mpSkyUpdate();
+    ["pitch", "move", "resize"].forEach(ev => map.on(ev, mpSkyQueue));
   }));
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
