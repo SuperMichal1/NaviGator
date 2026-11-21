@@ -1733,12 +1733,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* mgiełka na horyzoncie w widoku 3D (js/59) */
   #skyFog{ position:absolute; left:0; right:0; top:0; height:0; pointer-events:none; z-index:1; opacity:0; transition:opacity .3s ease; }
   body.route-planning #skyFog{ opacity:0 !important; }
+
+  /* ciepła poświata przy zachodzie/wschodzie słońca (js/60) */
+  #sunTint{ position:absolute; inset:0; pointer-events:none; z-index:1; opacity:0; transition:opacity 3s ease;
+    background:radial-gradient(ellipse at 50% 100%, rgba(255,140,40,.34), rgba(255,110,60,.16) 55%, rgba(255,90,60,.08)); mix-blend-mode:soft-light; }
 </style>
 </head>
 <body>
 
 <div id="map"></div>
 <div id="skyFog" aria-hidden="true"></div>
+<div id="sunTint" aria-hidden="true"></div>
 
 <div id="detourCard" role="alertdialog" aria-live="assertive">
   <div id="detourTitle"></div>
@@ -18215,6 +18220,89 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   safeInit("wygląd mapy", () => mpWhenMap(() => {
     mpRoads(); mpBuildings(); mpSkyUpdate();
     ["pitch", "move", "resize"].forEach(ev => map.on(ev, mpSkyQueue));
+  }));
+</script>
+<script>
+/* ===== js/60-map-polish2.js — mapa: strzałki i połysk na trasie, cieniowanie wzgórz + brzegi wody, ciepły zachód słońca =====
+   Klasyczny <script> (bez IIFE). Wszystko tylko wizualne, po załadowaniu mapy; warstwy dopinane ponownie w tiku, gdyby styl je zgubił.
+   • Trasa: strzałki kierunku jazdy co ~110 px (warstwa route-line-arrows) i cienki jasny „połysk” (route-line-sheen) nad główną linią.
+   • Teren: cieniowanie wzgórz (hillshade z darmowych kafli Terrarium) pod drogami; jasny brzeg wody.
+   • Zachód słońca: ciepła poświata #sunTint w pobliżu zachodu/wschodu (tylko tryb „wg zachodu słońca”). */
+"use strict";
+
+  function mp2WhenMap(fn){ if(typeof map !== "undefined" && map && map.loaded()) fn(); else if(typeof map !== "undefined" && map) map.once("load", fn); else setTimeout(() => mp2WhenMap(fn), 600); }
+  const mp2Night = () => document.body.classList.contains("night");
+
+  function mp2ArrowImage(){
+    if(map.hasImage("route-arrow")) return;
+    const c = document.createElement("canvas"); c.width = c.height = 48;
+    const x = c.getContext("2d");
+    x.lineCap = "round"; x.lineJoin = "round";
+    x.beginPath(); x.moveTo(16, 11); x.lineTo(32, 24); x.lineTo(16, 37);
+    x.strokeStyle = "rgba(8,16,22,.75)"; x.lineWidth = 11; x.stroke();
+    x.strokeStyle = "#ffffff"; x.lineWidth = 6; x.stroke();
+    map.addImage("route-arrow", x.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
+  }
+  function mp2Ensure(){
+    if(!map || !map.getLayer("route-line-main")) return;
+    try{
+      const ls = map.getStyle().layers, mi = ls.findIndex(l => l.id === "route-line-main"), above = mi >= 0 && ls[mi + 1] ? ls[mi + 1].id : undefined;
+      if(!map.getLayer("route-line-sheen")) map.addLayer({
+        id: "route-line-sheen", type: "line", source: "route-line", layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 1.6, "line-opacity": 0.38 }
+      }, above);
+      mp2ArrowImage();
+      if(!map.getLayer("route-line-arrows")) map.addLayer({
+        id: "route-line-arrows", type: "symbol", source: "route-line",
+        layout: { "symbol-placement": "line", "symbol-spacing": 110, "icon-image": "route-arrow", "icon-rotation-alignment": "map", "icon-pitch-alignment": "map",
+          "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 11, 0.35, 15, 0.55, 18, 0.8] },
+        paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 10.5, 0, 12, 0.9] }
+      }, above ? (map.getLayer("route-line-sheen") ? above : above) : undefined);
+    }catch(e){ console.warn("Strzałki na trasie:", e); }
+    mp2Terrain();
+  }
+
+  /* ---------- wzgórza i woda ---------- */
+  function mp2Terrain(){
+    try{
+      if(!map.getSource("mp2-dem")) map.addSource("mp2-dem", { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 14, encoding: "terrarium", attribution: "Terrarium (AWS)" });
+      const ls = map.getStyle().layers, first = ls.find(l => l["source-layer"] === "transportation" || l["source-layer"] === "building");
+      const night = mp2Night();
+      if(!map.getLayer("mp2-hillshade")) map.addLayer({
+        id: "mp2-hillshade", type: "hillshade", source: "mp2-dem",
+        paint: { "hillshade-exaggeration": 0.4, "hillshade-shadow-color": "#5b6b5f", "hillshade-highlight-color": "#ffffff", "hillshade-accent-color": "#7f8f84" }
+      }, first ? first.id : undefined);
+      map.setPaintProperty("mp2-hillshade", "hillshade-shadow-color", night ? "#02090a" : "#5b6b5f");
+      map.setPaintProperty("mp2-hillshade", "hillshade-highlight-color", night ? "#2a6a6e" : "#ffffff");
+      map.setPaintProperty("mp2-hillshade", "hillshade-accent-color", night ? "#0e3a3d" : "#7f8f84");
+      map.setPaintProperty("mp2-hillshade", "hillshade-exaggeration", ["interpolate", ["linear"], ["zoom"], 6, night ? 0.5 : 0.45, 11, night ? 0.35 : 0.32, 14, 0]);
+      if(!map.getLayer("mp2-water-edge")){
+        const wl = ls.find(l => l["source-layer"] === "water" && l.source);
+        if(wl) map.addLayer({ id: "mp2-water-edge", type: "line", source: wl.source, "source-layer": "water", minzoom: 9,
+          paint: { "line-color": "#ffffff", "line-width": 1.2, "line-opacity": 0.5 } }, first ? first.id : undefined);
+      }
+      if(map.getLayer("mp2-water-edge")){
+        map.setPaintProperty("mp2-water-edge", "line-color", night ? "#3a8a90" : "#ffffff");
+        map.setPaintProperty("mp2-water-edge", "line-opacity", night ? 0.35 : 0.55);
+      }
+    }catch(e){ console.warn("Teren/woda:", e); }
+  }
+
+  /* ---------- ciepły zachód słońca ---------- */
+  function mp2Sun(){
+    const el = document.getElementById("sunTint"); if(!el) return;
+    if(typeof themeMode === "undefined" || themeMode !== "sun"){ el.style.opacity = "0"; return; }
+    const p = (typeof lastPos !== "undefined" && lastPos) || (typeof THEME_DEFAULT_POS !== "undefined" ? THEME_DEFAULT_POS : { lat: 52.5, lon: -1.5 });
+    const alt = sunAltitudeDeg(new Date(), p.lat, p.lon);
+    el.style.opacity = String(Math.max(0, 1 - Math.abs(alt - 0.5) / 7));       // szczyt blisko horyzontu, zero powyżej +7° i poniżej -7°
+  }
+
+  safeInit("wygląd mapy 2", () => mp2WhenMap(() => {
+    mp2Ensure(); mp2Sun();
+    addTick(() => { mp2Ensure(); }, 4000, false);
+    addTick(mp2Sun, 30000, true);
+    document.addEventListener("visibilitychange", () => { if(!document.hidden) mp2Sun(); });
+    new MutationObserver(() => { try{ mp2Terrain(); mp2Sun(); }catch(e){} }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   }));
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
