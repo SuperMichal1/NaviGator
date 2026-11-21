@@ -1701,6 +1701,34 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #wxChip.danger{ border-color:#fb923c; border-left-color:#fb923c; }
   #pickNHWarn{ background:rgba(245,158,11,.16) !important; color:#9a5b00 !important; }
   body.night #pickNHWarn{ color:#ffb020 !important; }
+
+  /* ---------- nowy prędkościomierz (punkt 7): mały, półprzezroczysty, znak limitu przyklejony do niego ---------- */
+  #speedCluster{ flex-direction:row !important; align-items:center; gap:0 !important; left:14px; }
+  body.locate-visible #speedCluster{ bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 64px); }
+  #speedPanel{ min-width:0; padding:5px 14px 5px 14px; border-radius:20px; background:rgba(12,18,24,.55); border:1px solid rgba(255,255,255,.16);
+    -webkit-backdrop-filter:blur(10px) saturate(1.3); backdrop-filter:blur(10px) saturate(1.3); box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  #speedCluster:has(#limitSign:not(.hidden)) #speedPanel{ padding-right:24px; }
+  #speedValue{ font-size:34px; color:#fff; text-shadow:none; }
+  #speedUnit{ font-size:9px; margin-top:1px; color:rgba(255,255,255,.72); text-shadow:none; }
+  #limitSign{ width:56px; height:56px; border-width:5px; margin-left:-18px; box-shadow:0 3px 10px rgba(0,0,0,.45); position:relative; z-index:1; }
+  #limitValue{ font-size:20px; }
+  #ovTimer{ position:absolute; top:calc(100% + 6px); left:0; order:0; }
+  @media (max-width:380px){ #speedValue{ font-size:30px; } #limitSign{ width:50px; height:50px; } #limitValue{ font-size:18px; } }
+
+  /* ---------- lepszy tryb nocny (punkt 6): mniej jaskrawości, spójne bursztynowe akcenty ---------- */
+  body.night .ctrl-btn svg.ico{ filter:saturate(.8) brightness(.88) drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+  body.night .banner-card{ filter:brightness(.88); }
+  body.night #wxChip{ filter:brightness(.82) saturate(.9); }
+  body.night #zoomChip{ opacity:.75; }
+  body.night #speedPanel{ background:rgba(8,6,4,.6); border-color:rgba(255,176,32,.22); }
+  body.night #speedUnit{ color:rgba(255,200,120,.75); }
+  body.night #limitSign{ filter:brightness(.85); }
+  body.night .poiCard:not(#poiAsk) button{ background:rgba(255,176,32,.12); border-color:rgba(255,176,32,.38); color:#ffd9a0; }
+  body.night .poiCard:not(#poiAsk) button#poiAddSave, body.night .poiCard:not(#poiAsk) button#voteYes, body.night .poiCard:not(#poiAsk) button#flagOk,
+  body.night .poiCard:not(#poiAsk) button#parkYes, body.night .poiCard:not(#poiAsk) button#pkSend, body.night .poiCard:not(#poiAsk) button#parkGo,
+  body.night .poiCard:not(#poiAsk) button#limitEditSave, body.night .poiCard:not(#poiAsk) button#seSave{ background:#b8780f; border-color:#b8780f; color:#1a1206; }
+  body.night #parkForm .pkRow button.on{ background:#b8780f !important; border-color:#b8780f !important; color:#1a1206 !important; }
+  body.night .poiCard:not(#poiAsk) input{ border-color:rgba(255,176,32,.3); }
 </style>
 </head>
 <body>
@@ -1733,13 +1761,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="reportFloat">
   <div class="reportSubMenu" id="reportSubMenu">
-    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 22.6 20.6H1.4z" fill="#fff" stroke="#d1131f" stroke-width="2.4" stroke-linejoin="round"/><rect x="6.6" y="11.2" width="10.8" height="6" rx="1.3" fill="#111"/><path d="M9.2 11.2 10 9.8h4l.8 1.4z" fill="#111"/><circle cx="12" cy="14.2" r="1.7" fill="#fff"/><circle cx="12" cy="14.2" r=".7" fill="#111"/></svg></div>
-    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="1.8" y="1.8" width="20.4" height="20.4" rx="5" fill="#1a6fd6" stroke="#fff" stroke-width="1.2"/><path d="M9.4 18.4V5.9h4a3.5 3.5 0 0 1 0 7H9.4" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.1 22.7 20.7H1.3z" fill="#fff" stroke="#d1131f" stroke-width="2.5" stroke-linejoin="round"/><rect x="6.4" y="11" width="11.2" height="6.4" rx="1.5" fill="#1b1f24"/><path d="M9 11l.9-1.6h4.2L15 11z" fill="#1b1f24"/><circle cx="12" cy="14.2" r="2.1" fill="#fff"/><circle cx="12" cy="14.2" r="1" fill="#1b1f24"/><circle cx="15.7" cy="12.3" r=".6" fill="#e5392f"/></svg></div>
+    <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b8cf0"/><stop offset="1" stop-color="#1558b8"/></linearGradient></defs><rect x="1.8" y="1.8" width="20.4" height="20.4" rx="5.4" fill="url(#pkG)" stroke="#fff" stroke-width="1.3"/><path d="M9.4 18.4V5.9h4a3.5 3.5 0 0 1 0 7H9.4" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (np. 7,5 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><text x="12" y="15.2" text-anchor="middle" font-size="8.2" font-weight="900" font-family="Arial,sans-serif" fill="#111">7.5t</text></svg></div>
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21.2V3.4" stroke="#cfd6dc" stroke-width="2.3" stroke-linecap="round"/><path d="M6.6 4.4h13l-3 4.3 3 4.3h-13z" fill="#e5392f"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś fotoradar lub parking HGV"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 21.5V3" stroke="#d5dbe0" stroke-width="2.4" stroke-linecap="round"/><path d="M7.4 4.4c3.2-1.8 5.4 1.6 9 0 1.2-.5 2.4-.5 3.4.1v8.2c-1-.6-2.2-.6-3.4-.1-3.6 1.6-5.8-1.8-9 0z" fill="#e5392f" stroke="#fff" stroke-width=".9" stroke-linejoin="round"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -2010,7 +2038,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   <div id="navToolsRow" role="toolbar" aria-label="Narzędzia mapy">
     <div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="1.8" width="11.6" height="20.4" rx="4.6" fill="#2b3138" stroke="#cfd6dc" stroke-width="1.3"/><circle cx="12" cy="7" r="2.1" fill="#e5392f"/><circle cx="12" cy="12" r="2.1" fill="#ffb020"/><circle cx="12" cy="17" r="2.1" fill="#2fbf71"/></svg></div>
-    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 18.6 19H5.4z" fill="#f97316" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><path d="M8.7 11.2h6.6l1 2.9H7.7z" fill="#fff"/><rect x="3" y="19" width="18" height="3" rx="1.5" fill="#fff"/><rect x="3.8" y="19.6" width="16.4" height="1.8" rx=".9" fill="#475057"/></svg></div>
+    <div class="ctrl-btn" id="btnNH" title="Remonty i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 15.5V22M18.5 15.5V22" stroke="#6b747a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15.5V22M18.5 15.5V22" stroke="#fff" stroke-width=".8" stroke-opacity=".6" stroke-linecap="round" stroke-linejoin="round"/><clipPath id="rwA"><rect x="2" y="3.2" width="20" height="5.4" rx="1.2"/></clipPath><rect x="2" y="3.2" width="20" height="5.4" rx="1.2" fill="#f97316"/><g clip-path="url(#rwA)"><path d="M4.5 3.2h3.2l-2.6 5.4H1.9zM10.8 3.2h3.2l-2.6 5.4H8.2zM17.1 3.2h3.2l-2.6 5.4h-3.2z" fill="#fff"/></g><rect x="2" y="3.2" width="20" height="5.4" rx="1.2" fill="none" stroke="#fff" stroke-width="1"/><clipPath id="rwB"><rect x="2" y="9.6" width="20" height="5.4" rx="1.2"/></clipPath><rect x="2" y="9.6" width="20" height="5.4" rx="1.2" fill="#f97316"/><g clip-path="url(#rwB)"><path d="M4.5 9.6h3.2l-2.6 5.4H1.9zM10.8 9.6h3.2l-2.6 5.4H8.2zM17.1 9.6h3.2l-2.6 5.4h-3.2z" fill="#fff"/></g><rect x="2" y="9.6" width="20" height="5.4" rx="1.2" fill="none" stroke="#fff" stroke-width="1"/></svg></div>
     <div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14.2" rx="5" ry="6.4" fill="#2fbf71" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="6.8" r="2.7" fill="#1f8f55" stroke="#fff" stroke-width="1.1"/><path d="M12 8.6v11.6M7.2 11.5H3M7 15H2.8M7.6 18.6 4.6 21M16.8 11.5H21M17 15h4.2M16.4 18.6 19.4 21M10.2 4.4 8.4 2.4M13.8 4.4l1.8-2" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
 
@@ -8538,8 +8566,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   function onPositionError(err){
     console.warn("Błąd geolokalizacji:", err);
-    if(!lastPos) setStatus("error", "Brak GPS — mapa działa, punkt początkowy wpiszesz ręcznie");
-    else setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");
+    if(lastPos) setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");   // bez GPS od startu: bez komunikatu (mapa i wpisywanie punktu działają normalnie)
   }
 
   /* ---------- Stoper pod prędkościomierzem (#ovTimer — osobny element, widoczny zawsze, także gdy prędkościomierz jest wyłączony) ----------
@@ -17399,7 +17426,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     rows.forEach(r => {
       if(r.status !== "approved" || r.value == null || !isFinite(r.value)) return;
       const lbl = hgvValueLabel(r.kind, r.value);
-      s.push({ type: "Feature", properties: { kind: r.kind, label: lbl, custom: 1 }, geometry: { type: "Point", coordinates: [r.lon, r.lat] } });
+      s.push({ type: "Feature", properties: { kind: r.kind, label: lbl, custom: 1, rid: String(r.id != null ? r.id : r.lat + "," + r.lon) }, geometry: { type: "Point", coordinates: [r.lon, r.lat] } });
       if(Array.isArray(r.coords) && r.coords.length >= 2){
         const f = { type: "Feature", properties: { [r.kind === "weight" ? "maxweight" : "maxheight"]: r.value, osm_id: "c" + (r.id || r.lat + "," + r.lon) }, geometry: { type: "LineString", coordinates: r.coords } };
         (r.kind === "weight" ? w : h).push(f);
@@ -18002,6 +18029,108 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const driving = b.classList.contains("guidance-on") && !b.classList.contains("route-planning") && !b.classList.contains("flag-placing");
     b.classList.toggle("ui-calm", driving && Date.now() - calmLast > CALM_MS);
   }, 1000, false);
+</script>
+<script>
+/* ===== js/58-sign-edit.js — administrator: przesuwanie i usuwanie znaków ograniczeń; automatyczny powrót do 2D =====
+   Klasyczny <script> (bez IIFE). Dotyczy znaków dodanych przez nas (hgv_reports, properties.custom + rid; znaki z OSM nie są edytowalne):
+   • przytrzymanie znaku ~0,7 s → tryb przesuwania (przeciągnij i puść): zapis nowej pozycji, miejsca i geometrii drogi (js/53),
+   • trzy szybkie dotknięcia znaku → pytanie „Usunąć?” i usunięcie z bazy (lub z zapisu lokalnego).
+   Dodatkowo: gdy widok 3D zbliży się do płaskiego (pochylenie < 15°) i tak zostanie 2 s, aplikacja sama przełącza się na 2D. */
+"use strict";
+
+  const SE = { timer: null, start: null, rid: null, moving: false, raf: 0, tapN: 0, tapAt: 0, tapRid: null, movedAt: 0 };
+  const SE_LAYER = "restriction-signs-icon";
+
+  function seSignAt(pt){
+    if(!map || !map.getLayer(SE_LAYER)) return null;
+    const fs = map.queryRenderedFeatures([[pt.x - 24, pt.y - 24], [pt.x + 24, pt.y + 24]], { layers: [SE_LAYER] });
+    return fs.find(f => f.properties && f.properties.custom && f.properties.rid != null) || null;
+  }
+  const seRow = rid => HGVC.rows.find(r => String(r.id != null ? r.id : r.lat + "," + r.lon) === rid);
+  const seFeat = rid => HGVC.s.find(f => f.properties && f.properties.rid === rid);
+
+  function seDown(e){
+    if(!isAdmin() || (e.points && e.points.length > 1)) return;
+    const f = seSignAt(e.point); if(!f) return;
+    SE.start = e.point; SE.rid = String(f.properties.rid);
+    try{ map.doubleClickZoom.disable(); }catch(x){}            // trzy dotknięcia nie mogą zbliżać mapy
+    setTimeout(() => { try{ map.doubleClickZoom.enable(); }catch(x){} }, 1200);
+    SE.timer = setTimeout(seBegin, 700);
+  }
+  function seBegin(){
+    SE.timer = null;
+    if(!SE.rid || !seRow(SE.rid)) return;
+    SE.moving = true;
+    try{ map.dragPan.disable(); }catch(x){}
+    try{ if(navigator.vibrate) navigator.vibrate(30); }catch(x){}
+    showBanner("PRZESUWASZ ZNAK", "Przeciągnij na właściwe miejsce i puść", false);
+  }
+  function seMove(e){
+    if(SE.timer && SE.start && Math.hypot(e.point.x - SE.start.x, e.point.y - SE.start.y) > 10){ clearTimeout(SE.timer); SE.timer = null; SE.rid = null; }
+    if(!SE.moving) return;
+    const f = seFeat(SE.rid), r = seRow(SE.rid); if(!f || !r) return;
+    f.geometry.coordinates = [e.lngLat.lng, e.lngLat.lat];
+    if(!SE.raf) SE.raf = requestAnimationFrame(() => { SE.raf = 0; hgvRefreshMap(); });
+  }
+  async function seUp(){
+    if(SE.timer){ clearTimeout(SE.timer); SE.timer = null; }
+    if(!SE.moving){ return; }
+    SE.moving = false; SE.movedAt = Date.now();
+    try{ map.dragPan.enable(); }catch(x){}
+    const rid = SE.rid, f = seFeat(rid), r = seRow(rid); SE.rid = null;
+    if(!f || !r) return;
+    const lon = Math.round(f.geometry.coordinates[0] * 1e6) / 1e6, lat = Math.round(f.geometry.coordinates[1] * 1e6) / 1e6;
+    showBanner("ZAPISUJĘ", "Nowa pozycja znaku…", false);
+    try{
+      const [place, coords] = await Promise.all([hgvPlaceLabel(lat, lon), hgvRoadGeometry(lat, lon)]);
+      if(String(r.id).charAt(0) === "L"){
+        const a = hgvLocalLoad(); const x = a.find(z => z.id === r.id);
+        if(x){ x.lat = lat; x.lon = lon; x.place = place; x.coords = coords; hgvLocalSave(a); }
+      } else {
+        await supaAdminRequest("PATCH", `hgv_reports?id=eq.${encodeURIComponent(r.id)}`, { lat, lon, place, coords }, "return=minimal");
+      }
+      showBanner("ZNAK PRZESUNIĘTY", coords ? "Zapisano nową pozycję" : "Zapisano, ale bez geometrii drogi (tylko znak na mapie)", false);
+    }catch(err){ showBanner("NIE ZAPISANO", String(err.message || err).slice(0, 100), false); }
+    await hgvCustomLoad();
+  }
+  async function seClick(e){
+    if(!isAdmin() || Date.now() - SE.movedAt < 600) return;
+    const f = seSignAt(e.point);
+    if(!f){ SE.tapN = 0; return; }
+    const rid = String(f.properties.rid), now = Date.now();
+    SE.tapN = (rid === SE.tapRid && now - SE.tapAt < 700) ? SE.tapN + 1 : 1;
+    SE.tapRid = rid; SE.tapAt = now;
+    if(SE.tapN < 3) return;
+    SE.tapN = 0;
+    const r = seRow(rid); if(!r) return;
+    const what = (HGV_KIND[r.kind] ? HGV_KIND[r.kind].name : "znak") + (r.value != null ? " " + hgvValueLabel(r.kind, r.value) : "");
+    if(!window.confirm("Usunąć znak: " + what + (r.place ? " (" + r.place + ")" : "") + "?")) return;
+    try{
+      if(String(r.id).charAt(0) === "L") hgvLocalSave(hgvLocalLoad().filter(z => z.id !== r.id));
+      else await supaAdminRequest("DELETE", `hgv_reports?id=eq.${encodeURIComponent(r.id)}`);
+      showBanner("ZNAK USUNIĘTY", what, false);
+    }catch(err){ showBanner("NIE USUNIĘTO", String(err.message || err).slice(0, 100), false); return; }
+    await hgvCustomLoad(); hgvPendingRefreshCount();
+  }
+  function seWhenMap(fn){ if(typeof map !== "undefined" && map){ fn(); } else setTimeout(() => seWhenMap(fn), 600); }
+
+  /* ---------- 3D zbliżone do 2D → po 2 s przełącz na 2D (tak jak przycisk widoku) ---------- */
+  let flatTimer = null;
+  function flatCheck(){
+    if(flatTimer){ clearTimeout(flatTimer); flatTimer = null; }
+    if(!is3D || map.getPitch() >= 15) return;
+    flatTimer = setTimeout(() => {
+      flatTimer = null;
+      if(is3D && map.getPitch() < 15 && !map.isMoving()) document.getElementById("btnCompass").click();
+    }, 2000);
+  }
+  safeInit("edycja znaków i widok 2D", () => seWhenMap(() => {
+    map.on("touchstart", seDown); map.on("mousedown", seDown);
+    map.on("touchmove", seMove); map.on("mousemove", seMove);
+    map.on("touchend", seUp); map.on("touchcancel", seUp); map.on("mouseup", seUp);
+    map.on("click", seClick);
+    map.on("pitch", flatCheck); map.on("pitchend", flatCheck);
+  }));
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
