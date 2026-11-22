@@ -1771,6 +1771,25 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 .usrRow{ padding:6px 0; border-top:1px solid rgba(128,128,128,.22); font-size:13px; }
 .usrRow .usrT{ font-weight:700; word-break:break-word; }
 .usrDot{ margin-right:6px; }
+#accCard .accDanger{ background:transparent; color:#d93025; border:1px solid rgba(217,48,37,.5); min-height:44px; font-weight:600; }
+.usrRow .usrDel{ margin-top:4px; min-height:36px; padding:0 12px; border-radius:10px; border:1px solid rgba(217,48,37,.5); background:transparent; color:#d93025; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
+.usrWarn{ color:#d93025; font-weight:700; margin-left:6px; font-size:12px; }
+.accWho{ opacity:.7; font-size:12px; }
+#accAppealNote{ font-size:13px; opacity:.85; white-space:pre-line; }
+#accAppealIn{ box-sizing:border-box; width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(128,128,128,.45); background:rgba(128,128,128,.1); color:inherit; font:500 15px/1.4 'Inter',system-ui,sans-serif; resize:vertical; }
+.usrAppeal .usrRow .usrBtns{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.usrAppeal .usrRow .usrBtns button{ min-height:36px; padding:0 12px; border-radius:10px; border:1px solid rgba(128,128,128,.45); background:transparent; color:inherit; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
+#accOr{ text-align:center; font-size:12px; opacity:.6; }
+#accTabs{ display:flex; gap:6px; }
+#accTabs button{ flex:1; min-height:44px; border-radius:12px; border:1px solid rgba(128,128,128,.45); background:transparent; color:inherit; font:600 15px 'Inter',system-ui,sans-serif; cursor:pointer; }
+#accTabs button.active{ background:rgba(26,115,232,.14); border-color:#1a73e8; color:#1a73e8; }
+#accCard input[type=text], #accCard input[type=email], #accCard input[type=password]{ box-sizing:border-box; min-height:52px; padding:0 14px; border-radius:14px; border:1px solid rgba(128,128,128,.45); background:rgba(128,128,128,.1); color:inherit; font:500 16px 'Inter',system-ui,sans-serif; }
+#accCard .accLink{ background:transparent; border:0; color:#1a73e8; min-height:40px; font:600 14px 'Inter',system-ui,sans-serif; text-decoration:underline; }
+#accConsent{ display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.35; }
+#accConsent input{ width:22px; height:22px; margin-top:1px; flex:none; accent-color:#1a73e8; }
+#accGoogleNote{ font-size:12px; opacity:.7; text-align:center; }
+#accCard a.accPrivLink{ color:#1a73e8; text-decoration:underline; }
+#accTxt.accPolicy{ max-height:52vh; overflow-y:auto; font-size:13px; line-height:1.45; }
 </style>
 </head>
 <body>
@@ -1902,6 +1921,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button id="poiVoteBad" type="button">👎 Błędna nazwa</button>
       <button id="poiVoteGood" type="button">👍 Nazwa OK</button>
     </div>
+    <div class="poiBy accWho" id="poiWho"></div>
+    <div class="poiBtns" id="poiMine" style="display:none">
+      <button id="poiMineEdit" type="button">✏ Nazwa</button>
+      <button id="poiMineMove" type="button">📍 Przesuń</button>
+      <button id="poiMineDel" type="button">🗑 Usuń</button>
+    </div>
     <div class="poiBtns" id="poiAdminRow" style="display:none">
       <button id="poiAdminEdit" type="button">✏️ Zmień nazwę (administrator)</button>
     </div>
@@ -1934,9 +1959,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="poiName" id="voteTitle"></div>
   <div class="poiAddr" id="voteSub"></div>
   <div class="poiBy" id="voteBy"></div>
+  <div class="poiBy accWho" id="voteWho"></div>
   <div class="poiBtns" id="voteBtns">
     <button id="voteNo" type="button">👎 Nie ma</button>
     <button id="voteYes" type="button">👍 Jest</button>
+  </div>
+  <div class="poiBtns" id="voteMine" style="display:none">
+    <button id="voteMineMove" type="button">📍 Przesuń</button>
+    <button id="voteMineDel" type="button">🗑 Usuń</button>
+  </div>
+  <div class="poiBy adminOnly" id="voteTrust"></div>
+  <div class="poiBtns adminOnly" id="voteAdmin" style="display:none">
+    <button id="voteReject" type="button">⛔ Odrzuć</button>
+    <button id="voteApprove" type="button">✅ Zatwierdź</button>
   </div>
 </div>
 
@@ -1945,10 +1980,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="poiName" id="parkName"></div>
     <button id="parkClose" type="button" class="psClose" aria-label="Zamknij">✕</button>
   </div>
+  <div class="poiBy accWho" id="parkWho"></div>
   <div id="parkSum"></div>
   <div class="poiBtns" id="parkVote" style="display:none">
     <button id="parkNo" type="button">👎 Nie ma</button>
     <button id="parkYes" type="button">👍 Jest parking</button>
+  </div>
+  <div class="poiBtns" id="parkMine" style="display:none">
+    <button id="parkMineMove" type="button">📍 Przesuń</button>
+    <button id="parkMineDel" type="button">🗑 Usuń</button>
+  </div>
+  <div class="poiBy adminOnly" id="parkTrust"></div>
+  <div class="poiBtns adminOnly" id="parkAdmin" style="display:none">
+    <button id="parkReject" type="button">⛔ Odrzuć</button>
+    <button id="parkApprove" type="button">✅ Zatwierdź</button>
   </div>
   <div class="poiBtns">
     <button id="parkGo" type="button">▲ Jedź</button>
@@ -2417,6 +2462,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <label class="navPrefLabel" style="margin-top:6px;"><input type="checkbox" id="nhOn"> Pokazuj na mapie (🚧 w menu)</label>
       <button type="button" id="nhFetchBtn" class="navPrefBtn" style="margin-top:6px;">⟳ Pobierz teraz / test klucza</button>
       <div id="nhStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px;"></div>
+      <div id="nhShareStatus" style="font-size:12px; line-height:1.4; color:var(--text-dim); margin-top:4px;"></div>
     </div>
 
     <div id="navSupaToggle" class="navKeyToggle adminOnly">
@@ -2498,11 +2544,31 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div id="accCard" role="dialog" aria-modal="true" aria-labelledby="accTitle">
     <div id="accTitle"></div>
     <div id="accTxt"></div>
+    <div id="accAppealNote"></div>
     <button type="button" id="accGoogle"></button>
+    <div id="accGoogleNote">Logując się, akceptujesz <a href="#" class="accPrivLink">Politykę prywatności</a>.</div>
+    <div id="accOr">albo e-mailem</div>
+    <div id="accTabs">
+      <button type="button" id="accTabLogin" class="active">Zaloguj się</button>
+      <button type="button" id="accTabReg">Zarejestruj się</button>
+    </div>
+    <input type="text" id="accRegNick" maxlength="24" autocomplete="nickname" autocapitalize="off" placeholder="Nazwa użytkownika (pseudonim)">
+    <input type="email" id="accEmail" autocomplete="email" autocapitalize="off" placeholder="E-mail">
+    <input type="password" id="accPass" autocomplete="current-password" placeholder="Hasło (min. 8 znaków)">
+    <input type="text" id="accRegCompany" maxlength="80" autocomplete="organization" placeholder="Firma, dla której pracujesz (nieobowiązkowe)">
+    <label id="accConsent"><input type="checkbox" id="accPrivacy"><span>Akceptuję <a href="#" class="accPrivLink">Politykę prywatności</a></span></label>
+    <button type="button" id="accAuthSubmit" class="accPrimary">Zaloguj się</button>
+    <button type="button" id="accForgot" class="accLink">Nie pamiętam hasła</button>
+    <button type="button" id="accResend" class="accLink">Wyślij ponownie e-mail potwierdzający</button>
+    <textarea id="accAppealIn" maxlength="1000" rows="5" placeholder="Napisz do administratora, dlaczego uważasz, że to pomyłka…"></textarea>
+    <button type="button" id="accAppealSend" class="accPrimary">Wyślij odwołanie</button>
+    <button type="button" id="accAppealOpen" class="accSecondary">✉ Odwołaj się / napisz do administratora</button>
     <input type="text" id="accNickIn" maxlength="24" autocomplete="nickname" autocapitalize="off" placeholder="Pseudonim">
     <button type="button" id="accNickSave" class="accPrimary">Zapisz pseudonim</button>
+    <button type="button" id="accOk" class="accPrimary">Rozumiem</button>
     <button type="button" id="accNickEdit" class="accSecondary">Zmień pseudonim</button>
     <button type="button" id="accLogout" class="accSecondary">Wyloguj</button>
+    <button type="button" id="accDelete" class="accDanger">Usuń moje konto</button>
     <div id="accMsg" role="status"></div>
     <button type="button" id="accClose" class="accGhost">Zamknij</button>
   </div>
@@ -7928,6 +7994,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.getElementById("voteYes").textContent = t.yes || "👍 Jest";
     document.getElementById("voteNo").textContent = t.no || "👎 Nie ma";
     document.getElementById("voteCard").classList.add("show");
+    if(typeof accPointCard === "function") accPointCard("vote", t.local ? null : { kind: t.kind, id: t.id, sub: /fotoradar/i.test(t.title || "") ? "camera" : "parking" });   // kto dodał, własny punkt, administrator (js/61)
     if(autoHideMs) voteHideTimer = setTimeout(hideVoteCard, autoHideMs);
   }
   function castVote(vote){
@@ -7936,14 +8003,21 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hideVoteCard();
     if(!supaConfigured()) return;
     if(accNeedLogin("zagłosować na wpis", { type: "vote", kind: t.kind, id: t.id, vote })) return;   // głosować mogą tylko zalogowani (js/61) — po logowaniu głos poleci sam
-    supaRpc(t.kind === "place" ? "vote_place" : "vote_report", { p_id: t.id, p_device: getDeviceId(), p_vote: vote })
+    // zalogowany: głos przez bazę (jedno konto = jeden głos, js/61); bez tokena albo bez funkcji w bazie: stara ścieżka z identyfikatorem telefonu
+    const viaAccount = typeof accCastVote === "function" ? accCastVote(t.kind, t.id, vote) : Promise.resolve(null);
+    viaAccount
+      .then(res => res !== null ? res : supaRpc(t.kind === "place" ? "vote_place" : "vote_report", { p_id: t.id, p_device: getDeviceId(), p_vote: vote }))
       .then(res => {
         res = res || {};
+        if(res.own){ showBanner("TO TWÓJ WPIS", "Na własne zgłoszenie nie można głosować", false); return; }
+        if(res.already){ showBanner("GŁOS JUŻ ZLICZONY", "To konto zagłosowało już na ten wpis", false); return; }
         showBanner(vote > 0 ? "DZIĘKI — POTWIERDZONE" : "DZIĘKI — ZGŁOSZONE",
           res.status === "hidden" ? "Wpis ukryty przez społeczność" : voteCountsText(res), false);
         if(t.kind === "report" && lastPos) fetchOverpassData(lastPos.lat, lastPos.lon); // odśwież widoczność wpisów
       })
-      .catch(() => showBanner("NIE WYSŁANO", "Głos nie dotarł do wspólnej bazy (limit albo brak połączenia)", false));
+      .catch(err => err && err.status === 403
+        ? showBanner("KONTO ZABLOKOWANE", "Administrator zablokował możliwość głosowania", false)
+        : showBanner("NIE WYSŁANO", "Głos nie dotarł do wspólnej bazy (limit albo brak połączenia)", false));
   }
   document.getElementById("voteYes").addEventListener("click", () => castVote(1));
   document.getElementById("voteNo").addEventListener("click", () => castVote(-1));
@@ -8020,6 +8094,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function flagKindInfo(kind){
     if(kind === "weight") return { ico: "⚖️", col: "#b3261e", name: "Ograniczenie tonażu (7,5 t)" };
     if(kind === "height") return { ico: "🌉", col: "#d97706", name: "Niski most / wysokość" };
+    if(kind === "place") return { ico: "🏷️", col: "#6b7280", name: "Nazwa budynku" };
     return kind === "camera" ? { ico: "📷", col: "#d93025", name: "Fotoradar" } : { ico: "🅿️", col: "#1a6fd6", name: "Parking HGV" };
   }
   function screenCenterLngLat(){
@@ -8030,7 +8105,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const d = flagDraft; if(!d) return;
     const k = flagKindInfo(d.kind);
     document.getElementById("flagTitle").textContent = k.ico + " " + k.name;
-    document.getElementById("flagSub").textContent = ready ? "Zatwierdzić ten punkt?" : "Przesuń mapę lub chorągiewkę w miejsce punktu.";
+    document.getElementById("flagSub").textContent = d.move ? "Przeciągnij chorągiewkę na właściwe miejsce (maks. 150 m) i zatwierdź." : ready ? "Zatwierdzić ten punkt?" : "Przesuń mapę lub chorągiewkę w miejsce punktu.";
     document.getElementById("flagOk").style.display = ready ? "" : "none";
     const restr = d.kind === "weight" || d.kind === "height";            // ograniczenia: formularz z limitem
     document.getElementById("flagRestr").classList.toggle("open", restr);
@@ -8038,7 +8113,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       document.getElementById("flagValLbl").textContent = d.kind === "weight" ? "Limit tonażu (tony)" : (typeof isAdmin === "function" && isAdmin() ? "Wysokość (np. 13'6\" albo 4.1 m)" : "Wysokość, jeśli znasz (np. 13'6\" albo 4.1 m)");
       document.getElementById("flagSub").textContent = (ready ? "Zatwierdzić ten punkt?" : "Ustaw chorągiewkę na drodze.");
     }
-    const isPark = d.kind === "parking";
+    const isPark = d.kind === "parking" && !d.move;
     document.getElementById("flagSubtype").classList.toggle("open", isPark);
     if(isPark) document.querySelectorAll("#flagSubtype button").forEach(b => b.classList.toggle("active", b.dataset.sub === flagParkSub));
     document.getElementById("flagCard").classList.add("show");
@@ -8067,6 +8142,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function commitFlagDraft(){
     const d = flagDraft; if(!d) return;
     const ll = d.marker.getLngLat(), kind = d.kind;
+    if(d.move){   // przesuwanie własnego punktu (js/61): maks. 150 m od obecnego miejsca
+      if(haversine(d.move.lat, d.move.lon, ll.lat, ll.lng) > 150){ document.getElementById("flagSub").textContent = "Za daleko — maksymalnie 150 m od obecnego miejsca."; return; }
+      const m = d.move; dropFlagDraft(); accMovePoint(m, ll.lat, ll.lng); return;
+    }
     if(kind === "weight" || kind === "height"){
       const valTxt = document.getElementById("flagVal").value, note = document.getElementById("flagNote").value;
       if(typeof isAdmin === "function" && isAdmin() && hgvParseValue(kind, valTxt) == null){      // administrator musi podać limit
@@ -8085,9 +8164,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     flagParkSub = b.dataset.sub;
     document.querySelectorAll("#flagSubtype button").forEach(x => x.classList.toggle("active", x === b));
   });
-  function startReportFlag(kind){
+  function startReportFlag(kind, opts){
     if(!map) return;
-    if(typeof accNeedLogin === "function" && accNeedLogin(kind === "weight" || kind === "height" ? "dodać ograniczenie na mapie" : "dodać punkt na mapie", { type: "flag", kind })) return;   // dodawanie punktów tylko po zalogowaniu (js/61)
+    const mv = opts && opts.move ? opts.move : null;     // tryb przesuwania własnego punktu: bez bramki logowania (już zalogowany)
+    if(!mv && typeof accNeedLogin === "function" && accNeedLogin(kind === "weight" || kind === "height" ? "dodać ograniczenie na mapie" : "dodać punkt na mapie", { type: "flag", kind })) return;   // dodawanie punktów tylko po zalogowaniu (js/61)
     flagParkSub = "parking";
     try{   // w strefie przemysłowej podpowiadamy "mały"
       const f = map.queryRenderedFeatures(map.project(screenCenterLngLat()), {}).find(x => /industrial/i.test((x.properties && (x.properties.class || x.properties.subclass)) || ""));
@@ -8104,12 +8184,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </svg>`;
     // dół drzewca = dokładny punkt zgłoszenia
     const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-8, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
-      .setLngLat(screenCenterLngLat()).addTo(map);
+      .setLngLat(mv ? [mv.lon, mv.lat] : screenCenterLngLat()).addTo(map);
     if(kind === "weight" || kind === "height"){       // formularz ograniczenia: domyślnie 7,5 t albo pusta wysokość
       document.getElementById("flagVal").value = kind === "weight" ? "7.5" : "";
       document.getElementById("flagNote").value = "";
     }
-    const d = { kind, marker, docked: true, timer: null, prevFollow: followUser };
+    const d = { kind, marker, docked: !mv, timer: null, prevFollow: followUser, move: mv };
     d.onMove = () => { if(flagDraft === d && d.docked){ marker.setLngLat(screenCenterLngLat()); flagDisarm(); } };   // dopóki niezłapana: stoi na środku ekranu
     d.onMoveEnd = () => { if(flagDraft === d && d.docked) flagArm(); };                                                // mapa ustawiona → odliczanie 5 s
     marker.on("dragstart", () => { d.docked = false; flagDisarm(); });
@@ -8119,6 +8199,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     followUser = false;                // kamera nie ucieka za pojazdem, kiedy kierowca ustawia punkt
     if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
     map.on("move", d.onMove); map.on("moveend", d.onMoveEnd);
+    if(mv) map.easeTo({ center: [mv.lon, mv.lat], zoom: Math.max(map.getZoom(), 17.5), duration: 600 });   // pokaż punkt z bliska
     flagSetAsk(true);
   }
   function reportHgvParkingHere(){ startReportFlag("parking"); }
@@ -10877,6 +10958,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     poiAskTarget = { lat, lon, name, address: "", placeId, ref: ref || null };
     if(typeof poiAdminRefresh === "function") poiAdminRefresh();   // administrator: „✏️ Zmień nazwę” (js/44)
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
+    if(typeof accPointCard === "function") accPointCard("poi", placeId != null ? { kind: "place", id: placeId, sub: "place" } : null);   // kto dodał nazwę, kiedy; własna: popraw / przesuń / usuń (js/61)
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = "";   // adres wpisze się sam, gdy będzie znany (bez pokazywania współrzędnych)
     document.getElementById("poiAsk").classList.add("show");
@@ -16041,13 +16123,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const NH_DEFAULT_URL = "https://api.data.nationalhighways.co.uk/roads/v2.0/closures";
   const NH_TTL = 15 * 60 * 1000, NH_PLANNED_DAYS = 14, NH_MAX = 4000;
   const NH_SRC = "nh-works", NH_L_ACT = "nh-works-line-active", NH_L_PLAN = "nh-works-line-planned", NH_L_DOT = "nh-works-dot";
-    let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null, nhNext = 0, nhVia = "direct";
+    let nhKey = "", nhUrl = NH_DEFAULT_URL, nhOn = true, nhData = null, nhAt = 0, nhBusy = false, nhFails = 0, nhPopup = null, nhNext = 0, nhVia = "direct", nhServerOff = false;
   try{
     nhKey = localStorage.getItem(NH_KEY_LS) || ""; nhUrl = localStorage.getItem(NH_URL_LS) || NH_DEFAULT_URL; nhOn = localStorage.getItem(NH_ON_LS) !== "0"; nhVia = localStorage.getItem("nawigator_nh_via") || "direct";
     const c = JSON.parse(localStorage.getItem(NH_CACHE_LS) || "null"); if(c && c.feats){ nhData = c.feats; nhAt = c.t; }
   }catch(e){}
 
   const nhEl = id => document.getElementById(id);
+  // Kierowcy nie mają ani nie wpisują klucza: dane NH idą przez funkcję serwera nh-proxy, która zna klucz administratora (sql/nh-shared.sql).
+  const nhShared = () => !nhServerOff && typeof supaConfigured === "function" && supaConfigured();
+  const nhHasSource = () => !!nhKey || nhShared();
   function nhStatus(t){ const el = nhEl("nhStatus"); if(el) el.textContent = t || ""; }
 
   // --- parsowanie DATEX II (JSON lub XML) ---
@@ -16172,7 +16257,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const hdr = { "Accept": "application/json", "Ocp-Apim-Subscription-Key": nhKey };
     const proxyOk = typeof supaConfigured === "function" && supaConfigured();
     let res = null;
-    if(nhVia !== "proxy" || !proxyOk){
+    if(!nhKey){   // kierowca: wspólne dane z serwera, klucz zna tylko serwer
+      if(!proxyOk){ const e0 = new Error("brak wspólnej bazy"); e0.noKey = true; throw e0; }
+      res = await fetch(normSupaUrl(supaUrl) + "/functions/v1/nh-proxy?u=" + encodeURIComponent(nhUrl), { headers: { "Accept": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey } });
+      if(res.status === 503 || res.status === 404){ nhServerOff = true; const e1 = new Error("serwer nie ma klucza"); e1.noKey = true; throw e1; }   // administrator jeszcze nie podał klucza: cicho, bez pytania kierowcy
+    }
+    if(nhKey && (nhVia !== "proxy" || !proxyOk)){
       try{ res = await fetch(nhUrl, { headers: hdr }); }
       catch(e){
         try{ res = await fetch(nhUrl + (nhUrl.includes("?") ? "&" : "?") + "subscription-key=" + encodeURIComponent(nhKey), { headers: { "Accept": "application/json" } }); }   // bez własnego nagłówka (prostsze CORS)
@@ -16192,7 +16282,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return JSON.parse(txt);
   }
   async function nhRefresh(force){
-    if(nhBusy || !nhKey) return; if(!force && Date.now() < nhNext) return;
+    if(nhBusy || !nhHasSource()) return; if(!force && Date.now() < nhNext) return;
     nhBusy = true; nhStatus("pobieram…");
     try{
       const payload = await nhRequest(), r = nhParse(payload);
@@ -16203,6 +16293,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       else nhStatus("OK: " + nhData.length + " pozycji (" + nhData.filter(f => f.act).length + " aktywnych), z " + r.recs + " rekordów · " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
       nhDraw();
     }catch(e){
+      if(e && e.noKey){ nhNext = Date.now() + 30 * 60000; nhStatus(""); return; }     // brak klucza na serwerze: sprawdzimy za 30 min, bez komunikatów
       nhFails++; nhNext = Date.now() + 60000 * Math.min(10, nhFails * 2);    // ponowna próba za 2, 4, … 10 min (wcześniej: co 5 s — błąd)
       const m = String(e && e.message || e);
       nhStatus("Błąd: " + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? "brak sieci albo blokada (CORS) — sprawdź adres API" : m)); console.warn("National Highways:", e);
@@ -16553,12 +16644,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   // --- UI: klucz w ustawieniach, przycisk 🚧 ---
   function nhApplyUi(){
-    const b = nhEl("btnNH"); if(b) b.classList.toggle("active", nhOn && !!nhKey);
+    const b = nhEl("btnNH"); if(b) b.classList.toggle("active", nhOn && nhHasSource());
     const cb = nhEl("nhOn"); if(cb) cb.checked = nhOn;
     const pk = nhEl("pickNH"); if(pk) pk.checked = nhOn;
   }
   function nhTick(){
-    if(!nhOn || !nhKey || !map) return;
+    if(!nhOn || !nhHasSource() || !map) return;
     if(!nhData || !map.getSource(NH_SRC)) { if(nhData) nhDraw(); }
     nhRefresh(false);
   }
@@ -16571,17 +16662,37 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       try{ localStorage.setItem(NH_KEY_LS, nhKey); localStorage.setItem(NH_URL_LS, nhUrl); }catch(e){}
       nhApplyUi();
     };
-    key.addEventListener("change", save); url.addEventListener("change", save);
+    key.addEventListener("change", () => { save(); nhServerSave(); }); url.addEventListener("change", save);
     eye.addEventListener("click", () => { key.type = key.type === "password" ? "text" : "password"; });
     nhEl("nhOn").addEventListener("change", e => nhSet(e.target.checked));
-    nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhVia = "direct"; nhApplyUi(); nhRefresh(true); });
+    nhEl("nhFetchBtn").addEventListener("click", () => { save(); if(!nhKey){ nhStatus("Wklej klucz API National Highways."); return; } nhOn = true; nhVia = "direct"; nhApplyUi(); nhRefresh(true); nhServerSave(); });
+    document.addEventListener("navtab", e => { if(e.detail === "system") nhServerStatus(); });
     nhEl("btnNH").addEventListener("click", () => nhSet(!nhOn));
     const pk = nhEl("pickNH"); if(pk) pk.addEventListener("change", e => nhSet(e.target.checked));   // haczyk w oknie wyboru trasy
+  }
+  // administrator: klucz zapisuje się też na serwerze (tabela app_secrets), dzięki czemu dane NH widzą wszyscy kierowcy; klucza nikt poza serwerem nie odczyta
+  async function nhServerSave(){
+    const say = t => { const st = nhEl("nhShareStatus"); if(st) st.textContent = t; };
+    const admin = typeof isAdmin === "function" && isAdmin() && typeof adminSessionLoad === "function" && adminSessionLoad() && typeof accAdminRpc === "function";
+    if(!admin){ say("Klucz jest tylko w tym telefonie. Żeby dane NH widzieli wszyscy kierowcy, zaloguj się jako administrator (Wspólna baza) i zapisz klucz jeszcze raz."); return; }
+    try{
+      await accAdminRpc("admin_set_secret", { p_name: "nh_key", p_value: nhKey });
+      nhServerOff = false; nhNext = 0;
+      say(nhKey ? "✅ Klucz zapisany na serwerze: remonty i zamknięcia widzą wszyscy kierowcy (bez klucza i bez pytania o niego). Wymaga funkcji nh-proxy (sql/nh-proxy.ts)." : "Klucz usunięty z serwera: kierowcy nie widzą już danych NH.");
+    }catch(e){ say("Serwer: " + (e.message || e)); }
+  }
+  async function nhServerStatus(){
+    const st = nhEl("nhShareStatus"); if(!st) return;
+    if(!(typeof isAdmin === "function" && isAdmin() && typeof adminSessionLoad === "function" && adminSessionLoad() && typeof accAdminRpc === "function")) return;
+    try{
+      const j = await accAdminRpc("admin_secret_status");
+      st.textContent = j && j.nh_key ? "✅ Klucz jest zapisany na serwerze: dane NH widzą wszyscy kierowcy." : "Klucz NIE jest zapisany na serwerze: kierowcy nie widzą danych NH. Wpisz klucz powyżej (zapisze się sam).";
+    }catch(e){ /* brak funkcji w bazie: komunikat pojawi się przy zapisie klucza */ }
   }
   function nhSet(on){
     nhOn = !!on; try{ localStorage.setItem(NH_ON_LS, on ? "1" : "0"); }catch(e){}
     nhApplyUi();
-    if(on && !nhKey){ showBanner("NATIONAL HIGHWAYS", "Wpisz klucz API w Ustawieniach (⋮ → System), żeby zobaczyć remonty i zamknięcia", false); return; }
+    if(on && !nhHasSource()){ if(typeof isAdmin === "function" && isAdmin()) showBanner("NATIONAL HIGHWAYS", "Wpisz klucz API w Ustawieniach (⋮ → System), żeby zobaczyć remonty i zamknięcia", false); return; }
     nhDraw(); if(on) nhRefresh(false);
   }
   nhInit();
@@ -18183,6 +18294,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $k("parkSum").classList.remove("open");
     $k("parkForm").classList.remove("open");
     $k("parkCard").classList.add("show");
+    if(typeof accPointCard === "function") accPointCard("park", c.reportId != null ? { kind: "report", id: c.reportId, sub: "parking" } : null);   // kto dodał, własny punkt, administrator (js/61)
     pkRefresh();
   }
   // wołane z js/28 przy dotknięciu mapy: zwraca true, gdy dotknięto ikony parkingu
@@ -18458,7 +18570,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       map.setPaintProperty("mp2-hillshade", "hillshade-shadow-color", night ? "#02090a" : "#5b6b5f");
       map.setPaintProperty("mp2-hillshade", "hillshade-highlight-color", night ? "#2a6a6e" : "#ffffff");
       map.setPaintProperty("mp2-hillshade", "hillshade-accent-color", night ? "#0e3a3d" : "#7f8f84");
-      map.setPaintProperty("mp2-hillshade", "hillshade-exaggeration", ["interpolate", ["linear"], ["zoom"], 6, night ? 0.5 : 0.45, 11, night ? 0.35 : 0.32, 14, 0]);
+      map.setPaintProperty("mp2-hillshade", "hillshade-exaggeration", ["interpolate", ["linear"], ["zoom"], 6, night ? 0.5 : 0.45, 11, night ? 0.38 : 0.36, 14, night ? 0.2 : 0.18, 16, 0]);
       if(!map.getLayer("mp2-water-edge")){
         const wl = ls.find(l => l["source-layer"] === "water" && l.source);
         if(wl) map.addLayer({ id: "mp2-water-edge", type: "line", source: wl.source, "source-layer": "water", minzoom: 9,
@@ -18500,10 +18612,29 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 "use strict";
 
   const ACC_KEY = "nawigator_user_session", ACC_RESUME_KEY = "nawigator_acc_resume", ACC_ACTIVE_MS = 5 * 60 * 1000, ACC_BEAT_MS = 2 * 60 * 1000;
-  let accSess = null, accRefreshing = null, accMode = "login";
+  let accSess = null, accRefreshing = null, accMode = "login", accReason, accPrevMode = "login", accPrevReason, accNickFirst = false;
   let accPending = null;        // co kierowca chciał zrobić, gdy pokazaliśmy okno logowania (zapisujemy dopiero przy przejściu do Google)
   let accAfterModal = null;     // wznowienie czeka, aż kierowca zamknie okno pseudonimu
+  let accTab = "login", accPendingEmail = "", accCheckKind = "signup", accRecovery = false;   // karta „Zaloguj / Zarejestruj”, adres czekający na potwierdzenie, powrót z linku „nowe hasło”
   try{ accSess = JSON.parse(localStorage.getItem(ACC_KEY) || "null"); }catch(e){ accSess = null; }
+  // ===== UZUPEŁNIJ PRZED PUBLIKACJĄ: kto odpowiada za dane i jak się z nim skontaktować (pokazuje się w Polityce prywatności) =====
+  const ACC_PRIVACY = { version: "2026-11-23", controller: "", contact: "" };
+  function accPolicyText(){
+    const who = ACC_PRIVACY.controller || "Administrator aplikacji Nawigator";
+    const contact = ACC_PRIVACY.contact ? "Kontakt w sprawach danych: " + ACC_PRIVACY.contact + "." : "Dane kontaktowe administratora zostaną uzupełnione przed publikacją aplikacji.";
+    return [
+      "Wersja z 23.11.2026.",
+      "1. Kto odpowiada za Twoje dane\n" + who + ". " + contact,
+      "2. Jakie dane zbieramy\n• konto: pseudonim, adres e-mail, hasło (przechowywane w postaci zaszyfrowanej — nie znamy go), a z konta Google: adres e-mail i imię,\n• dobrowolnie: nazwa firmy, dla której pracujesz (widzi ją tylko administrator),\n• to, co dodajesz: punkty na mapie (fotoradary, parkingi, ograniczenia, nazwy budynków), opinie, zdjęcia, oceny parkingów i głosy 👍/👎 — razem z pseudonimem i datą dodania (pseudonim i data przy punktach są widoczne dla innych kierowców),\n• data rejestracji, czas ostatniej aktywności w aplikacji oraz ostrzeżenia, blokady i odwołania (moderacja),\n• pozycja GPS jest używana do nawigacji na Twoim urządzeniu; pozycję punktu, który sam dodajesz, widzą wszyscy.",
+      "3. W jakim celu i na jakiej podstawie\n• prowadzenie konta i dodawanie wpisów — niezbędne do świadczenia usługi,\n• moderacja, ochrona przed spamem i fałszywymi danymi — nasz uzasadniony interes,\n• nazwa firmy — Twoja dobrowolna zgoda, którą możesz w każdej chwili wycofać, usuwając tę informację.",
+      "4. Komu przekazujemy dane\nDostawcom, bez których aplikacja nie działa: Supabase (baza danych, logowanie, e-maile), Google (jeśli logujesz się kontem Google), dostawcom map i tras (np. OpenFreeMap, TomTom, OpenStreetMap, National Highways) — do nich trafiają zapytania o mapę i trasę. Nie sprzedajemy danych.",
+      "5. Jak długo\nDo usunięcia konta. Po usunięciu konta Twoje punkty i komentarze mogą zostać na mapie jako anonimowe, a ostrzeżenia, blokady i odwołania są usuwane razem z kontem. Wpisy możesz też usunąć sam przed usunięciem konta.",
+      "6. Twoje prawa\nMasz prawo dostępu do danych, ich sprostowania, usunięcia (przycisk „Usuń moje konto” w Ustawieniach), ograniczenia przetwarzania, sprzeciwu i przenoszenia, a także prawo do skargi do organu nadzorczego (w Wielkiej Brytanii: Information Commissioner’s Office, ico.org.uk; w UE: właściwy organ ochrony danych, w Polsce: UODO).",
+      "7. Pamięć w przeglądarce i reklamy\nAplikacja zapisuje w pamięci przeglądarki ustawienia i sesję logowania. Nie wyświetla reklam.",
+      "8. Zmiany\nO zmianach polityki poinformujemy w aplikacji; obowiązuje wersja podana na górze."
+    ].join("\n\n");
+  }
+
   const accEl = id => document.getElementById(id);
   function accSave(){
     try{ if(accSess) localStorage.setItem(ACC_KEY, JSON.stringify(accSess)); else localStorage.removeItem(ACC_KEY); }catch(e){}
@@ -18511,6 +18642,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function accLoggedIn(){ return !!(accSess && accSess.access_token); }
   function accNick(){ return accSess ? (accSess.nick || accSess.name || "") : ""; }
+  const accBlockedUntil = () => accSess && accSess.banned_until && Date.parse(accSess.banned_until) > Date.now() ? accSess.banned_until : null;
+  function accBlocked(){ return !!(accSess && (accSess.banned || accBlockedUntil())); }
   const accBase = () => normSupaUrl(supaUrl);
 
   // ważny token użytkownika (odświeżany, gdy zaraz wygaśnie) albo null
@@ -18533,22 +18666,66 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   // nagłówek Authorization: token zalogowanego użytkownika, a bez logowania klucz anon (jak dotąd)
   function accAuthHeader(){ return accToken().then(t => "Bearer " + (t || supaKey)); }
 
+  // głos 👍/👎 przez bazę: jedno konto = jeden głos, nie na własny wpis, nie dla zablokowanych (funkcja cast_vote, sql/accounts.sql).
+  // Zwraca obiekt z wynikiem albo null, gdy trzeba użyć starej ścieżki (brak tokena albo funkcji jeszcze nie ma w bazie).
+  async function accCastVote(kind, id, vote){
+    if(!supaConfigured()) return null;
+    const t = (await accToken()) || (typeof supaAdminToken === "function" ? await supaAdminToken() : null);
+    if(!t) return null;
+    const r = await fetch(accBase() + "/rest/v1/rpc/cast_vote", { method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t },
+      body: JSON.stringify({ p_kind: kind, p_id: String(id), p_vote: vote }) });
+    if(r.status === 404) return null;
+    if(!r.ok){ const err = new Error("HTTP " + r.status); err.status = r.status; throw err; }
+    return r.json();
+  }
+
   // ---------- okno: logowanie / pseudonim / konto ----------
   const ACC_G_SVG = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
   function accMsg(t){ const m = accEl("accMsg"); if(m) m.textContent = t || ""; }
   function accShow(mode, reason){
-    accMode = mode;
+    accMode = mode; accReason = reason; accNickFirst = mode === "nick" && reason === "first";
+    if(accNickFirst) accEl("accPrivacy").checked = false;
+    accEl("accTxt").classList.toggle("accPolicy", mode === "privacy");
     const show = (id, on) => { const e = accEl(id); if(e) e.style.display = on ? "" : "none"; };
     accMsg("");
     accEl("accGoogle").innerHTML = ACC_G_SVG + "<span>Kontynuuj z Google</span>";
     if(mode === "login"){
-      accEl("accTitle").textContent = "Zaloguj się";
-      accEl("accTxt").textContent = "Żeby " + (reason || "dodawać wpisy") + ", zaloguj się kontem Google. Dzięki temu wiadomo, kto dodaje dane, a spamerzy nie psują mapy. " +
-        "Nawigacji nadal możesz używać bez konta. Administrator widzi Twój pseudonim i e-mail.";
+      accEl("accTitle").textContent = "Zaloguj się lub załóż konto";
+      accEl("accTxt").textContent = "Żeby " + (reason || "dodawać wpisy") + ", zaloguj się albo załóż konto (Google lub e-mail). Dzięki temu wiadomo, kto dodaje dane, a spamerzy nie psują mapy. " +
+        "Nawigacji nadal możesz używać bez konta. Administrator widzi Twój pseudonim, e-mail i firmę (jeśli ją podasz).";
+    } else if(mode === "privacy"){
+      accEl("accTitle").textContent = "Polityka prywatności";
+      accEl("accTxt").textContent = accPolicyText();
+    } else if(mode === "checkmail"){
+      accEl("accTitle").textContent = "Sprawdź skrzynkę e-mail";
+      accEl("accTxt").textContent = "";
+    } else if(mode === "newpass"){
+      accEl("accTitle").textContent = "Ustaw nowe hasło";
+      accEl("accTxt").textContent = "Wpisz nowe hasło do swojego konta (co najmniej 8 znaków).";
+      accEl("accPass").value = "";
+    } else if(mode === "banned"){
+      const until = accBlockedUntil();
+      accEl("accTitle").textContent = "Konto zablokowane";
+      accEl("accTxt").textContent = until
+        ? "Twoje konto jest zablokowane do " + accDate(until) + " po ostrzeżeniach od administratora. W tym czasie nie możesz dodawać wpisów ani głosować. Nawigacja działa normalnie."
+        : "Administrator zablokował to konto, więc nie możesz dodawać wpisów ani głosować. Nawigacja działa normalnie.";
+    } else if(mode === "warn"){
+      accEl("accTitle").textContent = "Ostrzeżenie od administratora";
+      accEl("accTxt").textContent = "";
+    } else if(mode === "appeal"){
+      accEl("accTitle").textContent = "Napisz do administratora";
+      accEl("accTxt").textContent = "Wyjaśnij, dlaczego uważasz, że ostrzeżenie lub blokada to pomyłka. Odpowiedź zobaczysz tutaj, w aplikacji.";
+    } else if(mode === "appealreply"){
+      accEl("accTitle").textContent = "Odpowiedź administratora";
+      accEl("accTxt").textContent = "";
     } else if(mode === "nick"){
       accEl("accTitle").textContent = "Twój pseudonim";
-      accEl("accTxt").textContent = "Pod takim pseudonimem będą widoczne Twoje komentarze. Możesz go zmienić teraz albo później w Ustawieniach.";
+      accEl("accTxt").textContent = accNickFirst
+        ? "Wybierz pseudonim, pod którym będą widoczne Twoje komentarze i punkty, oraz zaakceptuj Politykę prywatności."
+        : "Pod takim pseudonimem będą widoczne Twoje komentarze. Możesz go zmienić teraz albo później w Ustawieniach.";
       accEl("accNickIn").value = accNick();
+      accEl("accRegCompany").value = (accSess && accSess.company) || "";
     } else {
       accEl("accTitle").textContent = "Twoje konto";
       accEl("accTxt").textContent = (accSess && accSess.email ? accSess.email : "") + "\nPseudonim: " + accNick();
@@ -18556,10 +18733,133 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     show("accGoogle", mode === "login");
     show("accNickIn", mode === "nick");
     show("accNickSave", mode === "nick");
+    show("accOk", mode === "warn" || mode === "appealreply");
+    show("accClose", mode !== "warn" && mode !== "appealreply");
+    show("accAppealIn", mode === "appeal");
+    show("accAppealSend", mode === "appeal");
+    accEl("accAppealOpen").style.display = "none"; accEl("accAppealNote").textContent = "";
+    accApplyAuthUi();
     show("accNickEdit", mode === "account");
-    show("accLogout", mode === "account");
+    show("accLogout", mode === "account" || mode === "banned");
+    show("accDelete", mode === "account");
     accEl("accModal").classList.add("show");
+    if(mode === "banned" || mode === "warn") accAppealState(mode);
   }
+  // ---------- logowanie / rejestracja e-mailem (Supabase Auth); Google zostaje obok ----------
+  const accVis = (id, on) => { const e = accEl(id); if(e) e.style.display = on ? "" : "none"; };
+  function accApplyAuthUi(){
+    const login = accMode === "login", np = accMode === "newpass", reg = login && accTab === "register";
+    accVis("accOr", login); accVis("accTabs", login); accVis("accGoogleNote", login);
+    accVis("accConsent", reg || (accMode === "nick" && accNickFirst));
+    accVis("accRegNick", reg); accVis("accRegCompany", reg || accMode === "nick");
+    accVis("accEmail", login); accVis("accPass", login || np);
+    accVis("accAuthSubmit", login || np);
+    accVis("accForgot", login && accTab === "login");
+    accVis("accResend", accMode === "checkmail" && accCheckKind === "signup");
+    accEl("accTabLogin").classList.toggle("active", accTab === "login");
+    accEl("accTabReg").classList.toggle("active", accTab === "register");
+    accEl("accAuthSubmit").textContent = np ? "Zapisz nowe hasło" : reg ? "Załóż konto" : "Zaloguj się";
+    accEl("accPass").autocomplete = reg || np ? "new-password" : "current-password";
+    accEl("accPass").placeholder = np ? "Nowe hasło (min. 8 znaków)" : "Hasło (min. 8 znaków)";
+  }
+  function accSetTab(t){ accTab = t; accMsg(""); accApplyAuthUi(); }
+  function accShowCheckMail(email, text, kind){
+    accPendingEmail = email; accCheckKind = kind || "signup";
+    accShow("checkmail");
+    accEl("accTxt").textContent = text || ("Wysłaliśmy wiadomość na adres " + email + ". Kliknij link w e-mailu, żeby potwierdzić adres i dokończyć rejestrację — wrócisz do aplikacji już zalogowany. Jeśli jej nie widzisz, sprawdź folder Spam.");
+    accApplyAuthUi();
+  }
+  async function accAuthCall(path, method, body, token){
+    const r = await fetch(accBase() + path, { method, headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + (token || supaKey) }, body: body ? JSON.stringify(body) : undefined });
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return { r, j };
+  }
+  function accAuthErr(r, j){
+    const m = String((j && (j.msg || j.message || j.error_description || j.error)) || "").toLowerCase(), code = String((j && j.error_code) || "");
+    if(code === "email_not_confirmed" || m.includes("email not confirmed")) return { text: "Ten adres e-mail nie został jeszcze potwierdzony. Kliknij link w wiadomości od nas.", resend: true };
+    if(code === "invalid_credentials" || m.includes("invalid login")) return { text: "Nieprawidłowy e-mail lub hasło." };
+    if(code === "weak_password" || m.includes("password should be")) return { text: "Hasło jest za słabe — użyj co najmniej 8 znaków." };
+    if(r.status === 429 || code.includes("rate_limit")) return { text: "Za dużo prób. Spróbuj ponownie za kilka minut." };
+    if(code === "email_address_not_authorized") return { text: "Wysyłka e-maili nie jest jeszcze skonfigurowana (własny serwer poczty w Supabase). Użyj logowania przez Google." };
+    if(r.status >= 500) return { text: "Serwer nie mógł wysłać e-maila. Spróbuj później." };
+    return { text: (j && (j.msg || j.message || j.error_description)) || "Nie udało się (HTTP " + r.status + ")." };
+  }
+  function accNickProblem(nick){
+    if(nick.length < 3 || nick.length > 24) return "Pseudonim ma mieć od 3 do 24 znaków.";
+    if(!/^[\p{L}\p{N} _.\-]+$/u.test(nick)) return "Dozwolone: litery, cyfry, spacja, kropka, myślnik.";
+    return "";
+  }
+  function accSessionFromResponse(j){
+    const u = j.user || {}, um = u.user_metadata || {};
+    accSess = { access_token: j.access_token, refresh_token: j.refresh_token || "", expires_at: Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+      id: u.id || "", email: u.email || "", name: um.nick || um.full_name || um.name || String(u.email || "").split("@")[0] || "Kierowca" };
+    accSave();
+  }
+  const accKeepResume = () => { try{ if(accPending) localStorage.setItem(ACC_RESUME_KEY, JSON.stringify({ r: accPending, at: Date.now() })); }catch(e){} };
+  async function accRegister(email, pass){
+    const nick = accEl("accRegNick").value.trim().replace(/\s+/g, " "), company = accEl("accRegCompany").value.trim().slice(0, 80);
+    const bad = accNickProblem(nick); if(bad){ accMsg(bad); return; }
+    try{   // wolny pseudonim? (gdy funkcji jeszcze nie ma w bazie, pomijamy — baza i tak pilnuje unikalności)
+      const r = await fetch(accBase() + "/rest/v1/rpc/nick_available", { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey }, body: JSON.stringify({ p_nick: nick }) });
+      if(r.ok && (await r.json()) === false){ accMsg("Ten pseudonim jest już zajęty."); return; }
+    }catch(e){}
+    accKeepResume();
+    const back = location.origin + location.pathname;
+    const { r, j } = await accAuthCall("/auth/v1/signup?redirect_to=" + encodeURIComponent(back), "POST", { email, password: pass, data: { nick, company: company || null, privacy_version: ACC_PRIVACY.version } });
+    if(!r.ok){ accMsg(accAuthErr(r, j).text); return; }
+    if(j.access_token){ accSessionFromResponse(j); accHide(); accSync(true); return; }   // gdy w Supabase wyłączono potwierdzanie e-maila
+    accShowCheckMail(email);
+  }
+  async function accLoginPassword(email, pass){
+    const { r, j } = await accAuthCall("/auth/v1/token?grant_type=password", "POST", { email, password: pass });
+    if(!r.ok){
+      const e = accAuthErr(r, j); accMsg(e.text);
+      if(e.resend){ accPendingEmail = email; accCheckKind = "signup"; accVis("accResend", true); }
+      return;
+    }
+    accKeepResume(); accSessionFromResponse(j); accHide(); accSync(true);
+  }
+  async function accAuthSubmit(){
+    const btn = accEl("accAuthSubmit"); accMsg("");
+    if(accMode === "newpass"){
+      const p = accEl("accPass").value;
+      if(p.length < 8){ accMsg("Hasło ma mieć co najmniej 8 znaków."); return; }
+      btn.disabled = true;
+      try{
+        const t = await accToken(); if(!t){ accMsg("Sesja wygasła — poproś o nowy link."); return; }
+        const { r, j } = await accAuthCall("/auth/v1/user", "PUT", { password: p }, t);
+        if(!r.ok){ accMsg(accAuthErr(r, j).text); return; }
+        accHide(); showBanner("HASŁO ZMIENIONE", "Możesz logować się nowym hasłem", false);
+      }finally{ btn.disabled = false; }
+      return;
+    }
+    const email = accEl("accEmail").value.trim(), pass = accEl("accPass").value;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ accMsg("Wpisz poprawny adres e-mail."); return; }
+    if(pass.length < 8){ accMsg("Hasło ma mieć co najmniej 8 znaków."); return; }
+    if(accTab === "register" && !accEl("accPrivacy").checked){ accMsg("Zaakceptuj Politykę prywatności, żeby założyć konto."); return; }
+    btn.disabled = true;
+    try{ if(accTab === "register") await accRegister(email, pass); else await accLoginPassword(email, pass); }
+    catch(e){ accMsg("Brak połączenia — spróbuj ponownie."); }
+    finally{ btn.disabled = false; }
+  }
+  async function accForgot(){
+    const email = accEl("accEmail").value.trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ accMsg("Wpisz adres e-mail, na który wyślemy link."); return; }
+    try{
+      const { r, j } = await accAuthCall("/auth/v1/recover?redirect_to=" + encodeURIComponent(location.origin + location.pathname), "POST", { email });
+      if(!r.ok){ accMsg(accAuthErr(r, j).text); return; }
+      accShowCheckMail(email, "Jeśli konto z adresem " + email + " istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Sprawdź też folder Spam.", "recover");
+    }catch(e){ accMsg("Brak połączenia — spróbuj ponownie."); }
+  }
+  async function accResend(){
+    if(!accPendingEmail) return;
+    try{
+      const { r, j } = await accAuthCall("/auth/v1/resend?redirect_to=" + encodeURIComponent(location.origin + location.pathname), "POST", { type: "signup", email: accPendingEmail });
+      if(!r.ok){ accMsg(accAuthErr(r, j).text); return; }
+      accEl("accAppealNote").textContent = "Wysłano ponownie na adres " + accPendingEmail + ".";
+    }catch(e){ accMsg("Brak połączenia — spróbuj ponownie."); }
+  }
+
   function accHide(){
     accEl("accModal").classList.remove("show");
     if(accAfterModal){ const r = accAfterModal; accAfterModal = null; accResume(r); }
@@ -18609,53 +18909,132 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     showBanner("WYLOGOWANO", "Do dodawania komentarzy i punktów zalogujesz się ponownie", false);
   }
 
+  // kierowca usuwa własne konto (RPC delete_my_account): dwa potwierdzenia; wpisy zostają na mapie jako anonimowe
+  async function accDeleteMe(){
+    if(!confirm("Usunąć Twoje konto?\n\nStracisz możliwość dodawania wpisów i głosowania na tym koncie. Twoje komentarze i punkty zostaną na mapie jako anonimowe. Tego nie da się cofnąć.")) return;
+    if(!confirm("Ostatnie potwierdzenie: na pewno usunąć konto „" + accNick() + "”?")) return;
+    const t = await accToken(); if(!t){ accMsg("Sesja wygasła — zaloguj się ponownie."); return; }
+    try{
+      const r = await fetch(accBase() + "/rest/v1/rpc/delete_my_account", { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t }, body: "{}" });
+      if(!r.ok){ accMsg(r.status === 404 ? "Usuwanie konta nie jest jeszcze dostępne w bazie." : "Nie udało się usunąć konta (HTTP " + r.status + ")."); return; }
+    }catch(e){ accMsg("Brak połączenia — spróbuj ponownie."); return; }
+    accSess = null; accSave(); accHide();
+    showBanner("KONTO USUNIĘTE", "Twoje konto zostało usunięte", false);
+  }
+
   // ---------- profil: pseudonim, ostatnia wizyta ----------
   async function accLoadProfile(){
     const t = await accToken(); if(!t || !accSess) return null;
     try{
-      const r = await fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id) + "&select=nick,nick_set", { headers: { "apikey": supaKey, "Authorization": "Bearer " + t } });
+      const r = await fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id) + "&select=nick,nick_set,company,privacy_version,banned,banned_until,cycle_warnings,block_count,unseen_warnings,appeal_reply_unseen", { headers: { "apikey": supaKey, "Authorization": "Bearer " + t } });
       if(!r.ok) return null;
       const a = await r.json(); return (a && a[0]) || null;
     }catch(e){ return null; }
   }
-  async function accSaveNick(nick){
+  async function accSaveNick(nick, company, acceptPrivacy){
     nick = String(nick || "").trim().replace(/\s+/g, " ");
-    if(nick.length < 3 || nick.length > 24) return "Pseudonim ma mieć od 3 do 24 znaków.";
-    if(!/^[\p{L}\p{N} _.\-]+$/u.test(nick)) return "Dozwolone: litery, cyfry, spacja, kropka, myślnik.";
+    company = String(company || "").trim().slice(0, 80);
+    const bad = accNickProblem(nick); if(bad) return bad;
     if(!accSess.hasProfile){ accSess.nick = nick; accSave(); return ""; }   // baza profili jeszcze nie ustawiona (sql/accounts.sql) — tylko na tym telefonie
     const t = await accToken(); if(!t) return "Sesja wygasła — zaloguj się ponownie.";
     try{
       const r = await fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id), {
         method: "PATCH", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t, "Prefer": "return=minimal" },
-        body: JSON.stringify({ nick, nick_set: true })
+        body: JSON.stringify(Object.assign({ nick, nick_set: true, company: company || null }, acceptPrivacy ? { privacy_version: ACC_PRIVACY.version, privacy_accepted_at: new Date().toISOString() } : {}))
       });
       if(r.status === 409) return "Ten pseudonim jest już zajęty.";
       if(!r.ok) return "Nie udało się zapisać (HTTP " + r.status + ").";
     }catch(e){ return "Brak połączenia — spróbuj ponownie."; }
-    accSess.nick = nick; accSave(); return "";
+    accSess.nick = nick; accSess.company = company; if(acceptPrivacy) accSess.privacyOk = true; accSave(); return "";
   }
   // po zalogowaniu i przy starcie: pobierz profil; przy pierwszym logowaniu zapytaj o pseudonim; zapisz „ostatnio widziany” (max raz na 6 h)
   async function accSync(fresh){
     const p = await accLoadProfile();
     if(!accSess) return;
     accSess.hasProfile = !!p;
-    if(p) accSess.nick = p.nick || accSess.name;
+    if(p){
+      accSess.nick = p.nick || accSess.name; accSess.company = p.company || ""; accSess.privacyOk = !!p.privacy_version; accSess.banned = !!p.banned; accSess.banned_until = p.banned_until || null;
+      accSess.cycle_warnings = p.cycle_warnings || 0; accSess.block_count = p.block_count || 0; accSess.unseen_warnings = p.unseen_warnings || 0; accSess.appeal_reply_unseen = !!p.appeal_reply_unseen;
+    }
     accSave();
     if(fresh){
       const r = accResumeLoad();
       showBanner("ZALOGOWANO", "Zalogowano jako " + accNick() + (r ? " — wracamy do tego, co było robione" : ""), false);
-      if(p && !p.nick_set){ accAfterModal = r; accShow("nick"); }     // najpierw pseudonim, potem wznowienie
+      if(p && (!p.nick_set || !p.privacy_version)){ accAfterModal = r; accShow("nick", "first"); }     // najpierw pseudonim i zgoda, potem wznowienie
       else accResume(r);
     }
     accBeat();
+    if(p && p.unseen_warnings > 0) setTimeout(accCheckWarnings, fresh ? 2500 : 600);
+    else if(p && p.appeal_reply_unseen) setTimeout(accCheckAppealReply, fresh ? 2500 : 600);
+  }
+  // odwołania: ostatnie odwołanie użytkownika; odpowiedź administratora pokazujemy raz, potem „Rozumiem”
+  async function accLastAppeal(resolvedOnly){
+    const t = await accToken(); if(!t || !accSess) return null;
+    try{
+      const r = await fetch(accBase() + "/rest/v1/user_appeals?select=message,status,admin_reply,created_at,replied_at&limit=1&user_id=eq." + encodeURIComponent(accSess.id) +
+        (resolvedOnly ? "&status=neq.open&order=replied_at.desc" : "&order=created_at.desc"), { headers: { "apikey": supaKey, "Authorization": "Bearer " + t } });
+      if(!r.ok) return null; const a = await r.json(); return a[0] || null;
+    }catch(e){ return null; }
+  }
+  async function accAppealState(mode){   // przy ostrzeżeniu / blokadzie: przycisk „Odwołaj się” albo informacja, że odwołanie czeka
+    const btn = accEl("accAppealOpen"); btn.style.display = "none"; accEl("accAppealNote").textContent = "";
+    const last = await accLastAppeal(false); if(accMode !== mode) return;
+    if(last && last.status === "open"){ accEl("accAppealNote").textContent = "Twoje odwołanie czeka na odpowiedź administratora."; return; }
+    btn.style.display = "";
+  }
+  async function accCheckAppealReply(){
+    if(!accLoggedIn() || accEl("accModal").classList.contains("show")) return;
+    const a = await accLastAppeal(true); if(!a) return;
+    accShow("appealreply");
+    accEl("accTitle").textContent = "Odpowiedź administratora";
+    accEl("accTxt").textContent = (a.status === "accepted" ? "✅ Odwołanie uwzględnione. Konto jest odblokowane albo ostrzeżenie zostało zdjęte." : "⛔ Odwołanie odrzucone.") + (a.admin_reply ? "\n\n" + a.admin_reply : "");
+  }
+  async function accSendAppeal(){
+    const btn = accEl("accAppealSend"); btn.disabled = true;
+    try{
+      await accRpc("submit_appeal", { p_message: accEl("accAppealIn").value });
+      accEl("accAppealIn").value = ""; accHide();
+      showBanner("ODWOŁANIE WYSŁANE", "Administrator odpowie tutaj, w aplikacji", false);
+    }catch(e){ accMsg(String(e.message || e)); }
+    btn.disabled = false;
+  }
+  // ostrzeżenia od administratora: pokazujemy każde, którego użytkownik jeszcze nie przeczytał, razem z tym, co dalej
+  async function accCheckWarnings(){
+    if(!accLoggedIn() || accEl("accModal").classList.contains("show")) return;
+    const t = await accToken(); if(!t) return;
+    try{
+      const r = await fetch(accBase() + "/rest/v1/user_warnings?select=reason,created_at&kind=eq.warning&seen_at=is.null&order=created_at.asc&user_id=eq." + encodeURIComponent(accSess.id),
+        { headers: { "apikey": supaKey, "Authorization": "Bearer " + t } });
+      if(!r.ok) return;
+      const rows = await r.json(); if(!rows.length) return;
+      accShow("warn");
+      const cyc = accSess.cycle_warnings || 0, blk = accSess.block_count || 0, until = accBlockedUntil();
+      const next = until ? "Twoje konto jest zablokowane do " + accDate(until) + "."
+        : (cyc === 0 && blk >= 3) ? "O dalszych krokach zdecyduje administrator."
+        : "To ostrzeżenie " + cyc + " z 3. Po trzecim " + (blk === 0 ? "konto zostanie zablokowane na 5 dni." : blk === 1 ? "konto zostanie zablokowane na 10 dni." : "o dalszych krokach zdecyduje administrator.");
+      accEl("accTitle").textContent = rows.length > 1 ? "Ostrzeżenia od administratora" : "Ostrzeżenie od administratora";
+      accEl("accTxt").textContent = rows.map(w => "• " + w.reason).join("\n") + "\n\n" + next;
+    }catch(e){}
+  }
+  async function accAckWarnings(){
+    const reply = accMode === "appealreply";
+    try{ await accRpc(reply ? "ack_appeal_reply" : "ack_warnings", {}); }catch(e){}
+    if(accSess){ if(reply) accSess.appeal_reply_unseen = false; else accSess.unseen_warnings = 0; accSave(); }
+    accHide();
   }
   // „aktywny teraz”: znacznik last_seen odświeżany co 2 min, dopóki aplikacja jest otwarta i widoczna; administrator widzi 🟢 przy ≤ 5 min
   async function accBeat(){
     if(!accLoggedIn() || !accSess.hasProfile || !supaConfigured() || document.hidden) return;
     const t = await accToken(); if(!t) return;
-    fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id), {
-      method: "PATCH", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t, "Prefer": "return=minimal" },
+    fetch(accBase() + "/rest/v1/profiles?select=banned,banned_until,cycle_warnings,block_count,unseen_warnings,appeal_reply_unseen&id=eq." + encodeURIComponent(accSess.id), {
+      method: "PATCH", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t, "Prefer": "return=representation" },
       body: JSON.stringify({ last_seen: new Date().toISOString() })
+    }).then(r => r.ok ? r.json() : null).then(a => {   // przy okazji: blokada, ostrzeżenia od administratora
+      if(!a || !a[0] || !accSess) return;
+      const o = a[0];
+      Object.assign(accSess, { banned: !!o.banned, banned_until: o.banned_until || null, cycle_warnings: o.cycle_warnings || 0, block_count: o.block_count || 0, unseen_warnings: o.unseen_warnings || 0, appeal_reply_unseen: !!o.appeal_reply_unseen });
+      accSave();
+      if(o.unseen_warnings > 0) accCheckWarnings(); else if(o.appeal_reply_unseen) accCheckAppealReply();
     }).catch(() => {});
   }
 
@@ -18664,8 +19043,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{
       if(!supaConfigured()) return false;                                                       // bez wspólnej bazy nic nie jest udostępniane
       if(typeof isAdmin === "function" && isAdmin() && adminSessionLoad()) return false;       // administrator ma własne konto
-      if(accLoggedIn()) return false;
+      if(accLoggedIn() && !accBlocked()){
+        if(accSess.hasProfile && !accSess.privacyOk){ accShow("nick", "first"); return true; }   // bez zaakceptowanej Polityki prywatności nie dodasz wpisu
+        return false;
+      }
     }catch(e){ return false; }
+    if(accLoggedIn()){ accShow("banned"); return true; }     // konto zablokowane przez administratora
     accPending = resume || null;
     accShow("login", reason);
     return true;
@@ -18683,21 +19066,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     accSess = { access_token: at, refresh_token: q.get("refresh_token") || "",
       expires_at: c.exp || (Math.floor(Date.now() / 1000) + (parseInt(q.get("expires_in"), 10) || 3600)),
       id: c.sub || "", email: c.email || um.email || "",
-      name: um.full_name || um.name || String(c.email || "").split("@")[0] || "Kierowca" };
+      name: um.nick || um.full_name || um.name || String(c.email || "").split("@")[0] || "Kierowca" };
     accSave();
+    if(q.get("type") === "recovery") accRecovery = true;     // kliknięty link „nowe hasło”: poprosimy o nowe hasło
     return true;
   }
 
   // ---------- Ustawienia: przycisk konta ----------
   function accRenderUi(){
     const b = accEl("accSettingsBtn"); if(!b) return;
-    b.textContent = accLoggedIn() ? "🟢 " + accNick() + " · konto" : "🔴 Zaloguj się przez Google";
+    b.textContent = accLoggedIn() ? (accBlocked() ? "🚫 " + accNick() + " · konto zablokowane" : "🟢 " + accNick() + " · konto") : "🔴 Zaloguj się / załóż konto";
   }
 
   // ---------- administrator: zakładka „👥 Użytkownicy” ----------
   const ACC_KIND = { speed_camera: ["📷", "Fotoradar"], camera: ["📷", "Fotoradar"], hgv_parking: ["🅿️", "Parking HGV"], parking: ["🅿️", "Parking HGV"],
     weight: ["⚖️", "Limit tonażu"], height: ["🌉", "Niski most / wysokość"], place_name: ["🏷️", "Nazwa budynku"], review: ["💬", "Opinia"],
-    photo: ["📸", "Zdjęcie"], parking_rating: ["⭐", "Ocena parkingu"], poi_suggestion: ["✏️", "Poprawka danych firmy"] };
+    photo: ["📸", "Zdjęcie"], parking_rating: ["⭐", "Ocena parkingu"], poi_suggestion: ["✏️", "Poprawka danych firmy"],
+    vote_yes: ["👍", "Potwierdził wpis"], vote_no: ["👎", "Zaprzeczył wpisowi"], warning: ["⚠", "Ostrzeżenie"], block: ["🚫", "Blokada"], appeal: ["✉", "Odwołanie"] };
   const ACC_STATUS = { pending: "czeka na potwierdzenie", active: "potwierdzone przez innych", approved: "zatwierdzone", rejected: "odrzucone", hidden: "ukryte przez społeczność" };
   let accUsers = [], accUsersAt = 0;
   async function accAdminRpc(fn, body){
@@ -18705,7 +19090,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!t) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
     const r = await fetch(accBase() + "/rest/v1/rpc/" + fn, { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t }, body: JSON.stringify(body || {}) });
     if(!r.ok){
-      if(r.status === 404) throw new Error("brak funkcji w bazie — uruchom sql/accounts.sql");
+      if(r.status === 404) throw new Error("brak funkcji w bazie — uruchom odpowiedni plik SQL (accounts.sql albo nh-shared.sql)");
       let m = ""; try{ m = (await r.text()).slice(0, 140); }catch(e){}
       throw new Error("HTTP " + r.status + (m ? " — " + m : ""));
     }
@@ -18714,11 +19099,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const accDate = s => { if(!s) return "—"; const d = new Date(s), p = v => String(v).padStart(2, "0"); return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()); };
   const accMk = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
   const accActive = u => !!u.last_seen && Date.now() - Date.parse(u.last_seen) < ACC_ACTIVE_MS;
-  function accPresenceText(u){ return "Zarejestrowany: " + accDate(u.created_at) + " · " + (accActive(u) ? "aktywny teraz" : "ostatnio: " + accDate(u.last_seen)); }
+  const accUserBlocked = u => !!(u.banned || (u.banned_until && Date.parse(u.banned_until) > Date.now()));
+  const accDot = u => accUserBlocked(u) ? "🚫" : (accActive(u) ? "🟢" : "🔴");
+  function accPresenceText(u){
+    return "Zarejestrowany: " + accDate(u.created_at) + " · " +
+      (u.banned ? "ZABLOKOWANY" : accUserBlocked(u) ? "zablokowany do " + accDate(u.banned_until) : accActive(u) ? "aktywny teraz" : "ostatnio: " + accDate(u.last_seen));
+  }
   function accUpdatePresence(){   // odświeża same kropki 🟢/🔴 bez przebudowy listy (zostają rozwinięte historie)
     document.querySelectorAll("#usrList .usrItem").forEach(it => {
       const u = accUsers.find(x => x.id === it.dataset.id); if(!u) return;
-      it.querySelector(".usrDot").textContent = accActive(u) ? "🟢" : "🔴";
+      it.querySelector(".usrDot").textContent = accDot(u);
       it.querySelector(".usrSeen").textContent = accPresenceText(u);
     });
   }
@@ -18731,11 +19121,27 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!rows.length){ box.appendChild(accMk("div", "psMuted", accUsers.length ? "Brak wyników." : "Nikt się jeszcze nie zarejestrował.")); return; }
     rows.forEach(u => {
       const it = accMk("div", "rpItem usrItem"); it.dataset.id = u.id;
-      const head = accMk("div", "rpHead"); head.appendChild(accMk("span", "usrDot", accActive(u) ? "🟢" : "🔴")); head.appendChild(accMk("span", "rpKind", u.nick || "(bez pseudonimu)")); head.appendChild(accMk("span", "psMuted", u.email || ""));
+      const head = accMk("div", "rpHead"); head.appendChild(accMk("span", "usrDot", accDot(u))); head.appendChild(accMk("span", "rpKind", u.nick || "(bez pseudonimu)"));
+      if(u.low_trust) head.appendChild(accMk("span", "usrWarn", "⚠ niskie zaufanie"));
+      if(u.needs_decision) head.appendChild(accMk("span", "usrWarn", "⏳ wymaga Twojej decyzji"));
+      if(u.open_appeals > 0) head.appendChild(accMk("span", "usrWarn", "✉ odwołanie"));
+      if(u.email_confirmed === false) head.appendChild(accMk("span", "usrWarn", "✉ e-mail niepotwierdzony"));
+      head.appendChild(accMk("span", "psMuted", u.email || ""));
       it.appendChild(head);
+      if(u.company) it.appendChild(accMk("div", "rpNote", "Firma: " + u.company));
       it.appendChild(accMk("div", "rpNote usrSeen", accPresenceText(u)));
-      it.appendChild(accMk("div", "rpNote", "Wpisów: " + (u.n_total || 0) + " · 👍 " + (u.n_confirmed || 0) + " · 👎 " + (u.n_denied || 0)));
-      const act = accMk("div", "rpAct"); const b = accMk("button", "", "Historia ▾"); b.type = "button"; b.dataset.hist = u.id; act.appendChild(b); it.appendChild(act);
+      it.appendChild(accMk("div", "rpNote", "Ostrzeżenia: " + (u.cycle_warnings || 0) + "/3 · blokad: " + (u.block_count || 0)));
+      it.appendChild(accMk("div", "rpNote", "Aktywności: " + (u.n_total || 0) + " · 👍 " + (u.n_confirmed || 0) + " · 👎 " + (u.n_denied || 0)));
+      const act = accMk("div", "rpAct"); const b = accMk("button", "", "Historia ▾"); b.type = "button"; b.dataset.hist = u.id; act.appendChild(b);
+      const bw = accMk("button", "", "⚠ Ostrzeż"); bw.type = "button"; bw.dataset.warn = u.id; act.appendChild(bw);
+      const ba = accMk("button", "", "✉ Odwołania" + (u.open_appeals > 0 ? " (" + u.open_appeals + ")" : "")); ba.type = "button"; ba.dataset.appeal = u.id; act.appendChild(ba);
+      if(!u.banned){ const bd = accMk("button", "", "⏱ Zablokuj na dni…"); bd.type = "button"; bd.dataset.days = u.id; act.appendChild(bd); }
+      const bb = accMk("button", "", accUserBlocked(u) ? "✅ Odblokuj" : "🚫 Zablokuj na stałe"); bb.type = "button"; bb.dataset.ban = u.id; act.appendChild(bb);
+      if(u.needs_decision){ const bk = accMk("button", "", "Zostaw bez blokady"); bk.type = "button"; bk.dataset.keep = u.id; act.appendChild(bk); }
+      const bc = accMk("button", "", "🗑 Usuń wpisy"); bc.type = "button"; bc.dataset.delc = u.id; act.appendChild(bc);
+      const bu = accMk("button", "", "❌ Usuń konto"); bu.type = "button"; bu.dataset.delu = u.id; act.appendChild(bu);
+      it.appendChild(act);
+      it.appendChild(accMk("div", "usrAppeal"));
       it.appendChild(accMk("div", "usrHist"));
       box.appendChild(it);
     });
@@ -18755,6 +19161,210 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{ accUsers = await accAdminRpc("admin_list_users"); accUsersAt = Date.now(); accRenderUsers(); }
     catch(e){ box.textContent = ""; box.appendChild(accMk("div", "psMuted", "⚠ " + (e.message || e))); }
   }
+  // blokada spamera: pierwsze dotknięcie prosi o potwierdzenie (na 4 s), drugie blokuje; odblokowanie jest od razu
+  async function accAdminBan(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.ban); if(!u) return;
+    const target = !accUserBlocked(u);
+    if(target && btn.dataset.sure !== "1"){
+      btn.dataset.sure = "1"; btn.textContent = "Na pewno? Dotknij ponownie";
+      setTimeout(() => { if(btn.isConnected && btn.dataset.sure === "1"){ btn.dataset.sure = ""; btn.textContent = "🚫 Zablokuj na stałe"; } }, 4000);
+      return;
+    }
+    btn.disabled = true;
+    try{ await accAdminRpc("admin_set_ban", { p_user: u.id, p_banned: target }); u.banned = target; if(!target){ u.banned_until = null; u.needs_decision = false; } else u.needs_decision = false; accRenderUsers(); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  // ostrzeżenie: powód widzi użytkownik; 3 ostrzeżenia = blokada 5 dni, kolejne 3 = 10 dni, kolejne 3 = Twoja decyzja
+  async function accAdminWarn(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.warn); if(!u) return;
+    const reason = prompt("Powód ostrzeżenia dla „" + (u.nick || u.email) + "” (użytkownik go zobaczy):", "");
+    if(reason === null) return;
+    if(reason.trim().length < 3){ showBanner("ZA KRÓTKI POWÓD", "Wpisz co najmniej 3 znaki", false); return; }
+    const cyc = u.cycle_warnings || 0, blk = u.block_count || 0;
+    const what = cyc >= 2
+      ? (blk === 0 ? "To będzie 3. ostrzeżenie — konto zostanie zablokowane na 5 dni." : blk === 1 ? "To będzie 3. ostrzeżenie — konto zostanie zablokowane na 10 dni." : "To będzie 3. ostrzeżenie kolejnego cyklu — o dalszych krokach zdecydujesz Ty.")
+      : "To będzie ostrzeżenie " + (cyc + 1) + " z 3.";
+    if(!confirm("Wysłać ostrzeżenie dla „" + (u.nick || u.email) + "”?\n\nPowód: " + reason.trim() + "\n\n" + what)) return;
+    btn.disabled = true;
+    try{
+      const res = await accAdminRpc("admin_warn_user", { p_user: u.id, p_reason: reason.trim() });
+      showBanner("OSTRZEŻENIE WYSŁANE", res.banned_until ? "Konto zablokowane do " + accDate(res.banned_until) : res.needs_decision ? "Czeka na Twoją decyzję" : "Ostrzeżenie " + res.cycle_warnings + " z 3", false);
+      accAdminLoad(true);
+    }catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  // blokada na wybraną liczbę dni (np. przy „wymaga decyzji”)
+  async function accAdminBlockDays(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.days); if(!u) return;
+    const raw = prompt("Na ile dni zablokować „" + (u.nick || u.email) + "”? Wpisz liczbę dni (1–365). Blokada na stałe: osobny przycisk.", "30");
+    if(raw === null) return;
+    const days = parseInt(raw, 10);
+    if(!(days >= 1 && days <= 365)){ showBanner("ZŁA LICZBA DNI", "Wpisz liczbę od 1 do 365", false); return; }
+    if(!confirm("Zablokować „" + (u.nick || u.email) + "” na " + days + " dni?")) return;
+    btn.disabled = true;
+    try{ const until = await accAdminRpc("admin_block_days", { p_user: u.id, p_days: days }); showBanner("ZABLOKOWANO", "Do " + accDate(until), false); accAdminLoad(true); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  // odwołania użytkownika: czytasz wiadomość, uwzględniasz (odblokowuje / zdejmuje ostrzeżenie) albo odrzucasz, z odpowiedzią
+  async function accAdminAppeals(btn){
+    const box = btn.closest(".usrItem").querySelector(".usrAppeal");
+    if(box.dataset.open === "1"){ box.dataset.open = ""; box.textContent = ""; return; }
+    box.dataset.open = "1"; box.textContent = "Ładuję…";
+    try{
+      const rows = await accAdminRpc("admin_user_appeals", { p_user: btn.dataset.appeal });
+      box.textContent = "";
+      if(!rows.length){ box.appendChild(accMk("div", "psMuted", "Ten użytkownik nie pisał odwołań.")); return; }
+      rows.forEach(a => {
+        const row = accMk("div", "usrRow");
+        row.appendChild(accMk("div", "usrT", (a.status === "open" ? "✉ Czeka na odpowiedź" : a.status === "accepted" ? "✅ Uwzględnione" : "⛔ Odrzucone") + " · " + accDate(a.created_at)));
+        row.appendChild(accMk("div", "", a.message));
+        if(a.admin_reply) row.appendChild(accMk("div", "psMuted", "Twoja odpowiedź: " + a.admin_reply));
+        if(a.status === "open"){
+          const b = accMk("div", "usrBtns");
+          [["✅ Uwzględnij", "1"], ["⛔ Odrzuć", ""]].forEach(([t, yes]) => { const x = accMk("button", "", t); x.type = "button"; x.dataset.apid = a.id; x.dataset.yes = yes; b.appendChild(x); });
+          row.appendChild(b);
+        }
+        box.appendChild(row);
+      });
+    }catch(e){ box.textContent = "⚠ " + (e.message || e); }
+  }
+  async function accAdminResolve(btn){
+    const yes = btn.dataset.yes === "1";
+    const reply = prompt(yes ? "Odpowiedź dla użytkownika (możesz zostawić puste). Uwzględnienie odblokuje konto lub zdejmie ostrzeżenie:" : "Odpowiedź dla użytkownika (możesz zostawić puste):", "");
+    if(reply === null) return;
+    if(!confirm(yes ? "Uwzględnić odwołanie? Konto zostanie odblokowane albo zniknie jedno ostrzeżenie." : "Odrzucić odwołanie?")) return;
+    btn.disabled = true;
+    try{ await accAdminRpc("admin_resolve_appeal", { p_id: parseInt(btn.dataset.apid, 10), p_accept: yes, p_reply: reply.trim() }); showBanner(yes ? "UWZGLĘDNIONE" : "ODRZUCONE", "Użytkownik zobaczy odpowiedź w aplikacji", false); accAdminLoad(true); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  async function accAdminKeep(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.keep); if(!u) return;
+    if(!confirm("Zostawić „" + (u.nick || u.email) + "” bez blokady? Kolejny cykl ostrzeżeń znów będzie wymagał Twojej decyzji.")) return;
+    btn.disabled = true;
+    try{ await accAdminRpc("admin_clear_decision", { p_user: u.id }); u.needs_decision = false; accRenderUsers(); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  // usuwanie przez administratora — każde z potwierdzeniem; wpisy konta usuwa się osobno, konto zostawia wpisy anonimowe
+  async function accAdminDeleteEntry(btn){
+    if(!confirm("Usunąć ten wpis? Tego nie da się cofnąć.")) return;
+    btn.disabled = true;
+    try{ await accAdminRpc("admin_delete_entry", { p_src: btn.dataset.src, p_id: btn.dataset.tid }); const row = btn.closest(".usrRow"); if(row) row.remove(); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  async function accAdminDeleteContent(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.delc); if(!u) return;
+    if(!confirm("Usunąć WSZYSTKIE wpisy użytkownika „" + (u.nick || u.email) + "” (punkty, komentarze, zdjęcia)? Tego nie da się cofnąć.")) return;
+    btn.disabled = true;
+    try{
+      const n = await accAdminRpc("admin_delete_user_content", { p_user: u.id });
+      showBanner("USUNIĘTO WPISY", "Usunięto wpisów: " + n, false);
+      accAdminLoad(true);
+    }catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  async function accAdminDeleteUser(btn){
+    const u = accUsers.find(x => x.id === btn.dataset.delu); if(!u) return;
+    const who = "„" + (u.nick || "") + "” (" + (u.email || "bez e-maila") + ")";
+    if(!confirm("Usunąć konto " + who + "?\n\nUżytkownik straci dostęp. Jego wpisy zostaną na mapie jako anonimowe (jeśli chcesz je usunąć, najpierw użyj „Usuń wpisy”). Tego nie da się cofnąć.")) return;
+    if(!confirm("Ostatnie potwierdzenie: na pewno usunąć konto " + who + "?")) return;
+    btn.disabled = true;
+    try{ await accAdminRpc("admin_delete_user", { p_user: u.id, p_delete_content: false }); showBanner("KONTO USUNIĘTE", "Usunięto konto " + (u.nick || ""), false); accAdminLoad(true); }
+    catch(e){ btn.disabled = false; btn.textContent = "⚠ " + (e.message || e); }
+  }
+  // karta punktu (administrator): autor, poziom zaufania, Zatwierdź / Odrzuć od razu (z pominięciem progu potwierdzeń)
+  function accAdminCard(prefix, target){
+    const box = accEl(prefix + "Admin"), info = accEl(prefix + "Trust"); if(!box || !info) return;
+    box.dataset.kind = target ? target.kind : ""; box.dataset.id = target ? String(target.id) : "";
+    box.style.display = target ? "" : "none"; info.textContent = "";
+    if(!target || !isAdmin() || !adminSessionLoad()) return;
+    accAdminRpc("admin_report_info", { p_kind: target.kind, p_id: String(target.id) }).then(j => {
+      if(box.dataset.id !== String(target.id)) return;
+      info.textContent = !j || !j.nick ? "Autor: bez konta" : "Autor: " + j.nick + (j.low_trust ? " · ⚠ niskie zaufanie, punkt potrzebuje " + j.required + " potwierdzeń" : "");
+    }).catch(() => {});
+  }
+  async function accAdminSetStatus(prefix, status){
+    const box = accEl(prefix + "Admin"), kind = box.dataset.kind, id = box.dataset.id; if(!id) return;
+    if(status === "hidden" && !confirm("Odrzucić ten punkt? Zniknie z mapy dla wszystkich kierowców.")) return;
+    try{
+      await accAdminRpc("admin_set_report_status", { p_kind: kind, p_id: id, p_status: status });
+      showBanner(status === "active" ? "ZATWIERDZONE" : "ODRZUCONE", status === "active" ? "Punkt jest od razu aktywny dla wszystkich" : "Punkt ukryty dla wszystkich", false);
+      if(kind === "report"){ try{ supaRep.fetchedAt = 0; if(lastPos) fetchOverpassData(lastPos.lat, lastPos.lon); }catch(e){} }
+    }catch(e){ showBanner("NIE UDAŁO SIĘ", String(e.message || e), false); }
+  }
+  // ---------- punkty dodane przez kierowców: kto i kiedy dodał; własny punkt: przesuń / popraw nazwę / usuń ----------
+  const accWhen = ts => {
+    if(!ts) return ""; const d = new Date(ts), n = new Date(), p = v => String(v).padStart(2, "0");
+    return d.toDateString() === n.toDateString() ? "dziś " + p(d.getHours()) + ":" + p(d.getMinutes()) : p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear();
+  };
+  async function accRpc(fn, body){   // funkcja bazy z tokenem zalogowanego użytkownika
+    const t = await accToken();
+    if(!t){ const e0 = new Error("Sesja wygasła — zaloguj się ponownie."); e0.status = 401; throw e0; }
+    const r = await fetch(accBase() + "/rest/v1/rpc/" + fn, { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t }, body: JSON.stringify(body || {}) });
+    const txt = await r.text();
+    if(!r.ok){
+      let m = ""; try{ m = JSON.parse(txt).message || ""; }catch(e){}
+      const err = new Error(r.status === 404 ? "ta funkcja nie jest jeszcze w bazie (sql/accounts.sql)" : (m || "HTTP " + r.status)); err.status = r.status; throw err;
+    }
+    return txt ? JSON.parse(txt) : null;
+  }
+  function accPointInfo(kind, id){
+    return accAuthHeader().then(auth => fetch(accBase() + "/rest/v1/rpc/point_info", { method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": auth }, body: JSON.stringify({ p_kind: kind, p_id: String(id) }) }))
+      .then(r => r.ok ? r.json() : null).catch(() => null);
+  }
+  const ACC_VOTEROW = { vote: "voteBtns", park: "parkVote", poi: "poiVoteRow" };
+  function accPointCard(prefix, target){
+    if(prefix !== "poi") accAdminCard(prefix, target);
+    const who = accEl(prefix + "Who"), mine = accEl(prefix + "Mine"); if(!who || !mine) return;
+    who.textContent = ""; mine.style.display = "none"; mine.dataset.id = ""; mine.dataset.kind = "";
+    if(!target || !supaConfigured()) return;
+    accPointInfo(target.kind, target.id).then(j => {
+      if(!j || !j.nick) return;                                  // bez autora (starszy wpis albo dodany bez konta): nic nie pokazujemy
+      who.textContent = j.mine ? "Twój punkt · " + accWhen(j.at) : "Dodane przez " + j.nick + " · " + accWhen(j.at);
+      if(!j.mine) return;
+      const row = accEl(ACC_VOTEROW[prefix]); if(row) row.style.display = "none";   // na własny punkt nie głosujemy
+      Object.assign(mine.dataset, { kind: target.kind, id: String(target.id), sub: target.sub || "", lat: String(j.lat), lon: String(j.lon), editable: j.editable ? "1" : "" });
+      const ed = accEl(prefix + "MineEdit"); if(ed) ed.style.display = target.kind === "place" ? "" : "none";
+      mine.style.display = "";
+    });
+  }
+  function accLocalForget(lat, lon){   // lokalna kopia punktu (zanim potwierdzą inni) znika razem z punktem w bazie
+    try{
+      const near = p => haversine(p.lat, p.lon, lat, lon) < 25;
+      userReportedCameras = userReportedCameras.filter(p => !near(p)); saveUserReportedCameras(); rebuildCameraList();
+      userHgvParking = userHgvParking.filter(p => !near(p)); saveUserHgvParking();
+    }catch(e){}
+  }
+  function accRefreshMap(lat, lon){ try{ supaRep.fetchedAt = 0; fetchOverpassData(lat, lon); }catch(e){} }
+  async function accPointAct(prefix, act){
+    const mine = accEl(prefix + "Mine"), kind = mine.dataset.kind, id = mine.dataset.id; if(!id) return;
+    const lat = parseFloat(mine.dataset.lat), lon = parseFloat(mine.dataset.lon), sub = mine.dataset.sub;
+    const closeCard = () => { try{ if(prefix === "vote") hideVoteCard(); else if(prefix === "park") accEl("parkCard").classList.remove("show"); else hidePoiAsk(); }catch(e){} };
+    try{
+      if(act === "del"){
+        if(!confirm("Usunąć Twój punkt? Zniknie z mapy dla wszystkich kierowców.")) return;
+        await accRpc("delete_my_point", { p_kind: kind, p_id: id });
+        accLocalForget(lat, lon); closeCard(); accRefreshMap(lat, lon);
+        showBanner("PUNKT USUNIĘTY", "Twój punkt zniknął z mapy", false);
+      } else if(act === "edit"){
+        if(!mine.dataset.editable){ showBanner("NIE MOŻNA ZMIENIĆ", "Nazwę potwierdziło już kilku kierowców — zmianę może wprowadzić tylko administrator", false); return; }
+        const cur = (poiAskTarget && poiAskTarget.name) || "";
+        const nm = prompt("Nowa nazwa budynku:", cur); if(nm === null || nm.trim() === cur) return;
+        await accRpc("edit_my_place", { p_id: id, p_name: nm.trim() });
+        closeCard(); accRefreshMap(lat, lon);
+        showBanner("NAZWA ZMIENIONA", nm.trim(), false);
+      } else if(act === "move"){
+        if(!mine.dataset.editable){ showBanner("NIE MOŻNA PRZESUNĄĆ", "Punkt potwierdziło już kilku kierowców — zmianę może wprowadzić tylko administrator. Możesz go usunąć.", false); return; }
+        closeCard();
+        startReportFlag(sub === "camera" ? "camera" : sub === "place" ? "place" : "parking", { move: { kind, id, lat, lon, sub } });
+      }
+    }catch(e){ showBanner("NIE UDAŁO SIĘ", String(e.message || e), false); }
+  }
+  async function accMovePoint(m, lat, lon){
+    try{
+      await accRpc("move_my_point", { p_kind: m.kind, p_id: m.id, p_lat: lat, p_lon: lon });
+      accLocalForget(m.lat, m.lon); accRefreshMap(lat, lon);
+      showBanner("PUNKT PRZESUNIĘTY", "Nowe miejsce zapisane", false);
+    }catch(e){ showBanner("NIE UDAŁO SIĘ", String(e.message || e), false); }
+  }
   async function accAdminHistory(btn){
     const item = btn.closest(".usrItem"), hist = item.querySelector(".usrHist");
     if(hist.dataset.open === "1"){ hist.dataset.open = ""; hist.textContent = ""; btn.textContent = "Historia ▾"; return; }
@@ -18768,10 +19378,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const row = accMk("div", "usrRow");
         row.appendChild(accMk("div", "usrT", k[0] + " " + k[1] + (h.label && h.label !== h.kind ? " · " + h.label : "")));
         const point = h.kind === "speed_camera" || h.kind === "hgv_parking" || h.kind === "place_name" || h.kind === "camera" || h.kind === "parking";
-        let s = accDate(h.at);
+        let s = accDate(h.ts);
         if(point) s += " · 👍 " + (h.confirmations || 0) + " · 👎 " + (h.denials || 0);
         if(h.status) s += " · " + (ACC_STATUS[h.status] || h.status);
         row.appendChild(accMk("div", "psMuted", s));
+        if(h.src && h.src !== "user_votes" && h.src !== "user_warnings" && h.src !== "user_appeals"){
+          const d = accMk("button", "usrDel", "🗑 Usuń wpis"); d.type = "button"; d.dataset.src = h.src; d.dataset.tid = h.target_id; row.appendChild(d);
+        }
         hist.appendChild(row);
       });
     }catch(e){ hist.textContent = "⚠ " + (e.message || e); }
@@ -18780,28 +19393,142 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   // ---------- podpięcie zdarzeń ----------
   safeInit("konta użytkowników", () => {
     accEl("accGoogle").addEventListener("click", accStartGoogle);
-    accEl("accClose").addEventListener("click", accHide);
-    accEl("accModal").addEventListener("click", e => { if(e.target === accEl("accModal")) accHide(); });
+    accEl("accClose").addEventListener("click", () => { if(accMode === "privacy"){ accShow(accPrevMode, accPrevReason); return; } accHide(); });
+    document.addEventListener("click", e => {
+      const a = e.target && e.target.closest ? e.target.closest("a.accPrivLink") : null; if(!a) return;
+      e.preventDefault(); accPrevMode = accMode; accPrevReason = accReason; accShow("privacy");
+    });
+    accEl("accModal").addEventListener("click", e => { if(e.target === accEl("accModal") && accMode !== "warn" && accMode !== "appealreply") accHide(); });   // ostrzeżenie i odpowiedź trzeba potwierdzić „Rozumiem”
     accEl("accNickEdit").addEventListener("click", () => accShow("nick"));
     accEl("accNickSave").addEventListener("click", async () => {
-      const btn = accEl("accNickSave"); btn.disabled = true;
-      const err = await accSaveNick(accEl("accNickIn").value); btn.disabled = false;
+      const btn = accEl("accNickSave");
+      if(accNickFirst && !accEl("accPrivacy").checked){ accMsg("Zaakceptuj Politykę prywatności, żeby kontynuować."); return; }
+      btn.disabled = true;
+      const err = await accSaveNick(accEl("accNickIn").value, accEl("accRegCompany").value, accNickFirst); btn.disabled = false;
       if(err){ accMsg(err); return; }
       accHide(); showBanner("ZAPISANO", "Twój pseudonim: " + accNick(), false);
     });
     accEl("accLogout").addEventListener("click", accSignOut);
+    accEl("accDelete").addEventListener("click", accDeleteMe);
+    accEl("accOk").addEventListener("click", accAckWarnings);
+    accEl("accTabLogin").addEventListener("click", () => accSetTab("login"));
+    accEl("accTabReg").addEventListener("click", () => accSetTab("register"));
+    accEl("accAuthSubmit").addEventListener("click", accAuthSubmit);
+    accEl("accForgot").addEventListener("click", accForgot);
+    accEl("accResend").addEventListener("click", accResend);
+    ["accEmail", "accPass", "accRegNick", "accRegCompany"].forEach(id => accEl(id).addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); accAuthSubmit(); } }));
+    accEl("accAppealOpen").addEventListener("click", () => accShow("appeal"));
+    accEl("accAppealSend").addEventListener("click", accSendAppeal);
+    [["vote", "Move", "Del"], ["park", "Move", "Del"], ["poi", "Move", "Del"]].forEach(([p]) => {
+      accEl(p + "MineMove").addEventListener("click", () => accPointAct(p, "move"));
+      accEl(p + "MineDel").addEventListener("click", () => accPointAct(p, "del"));
+    });
+    accEl("poiMineEdit").addEventListener("click", () => accPointAct("poi", "edit"));
+    ["vote", "park"].forEach(p => {
+      accEl(p + "Approve").addEventListener("click", () => accAdminSetStatus(p, "active"));
+      accEl(p + "Reject").addEventListener("click", () => accAdminSetStatus(p, "hidden"));
+    });
     accEl("accSettingsBtn").addEventListener("click", () => { if(accLoggedIn()) accShow("account"); else accShow("login", "dodawać komentarze i punkty"); });
     accEl("usrRefresh").addEventListener("click", () => accAdminLoad(true));
     accEl("usrFilter").addEventListener("input", accRenderUsers);
-    accEl("usrList").addEventListener("click", e => { const b = e.target.closest("button[data-hist]"); if(b) accAdminHistory(b); });
+    accEl("usrList").addEventListener("click", e => {
+      const b = e.target.closest("button[data-hist]"); if(b){ accAdminHistory(b); return; }
+      const k = e.target.closest("button[data-ban]"); if(k){ accAdminBan(k); return; }
+      const w = e.target.closest("button[data-warn]"); if(w){ accAdminWarn(w); return; }
+      const kp = e.target.closest("button[data-keep]"); if(kp){ accAdminKeep(kp); return; }
+      const dy = e.target.closest("button[data-days]"); if(dy){ accAdminBlockDays(dy); return; }
+      const ap = e.target.closest("button[data-appeal]"); if(ap){ accAdminAppeals(ap); return; }
+      const ar = e.target.closest("button[data-apid]"); if(ar){ accAdminResolve(ar); return; }
+      const c = e.target.closest("button[data-delc]"); if(c){ accAdminDeleteContent(c); return; }
+      const d = e.target.closest("button[data-delu]"); if(d){ accAdminDeleteUser(d); return; }
+      const x = e.target.closest("button.usrDel"); if(x) accAdminDeleteEntry(x);
+    });
     document.addEventListener("navtab", e => { if(e.detail === "users") accAdminLoad(false); });
     accRenderUi();
     setInterval(accBeat, ACC_BEAT_MS);
     document.addEventListener("visibilitychange", () => { if(!document.hidden) accBeat(); });
     setInterval(() => { const l = accEl("usrList"); if(l && l.offsetParent && !document.hidden) accAdminLoad(true, true); }, 30000);   // zakładka Użytkownicy otwarta → kropki na żywo
     const fresh = accHandleReturn();
-    if(accLoggedIn() && supaConfigured()) setTimeout(() => accSync(fresh), fresh ? 1200 : 4000);
+    if(accLoggedIn() && supaConfigured()) setTimeout(() => accSync(fresh && !accRecovery), fresh ? 1200 : 4000);
+    if(accRecovery) setTimeout(() => accShow("newpass"), 900);
   });
+</script>
+<script>
+/* ===== js/62-map-depth.js — mapa mniej „płaska”: bez kreskowanych obrysów lasów i parków, miękkie krawędzie, cienie budynków i dróg =====
+   Klasyczny <script> (bez IIFE). Tylko wygląd, dopinany po załadowaniu mapy i ponawiany w tiku, gdyby styl zgubił warstwy.
+   • Znikają kreskowane „- - - -” wokół parków i lasów (linie ze źródła „park”, obrysy lasów, linie z line-dasharray na terenach).
+   • W zamian: bardzo miękka, rozmyta krawędź parków i lasów (daje głębię zamiast przerywanej linii).
+   • Cień pod budynkami (zoom ≥ 15) oraz delikatny cień pod autostradami i drogami głównymi.
+   Koszt dla telefonu jest mały: 5 cienkich warstw widocznych tylko przy odpowiednim zbliżeniu. Kolory dzień / noc przełączają się razem z motywem. */
+"use strict";
+
+  const MPD = { done: false };
+  const mpdNight = () => document.body.classList.contains("night");
+  function mpdWhenMap(fn){
+    if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); }
+    else setTimeout(() => mpdWhenMap(fn), 600);
+  }
+
+  // kreskowane obrysy lasów / parków: chowamy (nasze miękkie warstwy mpd-* zostają)
+  function mpdHideOutlines(){
+    (map.getStyle().layers || []).forEach(l => {
+      if(l.type !== "line" || /^mpd-|^mp2-/.test(l.id)) return;
+      const sl = l["source-layer"], dashed = !!(l.paint && l.paint["line-dasharray"]);
+      const outline = sl === "park" || /park.*outline|outline.*park|nature.?reserve|wood.*outline|forest.*outline/i.test(l.id) || (dashed && (sl === "landcover" || sl === "landuse"));
+      if(!outline) return;
+      try{ if(map.getLayoutProperty(l.id, "visibility") !== "none") map.setLayoutProperty(l.id, "visibility", "none"); }catch(e){}
+    });
+  }
+
+  function mpdEnsure(){
+    if(!map || !map.getStyle()) return;
+    const ls = map.getStyle().layers || [];
+    const road = ls.find(l => l["source-layer"] === "transportation" && l.type === "line");
+    if(!road) return;
+    const bld = ls.find(l => l["source-layer"] === "building");
+    const vec = road.source, night = mpdNight();
+    const Z = (pairs) => ["interpolate", ["linear"], ["zoom"]].concat(pairs);
+    const soft = (id, sl, filter, minzoom) => {
+      if(map.getLayer(id)) return;
+      const def = { id, type: "line", source: vec, "source-layer": sl, minzoom, layout: { "line-join": "round" },
+        paint: { "line-color": "#5e8a50", "line-width": Z([10, 2, 14, 5, 17, 9]), "line-blur": Z([10, 2, 17, 6]), "line-opacity": 0.32 } };
+      if(filter) def.filter = filter;
+      map.addLayer(def, road.id);
+    };
+    const shadow = (id, classes, minzoom, widths, op) => {
+      if(map.getLayer(id)) return;
+      map.addLayer({ id, type: "line", source: vec, "source-layer": "transportation", minzoom,
+        filter: ["all", ["match", ["get", "class"], classes, true, false], ["!=", ["get", "brunnel"], "tunnel"]],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#2b3a44", "line-width": Z(widths), "line-blur": Z([9, 1, 14, 3, 18, 8]), "line-opacity": op, "line-translate": [1, 2] } }, road.id);
+    };
+    soft("mpd-park-soft", "park", null, 10);
+    soft("mpd-wood-soft", "landcover", ["==", ["get", "class"], "wood"], 11);
+    shadow("mpd-road-shadow-major", ["motorway", "trunk"], 9, [9, 4, 12, 9, 15, 22, 18, 52], 0.22);
+    shadow("mpd-road-shadow-mid", ["primary", "secondary", "tertiary"], 13, [13, 5, 15, 12, 18, 30], 0.16);
+    if(bld && !map.getLayer("mpd-building-shadow")){
+      map.addLayer({ id: "mpd-building-shadow", type: "fill", source: bld.source, "source-layer": "building", minzoom: 15,
+        paint: { "fill-color": "#000000", "fill-opacity": Z([15, 0, 16, 0.18]), "fill-translate": [3, 4], "fill-translate-anchor": "map" } }, bld.id);
+    }
+    // kolory wg dnia / nocy
+    const set = (id, prop, v) => { try{ if(map.getLayer(id)) map.setPaintProperty(id, prop, v); }catch(e){} };
+    set("mpd-park-soft", "line-color", night ? "#03181c" : "#5e8a50");
+    set("mpd-wood-soft", "line-color", night ? "#03181c" : "#4f7d45");
+    set("mpd-park-soft", "line-opacity", night ? 0.6 : 0.32);
+    set("mpd-wood-soft", "line-opacity", night ? 0.6 : 0.34);
+    set("mpd-road-shadow-major", "line-color", night ? "#000000" : "#2b3a44");
+    set("mpd-road-shadow-major", "line-opacity", night ? 0.42 : 0.22);
+    set("mpd-road-shadow-mid", "line-color", night ? "#000000" : "#2b3a44");
+    set("mpd-road-shadow-mid", "line-opacity", night ? 0.34 : 0.16);
+    set("mpd-building-shadow", "fill-opacity", Z([15, 0, 16, night ? 0.34 : 0.18]));
+    mpdHideOutlines();
+  }
+
+  safeInit("głębia mapy", () => mpdWhenMap(() => {
+    try{ mpdEnsure(); }catch(e){ console.warn("Głębia mapy:", e); }
+    addTick(() => { try{ mpdEnsure(); }catch(e){} }, 4000, false);
+    new MutationObserver(() => { try{ mpdEnsure(); }catch(e){} }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  }));
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
