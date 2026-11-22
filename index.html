@@ -401,10 +401,8 @@
   /* zakładka ciężarówki rozwija się pod nagłówkiem zamiast celu podróży i szczegółów trasy */
   #navPanel.truck-open > :not(#navDragHandle):not(.navHeader):not(#navTruckBlock){ display:none !important; }
   /* zakładka billboardów (🪧) — jak zakładka ciężarówki zastępuje cel podróży */
-  #navBillboardBlock{ display:none; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; max-height:min(62vh, 520px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #navBillboardBlock{ display:flex; margin:10px 0; flex-direction:column; gap:8px; background: rgba(255,255,255,0.05); border-radius:10px; padding:10px 12px; }
   body:not(.night) #navBillboardBlock{ background: rgba(255,255,255,0.55); }
-  #navPanel.billboard-open #navBillboardBlock{ display:flex; }
-  #navPanel.billboard-open > :not(#navDragHandle):not(.navHeader):not(#navBillboardBlock){ display:none !important; }
   #bbChips{ display:flex; gap:6px; flex-wrap:wrap; }
   #bbChips button{ border:1px solid var(--panel-border); background:transparent; color: var(--text-main); border-radius:999px; padding:7px 12px; font:700 12px 'Inter',system-ui,sans-serif; cursor:pointer; max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #bbChips button.active{ background: var(--gator-dark); border-color: var(--gator-dark); color: var(--gator-on); }
@@ -977,6 +975,18 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #pickNHWarn{ margin:0 4px 6px; padding:6px 8px; border-radius:10px; background:rgba(217,54,54,.14); color:#E5484D; font:600 12.5px/1.3 'Inter',system-ui,sans-serif; }
 #pickNHWarnTxt{ white-space:pre-line; display:block; }
 #pickNHDetourBtn{ margin-top:6px; min-height:40px; padding:8px 14px; border:0; border-radius:10px; background:#ff9f1c; color:#1b1b1b; font:700 14px 'Inter',system-ui,sans-serif; }
+
+/* Powrót tą samą drogą: subtelny znaczek utrudnień National Highways, po dotknięciu rozwija listę */
+#pickNHBack{ margin:0 4px 6px; }
+#pickNHBackBtn{ background:transparent; border:1px solid rgba(128,128,128,.4); color:inherit; opacity:.85; border-radius:999px; padding:4px 12px; min-height:32px; font:600 12px/1.3 'Inter',system-ui,sans-serif; cursor:pointer; }
+#pickNHBackBtn .nhbChev{ display:inline-block; transition:transform .15s; }
+#pickNHBack.open .nhbChev{ transform:rotate(180deg); }
+#pickNHBackList{ display:none; margin-top:6px; padding:4px 10px; border-radius:10px; background:rgba(128,128,128,.12); font:500 12px/1.35 'Inter',system-ui,sans-serif; max-height:30vh; overflow:auto; }
+#pickNHBack.open #pickNHBackList{ display:block; }
+#pickNHBackList .nhbItem{ padding:6px 0; border-top:1px solid rgba(128,128,128,.22); }
+#pickNHBackList .nhbItem:first-child{ border-top:0; }
+#pickNHBackList .nhbT{ font-weight:700; }
+#pickNHBackList .nhbS{ opacity:.8; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1737,6 +1747,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* ciepła poświata przy zachodzie/wschodzie słońca (js/60) */
   #sunTint{ position:absolute; inset:0; pointer-events:none; z-index:1; opacity:0; transition:opacity 3s ease;
     background:radial-gradient(ellipse at 50% 100%, rgba(255,140,40,.34), rgba(255,110,60,.16) 55%, rgba(255,90,60,.08)); mix-blend-mode:soft-light; }
+
+#flagSubtype{ display:none; gap:6px; flex-wrap:wrap; margin:4px 0 2px; }
+#flagSubtype.open{ display:flex; }
+#flagSubtype button{ border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); border-radius:999px; padding:3px 9px; font:600 11px 'Inter',system-ui,sans-serif; cursor:pointer; opacity:.8; }
+#flagSubtype button.active{ color:var(--text-main); border-color:#3ddc84; opacity:1; }
 </style>
 </head>
 <body>
@@ -1926,6 +1941,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 <div id="flagCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="flagTitle"></div>
   <div class="poiAddr" id="flagSub"></div>
+  <div id="flagSubtype"><button type="button" data-sub="parking">🅿️ Parking</button><button type="button" data-sub="layby">Layby</button><button type="button" data-sub="small">Mały · strefa przem.</button></div>
   <div class="psForm" id="flagRestr">
     <label class="psLbl"><span id="flagValLbl">Limit</span><input id="flagVal" type="text" inputmode="decimal" maxlength="20" autocomplete="off"></label>
     <label class="psLbl">Uwagi (nieobowiązkowo)<input id="flagNote" type="text" maxlength="200" autocomplete="off" placeholder="np. dotyczy też pojazdów dostawczych"></label>
@@ -2040,7 +2056,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="navHeader">
     <div class="navTitle" id="navTabNav" role="button" tabindex="0" title="Cel podróży i szczegóły trasy">Nawigator</div>
     <div class="navHeaderActions">
-      <div id="navBillboardBtn" class="adminOnly" title="Billboardy przy autostradzie" role="button" aria-label="Billboardy przy autostradzie" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5V21M17 12.5V21M5 21h4M15 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
       <div id="navSettingsBtn" title="Klucze API i wspólna baza">⋮</div>
       <div id="navCloseBtn" title="Zamknij trasę" role="button" aria-label="Zamknij trasę">✕</div>
     </div>
@@ -2082,6 +2097,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <label id="pickNHRow"><input type="checkbox" id="pickNH"><span>Remonty dróg (National Highways)</span></label>
       </div>
       <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
+      <div id="pickNHBack" style="display:none"><button id="pickNHBackBtn" type="button" aria-expanded="false"><span id="pickNHBackTxt"></span> <span class="nhbChev">▾</span></button><div id="pickNHBackList"></div></div>
       <div id="pickActions">
         <button id="pickGoBtn" type="button">Jedziemy</button>
         <button id="pickChangeBtn" type="button">Zmień trasę</button>
@@ -2111,28 +2127,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </div>
   </div>
 
-  <div id="navBillboardBlock" class="adminOnly">
-    <div class="truckHead"><span>🪧 Billboardy przy autostradzie</span></div>
-    <div id="bbChips"></div>
-    <canvas id="bbPreview" width="480" height="120"></canvas>
-    <div class="bbRow"><span class="bbLbl">Tekst</span><input id="bbText" type="text" maxlength="40" placeholder="Tekst na billboardzie…" autocomplete="off"></div>
-    <div class="bbRow">
-      <button id="bbPickImg" type="button" class="secondary">🖼 Dodaj obraz</button>
-      <button id="bbClearImg" type="button" class="secondary">Usuń obraz</button>
-      <input id="bbFile" type="file" accept="image/*" hidden>
-    </div>
-    <div class="bbRow"><span class="bbLbl">Wielkość <b id="bbScaleVal">100%</b></span><input id="bbScale" type="range" min="30" max="250" step="5" value="100"></div>
-    <div class="bbRow bbColors">
-      <label><span class="bbLbl">Tło</span><input id="bbBg" type="color" value="#0e3b2a"></label>
-      <label><span class="bbLbl">Napis</span><input id="bbFg" type="color" value="#ffb300"></label>
-      <label class="bbCheck"><input id="bbEnabled" type="checkbox" checked><span class="bbLbl">Pokazuj</span></label>
-    </div>
-    <div class="bbRow">
-      <button id="bbTest" type="button" class="secondary">Pokaż przed autem</button>
-      <button id="bbDelete" type="button" class="secondary">Usuń billboard</button>
-    </div>
-    <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz wyświetla się w całości (proporcje zachowane) i zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
-  </div>
 
 </div>
 
@@ -2328,6 +2322,29 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     </div>
     <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
+
+  <div id="navBillboardBlock">
+    <div class="truckHead"><span>🪧 Billboardy przy autostradzie</span></div>
+    <div id="bbChips"></div>
+    <canvas id="bbPreview" width="480" height="120"></canvas>
+    <div class="bbRow"><span class="bbLbl">Tekst</span><input id="bbText" type="text" maxlength="40" placeholder="Tekst na billboardzie…" autocomplete="off"></div>
+    <div class="bbRow">
+      <button id="bbPickImg" type="button" class="secondary">🖼 Dodaj obraz</button>
+      <button id="bbClearImg" type="button" class="secondary">Usuń obraz</button>
+      <input id="bbFile" type="file" accept="image/*" hidden>
+    </div>
+    <div class="bbRow"><span class="bbLbl">Wielkość <b id="bbScaleVal">100%</b></span><input id="bbScale" type="range" min="30" max="250" step="5" value="100"></div>
+    <div class="bbRow bbColors">
+      <label><span class="bbLbl">Tło</span><input id="bbBg" type="color" value="#0e3b2a"></label>
+      <label><span class="bbLbl">Napis</span><input id="bbFg" type="color" value="#ffb300"></label>
+      <label class="bbCheck"><input id="bbEnabled" type="checkbox" checked><span class="bbLbl">Pokazuj</span></label>
+    </div>
+    <div class="bbRow">
+      <button id="bbTest" type="button" class="secondary">Pokaż przed autem</button>
+      <button id="bbDelete" type="button" class="secondary">Usuń billboard</button>
+    </div>
+    <div class="poiAddr" id="bbHint">Billboardy pojawiają się kolejno po lewej stronie autostrady co 5 mil. Obraz wyświetla się w całości (proporcje zachowane) i zastępuje tekst — usuń obraz, aby wrócić do napisu.</div>
+  </div>
 
     <div class="adminOnly" id="adminRow" style="align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px;">
       <span style="font-weight:700;">👑 Tryb administratora (to urządzenie)</span>
@@ -3691,7 +3708,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
      zniekształcał wszystko na mapie (tablice, trasę, ikony) i kosztował wydajność. Teraz nocą
      przemalowujemy same warstwy bazowej mapy (tło, woda, tereny, budynki, etykiety), a mapa
      jest rysowana normalnie, w pełnej jakości i z wiernymi kolorami.
-       • tło (ziemia)   = NIGHT_THEME.background (#144043, jak w Google Maps)
+       • tło (ziemia)   = NIGHT_THEME.background (#0c303c, kolory ze zrzutu Google Maps)
        • drogi          = stonowane, wg klasy (NIGHT_ROADS): autostrady niebieskie (jak tablice), drogi A zielone (jak tablice),
                           drogi średnie grafit z ciemnym obrysem, lokalne bardzo subtelne
        • strefy przemysłowe/logistyczne = matowy ciemny fiolet (NIGHT_ZONES), własna warstwa tylko w nocy
@@ -3702,12 +3719,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
        • etykiety       = jasny tekst z ciemną obwódką
      W dzień wszystkie oryginalne kolory stylu wracają bez zmian. Wszystko do dostrojenia jest w stałych poniżej. */
   const NIGHT_THEME = {
-    background: "#144043",   // ziemia / tło mapy
-    water: "#0a2b3f",        // jeziora, morze, szerokie rzeki
-    waterway: "#12405c",     // wąskie rzeki i strumienie
+    background: "#0c303c",   // ziemia / tło mapy (kolor ze zrzutu Google Maps)
+    water: "#04142e",        // jeziora, morze, szerokie rzeki (Google: bardzo ciemny granat)
+    waterway: "#0e2a48",     // wąskie rzeki i strumienie
     building: "#1b4d51",     // budynki (także 3D)
     buildingOutline: "#255b5f",
-    halo: "#0c2b2e"          // obwódka etykiet
+    halo: "#08222c",         // obwódka etykiet
+    residential: "#182436"   // zabudowa mieszkaniowa (Google: ciemny granat)
   };
   // Drogi w nocy: wypełnienie + ciemniejszy obrys (casing), żeby droga odcinała się od tła.
   // Klasy: motorway = autostrady, major = trunk/primary (drogi A), mid = secondary/tertiary
@@ -3724,8 +3742,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     },
     motorway3d: { fill: "#455154", casing: "#313c3f" },  // widok 3D (noc): jak asfalt autostrady z js/11a, zamiast niebieskiego
     majorColorZoom: [7, 13],                           // [zoom "far", zoom "near"] — poniżej/powyżej wartość stała
-    mid:      { fill: "#4c5d60", casing: "#26302f" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
-    minor:    { fill: "#33484b", casing: "#5a7175" }   // subtelne, prawie wtopione w tło
+    mid:      { fill: "#435d78", casing: "#1f3347" },  // grafit, ciemniejszy obrys (było jaśniejsze — źle wyglądało)
+    minor:    { fill: "#365068", casing: "#365068" }   // jak w Google Maps: bez jasnego obrysu (obrys dodatkowo ukryty, patrz minorcasing)
   };
   // Strefy przemysłowe i logistyczne (ważne dla HGV) — delikatnie wyróżnione na tle mapy
   const NIGHT_ZONES = {
@@ -3827,6 +3845,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const hsl = rgbToHsl(c.r, c.g, c.b);
     const l = clamp01(nightBg.l + (nightCtx.dayBgL - hsl.l) * 0.42, 0.07, 0.34);
     const colored = hsl.s >= 0.18;
+    // zieleń (lasy, parki, trawa) -> turkus jak w Google Maps (odcień ok. 190°)
+    const green = colored && hsl.h >= 0.17 && hsl.h <= 0.46;
+    if(green) return hslaToCss(0.528, 0.55, l, c.a);
     return hslaToCss(colored ? hsl.h : nightBg.h, colored ? Math.min(0.42, hsl.s) : 0.35, l, c.a);
   }
   // linie inne niż drogi (granice, tory…): odwrócona jasność w rozsądnych granicach
@@ -3896,6 +3917,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
     if(type === "fill" || type === "fill-extrusion"){
       if(sl === "water") return NIGHT_THEME.water;
+      if(sl === "landuse" && /residential/.test(info.id)) return NIGHT_THEME.residential;
       if(sl === "building") return prop === "fill-outline-color" ? NIGHT_THEME.buildingOutline : NIGHT_THEME.building;
       return mapStyleColors(orig, nightFillColor);
     }
@@ -3904,6 +3926,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   let nightOriginals = null;   // { idWarstwy: { "fill-color": wartość dzienna, ... } } — zapamiętane przy starcie
   let nightLayerInfo = {};     // { idWarstwy: { type, sl, id, filter } }
+  let nightLabelOrig = {};     // { idWarstwy: { w, b } } — dzienne ustawienia obwódki etykiet
   let nightOpacityLayers = []; // warstwy, którym w nocy zmieniamy krycie zależnie od zoomu: { id, prop, kind, orig }
   // Zapamiętuje dzienne kolory WSZYSTKICH warstw bazowej mapy (wołane raz, zanim dodamy własne warstwy).
   function initNightTheme(){
@@ -3916,8 +3939,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(l.type === "line" && l["source-layer"] === "transportation" && /^(road|bridge|tunnel)_/.test(l.id)
            && nightRoadClass(l.id, JSON.stringify(l.filter || "")) === "major")
           opac.push({ id: l.id, prop: "line-opacity", kind: "aroad", orig: l.paint ? l.paint["line-opacity"] : undefined });
+        if(l.type === "line" && l["source-layer"] === "transportation" && /^(road|bridge|tunnel)_/.test(l.id) && /casing/.test(l.id)
+           && nightRoadClass(l.id, JSON.stringify(l.filter || "")) === "minor")
+          opac.push({ id: l.id, prop: "line-opacity", kind: "minorcasing", orig: l.paint ? l.paint["line-opacity"] : undefined });
         if(l.type === "fill" && l["source-layer"] === "building")
           opac.push({ id: l.id, prop: "fill-opacity", kind: "building", orig: l.paint ? l.paint["fill-opacity"] : undefined });
+        if(l.type === "symbol" && l.layout && l.layout["text-field"] && !/^(hgv-|place-names)/.test(l.id))
+          nightLabelOrig[l.id] = { w: l.paint ? l.paint["text-halo-width"] : undefined, b: l.paint ? l.paint["text-halo-blur"] : undefined };
+        if(l.type === "line" && l["source-layer"] === "transportation" && /^(road|bridge|tunnel)_/.test(l.id) && !/casing/.test(l.id)
+           && nightRoadClass(l.id, JSON.stringify(l.filter || "")) === "minor")
+          opac.push({ id: l.id, prop: "line-opacity", kind: /path|track|pedestrian|footway/.test(l.id) ? "minorpath" : "minorroad", orig: l.paint ? l.paint["line-opacity"] : undefined });
         if(!l.paint) return;
         const props = {};
         Object.keys(l.paint).forEach(k => {
@@ -3992,6 +4023,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{ applySatBrightness(); }catch(e){}
     applyCompanyLabelStyle(night);
     applyDayBuildings(night);
+    applyNightLabels(night);
+  }
+
+  // Napisy mapy w nocy: białe, z cienką i miękką obwódką zamiast grubej (jak w Google Maps). Dzień = oryginał.
+  function applyNightLabels(night){
+    Object.keys(nightLabelOrig).forEach(id => {
+      try{
+        if(!map.getLayer(id)) return;
+        const o = nightLabelOrig[id];
+        map.setPaintProperty(id, "text-halo-width", night ? 1 : (o.w === undefined ? null : o.w));
+        map.setPaintProperty(id, "text-halo-blur", night ? 0.8 : (o.b === undefined ? null : o.b));
+      }catch(e){ console.warn("Obwódka napisów:", id, e); }
+    });
   }
 
   // Zabudowa mieszkaniowa i obrysy budynków: w nocy zanikają przy oddaleniu (krycie zależne od zoomu).
@@ -4002,6 +4046,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         if(!map.getLayer(o.id)) return;
         if(o.kind === "aroad"){
           map.setPaintProperty(o.id, o.prop, o.orig === undefined ? null : o.orig);
+          return;
+        }
+        if(o.kind === "minorroad" || o.kind === "minorpath"){
+          const expr = o.kind === "minorroad"
+            ? ["interpolate", ["linear"], ["zoom"], 12, 0.35, 15, 0.8, 17, 1]
+            : ["interpolate", ["linear"], ["zoom"], 14, 0.2, 17, 0.7];
+          map.setPaintProperty(o.id, o.prop, night ? expr : (o.orig === undefined ? null : o.orig));
+          return;
+        }
+        if(o.kind === "minorcasing"){
+          map.setPaintProperty(o.id, o.prop, night ? 0 : (o.orig === undefined ? null : o.orig));
           return;
         }
         const fade = o.kind === "residential" ? NIGHT_DETAIL.residentialFade : NIGHT_DETAIL.buildingsFade;
@@ -7868,13 +7923,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }
   }
 
-  function commitHgvParking(lat, lon){
+  function commitHgvParking(lat, lon, sub){
     // Zgłoszenie pokazujemy na mapie OD RAZU, niezależnie od tego, co dalej stanie się z Supabase.
     // Wcześniej przy udanym wysłaniu do wspólnej bazy nic nie rysowaliśmy lokalnie — liczyliśmy, że
     // zaraz uda się je odczytać z powrotem z serwera. Jeśli ten odczyt po cichu zawiódł (brakująca
     // tabela/funkcja po stronie Supabase, RLS, albo zwyczajnie inne zapytanie do Overpass leciało
     // akurat w tle), zgłoszenie znikało — było wysłane, ale kierowca nigdy go nie widział.
-    userHgvParking.push({ lat, lon, addedAt: new Date().toISOString(), by: getDeviceId() });
+    userHgvParking.push({ lat, lon, addedAt: new Date().toISOString(), by: getDeviceId(), sub: sub || "parking" });
     saveUserHgvParking();
     renderUserHgvParking();
     if(supaConfigured()){
@@ -7913,6 +7968,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* ---------- chorągiewka zgłoszenia: parking HGV / fotoradar ----------
      Chorągiewka pojawia się na ŚRODKU EKRANU (nie na punkcie GPS) i podąża za środkiem mapy, dopóki kierowca jej nie złapie —
      wtedy zostaje tam, gdzie ją puści. Dopiero gdy punkt jest ułożony i nic się nie rusza przez 5 s, pytamy o zatwierdzenie. */
+  let flagParkSub = "parking";
   let flagDraft = null;        // { kind, marker, docked, timer, prevFollow }
   const FLAG_ASK_MS = 5000;
   function flagKindInfo(kind){
@@ -7936,17 +7992,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       document.getElementById("flagValLbl").textContent = d.kind === "weight" ? "Limit tonażu (tony)" : (typeof isAdmin === "function" && isAdmin() ? "Wysokość (np. 13'6\" albo 4.1 m)" : "Wysokość, jeśli znasz (np. 13'6\" albo 4.1 m)");
       document.getElementById("flagSub").textContent = (ready ? "Zatwierdzić ten punkt?" : "Ustaw chorągiewkę na drodze.");
     }
+    const isPark = d.kind === "parking";
+    document.getElementById("flagSubtype").classList.toggle("open", isPark);
+    if(isPark) document.querySelectorAll("#flagSubtype button").forEach(b => b.classList.toggle("active", b.dataset.sub === flagParkSub));
     document.getElementById("flagCard").classList.add("show");
   }
   function flagArm(){   // punkt ułożony → po 5 s pytanie o zatwierdzenie
     const d = flagDraft; if(!d) return;
     if(d.timer) clearTimeout(d.timer);
-    d.timer = setTimeout(() => { if(flagDraft === d) flagSetAsk(true); }, FLAG_ASK_MS);
+    flagSetAsk(true);
   }
   function flagDisarm(){
     const d = flagDraft; if(!d) return;
     if(d.timer){ clearTimeout(d.timer); d.timer = null; }
-    flagSetAsk(false);
+    flagSetAsk(true);   // pytanie o zatwierdzenie jest widoczne od razu
   }
   function dropFlagDraft(){
     const d = flagDraft; if(!d) return;
@@ -7973,10 +8032,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       return;
     }
     dropFlagDraft();
-    if(kind === "camera") commitCamera(ll.lat, ll.lng); else commitHgvParking(ll.lat, ll.lng);   // zapis z autorem (device id)
+    if(kind === "camera") commitCamera(ll.lat, ll.lng); else commitHgvParking(ll.lat, ll.lng, flagParkSub);   // zapis z autorem (device id)
   }
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("#flagSubtype button"); if(!b) return;
+    flagParkSub = b.dataset.sub;
+    document.querySelectorAll("#flagSubtype button").forEach(x => x.classList.toggle("active", x === b));
+  });
   function startReportFlag(kind){
     if(!map) return;
+    flagParkSub = "parking";
+    try{   // w strefie przemysłowej podpowiadamy "mały"
+      const f = map.queryRenderedFeatures(map.project(screenCenterLngLat()), {}).find(x => /industrial/i.test((x.properties && (x.properties.class || x.properties.subclass)) || ""));
+      if(f) flagParkSub = "small";
+    }catch(e){}
     if(flagDraft) dropFlagDraft();     // niezatwierdzona poprzednia chorągiewka znika
     const k = flagKindInfo(kind);
     const el = document.createElement("div");
@@ -8003,7 +8072,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     followUser = false;                // kamera nie ucieka za pojazdem, kiedy kierowca ustawia punkt
     if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
     map.on("move", d.onMove); map.on("moveend", d.onMoveEnd);
-    flagSetAsk(false);
+    flagSetAsk(true);
   }
   function reportHgvParkingHere(){ startReportFlag("parking"); }
   function reportCameraHere(){ startReportFlag("camera"); }
@@ -10783,9 +10852,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function runPendingRoute(){
     const m = pendingRouteMode; pendingRouteMode = null;
     updateAddWaypointVisibility();
-    if(!m || !navSelectedDest) return;
+    if(!navSelectedDest) return;
+    if(!m){ if(navSelectedOrigin && navUiState !== "nav" && !routeEditMode) runAutoPlan(); return; }   // wybrano i start, i cel → trasa od razu
     confirmDestination();
     if(m === "go") document.getElementById("navGoBtn").click(); else if(m === "plan") document.getElementById("navPlanBtn").click();
+  }
+  // Wybrano punkt początkowy ORAZ cel → od razu planujemy i pokazujemy trasę (bez okna firmy i bez klikania „Zaplanuj trasę”).
+  // Zachowuje się jak „Zaplanuj trasę” z okna firmy, łącznie z bramą wjazdową ustawioną przez administratora.
+  function runAutoPlan(){
+    const d = navSelectedDest; if(!d || !navSelectedOrigin) return;
+    try{
+      const gate = (typeof poiGateFor === "function") ? poiGateFor({ name: d.name || String(d.label || "").split(",")[0], lat: d.lat, lon: d.lon }) : null;
+      if(gate) navSelectedDest = Object.assign({}, d, { lat: gate.lat, lon: gate.lon });
+    }catch(e){}
+    hidePoiAsk();
+    updateAddWaypointVisibility();
+    confirmDestination();
+    document.getElementById("navPlanBtn").click();
   }
   // mode: "go" = Jedź (od razu trasa i jazda), "plan" = Zaplanuj trasę (wybór/edycja trasy); cel = brama wjazdowa, jeśli administrator ją ustawił
   function acceptPoiAsk(mode){
@@ -10903,6 +10986,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function openDestinationSheet(){
     if(!navSelectedDest) return;
     const d = navSelectedDest;
+    if(navSelectedOrigin && navUiState !== "nav" && !routeEditMode){ runAutoPlan(); return; }   // start i cel wybrane → od razu trasa
     showNavError("");
     followUser = false;
     updateLocateBtnVisibility();
@@ -14994,8 +15078,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
    Dane i rysowanie 3D: js/42 (window.nawiBillboards). Tu tylko interfejs. Zapis: localStorage (nawigator_billboards). */
 (function(){
   const $ = id => document.getElementById(id);
-  const panel = $("navPanel"), btn = $("navBillboardBtn");
-  if(!panel || !btn || !window.nawiBillboards) return;
+  if(!$("navBillboardBlock") || !window.nawiBillboards) return;
   const API = window.nawiBillboards;
   let sel = 0;
   const cur = () => API.all()[Math.min(sel, API.all().length - 1)];
@@ -15075,20 +15158,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!list.length) API.replace(API.defaultList());
     sel = Math.max(0, Math.min(sel, API.all().length - 1)); commit(); fill();
   });
-  document.addEventListener("nawibb-image", () => { if(panel.classList.contains("billboard-open")) preview(); });
+  document.addEventListener("nawibb-image", () => preview());
 
-  function setOpen(on){
-    panel.classList.toggle("billboard-open", on);
-    btn.classList.toggle("active", on);
-    btn.setAttribute("aria-pressed", on ? "true" : "false");
-    if(on){
-      fill();
-      if(panel.classList.contains("collapsed") && typeof setNavPanelCollapsed === "function") setNavPanelCollapsed(false);
-    }
-  }
-  btn.addEventListener("click", () => setOpen(!panel.classList.contains("billboard-open")));
-  const tabNav = $("navTabNav");
-  if(tabNav){ tabNav.addEventListener("click", () => setOpen(false)); tabNav.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") setOpen(false); }); }
+  fill();
+  const sp=document.querySelector('[data-tab="system"]');
+  if(sp) sp.addEventListener("click", () => setTimeout(fill, 0));
 })();
 </script>
 <script>
@@ -16258,6 +16332,61 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
     return out;
   }
+  // Powrót tą samą drogą: WSZYSTKIE utrudnienia NH (zamknięcia, pasy, roboty, inne) leżące na przebiegu trasy, niezależnie od godziny
+  // (powrót będzie później); pobocze pomijamy — nie utrudnia jazdy. Dane NH nie mówią, w którą stronę, więc to „na tej drodze”.
+  function nhBackHits(route){
+    const c = route.coords, sig = nhAt + ":" + nhOn + ":" + (nhData ? nhData.length : 0) + ":" + nhVoteStamp + ":" + c.length + ":" + c[0][0];
+    if(route._nhBackSig === sig) return route._nhBack;
+    const out = []; route._nhBackSig = sig; route._nhBack = out;
+    if(!nhOn || !nhData) return out;
+    const votes = nhVotes();
+    let rx0 = 1e9, rx1 = -1e9, ry0 = 1e9, ry1 = -1e9;
+    c.forEach(q => { rx0 = Math.min(rx0, q[0]); rx1 = Math.max(rx1, q[0]); ry0 = Math.min(ry0, q[1]); ry1 = Math.max(ry1, q[1]); });
+    nhData.forEach(f => {
+      if(f.k === "shoulder") return;
+      const vote = votes[f.uid]; if(vote && vote.v === "no") return;
+      let hit = -1;
+      [Array.isArray(f.c[0]) ? f.c : [f.c]].concat(f.x || []).forEach(g => {
+        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; g.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
+        x0 -= .0008; x1 += .0008; y0 -= .0005; y1 += .0005;
+        if(x1 < rx0 || x0 > rx1 || y1 < ry0 || y0 > ry1) return;      // poza obszarem trasy
+        for(let i = 0; i < c.length; i++){
+          const p = c[i]; if(p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
+          let d = Infinity; if(g.length === 1) d = nhSegDist(p, g[0], g[0]); else for(let j = 0; j + 1 < g.length && d > NH_HIT_M; j++) d = Math.min(d, nhSegDist(p, g[j], g[j + 1]));
+          if(d <= (g.length === 1 ? 60 : NH_HIT_M) && i > hit) hit = i;
+        }
+      });
+      if(hit >= 0) out.push({ uid: f.uid, k: f.k, road: f.road, txt: f.txt, act: f.act, s: f.s, e: f.e, i: hit });
+    });
+    // najpierw zamknięcia, potem reszta; w obrębie grupy kolejność jak na drodze powrotnej (od celu w stronę startu)
+    out.sort((a, b) => (a.k === "closure" ? 0 : 1) - (b.k === "closure" ? 0 : 1) || b.i - a.i);
+    return out;
+  }
+  let nhBackSig = "";
+  function nhBackRender(tg){
+    try{
+      const box = nhEl("pickNHBack"); if(!box) return;
+      const list = tg && tg.picker ? nhBackHits(tg.route) : [];
+      if(!list.length){ box.style.display = "none"; box.classList.remove("open"); nhBackSig = ""; return; }
+      box.style.display = "block";
+      const sig = list.map(h => h.uid).join(",");
+      if(sig === nhBackSig) return;
+      nhBackSig = sig;
+      const n = list.length, word = n === 1 ? "utrudnienie" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? "utrudnienia" : "utrudnień";
+      nhEl("pickNHBackTxt").textContent = "↩ Powrót tą samą drogą · " + n + " " + word;
+      const fmt = ms => { const x = new Date(ms), p = v => String(v).padStart(2, "0"); return p(x.getDate()) + "." + p(x.getMonth() + 1) + " " + p(x.getHours()) + ":" + p(x.getMinutes()); };
+      const KIND = { closure: ["⛔", "Zamknięta droga"], lane: ["⚠", "Zamknięty pas / ograniczenia"], works: ["🚧", "Roboty drogowe"], other: ["⚠", "Utrudnienie"] };
+      const wrap = nhEl("pickNHBackList"); wrap.textContent = "";
+      list.slice(0, 8).forEach(h => {
+        const kd = KIND[h.k] || KIND.other, it = document.createElement("div"); it.className = "nhbItem";
+        const t = document.createElement("div"); t.className = "nhbT"; t.textContent = kd[0] + " " + kd[1] + (h.road ? " · " + h.road : "");
+        const when = h.act ? "trwa teraz" + (h.e ? " · do " + fmt(h.e) : "") : (h.s ? "planowane od " + fmt(h.s) + (h.e ? " do " + fmt(h.e) : "") : "planowane");
+        const s = document.createElement("div"); s.className = "nhbS"; s.textContent = (h.txt ? h.txt + " — " : "") + when;
+        it.appendChild(t); it.appendChild(s); wrap.appendChild(it);
+      });
+      if(n > 8){ const m = document.createElement("div"); m.className = "nhbS nhbItem"; m.textContent = "…i " + (n - 8) + " więcej"; wrap.appendChild(m); }
+    }catch(e){}
+  }
   function nhRouteFeats(route){ try{ return route ? nhRouteHits(route) : []; }catch(e){ return []; } }
 
   function nhNoEntry(fl){
@@ -16415,6 +16544,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     pendingRoutes[pickSel()] = det.res.route; detourPreviewSet(null); nhPreviewOn = false; nhRouteSig = "";
     paintPicker(false); showBanner("OBJAZD", "Trasa z objazdem zamkniętej drogi: " + detourCost(det.res), false);
   });
+  document.addEventListener("click", e => {
+    const b = e.target && e.target.closest ? e.target.closest("#pickNHBackBtn") : null; if(!b) return;
+    const box = nhEl("pickNHBack"); if(box) b.setAttribute("aria-expanded", box.classList.toggle("open") ? "true" : "false");
+  });
+  addTick(() => nhBackRender(typeof trTarget === "function" ? trTarget() : null), 1000);
   addTick(nhTick, 5000);
   addTick(nhRouteTick, 4000);
 </script>
@@ -18163,8 +18297,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(l.type !== "line" || l["source-layer"] !== "transportation") return;
       let f = 1, quiet = false;
       if(/motorway/i.test(l.id)) return;                                     // autostrady: js/07 (×2,2)
-      if(/trunk|primary/i.test(l.id)) f = 1.4;
-      else if(/secondary|tertiary/i.test(l.id)) f = 1.15;
+      if(/trunk|primary|secondary|tertiary/i.test(l.id)) f = 1;                 // drogi A nie szerzej niż autostrady
       else if(/minor|service|track/i.test(l.id)){ f = 0.85; quiet = true; }
       try{
         if(f !== 1){ const w = map.getPaintProperty(l.id, "line-width"); if(w !== undefined && w !== null) map.setPaintProperty(l.id, "line-width", scaleWidthExpression(w, f)); }
