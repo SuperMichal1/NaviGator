@@ -1752,6 +1752,25 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #flagSubtype.open{ display:flex; }
 #flagSubtype button{ border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); border-radius:999px; padding:3px 9px; font:600 11px 'Inter',system-ui,sans-serif; cursor:pointer; opacity:.8; }
 #flagSubtype button.active{ color:var(--text-main); border-color:#3ddc84; opacity:1; }
+/* ===== css/16-accounts.css — okno logowania / konta i lista użytkowników (administrator) ===== */
+#accModal{ position:fixed; inset:0; z-index:300; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.55); }
+#accModal.show{ display:flex; }
+#accCard{ width:100%; max-width:440px; box-sizing:border-box; display:flex; flex-direction:column; gap:10px; padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  background:var(--panel-bg-solid, #fff); color:var(--text-main, #1b1f23); border:1px solid var(--panel-border, rgba(0,0,0,.15)); border-radius:20px 20px 0 0;
+  font:500 15px/1.4 'Inter',system-ui,sans-serif; box-shadow:0 -8px 30px rgba(0,0,0,.35); }
+#accTitle{ font:700 20px/1.2 'Inter',system-ui,sans-serif; }
+#accTxt{ white-space:pre-line; opacity:.85; font-size:14px; }
+#accCard button{ min-height:52px; border-radius:14px; font:600 16px 'Inter',system-ui,sans-serif; cursor:pointer; }
+#accGoogle{ display:flex; align-items:center; justify-content:center; gap:10px; background:#fff; color:#1f1f1f; border:1px solid #dadce0; }
+#accCard .accPrimary{ background:#1a73e8; color:#fff; border:0; }
+#accCard .accSecondary{ background:rgba(128,128,128,.14); color:inherit; border:1px solid rgba(128,128,128,.35); }
+#accCard .accGhost{ background:transparent; color:inherit; border:0; opacity:.7; min-height:44px; font-weight:500; }
+#accNickIn{ box-sizing:border-box; min-height:52px; padding:0 14px; border-radius:14px; border:1px solid rgba(128,128,128,.45); background:rgba(128,128,128,.1); color:inherit; font:600 17px 'Inter',system-ui,sans-serif; }
+#accMsg{ min-height:1.2em; font-size:13px; color:#d93025; }
+.usrItem .usrHist{ margin-top:6px; }
+.usrRow{ padding:6px 0; border-top:1px solid rgba(128,128,128,.22); font-size:13px; }
+.usrRow .usrT{ font-weight:700; word-break:break-word; }
+.usrDot{ margin-right:6px; }
 </style>
 </head>
 <body>
@@ -2159,6 +2178,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button type="button" data-tab="sound">🔊 Dźwięk</button>
       <button type="button" data-tab="truck">🚛 Ciężarówka</button>
       <button type="button" data-tab="reports" class="adminOnly">🚧 Zgłoszenia <b id="rpBadge" class="rpBadge" style="display:none"></b></button>
+      <button type="button" data-tab="users" class="adminOnly">👥 Użytkownicy</button>
       <button type="button" data-tab="system" class="adminOnly">⚙️ System</button>
     </div>
 
@@ -2194,6 +2214,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <button type="button" data-toll="paid">Płatne dozwolone</button>
       </div>
       <div class="tollHint">Unikanie nie jest zakazem: jeśli innej drogi nie ma, trasa pojedzie odcinkiem płatnym i zaznaczy go na pomarańczowo. Dotyczy kolejnych tras; trwającą przelicz, stukając 3× przycisk „cała trasa”.</div>
+      <div class="navTitle" style="margin-top:12px">Konto</div>
+      <button type="button" id="accSettingsBtn" class="navPrefBtn">👤 Zaloguj się przez Google</button>
+      <div class="tollHint">Konto jest potrzebne tylko do dodawania komentarzy i punktów na mapie. Z nawigacji korzystasz bez logowania.</div>
     </div>
 
     <div class="setPane" data-pane="sound" id="soundPane">
@@ -2319,6 +2342,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div class="navTitle" style="margin-top:14px">Poprawki danych firm <span id="rpSugCount"></span></div>
       <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
       <div id="rpSug"></div>
+    </div>
+    <div class="setPane adminOnly" data-pane="users">
+      <div class="navTitle">Użytkownicy <span id="usrCount"></span></div>
+      <div class="psMuted" style="margin-bottom:8px">Kto zarejestrował się przez Google, jaki ma pseudonim i co dodał. 👍 / 👎 to głosy innych kierowców na jego punkty na mapie.</div>
+      <div class="poiBtns" style="margin:0 0 8px"><button id="usrRefresh" type="button">↻ Odśwież listę</button></div>
+      <input id="usrFilter" class="rpInput" style="width:100%; margin-bottom:6px" placeholder="Szukaj: pseudonim lub e-mail" autocomplete="off">
+      <div id="usrList"></div>
     </div>
     <div class="setPane adminOnly" data-pane="system">
       <button id="navClearHistory" type="button" class="navPrefBtn">Wyczyść historię celów</button>
@@ -2464,6 +2494,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <span id="statusText">Łączenie z GPS…</span>
 </div>
 
+<div id="accModal" role="presentation">
+  <div id="accCard" role="dialog" aria-modal="true" aria-labelledby="accTitle">
+    <div id="accTitle"></div>
+    <div id="accTxt"></div>
+    <button type="button" id="accGoogle"></button>
+    <input type="text" id="accNickIn" maxlength="24" autocomplete="nickname" autocapitalize="off" placeholder="Pseudonim">
+    <button type="button" id="accNickSave" class="accPrimary">Zapisz pseudonim</button>
+    <button type="button" id="accNickEdit" class="accSecondary">Zmień pseudonim</button>
+    <button type="button" id="accLogout" class="accSecondary">Wyloguj</button>
+    <div id="accMsg" role="status"></div>
+    <button type="button" id="accClose" class="accGhost">Zamknij</button>
+  </div>
+</div>
 <script>
 /* Zabezpieczenie startu: w niektórych podglądach/trybach prywatnych sam dostęp do localStorage rzuca wyjątek
    i wtedy cała aplikacja przestawała reagować (nie działał ani "Włącz GPS", ani przełącznik trybu).
@@ -7379,15 +7422,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function supaReportPoint(kind, lat, lon){
     if(!supaConfigured()) return Promise.resolve(false);
     const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/rpc/report_point";
-    return fetch(url, {
+    const authP = typeof accAuthHeader === "function" ? accAuthHeader() : Promise.resolve("Bearer " + supaKey);   // zalogowany: token użytkownika (js/61)
+    return authP.then(auth => fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "apikey": supaKey,
-        "Authorization": "Bearer " + supaKey
+        "Authorization": auth
       },
       body: JSON.stringify({ p_kind: kind, p_lat: lat, p_lon: lon, p_device: getDeviceId() })
-    }).then(r => r.ok).catch(() => false);
+    })).then(r => r.ok).catch(() => false);
   }
 
   // Rozróżnia dwie różne przyczyny sięgnięcia po Overpass mimo skonfigurowanej Supabase:
@@ -7852,11 +7896,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* ---------- głosowanie społeczności (potwierdzam / nie ma) ---------- */
   function supaRpc(fn, body){
     const url = supaUrl.replace(/\/+$/, "") + "/rest/v1/rpc/" + fn;
-    return fetch(url, {
+    const authP = typeof accAuthHeader === "function" ? accAuthHeader() : Promise.resolve("Bearer " + supaKey);   // zalogowany: token użytkownika (baza zapisze autora)
+    return authP.then(auth => fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey },
+      headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": auth },
       body: JSON.stringify(body)
-    }).then(r => {
+    })).then(r => {
       if(!r.ok) return Promise.reject(new Error("HTTP " + r.status));
       if(!supaRealtime.connected) supaRep.fetchedAt = 0;   // bez Realtime: następne zapytanie pobierze świeże dane
       return r.json().catch(() => ({}));
@@ -7890,6 +7935,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!t) return;
     hideVoteCard();
     if(!supaConfigured()) return;
+    if(accNeedLogin("zagłosować na wpis", { type: "vote", kind: t.kind, id: t.id, vote })) return;   // głosować mogą tylko zalogowani (js/61) — po logowaniu głos poleci sam
     supaRpc(t.kind === "place" ? "vote_place" : "vote_report", { p_id: t.id, p_device: getDeviceId(), p_vote: vote })
       .then(res => {
         res = res || {};
@@ -8041,6 +8087,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   });
   function startReportFlag(kind){
     if(!map) return;
+    if(typeof accNeedLogin === "function" && accNeedLogin(kind === "weight" || kind === "height" ? "dodać ograniczenie na mapie" : "dodać punkt na mapie", { type: "flag", kind })) return;   // dodawanie punktów tylko po zalogowaniu (js/61)
     flagParkSub = "parking";
     try{   // w strefie przemysłowej podpowiadamy "mały"
       const f = map.queryRenderedFeatures(map.project(screenCenterLngLat()), {}).find(x => /industrial/i.test((x.properties && (x.properties.class || x.properties.subclass)) || ""));
@@ -10672,6 +10719,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return { street: String(addr || ""), post: "" };
   }
   function openPlaceForm(){
+    if(accNeedLogin("dodać nazwę budynku", placeAddTarget ? { type: "place", lat: placeAddTarget.lat, lon: placeAddTarget.lon } : null)) return;
     document.getElementById("poiAddAsk").style.display = "none";
     const f = document.getElementById("poiAddForm"); f.style.display = "flex";
     const sp = splitAddrPostcode(placeAddTarget && placeAddTarget.addr ? placeAddTarget.addr : "");
@@ -16776,6 +16824,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   async function psRest(method, path, body, prefer, extra){
     if(!supaConfigured()) throw new Error("no-supabase");
     const headers = { "apikey": supaKey, "Authorization": "Bearer " + supaKey };
+    if(method !== "GET" && typeof accAuthHeader === "function") headers.Authorization = await accAuthHeader();   // zapis: token zalogowanego (baza zapisze autora)
     if(body) headers["Content-Type"] = "application/json";
     if(prefer) headers.Prefer = prefer;
     if(extra) Object.assign(headers, extra);
@@ -17175,6 +17224,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return row;
   }
   function psInfoFormOpen(){
+    if(!isAdmin() && accNeedLogin("zgłosić poprawkę danych firmy", poiAskTarget ? { type: "poi", step: "info", name: poiAskTarget.name, lat: poiAskTarget.lat, lon: poiAskTarget.lon, placeId: poiAskTarget.placeId, ref: poiAskTarget.ref } : null)) return;
     if(!poiAskTarget) return;
     const adm = isAdmin();
     const i = PS.curInfo || {}, ov = i.ov || {}, f = i.from || {};
@@ -17388,7 +17438,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $p("poiAskNo").addEventListener("click", dismissPoiAsk);
 
     // Opublikuj → pytanie na dole okna: opinia czy zdjęcie
-    $p("psPublish").addEventListener("click", () => psSheet().classList.add("asking"));
+    $p("psPublish").addEventListener("click", () => { if(accNeedLogin("dodać komentarz lub zdjęcie", poiAskTarget ? { type: "poi", step: "publish", name: poiAskTarget.name, lat: poiAskTarget.lat, lon: poiAskTarget.lon, placeId: poiAskTarget.placeId, ref: poiAskTarget.ref } : null)) return; psSheet().classList.add("asking"); });
     $p("psAskCancel").addEventListener("click", () => psSheet().classList.remove("asking"));
     $p("psAskReview").addEventListener("click", () => {
       psSheet().classList.remove("asking");
@@ -17417,7 +17467,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         else showBanner("NIE ZAPISANO", "Nie udało się zmienić opinii (można poprawiać tylko własne)", false);
         return;
       }
-      const how = await psSaveUgc("reviews", poiAskTarget, { rating: PS.rating, body, author: "Kierowca " + getDeviceId().slice(-4) });
+      const how = await psSaveUgc("reviews", poiAskTarget, { rating: PS.rating, body, author: (accLoggedIn() && accNick()) || ("Kierowca " + getDeviceId().slice(-4)) });
       btn.disabled = false; $p("psReviewForm").classList.remove("open"); psAfterSave("reviews", how);
     });
     $p("psFile").addEventListener("change", async e => {
@@ -18148,7 +18198,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   $k("parkClose").addEventListener("click", parkHide);
   $k("parkSum").addEventListener("click", () => { $k("parkSum").classList.toggle("open"); });
-  $k("parkRate").addEventListener("click", () => { const f = $k("parkForm"); pkRenderForm(); f.classList.toggle("open"); });
+  $k("parkRate").addEventListener("click", () => { if(accNeedLogin("ocenić parking", PK.cur ? { type: "parking", c: PK.cur } : null)) return; const f = $k("parkForm"); pkRenderForm(); f.classList.toggle("open"); });
   $k("parkGo").addEventListener("click", () => {
     const c = PK.cur; if(!c) return;
     parkHide();
@@ -18437,6 +18487,321 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     document.addEventListener("visibilitychange", () => { if(!document.hidden) mp2Sun(); });
     new MutationObserver(() => { try{ mp2Terrain(); mp2Sun(); }catch(e){} }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   }));
+</script>
+<script>
+/* ===== js/61-accounts.js — Konta kierowców (logowanie przez Google, Supabase Auth) + zakładka administratora „Użytkownicy” =====
+   Klasyczny <script> (bez IIFE): wspólny zakres globalny z pozostałymi plikami js/. Kolejność ładowania: patrz index.html.
+   Logowanie jest POTRZEBNE tylko do dodawania komentarzy, zdjęć i punktów (fotoradar, parking, ograniczenia, nazwy budynków).
+   Nawigacja działa bez konta, na starcie nic nie wyskakuje. Wejścia: accNeedLogin(powód) — wołane z miejsc, które coś dodają
+   (zwraca true i pokazuje okno logowania, gdy trzeba się zalogować); accAuthHeader() — nagłówek Authorization z tokenem
+   użytkownika (używają go zapisy do bazy, dzięki temu baza sama zapisuje autora w kolumnie user_id).
+   Logowanie: przekierowanie do Google przez Supabase (adres powrotu = adres aplikacji), token wraca w #hash i jest czyszczony z adresu.
+   SQL i instrukcja ustawienia Google w Supabase: sql/accounts.sql. Wymuszenie po stronie bazy: sql/accounts_enforce.sql. */
+"use strict";
+
+  const ACC_KEY = "nawigator_user_session", ACC_RESUME_KEY = "nawigator_acc_resume", ACC_ACTIVE_MS = 5 * 60 * 1000, ACC_BEAT_MS = 2 * 60 * 1000;
+  let accSess = null, accRefreshing = null, accMode = "login";
+  let accPending = null;        // co kierowca chciał zrobić, gdy pokazaliśmy okno logowania (zapisujemy dopiero przy przejściu do Google)
+  let accAfterModal = null;     // wznowienie czeka, aż kierowca zamknie okno pseudonimu
+  try{ accSess = JSON.parse(localStorage.getItem(ACC_KEY) || "null"); }catch(e){ accSess = null; }
+  const accEl = id => document.getElementById(id);
+  function accSave(){
+    try{ if(accSess) localStorage.setItem(ACC_KEY, JSON.stringify(accSess)); else localStorage.removeItem(ACC_KEY); }catch(e){}
+    accRenderUi();
+  }
+  function accLoggedIn(){ return !!(accSess && accSess.access_token); }
+  function accNick(){ return accSess ? (accSess.nick || accSess.name || "") : ""; }
+  const accBase = () => normSupaUrl(supaUrl);
+
+  // ważny token użytkownika (odświeżany, gdy zaraz wygaśnie) albo null
+  function accToken(){
+    if(!accLoggedIn() || !supaConfigured()) return Promise.resolve(null);
+    if(accSess.expires_at - 60 > Date.now() / 1000) return Promise.resolve(accSess.access_token);
+    if(accRefreshing) return accRefreshing;
+    accRefreshing = fetch(accBase() + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey }, body: JSON.stringify({ refresh_token: accSess.refresh_token })
+    }).then(r => r.json().catch(() => ({})).then(j => {
+      if(!r.ok || !j.access_token){ const err = new Error("refresh"); err.fatal = r.status === 400 || r.status === 401; throw err; }
+      accSess = Object.assign({}, accSess, { access_token: j.access_token, refresh_token: j.refresh_token || accSess.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (j.expires_in || 3600) });
+      accSave(); return accSess.access_token;
+    })).catch(err => {
+      if(err && err.fatal){ accSess = null; accSave(); }     // sesja nieważna → wylogowanie; błąd sieci zostawia sesję
+      return null;
+    }).finally(() => { accRefreshing = null; });
+    return accRefreshing;
+  }
+  // nagłówek Authorization: token zalogowanego użytkownika, a bez logowania klucz anon (jak dotąd)
+  function accAuthHeader(){ return accToken().then(t => "Bearer " + (t || supaKey)); }
+
+  // ---------- okno: logowanie / pseudonim / konto ----------
+  const ACC_G_SVG = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+  function accMsg(t){ const m = accEl("accMsg"); if(m) m.textContent = t || ""; }
+  function accShow(mode, reason){
+    accMode = mode;
+    const show = (id, on) => { const e = accEl(id); if(e) e.style.display = on ? "" : "none"; };
+    accMsg("");
+    accEl("accGoogle").innerHTML = ACC_G_SVG + "<span>Kontynuuj z Google</span>";
+    if(mode === "login"){
+      accEl("accTitle").textContent = "Zaloguj się";
+      accEl("accTxt").textContent = "Żeby " + (reason || "dodawać wpisy") + ", zaloguj się kontem Google. Dzięki temu wiadomo, kto dodaje dane, a spamerzy nie psują mapy. " +
+        "Nawigacji nadal możesz używać bez konta. Administrator widzi Twój pseudonim i e-mail.";
+    } else if(mode === "nick"){
+      accEl("accTitle").textContent = "Twój pseudonim";
+      accEl("accTxt").textContent = "Pod takim pseudonimem będą widoczne Twoje komentarze. Możesz go zmienić teraz albo później w Ustawieniach.";
+      accEl("accNickIn").value = accNick();
+    } else {
+      accEl("accTitle").textContent = "Twoje konto";
+      accEl("accTxt").textContent = (accSess && accSess.email ? accSess.email : "") + "\nPseudonim: " + accNick();
+    }
+    show("accGoogle", mode === "login");
+    show("accNickIn", mode === "nick");
+    show("accNickSave", mode === "nick");
+    show("accNickEdit", mode === "account");
+    show("accLogout", mode === "account");
+    accEl("accModal").classList.add("show");
+  }
+  function accHide(){
+    accEl("accModal").classList.remove("show");
+    if(accAfterModal){ const r = accAfterModal; accAfterModal = null; accResume(r); }
+  }
+
+  // ---------- kontynuacja po zalogowaniu: wracamy dokładnie tam, gdzie kierowca skończył ----------
+  function accResumeLoad(){
+    try{
+      const o = JSON.parse(localStorage.getItem(ACC_RESUME_KEY) || "null");
+      localStorage.removeItem(ACC_RESUME_KEY);
+      return o && o.r && Date.now() - o.at < 30 * 60 * 1000 ? o.r : null;
+    }catch(e){ return null; }
+  }
+  function accResume(r){
+    if(!r) return;
+    let tries = 0;
+    const go = () => {
+      if(!(typeof map !== "undefined" && map && map.loaded()) && ++tries < 40){ setTimeout(go, 500); return; }   // czekamy na mapę (do ok. 20 s)
+      const click = id => { const b = document.getElementById(id); if(b) b.click(); };
+      try{
+        if(r.type === "flag") startReportFlag(r.kind);
+        else if(r.type === "vote"){ voteTarget = { kind: r.kind, id: r.id }; castVote(r.vote); }
+        else if(r.type === "place"){ showPlaceAdd(r.lat, r.lon); openPlaceForm(); }
+        else if(r.type === "parking"){ parkOpen(r.c); setTimeout(() => click("parkRate"), 400); }
+        else if(r.type === "poi"){ showPoiAsk(r.name, r.lat, r.lon, r.placeId, r.ref); setTimeout(() => click(r.step === "info" ? "psInfoEditBtn" : "psPublish"), 900); }
+      }catch(e){ console.warn("Wznowienie po logowaniu:", e); }
+    };
+    go();
+  }
+
+  async function accStartGoogle(){
+    if(!supaConfigured()){ accMsg("Najpierw skonfiguruj Supabase (Ustawienia → System)."); return; }
+    accMsg("Łączę z Google…");
+    try{   // jeśli dostawca Google nie jest włączony w Supabase, pokaż zrozumiały komunikat zamiast surowego błędu
+      const r = await fetch(accBase() + "/auth/v1/settings", { headers: { "apikey": supaKey } });
+      const st = r.ok ? await r.json() : null;
+      if(st && st.external && st.external.google === false){ accMsg("Logowanie przez Google nie jest jeszcze włączone w Supabase (patrz sql/accounts.sql)."); return; }
+    }catch(e){ /* brak sieci zgłosi się przy przekierowaniu */ }
+    const back = location.origin + location.pathname;
+    try{ if(accPending) localStorage.setItem(ACC_RESUME_KEY, JSON.stringify({ r: accPending, at: Date.now() })); }catch(e){}   // po powrocie z Google wznowimy tę akcję
+    location.href = accBase() + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(back);
+  }
+  async function accSignOut(){
+    const t = accSess && accSess.access_token;
+    accSess = null; accSave(); accHide();
+    try{ if(t && supaConfigured()) await fetch(accBase() + "/auth/v1/logout", { method: "POST", headers: { "apikey": supaKey, "Authorization": "Bearer " + t } }); }catch(e){}
+    showBanner("WYLOGOWANO", "Do dodawania komentarzy i punktów zalogujesz się ponownie", false);
+  }
+
+  // ---------- profil: pseudonim, ostatnia wizyta ----------
+  async function accLoadProfile(){
+    const t = await accToken(); if(!t || !accSess) return null;
+    try{
+      const r = await fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id) + "&select=nick,nick_set", { headers: { "apikey": supaKey, "Authorization": "Bearer " + t } });
+      if(!r.ok) return null;
+      const a = await r.json(); return (a && a[0]) || null;
+    }catch(e){ return null; }
+  }
+  async function accSaveNick(nick){
+    nick = String(nick || "").trim().replace(/\s+/g, " ");
+    if(nick.length < 3 || nick.length > 24) return "Pseudonim ma mieć od 3 do 24 znaków.";
+    if(!/^[\p{L}\p{N} _.\-]+$/u.test(nick)) return "Dozwolone: litery, cyfry, spacja, kropka, myślnik.";
+    if(!accSess.hasProfile){ accSess.nick = nick; accSave(); return ""; }   // baza profili jeszcze nie ustawiona (sql/accounts.sql) — tylko na tym telefonie
+    const t = await accToken(); if(!t) return "Sesja wygasła — zaloguj się ponownie.";
+    try{
+      const r = await fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id), {
+        method: "PATCH", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t, "Prefer": "return=minimal" },
+        body: JSON.stringify({ nick, nick_set: true })
+      });
+      if(r.status === 409) return "Ten pseudonim jest już zajęty.";
+      if(!r.ok) return "Nie udało się zapisać (HTTP " + r.status + ").";
+    }catch(e){ return "Brak połączenia — spróbuj ponownie."; }
+    accSess.nick = nick; accSave(); return "";
+  }
+  // po zalogowaniu i przy starcie: pobierz profil; przy pierwszym logowaniu zapytaj o pseudonim; zapisz „ostatnio widziany” (max raz na 6 h)
+  async function accSync(fresh){
+    const p = await accLoadProfile();
+    if(!accSess) return;
+    accSess.hasProfile = !!p;
+    if(p) accSess.nick = p.nick || accSess.name;
+    accSave();
+    if(fresh){
+      const r = accResumeLoad();
+      showBanner("ZALOGOWANO", "Zalogowano jako " + accNick() + (r ? " — wracamy do tego, co było robione" : ""), false);
+      if(p && !p.nick_set){ accAfterModal = r; accShow("nick"); }     // najpierw pseudonim, potem wznowienie
+      else accResume(r);
+    }
+    accBeat();
+  }
+  // „aktywny teraz”: znacznik last_seen odświeżany co 2 min, dopóki aplikacja jest otwarta i widoczna; administrator widzi 🟢 przy ≤ 5 min
+  async function accBeat(){
+    if(!accLoggedIn() || !accSess.hasProfile || !supaConfigured() || document.hidden) return;
+    const t = await accToken(); if(!t) return;
+    fetch(accBase() + "/rest/v1/profiles?id=eq." + encodeURIComponent(accSess.id), {
+      method: "PATCH", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t, "Prefer": "return=minimal" },
+      body: JSON.stringify({ last_seen: new Date().toISOString() })
+    }).catch(() => {});
+  }
+
+  // ---------- bramka: wołana z miejsc, które coś dodają ----------
+  function accNeedLogin(reason, resume){
+    try{
+      if(!supaConfigured()) return false;                                                       // bez wspólnej bazy nic nie jest udostępniane
+      if(typeof isAdmin === "function" && isAdmin() && adminSessionLoad()) return false;       // administrator ma własne konto
+      if(accLoggedIn()) return false;
+    }catch(e){ return false; }
+    accPending = resume || null;
+    accShow("login", reason);
+    return true;
+  }
+
+  // ---------- powrót z Google: token w #hash ----------
+  function accHandleReturn(){
+    const h = location.hash || "";
+    if(!/access_token=|error_description=/.test(h)) return false;
+    const q = new URLSearchParams(h.replace(/^#/, ""));
+    try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+    if(q.get("error_description")){ setTimeout(() => showBanner("LOGOWANIE", "Nie udało się zalogować: " + q.get("error_description"), false), 1200); return false; }
+    const at = q.get("access_token"); if(!at) return false;
+    const c = (typeof jwtClaims === "function" ? jwtClaims(at) : {}) || {}, um = c.user_metadata || {};
+    accSess = { access_token: at, refresh_token: q.get("refresh_token") || "",
+      expires_at: c.exp || (Math.floor(Date.now() / 1000) + (parseInt(q.get("expires_in"), 10) || 3600)),
+      id: c.sub || "", email: c.email || um.email || "",
+      name: um.full_name || um.name || String(c.email || "").split("@")[0] || "Kierowca" };
+    accSave();
+    return true;
+  }
+
+  // ---------- Ustawienia: przycisk konta ----------
+  function accRenderUi(){
+    const b = accEl("accSettingsBtn"); if(!b) return;
+    b.textContent = accLoggedIn() ? "🟢 " + accNick() + " · konto" : "🔴 Zaloguj się przez Google";
+  }
+
+  // ---------- administrator: zakładka „👥 Użytkownicy” ----------
+  const ACC_KIND = { speed_camera: ["📷", "Fotoradar"], camera: ["📷", "Fotoradar"], hgv_parking: ["🅿️", "Parking HGV"], parking: ["🅿️", "Parking HGV"],
+    weight: ["⚖️", "Limit tonażu"], height: ["🌉", "Niski most / wysokość"], place_name: ["🏷️", "Nazwa budynku"], review: ["💬", "Opinia"],
+    photo: ["📸", "Zdjęcie"], parking_rating: ["⭐", "Ocena parkingu"], poi_suggestion: ["✏️", "Poprawka danych firmy"] };
+  const ACC_STATUS = { pending: "czeka na potwierdzenie", active: "potwierdzone przez innych", approved: "zatwierdzone", rejected: "odrzucone", hidden: "ukryte przez społeczność" };
+  let accUsers = [], accUsersAt = 0;
+  async function accAdminRpc(fn, body){
+    const t = await supaAdminToken();
+    if(!t) throw new Error("Zaloguj się jako administrator (Ustawienia → System)");
+    const r = await fetch(accBase() + "/rest/v1/rpc/" + fn, { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + t }, body: JSON.stringify(body || {}) });
+    if(!r.ok){
+      if(r.status === 404) throw new Error("brak funkcji w bazie — uruchom sql/accounts.sql");
+      let m = ""; try{ m = (await r.text()).slice(0, 140); }catch(e){}
+      throw new Error("HTTP " + r.status + (m ? " — " + m : ""));
+    }
+    return r.json();
+  }
+  const accDate = s => { if(!s) return "—"; const d = new Date(s), p = v => String(v).padStart(2, "0"); return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()); };
+  const accMk = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
+  const accActive = u => !!u.last_seen && Date.now() - Date.parse(u.last_seen) < ACC_ACTIVE_MS;
+  function accPresenceText(u){ return "Zarejestrowany: " + accDate(u.created_at) + " · " + (accActive(u) ? "aktywny teraz" : "ostatnio: " + accDate(u.last_seen)); }
+  function accUpdatePresence(){   // odświeża same kropki 🟢/🔴 bez przebudowy listy (zostają rozwinięte historie)
+    document.querySelectorAll("#usrList .usrItem").forEach(it => {
+      const u = accUsers.find(x => x.id === it.dataset.id); if(!u) return;
+      it.querySelector(".usrDot").textContent = accActive(u) ? "🟢" : "🔴";
+      it.querySelector(".usrSeen").textContent = accPresenceText(u);
+    });
+  }
+  function accRenderUsers(){
+    const box = accEl("usrList"); if(!box) return;
+    const f = (accEl("usrFilter").value || "").trim().toLowerCase();
+    const rows = accUsers.filter(u => !f || String(u.nick || "").toLowerCase().includes(f) || String(u.email || "").toLowerCase().includes(f));
+    accEl("usrCount").textContent = accUsers.length ? "(" + accUsers.length + ")" : "";
+    box.textContent = "";
+    if(!rows.length){ box.appendChild(accMk("div", "psMuted", accUsers.length ? "Brak wyników." : "Nikt się jeszcze nie zarejestrował.")); return; }
+    rows.forEach(u => {
+      const it = accMk("div", "rpItem usrItem"); it.dataset.id = u.id;
+      const head = accMk("div", "rpHead"); head.appendChild(accMk("span", "usrDot", accActive(u) ? "🟢" : "🔴")); head.appendChild(accMk("span", "rpKind", u.nick || "(bez pseudonimu)")); head.appendChild(accMk("span", "psMuted", u.email || ""));
+      it.appendChild(head);
+      it.appendChild(accMk("div", "rpNote usrSeen", accPresenceText(u)));
+      it.appendChild(accMk("div", "rpNote", "Wpisów: " + (u.n_total || 0) + " · 👍 " + (u.n_confirmed || 0) + " · 👎 " + (u.n_denied || 0)));
+      const act = accMk("div", "rpAct"); const b = accMk("button", "", "Historia ▾"); b.type = "button"; b.dataset.hist = u.id; act.appendChild(b); it.appendChild(act);
+      it.appendChild(accMk("div", "usrHist"));
+      box.appendChild(it);
+    });
+  }
+  async function accAdminLoad(force, silent){
+    const box = accEl("usrList"); if(!box) return;
+    if(!force && accUsers.length && Date.now() - accUsersAt < 60000) return;
+    if(silent){   // odświeżanie w tle: bez migania, zostają rozwinięte historie
+      try{
+        const rows = await accAdminRpc("admin_list_users"); accUsersAt = Date.now();
+        const same = rows.length === accUsers.length && rows.every((u, i) => u.id === accUsers[i].id);
+        accUsers = rows; if(same) accUpdatePresence(); else accRenderUsers();
+      }catch(e){ /* następna próba za 30 s */ }
+      return;
+    }
+    box.textContent = ""; box.appendChild(accMk("div", "psMuted", "Ładuję…"));
+    try{ accUsers = await accAdminRpc("admin_list_users"); accUsersAt = Date.now(); accRenderUsers(); }
+    catch(e){ box.textContent = ""; box.appendChild(accMk("div", "psMuted", "⚠ " + (e.message || e))); }
+  }
+  async function accAdminHistory(btn){
+    const item = btn.closest(".usrItem"), hist = item.querySelector(".usrHist");
+    if(hist.dataset.open === "1"){ hist.dataset.open = ""; hist.textContent = ""; btn.textContent = "Historia ▾"; return; }
+    hist.dataset.open = "1"; btn.textContent = "Historia ▴"; hist.textContent = "Ładuję…";
+    try{
+      const rows = await accAdminRpc("admin_user_history", { p_user: btn.dataset.hist });
+      hist.textContent = "";
+      if(!rows.length){ hist.appendChild(accMk("div", "psMuted", "Ten użytkownik nic jeszcze nie dodał.")); return; }
+      rows.forEach(h => {
+        const k = ACC_KIND[h.kind] || ["•", h.kind || "Wpis"];
+        const row = accMk("div", "usrRow");
+        row.appendChild(accMk("div", "usrT", k[0] + " " + k[1] + (h.label && h.label !== h.kind ? " · " + h.label : "")));
+        const point = h.kind === "speed_camera" || h.kind === "hgv_parking" || h.kind === "place_name" || h.kind === "camera" || h.kind === "parking";
+        let s = accDate(h.at);
+        if(point) s += " · 👍 " + (h.confirmations || 0) + " · 👎 " + (h.denials || 0);
+        if(h.status) s += " · " + (ACC_STATUS[h.status] || h.status);
+        row.appendChild(accMk("div", "psMuted", s));
+        hist.appendChild(row);
+      });
+    }catch(e){ hist.textContent = "⚠ " + (e.message || e); }
+  }
+
+  // ---------- podpięcie zdarzeń ----------
+  safeInit("konta użytkowników", () => {
+    accEl("accGoogle").addEventListener("click", accStartGoogle);
+    accEl("accClose").addEventListener("click", accHide);
+    accEl("accModal").addEventListener("click", e => { if(e.target === accEl("accModal")) accHide(); });
+    accEl("accNickEdit").addEventListener("click", () => accShow("nick"));
+    accEl("accNickSave").addEventListener("click", async () => {
+      const btn = accEl("accNickSave"); btn.disabled = true;
+      const err = await accSaveNick(accEl("accNickIn").value); btn.disabled = false;
+      if(err){ accMsg(err); return; }
+      accHide(); showBanner("ZAPISANO", "Twój pseudonim: " + accNick(), false);
+    });
+    accEl("accLogout").addEventListener("click", accSignOut);
+    accEl("accSettingsBtn").addEventListener("click", () => { if(accLoggedIn()) accShow("account"); else accShow("login", "dodawać komentarze i punkty"); });
+    accEl("usrRefresh").addEventListener("click", () => accAdminLoad(true));
+    accEl("usrFilter").addEventListener("input", accRenderUsers);
+    accEl("usrList").addEventListener("click", e => { const b = e.target.closest("button[data-hist]"); if(b) accAdminHistory(b); });
+    document.addEventListener("navtab", e => { if(e.detail === "users") accAdminLoad(false); });
+    accRenderUi();
+    setInterval(accBeat, ACC_BEAT_MS);
+    document.addEventListener("visibilitychange", () => { if(!document.hidden) accBeat(); });
+    setInterval(() => { const l = accEl("usrList"); if(l && l.offsetParent && !document.hidden) accAdminLoad(true, true); }, 30000);   // zakładka Użytkownicy otwarta → kropki na żywo
+    const fresh = accHandleReturn();
+    if(accLoggedIn() && supaConfigured()) setTimeout(() => accSync(fresh), fresh ? 1200 : 4000);
+  });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
