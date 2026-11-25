@@ -3756,6 +3756,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
   }
 
+  function addAvgCameraSignImage(m){     // niebieski znak odcinkowego pomiaru prędkości (zegar + napis „Average speed”)
+    const id = "avg-camera-sign";
+    try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}
+    const PR = 3, W = 46, H = 50, k = PR;
+    const c = document.createElement("canvas"); c.width = W * k; c.height = H * k;
+    const g = c.getContext("2d");
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    g.scale(k, k);
+    rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#f7f7f7"; g.fill();
+    rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#1f6fe0"; g.stroke();
+    g.beginPath(); g.arc(W / 2, 17, 9.5, 0, Math.PI * 2); g.lineWidth = 2.4; g.strokeStyle = "#1f6fe0"; g.stroke();
+    g.beginPath(); g.moveTo(W / 2, 17); g.lineTo(W / 2, 11); g.moveTo(W / 2, 17); g.lineTo(W / 2 + 4.5, 19.5); g.lineWidth = 2; g.lineCap = "round"; g.stroke();
+    g.fillStyle = "#1f6fe0"; g.textAlign = "center"; g.textBaseline = "alphabetic";
+    g.font = "bold 8.2px Arial, Helvetica, sans-serif"; g.fillText("Average", W / 2, 35.5);
+    g.font = "bold 8.2px Arial, Helvetica, sans-serif"; g.fillText("speed", W / 2, 44);
+    m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
+  }
+
   function addRestrictionSignImages(m){
     Object.keys(RESTRICTION_SIGN_COLORS).forEach(kind => {
       const id = "restriction-sign-" + kind;
@@ -4489,6 +4507,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         id:"cameras-glow",
         type:"circle",
         source:"cameras",
+        layout:{ "visibility": "none" },
         paint:{
           "circle-radius": 16,
           "circle-color": ["case", ["==", ["get", "pending"], 1], "#F59E0B", "#E53935"],
@@ -4499,6 +4518,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         id:"cameras-core",
         type:"circle",
         source:"cameras",
+        layout:{ "visibility": "none" },
         paint:{
           "circle-radius": 7,
           "circle-color": ["case", ["==", ["get", "pending"], 1], "#F59E0B", "#E53935"],   // pomarańczowy = zgłoszony przez kierowcę, czeka na potwierdzenie
@@ -4513,8 +4533,23 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         layout:{
           "text-field": "📷",
           "text-size": 13,
-          "text-allow-overlap": true
+          "text-allow-overlap": true,
+          "visibility": "none"        // zastąpione znakiem „Speed cameras” poniżej (emoji i kółko nie rysowały się na części telefonów)
         }
+      });
+      // fotoradary punktowe rysujemy TĄ SAMĄ ikoną-znakiem co autostradowe (ta rysuje się wszędzie); od zoomu 8; oczekujące (pending) półprzezroczyste
+      addCameraSignImage(map);
+      map.addLayer({
+        id:"cameras-sign",
+        type:"symbol",
+        source:"cameras",
+        minzoom: 8,
+        layout:{
+          "icon-image": "mw-camera-sign",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.28, 11, 0.4, 14, 0.6, 16, 0.85, 18, 1.1],
+          "icon-allow-overlap": true, "icon-ignore-placement": true
+        },
+        paint:{ "icon-opacity": ["case", ["==", ["get", "pending"], 1], 0.6, 1] }
       });
 
       // odcinkowy pomiar prędkości (SPECS) na drogach A — pobierany raz dla całej Wielkiej
@@ -4527,6 +4562,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         type:"circle",
         source:"avg-speed-cameras",
         minzoom: 10,
+        layout:{ "visibility": "none" },
         paint:{
           "circle-radius": 14,
           "circle-color": "#2F80ED",
@@ -4538,6 +4574,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         type:"circle",
         source:"avg-speed-cameras",
         minzoom: 10,
+        layout:{ "visibility": "none" },
         paint:{
           "circle-radius": 6,
           "circle-color": "#2F80ED",
@@ -4553,7 +4590,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         layout:{
           "text-field": "⏱️",
           "text-size": 12,
-          "text-allow-overlap": true
+          "text-allow-overlap": true,
+          "visibility": "none"
+        }
+      });
+      addAvgCameraSignImage(map);   // jak punktowe: znak-ikona zamiast kółka i emoji (te nie rysowały się na części telefonów)
+      map.addLayer({
+        id:"avg-speed-cameras-sign",
+        type:"symbol",
+        source:"avg-speed-cameras",
+        minzoom: 9,
+        layout:{
+          "icon-image": "avg-camera-sign",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 12, 0.45, 14, 0.62, 16, 0.85, 18, 1.1],
+          "icon-allow-overlap": true, "icon-ignore-placement": true
         }
       });
 
@@ -7304,10 +7354,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   // przelicza wynikową listę `cameras` (OSM + społeczność Supabase + lokalne zgłoszenia tego urządzenia)
   // i odświeża warstwę na mapie — to ta lista zasila alert 200 m
-  let camDrawnN = -1;
+  let camDrawnN = -1, camLogN = -1;
   function camRedrawIfNeeded(){ if(map && map.getSource("cameras") && camDrawnN !== cameras.length) rebuildCameraList(); }
   function rebuildCameraList(){
     const localOnes = userReportedCameras.map((p, i) => ({ id: "local-cam-" + i, lat: p.lat, lon: p.lon, alerted: false, local: true }));
+    const prevA = new Set(cameras.filter(c => c.alerted).map(c => c.id));
+    localOnes.forEach(c => { if(prevA.has(c.id)) c.alerted = true; });          // lokalne zgłoszenia: stan „alerted” przeżywa odświeżenie listy
     const hid = typeof cvIsHidden === "function" ? cvIsHidden : () => false;     // usunięte przez administratora / zgłoszone jako nieaktywne (js/64)
     const base = osmCameras.concat(localOnes);
     cameras = base.concat(typeof cvAlertExtras === "function" ? cvAlertExtras(base) : []).filter(c => !hid(c.lat, c.lon));
@@ -7320,6 +7372,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       }));
       const extra = typeof cvExtraFeatures === "function" ? cvExtraFeatures(cameras) : [];     // fotoradary w widoku mapy poza kółkiem wokół pojazdu (js/64)
       map.getSource("cameras").setData({ type:"FeatureCollection", features: feats.concat(extra) });
+      if(typeof debugLog === "function" && camLogN !== feats.length + extra.length){ camLogN = feats.length + extra.length; debugLog("info", `Fotoradary na mapie: ${camLogN} (alarm: ${cameras.length}, znak: ${map.getLayer("cameras-sign") ? "jest" : "BRAK"}, obraz: ${map.hasImage("mw-camera-sign") ? "jest" : "BRAK"})`); }
     }
   }
 </script>
@@ -8819,7 +8872,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   // fotoradary zawsze NA WIERZCHU (trasa, korki i zamknięcia rysowane później przykrywały kropkę, gdy kamera stała na trasie); lista → mapa dociągana, gdy źródło powstało po jej zbudowaniu
-  const CAM_LAYERS = ["avg-speed-cameras-glow", "avg-speed-cameras-core", "avg-speed-cameras-icon", "cameras-glow", "cameras-core", "cameras-icon"];
+  const CAM_LAYERS = ["avg-speed-cameras-glow", "avg-speed-cameras-core", "avg-speed-cameras-icon", "cameras-glow", "cameras-core", "cameras-icon", "cameras-sign", "avg-speed-cameras-sign"];
   function camLayersTick(){
     try{
       if(!map || !map.getStyle()) return;
@@ -20162,6 +20215,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         await cvSupaLoad(b);
         (await cvTilesPrepare(ids)).forEach(p => got.push(p));
         cvViewCams = got; cvSig = sig;
+        debugLog("info", `Fotoradary w widoku: ${got.length} z ${ids.length} kafelków, wpisy kierowców: ${cvSupa.length}`);
         rebuildCameraList();
       } finally { cvBusy = false; }
     }catch(e){ cvBusy = false; }
@@ -20205,7 +20259,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   /* ---------- dotknięcie fotoradaru ---------- */
-  const CV_HIT_LAYERS = ["cameras-core", "cameras-icon", "motorway-cameras-dot", "avg-speed-cameras-core", "avg-speed-cameras-icon"];
+  const CV_HIT_LAYERS = ["cameras-sign", "cameras-core", "cameras-icon", "motorway-cameras-dot", "avg-speed-cameras-sign", "avg-speed-cameras-core", "avg-speed-cameras-icon"];
   let cvCardTarget = null, cvCardTimer = null;
   function cvHideCard(){ cvCardTarget = null; if(cvCardTimer){ clearTimeout(cvCardTimer); cvCardTimer = null; } const c = cvEl("camCard"); if(c) c.classList.remove("show"); }
   function camClickAt(e){
