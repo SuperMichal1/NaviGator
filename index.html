@@ -802,6 +802,8 @@
   .navClearBtn:active{ background: rgba(0,0,0,0.22); }
   body.night .navClearBtn{ background: rgba(255,255,255,0.14); color:#eee; }
   #navDestCombo.has-dest #navDestClear, #navDestCombo.has-pc #navPostcodeClear{ display:block; }
+  /* cel wybrany z listy: zamiast kodu pocztowego tylko ✕, które czyści cel */
+  #navDestCombo.picked :is(#navPostcode, .navComboSep, #navPostcodeClear){ display:none !important; }
   #navDestCombo #navPostcode{ flex:0 0 96px; width:96px; padding-left:6px; padding-right:4px; }
 
   /* „Po drodze”: przycisk w karcie jazdy + arkusz z parkingami / paliwem / punktem pośrednim */
@@ -843,7 +845,7 @@
 
 
   /* chorągiewka zgłoszenia parkingu / fotoradaru (js/20): duża, łatwa do złapania palcem */
-  .report-flag{ width:64px; height:80px; cursor:grab; touch-action:none; filter: drop-shadow(0 3px 6px rgba(0,0,0,.45)); }
+  .report-flag{ width:76px; height:92px; cursor:grab; touch-action:none; filter: drop-shadow(0 3px 6px rgba(0,0,0,.45)); }
   .report-flag svg{ display:block; }
   .poiCard .poiBy{ font-size:11px; font-style:italic; opacity:.55; line-height:1.2; }
   .poiCard .poiBy:empty{ display:none; }
@@ -864,6 +866,32 @@
   #navFixPinBtn:active{ background:rgba(11,122,109,.34); }
 
   .poiCard .poiAddr:empty{ display:none; }
+
+  /* „Po drodze”: rozwijane pole ze zdjęciami, ikony przy punkcie, wybór punktu na mapie (js/50) */
+  .alRow{ display:block; }
+  .alRow .alTop{ display:flex; align-items:center; gap:10px; }
+  .alIcoBtn{ flex:0 0 auto; width:34px; height:34px; padding:0; border:none; border-radius:50%; background:transparent; color:var(--text-dim); opacity:.7; display:flex; align-items:center; justify-content:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .alIcoBtn svg{ width:20px; height:20px; }
+  .alIcoBtn:active{ background:rgba(128,128,128,.22); }
+  .alRow.more .alPhotoBtn{ opacity:1; color:var(--accent); }
+  .alDelBtn.adminOnly{ display:none; }
+  body.is-admin .alDelBtn.adminOnly{ display:flex; }
+  .alMore{ display:none; margin-top:8px; }
+  .alRow.more .alMore{ display:block; }
+  .alPhotos{ display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; min-height:44px; align-items:center; }
+  .alPhotos img{ height:92px; width:auto; border-radius:9px; flex:0 0 auto; }
+  .alMuted{ font-size:12px; opacity:.7; }
+  .alActs{ margin-top:8px; }
+  .alActs button{ padding:7px 12px; border-radius:999px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:600 12px 'Inter',sans-serif; cursor:pointer; }
+  #alViaMapBtn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:8px; min-height:44px; border-radius:12px; border:1px solid var(--accent); background:rgba(31,214,193,.12); color:inherit; font:700 14px 'Inter',sans-serif; cursor:pointer; }
+  #alViaMapBtn svg{ width:20px; height:20px; }
+  #alPickCard{ display:none; position:fixed; left:10px; right:10px; bottom:14px; max-width:520px; margin:0 auto; z-index:9060; flex-direction:column; gap:10px; padding:12px; border-radius:16px; background:var(--panel-bg-solid); color:var(--text-main); border:1px solid var(--panel-border); box-shadow:0 8px 28px rgba(0,0,0,.45); }
+  #alPickCard.show{ display:flex; }
+  #alPickTxt{ font:700 15px 'Inter',sans-serif; }
+  #alPickCard .poiBtns{ display:flex; gap:8px; margin:0; }
+  #alPickCard .poiBtns button{ flex:1; min-height:46px; border-radius:12px; font:800 14px 'Inter',sans-serif; }
+  #alPickCard #alPickOk:not(:disabled){ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #alPickCard #alPickOk:disabled{ opacity:.45; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1766,6 +1794,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #flagSubtype button{ display:inline-flex; align-items:center; gap:7px; border:2px solid var(--panel-border); background:transparent; color:var(--text-dim); border-radius:999px; padding:6px 13px 6px 7px; font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; opacity:.75; transition:background .15s, border-color .15s, opacity .15s; -webkit-tap-highlight-color:transparent; }
 #flagSubtype button svg{ width:22px; height:22px; flex:none; }
 #flagSubtype button.active{ color:#fff; background:#0b7a6d; border-color:#3ddc84; opacity:1; box-shadow:0 0 0 3px rgba(61,220,132,.28); }
+
+/* przycisk zgłoszeń: duży, wyraźny żółty trójkąt z plusem, bez szklanego tła */
+#reportFloat #btnReportMenu{ width:60px; height:60px; background:none !important; border:none !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+#reportFloat #btnReportMenu svg.ico{ width:56px; height:56px; filter:drop-shadow(0 3px 5px rgba(0,0,0,.55)); }
+#reportFloat #btnReportMenu:active svg.ico{ transform:scale(.92); }
+#flagTitle svg.fbadge{ width:26px; height:26px; vertical-align:-6px; margin-right:7px; }
 /* ===== css/16-accounts.css — okno logowania / konta i lista użytkowników (administrator) ===== */
 #accModal{ position:fixed; inset:0; z-index:300; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.55); }
 #accModal.show{ display:flex; }
@@ -1871,11 +1905,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="reportSubMenu" id="reportSubMenu">
     <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.1 22.7 20.7H1.3z" fill="#fff" stroke="#d1131f" stroke-width="2.5" stroke-linejoin="round"/><rect x="6.4" y="11" width="11.2" height="6.4" rx="1.5" fill="#1b1f24"/><path d="M9 11l.9-1.6h4.2L15 11z" fill="#1b1f24"/><circle cx="12" cy="14.2" r="2.1" fill="#fff"/><circle cx="12" cy="14.2" r="1" fill="#1b1f24"/><circle cx="15.7" cy="12.3" r=".6" fill="#e5392f"/></svg></div>
     <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b8cf0"/><stop offset="1" stop-color="#1558b8"/></linearGradient></defs><rect x="1.8" y="1.8" width="20.4" height="20.4" rx="5.4" fill="url(#pkG)" stroke="#fff" stroke-width="1.3"/><path d="M9.4 18.4V5.9h4a3.5 3.5 0 0 1 0 7H9.4" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (3,5 / 7,5 / 18 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M5.6 8.4h7v5.8h-7zM13.2 9.8h2.5l2 2.3v2.1h-4.5z" fill="#111"/><circle cx="8" cy="15.2" r="1.5" fill="#111" stroke="#fff" stroke-width=".8"/><circle cx="15.4" cy="15.2" r="1.5" fill="#111" stroke="#fff" stroke-width=".8"/></svg></div>
+    <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (3,5 / 7,5 / 18 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><g transform="translate(12 12.3) scale(.8) translate(-12 -12)"><rect x="3.4" y="6.4" width="11" height="8.6" rx="1" fill="#222"/><path d="M14.9 8.4h2.7l2.8 3.3v3.3h-5.5z" fill="#222"/><text x="8.9" y="13.1" text-anchor="middle" font-size="6.2" font-weight="900" font-family="Arial,sans-serif" fill="#fff">7.5</text><circle cx="7.2" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/><circle cx="17" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/></g></svg></div>
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.1 22.7 20.7H1.3z" fill="#ffc400" stroke="#1b1f24" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9.2v7.6M8.2 13h7.6" fill="none" stroke="#1b1f24" stroke-width="2.6" stroke-linecap="round"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="rmY" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe866"/><stop offset="1" stop-color="#ffae00"/></linearGradient></defs><path d="M12 1.9 23.1 21.1H.9z" fill="url(#rmY)" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><path d="M12 1.9 23.1 21.1H.9z" fill="none" stroke="#1b1f24" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8.4v9.2M7.4 13h9.2" fill="none" stroke="#1b1f24" stroke-width="3.1" stroke-linecap="round"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -2160,9 +2194,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div id="alViaWrap" class="navStopWrap" style="display:none">
     <input type="text" id="alViaInput" class="navStopInput" placeholder="Dodaj punkt pośredni…" autocomplete="off">
     <div id="alViaSuggestions" class="navSuggestions"></div>
+    <button id="alViaMapBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c-3.9 0-7 3-7 6.9 0 5 7 12.1 7 12.1s7-7.100 7-12.100c0-3.900-3.100-6.900-7-6.900z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9.4" r="2.5" fill="currentColor"/></svg>Punkt na mapie</button>
   </div>
   <div id="alStatus"></div>
   <div id="alList"></div>
+</div>
+
+<div id="alPickCard" role="dialog" aria-live="polite">
+  <div id="alPickTxt"></div>
+  <div class="poiBtns"><button id="alPickCancel" type="button">Anuluj</button><button id="alPickOk" type="button" disabled>✓ Jedź przez ten punkt</button></div>
 </div>
 
 <div id="navPanel" data-navstate="search">
@@ -2439,6 +2479,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div class="navTitle" style="margin-top:14px">Poprawki danych firm <span id="rpSugCount"></span></div>
       <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
       <div id="rpSug"></div>
+      <div class="navTitle" style="margin-top:14px">Punkty „Po drodze” zgłoszone jako nieodpowiednie dla HGV <span id="rpAlCount"></span></div>
+      <div class="psMuted" style="margin-bottom:6px">Parkingi i stacje z listy „Po drodze”, które kierowcy uznali za nieodpowiednie dla ciężarówek. „Usuń z listy” ukrywa punkt u wszystkich.</div>
+      <div id="rpAl"></div>
+      <div class="navTitle" style="margin-top:14px">Usunięte z listy „Po drodze”</div>
+      <div id="rpAlOut"></div>
     </div>
     <div class="setPane adminOnly" data-pane="users">
       <div class="navTitle">Użytkownicy <span id="usrCount"></span></div>
@@ -8153,11 +8198,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function flagGlyph(kind, col){
     switch(kind){
       case "camera":  return `<rect x="3" y="7.5" width="18" height="11.5" rx="2.6" fill="#fff"/><path d="M8 7.5l1.4-2.6h5.2L16 7.5z" fill="#fff"/><circle cx="12" cy="13.2" r="3.7" fill="${col}"/><circle cx="12" cy="13.2" r="1.7" fill="#fff"/>`;
-      case "weight":  return `<circle cx="12" cy="12" r="10.5" fill="#fff"/><path d="M5.4 8.2h7.2v6H5.4zM13.2 9.7h2.6l2.1 2.4v2.1h-4.7z" fill="#222"/><circle cx="8.2" cy="15.4" r="1.6" fill="#222" stroke="#fff" stroke-width=".8"/><circle cx="15.6" cy="15.4" r="1.6" fill="#222" stroke="#fff" stroke-width=".8"/>`;
+      case "weight":  return `<circle cx="12" cy="12" r="10.8" fill="#fff"/><g transform="translate(12 12.3) scale(.86) translate(-12 -12)"><rect x="3.4" y="6.4" width="11" height="8.6" rx="1" fill="#222"/><path d="M14.9 8.4h2.7l2.8 3.3v3.3h-5.5z" fill="#222"/><text x="8.9" y="13.1" text-anchor="middle" font-size="6.2" font-weight="900" font-family="Arial,sans-serif" fill="#fff">7.5</text><circle cx="7.2" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/><circle cx="17" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/></g>`;
       case "height":  return `<circle cx="12" cy="12" r="10.5" fill="#fff"/><path d="M12 5.6v12.8M8.8 8.8l3.2-3.2 3.2 3.2M8.8 15.2l3.2 3.2 3.2-3.2" fill="none" stroke="#222" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>`;
       case "place":   return `<path d="M12 2.5 3 10.5h2.6V20h12.8v-9.5H21z" fill="#fff"/><rect x="10" y="13" width="4" height="7" fill="${col}"/>`;
       default:        return `<rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="#fff"/><path d="M9.6 18V6.4h3.8a3.3 3.3 0 0 1 0 6.6H9.6" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
+  }
+  function flagBadge(kind, col){   // mała ikona w tytule okna zgłoszenia (zamiast emodżi)
+    return `<svg class="fbadge" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6.5" fill="${col}"/><g transform="translate(3 3) scale(.75)">${flagGlyph(kind, col)}</g></svg>`;
   }
   function screenCenterLngLat(){
     const c = map.getContainer();
@@ -8166,7 +8214,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function flagSetAsk(ready){
     const d = flagDraft; if(!d) return;
     const k = flagKindInfo(d.kind);
-    document.getElementById("flagTitle").textContent = k.ico + " " + k.name;
+    document.getElementById("flagTitle").innerHTML = flagBadge(d.kind, k.col) + k.name;
     document.getElementById("flagSub").textContent = d.move ? "Przeciągnij chorągiewkę na właściwe miejsce (maks. 150 m) i zatwierdź." : ready ? "Zatwierdzić ten punkt?" : "Przesuń mapę lub chorągiewkę w miejsce punktu.";
     document.getElementById("flagOk").style.display = ready ? "" : "none";
     const restr = d.kind === "weight" || d.kind === "height";            // ograniczenia: formularz z limitem
@@ -8248,21 +8296,22 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const k = flagKindInfo(kind);
     const el = document.createElement("div");
     el.className = "report-flag";
-    el.innerHTML = `<svg width="64" height="80" viewBox="0 0 64 80" aria-hidden="true">
+    el.innerHTML = `<svg width="76" height="92" viewBox="0 0 76 92" aria-hidden="true">
       <defs>
-        <linearGradient id="rfShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
+        <linearGradient id="rfShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></linearGradient>
         <linearGradient id="rfPole" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8d969c"/><stop offset=".45" stop-color="#f4f6f7"/><stop offset="1" stop-color="#6f787e"/></linearGradient>
+        <filter id="rfGl" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity=".45"/></filter>
       </defs>
-      <ellipse cx="8" cy="76.5" rx="7" ry="2.4" fill="#000" opacity=".3"/>
-      <rect x="6" y="6" width="4" height="70" rx="2" fill="url(#rfPole)" stroke="#2b2f33" stroke-width=".8"/>
-      <circle cx="8" cy="5.5" r="4.4" fill="#ffc933" stroke="#8a5a00" stroke-width="1"/>
-      <path d="M10 9 C22 4 34 15 46 10 C52 7.6 57 8 61 9 V37 C57 36 52 35.6 46 38 C34 43 22 32 10 37 Z" fill="${k.col}" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M10 9 C22 4 34 15 46 10 C52 7.6 57 8 61 9 V37 C57 36 52 35.6 46 38 C34 43 22 32 10 37 Z" fill="url(#rfShade)"/>
-      <g transform="translate(24 11)">${flagGlyph(kind, k.col)}</g>
-      <circle cx="8" cy="76" r="2.6" fill="#fff" stroke="#d1131f" stroke-width="1.6"/>
+      <ellipse cx="9" cy="89" rx="8" ry="2.6" fill="#000" opacity=".3"/>
+      <rect x="6.8" y="8" width="4.4" height="80" rx="2.2" fill="url(#rfPole)" stroke="#2b2f33" stroke-width=".9"/>
+      <circle cx="9" cy="6.4" r="5" fill="#ffc933" stroke="#8a5a00" stroke-width="1.1"/>
+      <path d="M11.5 11 C25 5 41 19 55 12 C62 9 68 9 73 10 V55 C68 54 62 54 55 57 C41 64 25 50 11.5 56 Z" fill="${k.col}" stroke="#fff" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M11.5 11 C25 5 41 19 55 12 C62 9 68 9 73 10 V55 C68 54 62 54 55 57 C41 64 25 50 11.5 56 Z" fill="url(#rfShade)"/>
+      <g transform="translate(42 33.5) scale(1.45) translate(-12 -12)" filter="url(#rfGl)">${flagGlyph(kind, k.col)}</g>
+      <circle cx="9" cy="88" r="2.8" fill="#fff" stroke="#d1131f" stroke-width="1.7"/>
     </svg>`;
     // dół drzewca = dokładny punkt zgłoszenia
-    const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-8, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
+    const marker = new maplibregl.Marker({ element: el, anchor: "bottom-left", offset: [-9, 0], draggable: true, pitchAlignment: "viewport", rotationAlignment: "viewport" })
       .setLngLat(mv ? [mv.lon, mv.lat] : screenCenterLngLat()).addTo(map);
     if(kind === "weight" || kind === "height"){       // formularz ograniczenia: domyślnie 7,5 t albo pusta wysokość
       document.getElementById("flagVal").value = kind === "weight" ? "7.5" : "";
@@ -10062,6 +10111,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const combo = document.getElementById("navDestCombo"); if(!combo) return;
     combo.classList.toggle("has-dest", !!document.getElementById("navDest").value);
     combo.classList.toggle("has-pc", !!document.getElementById("navPostcode").value);
+    combo.classList.toggle("picked", !!navSelectedDest && !!document.getElementById("navDest").value);
   }
   (function(){
     const dest = document.getElementById("navDest"), pc = document.getElementById("navPostcode");
@@ -10167,6 +10217,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!hasDest && typeof pendingRouteMode !== "undefined") pendingRouteMode = null;
     // pole punktu początkowego pojawia się, gdy użytkownik planuje trasę (wybrał cel): domyślnie start z GPS, można wybrać inne miejsce
     document.body.classList.toggle("has-dest", hasDest);
+    navRefreshClearBtns();
     document.body.classList.toggle("show-origin", hasDest);
     originEl.placeholder = lastPos ? "Moja pozycja (GPS) — albo wpisz inne miejsce" : "Wpisz punkt początkowy…";
     refreshOriginGpsChip();
@@ -11128,6 +11179,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   function setupPoiClick(){
     map.on("click", (e) => {
+      if(window.alPicking) return;                                        // wybór punktu pośredniego na mapie (js/50)
       if(typeof psGatePlacing !== "undefined" && psGatePlacing) return;   // administrator ustawia bramę wjazdową (js/52)
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
       if(navUiState !== "picker" && !routeEditMode && handleNoLimitMapClick(e)) return;   // admin: dotknięcie drogi bez limitu
@@ -11212,9 +11264,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       // puste miejsce: okno firmy znika, a jeśli był to cel wybrany w wyszukiwarce — znika też jego nazwa z pola „cel podróży” (i pinezka)
       const fromSearch = typeof PS !== "undefined" && PS.fromSearch;
       if(fromSearch && typeof dismissPoiAsk === "function"){
-        dismissPoiAsk();
-        const dEl = document.getElementById("navDest");
-        if(dEl){ dEl.value = ""; dEl.dispatchEvent(new Event("input", { bubbles: true })); }
+        dismissPoiAsk();      // czyści też pole „cel podróży” (js/52)
       }else hidePoiAsk();
     });
   }
@@ -11232,7 +11282,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const label = d.label || "";
     showPoiAsk(d.name || label.split(",")[0] || label, d.lat, d.lon, null, null, d.addr || null);
     if(typeof PS !== "undefined") PS.fromSearch = true;
-    if(map) map.easeTo({ center: [d.lon, d.lat], zoom: 14, pitch: 0, bearing: 0, offset: [0, -90], duration: 600 });
+    if(map) map.easeTo({ center: [d.lon, d.lat], zoom: 14, pitch: 0, bearing: 0, offset: [0, 0], duration: 600 });
   }
   // krok 1 (stary): użytkownik wybrał cel (Enter/podpowiedź) — pokaż go na mapie z pinezką, ale jeszcze nie licz trasy
   function confirmDestination(){
@@ -11331,8 +11381,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       setNavKeyRowOpen(true);
       return;
     }
-    if(!lastPos && !navSelectedOrigin){ showNavError("Czekam na sygnał GPS albo wpisz punkt początkowy."); return; }
     if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
+    if(!gpsGuard(planRoutes)) return;     // GPS wyłączony? (js/40)
 
     // pełny ekran włączamy tu (synchronicznie, w reakcji na klik), żeby przeglądarka
     // zaakceptowała żądanie jako wynik gestu użytkownika
@@ -11652,8 +11702,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     clearTimeout(pickReplanTimer); pickDirty = false;
     showNavError("");
     routeBeforeEdit = null;
-    if(!lastPos && !navSelectedOrigin){ showNavError("Czekam na sygnał GPS albo wpisz punkt początkowy."); return; }
     if(!navSelectedDest){ showNavError("Wybierz cel z listy podpowiedzi."); return; }
+    if(!gpsGuard(planTruckRoute)) return;     // GPS wyłączony? (js/40)
 
     enterFullscreen(); // w reakcji na klik, żeby przeglądarka to zaakceptowała
     const planBtn = document.getElementById("navPlanBtn");
@@ -14889,6 +14939,27 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       onPositionError({ code:0, message: String(e) });
     }
   }
+  // Przed planowaniem trasy ze startem z GPS: sprawdź, czy GPS naprawdę działa (użytkownik mógł go wyłączyć).
+  // Zwraca true, gdy można planować od razu; inaczej sprawdza GPS w tle i po sukcesie sam woła retry().
+  function gpsGuard(retry){
+    if(navSelectedOrigin) return true;                                   // start wpisany ręcznie — GPS niepotrzebny
+    if(lastPos && Date.now() - lastPos.t < 45000) return true;           // świeża pozycja
+    showNavError(""); showNavStatus("Sprawdzam GPS…");
+    const fail = (code) => {
+      showNavStatus("");
+      const msg = code === 1 ? "Lokalizacja jest zablokowana — zezwól na nią w ustawieniach przeglądarki/telefonu"
+                : code === 3 ? "Brak sygnału GPS — wyjedź na otwarte miejsce i spróbuj ponownie"
+                : "GPS jest wyłączony — włącz lokalizację w telefonie albo wpisz punkt początkowy";
+      showNavError(msg);
+      try{ showBanner("GPS WYŁĄCZONY", msg, false); }catch(e){}
+      try{ startGps(); }catch(e){}
+    };
+    if(!navigator.geolocation){ fail(2); return false; }
+    try{
+      navigator.geolocation.getCurrentPosition(pos => { onPosition(pos); showNavStatus(""); retry(); }, err => fail(err && err.code), { enableHighAccuracy:true, timeout:6000, maximumAge:0 });
+    }catch(e){ fail(2); }
+    return false;
+  }
   function retryGps(){                       // przycisk lokalizacji bez GPS: ponów próbę włączenia
     startGps();
     try{ showBanner("SZUKAM GPS", "Włącz lokalizację w telefonie i zaczekaj chwilę", false); }catch(e){}
@@ -16560,6 +16631,39 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const e2 = nhTT.get(h.uid) || e; e2.fl = fl; route._nhSig = null; nhRouteSig = "";
       }).catch(() => { e.fl = false; });
   }
+  // Zakres punktów trasy, które PRZEBIEGAJĄ wzdłuż odcinka zamknięcia (a nie tylko go muskają): trasa musi iść równolegle do zamkniętej drogi
+  // na odcinku min. 60 m (albo połowy długości zamknięcia, jeśli krótsze). Sama obwiednia/skrzyżowanie/rondo przy zamkniętej drodze nie liczą się.
+  function nhFollowRange(c, g){
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; g.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
+    x0 -= .0008; x1 += .0008; y0 -= .0005; y1 += .0005;
+    const single = g.length === 1, hit = new Array(c.length).fill(false);
+    let any = false;
+    for(let i = 0; i < c.length; i++){
+      const p = c[i]; if(p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
+      if(single){ if(nhSegDist(p, g[0], g[0]) <= 60){ hit[i] = true; any = true; } continue; }
+      let d = Infinity, bj = 0;
+      for(let j = 0; j + 1 < g.length; j++){ const dj = nhSegDist(p, g[j], g[j + 1]); if(dj < d){ d = dj; bj = j; } }
+      if(d > NH_HIT_M) continue;
+      const q = c[Math.min(i + 1, c.length - 1)], pr = i + 1 < c.length ? p : c[i - 1], kx = Math.cos(p[1] * Math.PI / 180);
+      const rb = Math.atan2((q[0] - pr[0]) * kx, q[1] - pr[1]) * 180 / Math.PI, cb = Math.atan2((g[bj + 1][0] - g[bj][0]) * kx, g[bj + 1][1] - g[bj][1]) * 180 / Math.PI;
+      const diff = Math.abs(((rb - cb) % 180 + 180) % 180);
+      if(diff <= 40 || diff >= 140){ hit[i] = true; any = true; }
+    }
+    if(!any) return null;
+    if(single){ let a = -1, b = -1; hit.forEach((h, i) => { if(h){ if(a < 0) a = i; b = i; } }); return { i0: a, i1: b }; }
+    const kx = Math.cos(g[0][1] * Math.PI / 180) * 111320, ky = 111320;
+    let L = 0; for(let j = 0; j + 1 < g.length; j++) L += Math.hypot((g[j + 1][0] - g[j][0]) * kx, (g[j + 1][1] - g[j][1]) * ky);
+    const need = Math.min(60, L * 0.5);
+    let a = -1, b = -1;
+    for(let i = 0; i < c.length; ){
+      if(!hit[i]){ i++; continue; }
+      let j = i, len = 0;
+      while(j + 1 < c.length && hit[j + 1]){ len += Math.hypot((c[j + 1][0] - c[j][0]) * kx, (c[j + 1][1] - c[j][1]) * ky); j++; }
+      if(len >= need){ if(a < 0 || i < a) a = i; if(j > b) b = j; }
+      i = j + 1;
+    }
+    return a < 0 ? null : { i0: a, i1: b };
+  }
   function nhRouteHits(route){
     const sig = nhAt + ":" + nhOn + ":" + (nhData ? nhData.length : 0) + ":" + nhVoteStamp + ":" + Array.from(nhTT.values()).map(x => x.v + (x.fl ? "f" : "")).join("");
     if(route._nhSig === sig) return route._nhHits;
@@ -16571,13 +16675,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const vote = votes[f.uid]; if(vote && vote.v === "no") return;
       let i0 = -1, i1 = -1;
       [Array.isArray(f.c[0]) ? f.c : [f.c]].concat(f.x || []).forEach(g => {       // główna linia + dodatkowe odcinki tego samego zamknięcia
-        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; g.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
-        x0 -= .0008; x1 += .0008; y0 -= .0005; y1 += .0005;
-        for(let i = 0; i < c.length; i++){
-          const p = c[i]; if(p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
-          let d = Infinity; if(g.length === 1) d = nhSegDist(p, g[0], g[0]); else for(let j = 0; j + 1 < g.length && d > NH_HIT_M; j++) d = Math.min(d, nhSegDist(p, g[j], g[j + 1]));
-          if(d <= (g.length === 1 ? 60 : NH_HIT_M)){ if(i0 < 0 || i < i0) i0 = i; if(i > i1) i1 = i; }
-        }
+        const r = nhFollowRange(c, g); if(r){ if(i0 < 0 || r.i0 < i0) i0 = r.i0; if(r.i1 > i1) i1 = r.i1; }
       });
       // godziny zamknięcia: liczy się tylko, gdy będziemy tam w czasie zamknięcia (przejazd zaczyna się teraz; margines 10 min)
       if(i0 >= 0){
@@ -16604,14 +16702,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       const vote = votes[f.uid]; if(vote && vote.v === "no") return;
       let hit = -1;
       [Array.isArray(f.c[0]) ? f.c : [f.c]].concat(f.x || []).forEach(g => {
-        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; g.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
-        x0 -= .0008; x1 += .0008; y0 -= .0005; y1 += .0005;
-        if(x1 < rx0 || x0 > rx1 || y1 < ry0 || y0 > ry1) return;      // poza obszarem trasy
-        for(let i = 0; i < c.length; i++){
-          const p = c[i]; if(p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
-          let d = Infinity; if(g.length === 1) d = nhSegDist(p, g[0], g[0]); else for(let j = 0; j + 1 < g.length && d > NH_HIT_M; j++) d = Math.min(d, nhSegDist(p, g[j], g[j + 1]));
-          if(d <= (g.length === 1 ? 60 : NH_HIT_M) && i > hit) hit = i;
-        }
+        const r = nhFollowRange(c, g); if(r && r.i1 > hit) hit = r.i1;
       });
       if(hit >= 0) out.push({ uid: f.uid, k: f.k, road: f.road, txt: f.txt, act: f.act, s: f.s, e: f.e, i: hit });
     });
@@ -16839,6 +16930,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   var pendingExtra = null;
   const AL_RADIUS_M = 25000, AL_CORRIDOR_M = 3500, AL_CACHE_MS = 3 * 60 * 1000;
   let alKind = "parking", alCache = {}, alToken = 0, alMarks = [];
+  // punkty nieodpowiednie dla HGV (sql/along_flags.sql): wykluczone przez administratora (wszyscy) + ukryte lokalnie (zgłoszone przez tego kierowcę)
+  const AL_HIDE_LS = "nav_al_hidden_v1";
+  let alExcl = { t: 0, list: [] };
+  const alLocalHidden = () => { try{ return JSON.parse(localStorage.getItem(AL_HIDE_LS) || "[]"); }catch(e){ return []; } };
+  const alLocalHide = it => { const a = alLocalHidden(); a.push({ lat: it.lat, lon: it.lon }); try{ localStorage.setItem(AL_HIDE_LS, JSON.stringify(a.slice(-300))); }catch(e){} };
+  const alIsHidden = it => alExcl.list.concat(alLocalHidden()).some(h => haversine(h.lat, h.lon, it.lat, it.lon) < 60);
+  async function alLoadExcluded(){
+    if(Date.now() - alExcl.t < 10 * 60 * 1000 || !supaConfigured()) return;
+    alExcl.t = Date.now();
+    try{ alExcl.list = (await psRest("GET", "along_flags?select=lat,lon&status=eq.excluded&limit=3000")) || []; }catch(e){}
+  }
   const alEl = id => document.getElementById(id);
   const alMi = m => (m / 1609.344 < 10 ? (m / 1609.344).toFixed(1) : Math.round(m / 1609.344)) + " mi";
 
@@ -16860,7 +16962,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     }catch(e){}
   }
   function alSelect(n){
-    alMarks.forEach((m, i) => { m.row.classList.toggle("sel", i === n); m.el.classList.toggle("sel", i === n); });
+    alMarks.forEach((m, i) => { m.row.classList.toggle("sel", i === n); m.el.classList.toggle("sel", i === n); if(i !== n) m.row.classList.remove("more"); });   // drugi punkt → pole ze zdjęciami samo się chowa
     const m = alMarks[n]; if(!m) return;
     m.row.scrollIntoView({ block: "nearest", behavior: "smooth" });
     try{ map.easeTo({ center: [m.it.lon, m.it.lat], zoom: Math.max(map.getZoom(), 16), duration: 500, offset: [0, -Math.round((alEl("alongSheet").offsetHeight || 260) / 2)] }); }catch(e){}
@@ -16919,23 +17021,117 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         res = alRank(raw); alCache[grid] = { t: Date.now(), res };
       }
       if(token !== alToken) return;
+      await alLoadExcluded(); if(token !== alToken) return;
+      res = res.filter(it => !alIsHidden(it));
       st.textContent = res.length ? "" : (kind !== "parking" && !tomtomApiKey ? "Wpisz klucz API TomTom w Ustawieniach (⋮)." : "Brak miejsc blisko trasy przed Tobą (do " + alMi(AL_CORRIDOR_M) + " od trasy).");
       const box = alEl("alList"); box.innerHTML = ""; alClearMarks();
       res.forEach((it, n) => {
         const row = document.createElement("div"); row.className = "alRow";
-        row.innerHTML = '<div class="alNum"></div><div class="alMain"><div class="alName"></div><div class="alSub"></div></div><div class="alGo">Jedź</div>';
+        row.innerHTML = '<div class="alTop"><div class="alNum"></div><div class="alMain"><div class="alName"></div><div class="alSub"></div></div>' +
+          '<button type="button" class="alIcoBtn alPhotoBtn" aria-label="Zdjęcia i szczegóły" title="Zdjęcia i szczegóły"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.2h3.2l1.5-2.2h6.6l1.5 2.2H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.3" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>' +
+          '<button type="button" class="alIcoBtn alDelBtn adminOnly" aria-label="Usuń z listy" title="Usuń z listy (nie dla HGV)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v6M13.5 10.5v6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+          '<div class="alGo">Jedź</div></div><div class="alMore"></div>';
         row.querySelector(".alNum").textContent = String(n + 1);
         row.querySelector(".alName").textContent = it.name;
         row.querySelector(".alSub").textContent = "za " + alMi(it.alongM) + " · " + (it.offM < 150 ? "przy trasie" : alMi(it.offM) + " od trasy") + (it.addr ? " · " + it.addr : "");
-        row.addEventListener("click", ev => { if(ev.target.closest(".alGo")) alAdd({ lat: it.lat, lon: it.lon, label: it.name }); else alSelect(n); });
+        row.addEventListener("click", ev => {
+          if(ev.target.closest(".alMore")) return;
+          if(ev.target.closest(".alPhotoBtn")){ alToggleMore(n); return; }
+          if(ev.target.closest(".alDelBtn")){ alExclude(it); return; }
+          if(ev.target.closest(".alGo")) alAdd({ lat: it.lat, lon: it.lon, label: it.name }); else alSelect(n);
+        });
         box.appendChild(row);
         const el = document.createElement("div"); el.className = "alPin " + kind; el.textContent = String(n + 1);
         el.addEventListener("click", ev => { ev.stopPropagation(); alSelect(n); });
-        alMarks.push({ it, row, el, marker: new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([it.lon, it.lat]).addTo(map) });
+        alMarks.push({ it, row, el, more: row.querySelector(".alMore"), marker: new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([it.lon, it.lat]).addTo(map) });
       });
       if(res.length) alFit();
     }catch(e){ if(token === alToken){ st.textContent = "Nie udało się pobrać miejsc."; console.warn("Po drodze:", e); } }
   }
+  // ---------- rozwijane pole ze zdjęciami punktu + zgłoszenie / usunięcie punktu nieodpowiedniego dla HGV ----------
+  async function alPhotos(it){
+    if(!supaConfigured()) return [];
+    const d = 0.0004, dl = 0.0007;
+    return (await psRest("GET", `poi_photos?select=id,data&lat=gte.${it.lat - d}&lat=lte.${it.lat + d}&lon=gte.${it.lon - dl}&lon=lte.${it.lon + dl}&order=created_at.desc&limit=6`)) || [];
+  }
+  function alToggleMore(n){
+    const m = alMarks[n]; if(!m) return;
+    const wasOpen = m.row.classList.contains("more");
+    alMarks.forEach(x => x.row.classList.remove("more"));
+    if(wasOpen) return;
+    alSelect(n);
+    m.row.classList.add("more");
+    if(m.more.dataset.ready) return;
+    m.more.dataset.ready = "1";
+    m.more.innerHTML = '<div class="alPhotos"><span class="alMuted">Szukam zdjęć…</span></div><div class="alActs"></div>';
+    const acts = m.more.querySelector(".alActs"), btn = document.createElement("button"); btn.type = "button";
+    if(isAdmin()){ btn.textContent = "Usuń z listy (nie dla HGV)"; btn.addEventListener("click", () => alExclude(m.it)); }
+    else { btn.textContent = "Nie nadaje się dla HGV"; btn.addEventListener("click", () => alReport(m.it)); }
+    acts.appendChild(btn);
+    alPhotos(m.it).then(list => {
+      const box = m.more.querySelector(".alPhotos");
+      if(!list.length){ box.innerHTML = '<span class="alMuted">Brak zdjęć tego miejsca.</span>'; return; }
+      box.innerHTML = ""; list.forEach(p => { const im = document.createElement("img"); im.src = p.data; im.alt = "Zdjęcie miejsca"; im.loading = "lazy"; box.appendChild(im); });
+    }).catch(() => { const box = m.more.querySelector(".alPhotos"); if(box) box.innerHTML = '<span class="alMuted">Brak zdjęć tego miejsca.</span>'; });
+  }
+  async function alExclude(it){      // administrator: punkt znika z listy u wszystkich kierowców
+    if(!isAdmin()) return;
+    if(!window.confirm("Usunąć „" + it.name + "” z listy „Po drodze” dla wszystkich kierowców?")) return;
+    try{
+      await supaAdminRequest("POST", "along_flags", [{ kind: alKind, name: it.name, lat: it.lat, lon: it.lon, status: "excluded", reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }], "return=minimal");
+      alExcl.list.push({ lat: it.lat, lon: it.lon });
+      showBanner("USUNIĘTO Z LISTY", "Punkt nie będzie już proponowany kierowcom", false);
+    }catch(e){
+      alLocalHide(it);
+      showBanner("TYLKO NA TYM URZĄDZENIU", "Nie zapisano w bazie — uruchom sql/along_flags.sql", false);
+    }
+    alSearch(alKind);
+  }
+  const AL_RATE_KEY = "nav_al_rate_v1";
+  async function alReport(it){       // kierowca: zgłoszenie do administratora; u zgłaszającego punkt znika od razu
+    if(typeof accNeedLogin === "function" && accNeedLogin("zgłosić punkt jako nieodpowiedni dla HGV")) return;
+    try{
+      const today = new Date().toISOString().slice(0, 10), o = JSON.parse(localStorage.getItem(AL_RATE_KEY) || "{}");
+      if(o.d !== today){ o.d = today; o.n = 0; }
+      if(o.n >= 15){ showBanner("LIMIT ZGŁOSZEŃ", "Dziś wysłano już 15 zgłoszeń — spróbuj jutro", false); return; }
+      o.n++; localStorage.setItem(AL_RATE_KEY, JSON.stringify(o));
+    }catch(e){}
+    try{ await psRest("POST", "along_flags", [{ kind: alKind, name: it.name, lat: it.lat, lon: it.lon, status: "pending", device: getDeviceId() }], "return=minimal"); }catch(e){ console.warn("Zgłoszenie punktu:", e); }
+    alLocalHide(it);
+    showBanner("ZGŁOSZONE", "Administrator sprawdzi, czy punkt nadaje się dla HGV", false);
+    alSearch(alKind);
+  }
+
+  // ---------- „Punkt na mapie”: dotknij mapy w wybranym miejscu i zatwierdź — trasa poprowadzi przez ten punkt ----------
+  let alPick = null;
+  function alPickStart(){
+    alClose(); window.alPicking = true;
+    const card = alEl("alPickCard"); card.classList.add("show");
+    alEl("alPickTxt").textContent = "Dotknij mapy w miejscu, przez które chcesz jechać"; alEl("alPickOk").disabled = true;
+    followUser = false; if(typeof updateLocateBtnVisibility === "function") updateLocateBtnVisibility();
+    const st = { marker: null, ll: null };
+    st.onClick = e => {
+      st.ll = e.lngLat;
+      if(!st.marker){
+        const el = document.createElement("div"); el.className = "alPickPin";
+        el.innerHTML = '<svg viewBox="0 0 32 42" width="34" height="44" aria-hidden="true"><path d="M16 1.5C8.3 1.5 2.5 7.3 2.5 14.6 2.5 24.4 16 40.5 16 40.5S29.5 24.4 29.5 14.6C29.5 7.3 23.7 1.5 16 1.5z" fill="#1fd6c1" stroke="#fff" stroke-width="2.2"/><circle cx="16" cy="14.6" r="5.2" fill="#0c0f12"/></svg>';
+        st.marker = new maplibregl.Marker({ element: el, anchor: "bottom", draggable: true }).setLngLat(e.lngLat).addTo(map);
+        st.marker.on("dragend", () => { st.ll = st.marker.getLngLat(); });
+      } else st.marker.setLngLat(e.lngLat);
+      alEl("alPickTxt").textContent = "Zatwierdź punkt albo dotknij innego miejsca"; alEl("alPickOk").disabled = false;
+    };
+    map.on("click", st.onClick); alPick = st;
+  }
+  function alPickStop(){
+    if(!alPick) return;
+    try{ map.off("click", alPick.onClick); if(alPick.marker) alPick.marker.remove(); }catch(e){}
+    alPick = null; window.alPicking = false; alEl("alPickCard").classList.remove("show");
+  }
+  async function alPickLabel(ll){
+    try{ const r = await freeReverse(ll.lat, ll.lng); const parts = r ? [r.streetName, r.municipality].filter(Boolean) : []; if(parts.length) return parts.join(", "); }catch(e){}
+    return "Punkt na mapie";
+  }
+
   function alAdd(stop){
     pendingExtra = stop; alClose();
     if(typeof offerRoutesFromHere === "function") offerRoutesFromHere(stop);
@@ -16958,6 +17154,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   safeInit("po drodze", () => {
     alEl("navAlongBtn").addEventListener("click", alOpen);
     alEl("alClose").addEventListener("click", alClose);
+    alEl("alViaMapBtn").addEventListener("click", alPickStart);
+    alEl("alPickCancel").addEventListener("click", () => { alPickStop(); alKind = "via"; alOpen(); });
+    alEl("alPickOk").addEventListener("click", async () => {
+      if(!alPick || !alPick.ll) return;
+      const ll = alPick.ll; alEl("alPickOk").disabled = true;
+      const label = await alPickLabel(ll);
+      alPickStop(); alAdd({ lat: ll.lat, lon: ll.lng, label });
+    });
     document.querySelectorAll("#alongSheet .alTabs button").forEach(b => b.addEventListener("click", () => alSet(b.dataset.k)));
     createStopSearch(alEl("alViaWrap"), alEl("alViaInput"), alEl("alViaSuggestions"), {
       bias: () => lastPos ? { lat: lastPos.lat, lon: lastPos.lon } : null,
@@ -17099,7 +17303,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function dismissPoiAsk(){
     const fs = PS.fromSearch;
     hidePoiAsk();
-    if(fs){ try{ removeDestPin(); }catch(e){} navSelectedDest = null; try{ updateAddWaypointVisibility(); }catch(e){} }
+    if(fs){
+      try{ removeDestPin(); }catch(e){} navSelectedDest = null;
+      const dEl = document.getElementById("navDest");      // ✕ / zamknięcie okna czyści też pole „cel podróży”
+      if(dEl){ dEl.value = ""; try{ dEl.dispatchEvent(new Event("input", { bubbles: true })); }catch(e){} }
+      try{ updateAddWaypointVisibility(); }catch(e){}
+    }
   }
   function psOnHide(){
     PS.fromSearch = false;
@@ -17948,6 +18157,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div class="rpAct"><button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">Pokaż na mapie</button>
         <button type="button" data-act="sok" class="psPrimary">✔ Zatwierdź</button><button type="button" data-act="sno">✖ Odrzuć</button></div></div>`;
   }
+  function alFlagItemHtml(r, out){      // punkt „Po drodze” zgłoszony jako nieodpowiedni dla HGV (js/50, sql/along_flags.sql)
+    return `<div class="rpItem" data-id="${hgvEsc(r.id)}">
+      <div class="rpHead"><span class="rpKind">${hgvEsc(r.name)}</span><b class="rpVal">${r.kind === "fuel" ? "Paliwo / serwis" : "Parking HGV"}</b></div>
+      <div class="psMuted">${Number(r.lat).toFixed(5)}, ${Number(r.lon).toFixed(5)} · ${hgvEsc(hgvDate(r.created_at))}</div>
+      <div class="rpAct"><button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">Pokaż na mapie</button>
+        ${out ? `<button type="button" data-act="alback">Przywróć na listę</button>` : `<button type="button" data-act="alok" class="psPrimary">✔ Usuń z listy</button><button type="button" data-act="alno">✖ Zostaw</button>`}</div></div>`;
+  }
   async function hgvPanelLoad(){
     const list = hgvEl("rpList"), appr = hgvEl("rpApproved");
     list.innerHTML = `<div class="psMuted">Wczytuję…</div>`; appr.innerHTML = "";
@@ -17966,7 +18182,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     HGVC.sugg = sug;
     hgvEl("rpSug").innerHTML = sug.length ? sug.map(sugItemHtml).join("") : `<div class="psMuted">Brak propozycji poprawek.</div>`;
     hgvEl("rpSugCount").textContent = sug.length ? "(" + sug.length + ")" : "";
-    hgvSetBadge(pend.length + sug.length);
+    let alp = [], alo = [];
+    try{
+      alp = await hgvAdminGet("along_flags?select=id,kind,name,lat,lon,created_at&status=eq.pending&order=created_at.desc&limit=200");
+      alo = await hgvAdminGet("along_flags?select=id,kind,name,lat,lon,created_at&status=eq.excluded&order=created_at.desc&limit=100");
+    }catch(e){}
+    hgvEl("rpAl").innerHTML = alp.length ? alp.map(r => alFlagItemHtml(r, false)).join("") : `<div class="psMuted">Brak zgłoszeń.</div>`;
+    hgvEl("rpAlOut").innerHTML = alo.length ? alo.map(r => alFlagItemHtml(r, true)).join("") : `<div class="psMuted">Brak usuniętych punktów.</div>`;
+    hgvEl("rpAlCount").textContent = alp.length ? "(" + alp.length + ")" : "";
+    hgvSetBadge(pend.length + sug.length + alp.length);
     list.innerHTML = pend.length ? pend.map(r => hgvItemHtml(r, true)).join("") : `<div class="psMuted">Brak nowych zgłoszeń.</div>`;
     appr.innerHTML = ok.length ? ok.map(r => hgvItemHtml(r, false)).join("") : `<div class="psMuted">Brak zatwierdzonych ograniczeń.</div>`;
   }
@@ -17979,6 +18203,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{
       const rows = await hgvAdminGet("hgv_reports?select=id&status=eq.pending&limit=200");
       let n2 = 0; try{ n2 = (await hgvAdminGet("poi_suggestions?select=id&status=eq.pending&limit=200")).length; }catch(e){}
+      try{ n2 += (await hgvAdminGet("along_flags?select=id&status=eq.pending&limit=200")).length; }catch(e){}
       hgvSetBadge(rows.length + n2); return rows.length + n2;
     }catch(e){ return 0; }
   }
@@ -17998,6 +18223,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const item = btn.closest(".rpItem"); if(!item) return;
     const act = btn.dataset.act, id = item.dataset.id;
     if(act === "show"){ hgvShowOnMap(Number(btn.dataset.lat), Number(btn.dataset.lon)); return; }
+    if(act === "alok" || act === "alno" || act === "alback"){          // punkty „Po drodze” nieodpowiednie dla HGV
+      try{
+        if(act === "alback") await supaAdminRequest("DELETE", `along_flags?id=eq.${encodeURIComponent(id)}`);
+        else await supaAdminRequest("PATCH", `along_flags?id=eq.${encodeURIComponent(id)}`, { status: act === "alok" ? "excluded" : "rejected", reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, "return=minimal");
+        if(typeof alExcl !== "undefined") alExcl.t = 0;
+        if(act === "alok") showBanner("USUNIĘTO Z LISTY", "Punkt nie będzie już proponowany kierowcom", false);
+      }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); return; }
+      hgvPanelLoad(); return;
+    }
     const row = HGVC.pending.find(r => String(r.id) === String(id));
     if(act === "sok" || act === "sno"){                  // propozycja poprawki danych firmy
       const sg = (HGVC.sugg || []).find(r => String(r.id) === String(id)); if(!sg) return;
@@ -18043,6 +18277,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hgvEl("rpList").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
     hgvEl("rpApproved").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
     hgvEl("rpSug").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
+    ["rpAl", "rpAlOut"].forEach(id => hgvEl(id).addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); }));
     document.addEventListener("navtab", e => { if(e.detail === "reports" && isAdmin()) hgvPanelLoad(); });
     const whenMap = fn => { if(typeof map !== "undefined" && map){ if(map.loaded()) fn(); else map.once("load", fn); } else setTimeout(() => whenMap(fn), 600); };
     whenMap(() => {
