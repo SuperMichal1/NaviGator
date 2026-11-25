@@ -3756,7 +3756,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
   }
 
-  function addAvgCameraSignImage(m){     // niebieski znak odcinkowego pomiaru prędkości (zegar + napis „Average speed”)
+  function addAvgCameraSignImage(m){     // ŻÓŁTY znak odcinkowego pomiaru prędkości (zegar + „Average speed”) — inny niż biały znak zwykłego fotoradaru
     const id = "avg-camera-sign";
     try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}
     const PR = 3, W = 46, H = 50, k = PR;
@@ -3764,13 +3764,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const g = c.getContext("2d");
     const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
     g.scale(k, k);
-    rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#f7f7f7"; g.fill();
-    rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#1f6fe0"; g.stroke();
-    g.beginPath(); g.arc(W / 2, 17, 9.5, 0, Math.PI * 2); g.lineWidth = 2.4; g.strokeStyle = "#1f6fe0"; g.stroke();
+    rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#FFD400"; g.fill();                    // żółta tablica
+    rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#111"; g.stroke();
+    g.beginPath(); g.arc(W / 2, 17, 9.5, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.lineWidth = 2.4; g.strokeStyle = "#111"; g.stroke();
     g.beginPath(); g.moveTo(W / 2, 17); g.lineTo(W / 2, 11); g.moveTo(W / 2, 17); g.lineTo(W / 2 + 4.5, 19.5); g.lineWidth = 2; g.lineCap = "round"; g.stroke();
-    g.fillStyle = "#1f6fe0"; g.textAlign = "center"; g.textBaseline = "alphabetic";
+    g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "alphabetic";
     g.font = "bold 8.2px Arial, Helvetica, sans-serif"; g.fillText("Average", W / 2, 35.5);
-    g.font = "bold 8.2px Arial, Helvetica, sans-serif"; g.fillText("speed", W / 2, 44);
+    g.fillText("speed", W / 2, 44);
     m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
   }
 
@@ -4538,14 +4538,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         }
       });
       // fotoradary punktowe rysujemy TĄ SAMĄ ikoną-znakiem co autostradowe (ta rysuje się wszędzie); od zoomu 8; oczekujące (pending) półprzezroczyste
-      addCameraSignImage(map);
+      addCameraSignImage(map); addAvgCameraSignImage(map);
       map.addLayer({
         id:"cameras-sign",
         type:"symbol",
         source:"cameras",
         minzoom: 8,
         layout:{
-          "icon-image": "mw-camera-sign",
+          "icon-image": ["case", ["==", ["get", "avg"], 1], "avg-camera-sign", "mw-camera-sign"],
           "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.28, 11, 0.4, 14, 0.6, 16, 0.85, 18, 1.1],
           "icon-allow-overlap": true, "icon-ignore-placement": true
         },
@@ -6439,11 +6439,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const AVG_SPEED_CAMERA_MAX_RETRIES = 3;
   let avgSpeedCameraRetries = 0;
 
-  let avgSpeedLastFeatures = [];
+  let avgSpeedLastFeatures = [], avgLogN = -1;
   function setAvgSpeedCameraData(features){
     avgSpeedLastFeatures = features;
     const vis = typeof cvIsHidden === "function" ? features.filter(f => !cvIsHidden(f.geometry.coordinates[1], f.geometry.coordinates[0])) : features;   // usunięte przez administratora znikają (js/64)
     if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features: vis });
+    if(typeof debugLog === "function" && avgLogN !== vis.length){ avgLogN = vis.length; debugLog("info", `Odcinkowe na mapie: ${vis.length} (źródło: ${map.getSource("avg-speed-cameras") ? "jest" : "BRAK"}, warstwa: ${map.getLayer("avg-speed-cameras-sign") ? "jest" : "BRAK"}, obraz: ${map.hasImage("avg-camera-sign") ? "jest" : "BRAK"})`); }
   }
 
   function fetchAvgSpeedCamerasBand(box){
@@ -7367,7 +7368,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       camDrawnN = cameras.length;
       const feats = cameras.map(c => ({
         type:"Feature",
-        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0 },
+        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0, avg: c.avg ? 1 : 0 },
         geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
       }));
       const extra = typeof cvExtraFeatures === "function" ? cvExtraFeatures(cameras) : [];     // fotoradary w widoku mapy poza kółkiem wokół pojazdu (js/64)
@@ -20105,7 +20106,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
    Wpisy kierowców (kind speed_camera) dotknięte na mapie otwierają kartę głosowania (js/20), a administrator może je usunąć (js/61). */
 "use strict";
 
-  const CV = { TLAT: 0.25, TLON: 0.4, PREFIX: "camtile_v1:", MAX_AGE: 30 * 24 * 3600 * 1000, MIN_ZOOM: 9, MAX_TILES: 12 };
+  const CV = { TLAT: 0.25, TLON: 0.4, PREFIX: "camtile_v2:", MAX_AGE: 30 * 24 * 3600 * 1000, MIN_ZOOM: 9, MAX_TILES: 12 };
   const cvMem = new Map();                      // id → { t, c:[[lat,lon],...] }
   let cvViewCams = [], cvSupa = [], cvSig = "", cvBusy = false, cvSupaAt = 0, cvSupaSig = "";
   let cvHidden = { t: 0, list: [] }, cvLocalHid = null, cvHideLoaded = false;
@@ -20183,8 +20184,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   async function cvTileFromOverpass(id){
     const q = id.split("_"), iy = +q[0], ix = +q[1], f = x => +x.toFixed(5);
     const b = `${f(iy * CV.TLAT)},${f(ix * CV.TLON)},${f((iy + 1) * CV.TLAT)},${f((ix + 1) * CV.TLON)}`;
-    const json = await tryEndpoints(`[out:json][timeout:25];(node["highway"="speed_camera"](${b});node["hazard"="speed_camera"](${b});node["enforcement"="maxspeed"](${b}););out;`, 0, 25000, true);
-    const c = []; (json.elements || []).forEach(el => { if(el.type === "node" && el.lat != null) c.push([Math.round(el.lat * 1e6) / 1e6, Math.round(el.lon * 1e6) / 1e6]); });
+    const json = await tryEndpoints(`[out:json][timeout:25];(node["highway"="speed_camera"](${b});node["hazard"="speed_camera"](${b});node["enforcement"="maxspeed"](${b});node["enforcement"="average_speed"](${b}););out;`, 0, 25000, true);
+    const c = []; (json.elements || []).forEach(el => { if(el.type === "node" && el.lat != null) c.push([Math.round(el.lat * 1e6) / 1e6, Math.round(el.lon * 1e6) / 1e6, el.tags && el.tags.enforcement === "average_speed" ? 1 : 0]); });   // 3. element: 1 = odcinkowy pomiar
     const d = { t: Date.now(), c };
     await cvTileRemember(id, d);
     if(supaConfigured() && typeof supaRpc === "function") supaRpc("put_camera_tile", { p_id: id, p_data: { c } }).catch(() => {});   // zalogowany kierowca / admin zasila wspólną bazę (sql/camera_tiles.sql)
@@ -20237,7 +20238,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvViewCams.forEach((p, i) => {
       if(cvIsHidden(p[0], p[1]) || dup(p[0], p[1]) || inMw(p[0], p[1])) return;     // autostradowe rysuje warstwa motorway-cameras
       seen.push({ lat: p[0], lon: p[1] });
-      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
+      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0, avg: p[2] ? 1 : 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
     });
     return out;
   }
@@ -20252,7 +20253,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(Math.abs(p[0] - lastPos.lat) > 0.03 || Math.abs(p[1] - lastPos.lon) > 0.05 || haversine(lastPos.lat, lastPos.lon, p[0], p[1]) > CAMERA_RADIUS_M) return;
       if(known.some(k => Math.abs(k.lat - p[0]) < 0.0004 && Math.abs(k.lon - p[1]) < 0.0007 && haversine(k.lat, k.lon, p[0], p[1]) < 30)) return;
       const key = p[0] + "," + p[1]; let o = cvAlertObjs.get(key);
-      if(!o){ o = { id: "view-a-" + key, lat: p[0], lon: p[1], alerted: false }; cvAlertObjs.set(key, o); if(cvAlertObjs.size > 400) cvAlertObjs.delete(cvAlertObjs.keys().next().value); }
+      if(!o){ o = { id: "view-a-" + key, lat: p[0], lon: p[1], alerted: false, avg: p[2] ? 1 : 0 }; cvAlertObjs.set(key, o); if(cvAlertObjs.size > 400) cvAlertObjs.delete(cvAlertObjs.keys().next().value); }
       out.push(o);
     });
     return out;
@@ -20276,7 +20277,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       });
       if(!best) return false;
       const lid = best.layer.id, pr = best.properties || {}, c = best.geometry.coordinates, lat = c[1], lon = c[0];
-      const kind = /^motorway/.test(lid) ? "motorway" : /^avg/.test(lid) ? "avg" : "osm";
+      const kind = /^motorway/.test(lid) ? "motorway" : (/^avg/.test(lid) || pr.avg === 1 || pr.avg === "1") ? "avg" : "osm";
       if(kind === "osm" && pr.src === "community" && pr.reportId != null && pr.reportId !== "undefined"){
         showVoteCard({ kind: "report", id: pr.reportId, title: "Fotoradar zgłoszony przez kierowców", confirmations: pr.confirmations, denials: pr.denials, status: pr.pending ? "pending" : "active",
           yes: "👍 Jest", no: "👎 Nie ma", by: "dodane przez użytkownika" });
