@@ -6420,6 +6420,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
      ODCINKOWY POMIAR PRĘDKOŚCI (SPECS) NA DROGACH A — pobierany RAZ dla całej
      Wielkiej Brytanii, tym samym mechanizmem co znaki wysokości/tonażu (podział
      na Anglię/Walię/Szkocję, retry per-fragment, cache z failedBands).
+     Dane (od v2): (1) węzły enforcement=average_speed przy drogach A oraz (2) URZĄDZENIA z relacji type=enforcement + enforcement=average_speed
+     (tak OSM zapisuje odcinki pomiarowe: relacja = odcinek, członkowie z rolą „device” = kamery) — na każdej drodze, także autostradach i pozostałych.
+     Wspólna tabela: avg_speed_cameras2 (sql/avg_speed_cameras2.sql). Numeracja kamer „1 z 3” liczona w js/64.
      Tag OSM: węzeł na drodze (lub tuż przy niej) z "enforcement"="average_speed" —
      to właśnie kamera/urządzenie odcinkowego pomiaru, w odróżnieniu od zwykłego
      punktowego fotoradaru ("highway"="speed_camera").
@@ -6432,7 +6435,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
        create policy "avg_speed_cameras read"   on public.avg_speed_cameras for select to anon using (true);
        create policy "avg_speed_cameras insert" on public.avg_speed_cameras for insert to anon with check (true);
   ============================================================ */
-  const AVG_SPEED_CAMERA_CACHE_KEY = "nav_uk_avg_speed_cameras_v1";
+  const AVG_SPEED_CAMERA_CACHE_KEY = "nav_uk_avg_speed_cameras_v2";
   const AVG_SPEED_CAMERA_CACHE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 dni — zmieniają się rzadko
   const AVG_SPEED_CAMERA_SNAP_M = 30; // urządzenie należy do drogi A, jeśli leży w tej odległości od jej jezdni
   const AVG_SPEED_CAMERA_BAND_RETRIES = 2;
@@ -6452,7 +6455,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const query = `
       [out:json][timeout:120];
       way["highway"~"^(primary|trunk)$"](${south},${west},${north},${east})->.ar;
-      node(around.ar:${AVG_SPEED_CAMERA_SNAP_M})["enforcement"="average_speed"];
+      rel["type"="enforcement"]["enforcement"="average_speed"](${south},${west},${north},${east})->.sec;
+      node(r.sec:"device")->.devs;
+      ( node(around.ar:${AVG_SPEED_CAMERA_SNAP_M})["enforcement"="average_speed"]; .devs; );
       out body;
     `;
     return tryEndpoints(query, 0, RESTRICTIONS_ATTEMPT_TIMEOUT_MS);
@@ -6527,7 +6532,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     // cache ma luki po nieudanych fragmentach Overpass (inaczej przy trwałych timeoutach nigdy
     // nie zajrzelibyśmy do Supabase, mimo że dane mogą tam już dawno być kompletne)
     if(supaConfigured()){
-      fetchTableFromSupabase("avg_speed_cameras", "osm_id,lat,lon").then(shared => {
+      fetchTableFromSupabase("avg_speed_cameras2", "osm_id,lat,lon").then(shared => {
         if(shared && shared.length){
           const features = shared.map(r => ({ type:"Feature", properties:{ id: r.osm_id }, geometry:{ type:"Point", coordinates:[r.lon, r.lat] } }));
           setAvgSpeedCameraData(features);
@@ -6571,7 +6576,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         console.warn("Nie udało się zapisać cache odcinkowego pomiaru prędkości (localStorage pełny?):", e);
         debugLog("warn", "Odcinkowy pomiar prędkości: NIE udało się zapisać cache (localStorage pełny?)");
       }
-      sharedAfterOverpass("avgSpeed", failedBands.length, all.length, "avg_speed_cameras", () =>
+      sharedAfterOverpass("avgSpeed", failedBands.length, all.length, "avg_speed_cameras2", () =>
         all.map(f => ({ osm_id: f.properties.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] })),
         "osm_id");
       if(failedBands.length && avgSpeedCameraRetries++ < AVG_SPEED_CAMERA_MAX_RETRIES){
@@ -8873,7 +8878,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   // fotoradary zawsze NA WIERZCHU (trasa, korki i zamknięcia rysowane później przykrywały kropkę, gdy kamera stała na trasie); lista → mapa dociągana, gdy źródło powstało po jej zbudowaniu
-  const CAM_LAYERS = ["avg-speed-cameras-glow", "avg-speed-cameras-core", "avg-speed-cameras-icon", "cameras-glow", "cameras-core", "cameras-icon", "cameras-sign", "avg-speed-cameras-sign"];
+  const CAM_LAYERS = ["avg-speed-cameras-glow", "avg-speed-cameras-core", "avg-speed-cameras-icon", "cameras-glow", "cameras-core", "cameras-icon", "cameras-sign", "avg-speed-cameras-sign", "avg-sections-label"];
   function camLayersTick(){
     try{
       if(!map || !map.getStyle()) return;
@@ -20299,7 +20304,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvCardTarget = { kind, lat, lon };
     const name = kind === "avg" ? "Odcinkowy pomiar prędkości" : kind === "motorway" ? "Fotoradar na autostradzie" : kind === "local" ? "Fotoradar dodany na tym telefonie" : "Fotoradar";
     cvEl("camTitle").textContent = name;
-    cvEl("camSub").textContent = kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
+    const avgI = kind === "avg" ? cvAvgInfo(lat, lon) : null;
+    cvEl("camSub").textContent = avgI ? `Kamera ${avgI.idx} z ${avgI.of} na odcinku${avgI.idx === 1 ? " (początek)" : avgI.idx === avgI.of ? " (koniec)" : ""} — licząc od ${avgI.dir}. W przeciwnym kierunku jazdy numeracja jest odwrócona. Numeracja przybliżona (wg danych OpenStreetMap).` : kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
     const b = cvEl("camAct"); b.textContent = kind === "local" ? "🗑 Usuń" : isAdmin() ? "🗑 Usuń (nieaktualny)" : "Zgłoś: nieaktywny";
     cvEl("camCard").classList.add("show");
     if(cvCardTimer) clearTimeout(cvCardTimer);
@@ -20345,6 +20351,94 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(e.target.closest && e.target.closest("#camAct")) cvAct();
     else if(e.target.closest && e.target.closest("#camClose")) cvHideCard();
   });
+
+
+  /* ============================================================
+     NUMERACJA KAMER W ODCINKU POMIAROWYM („1 z 3”, początek / koniec)
+     Wszystkie znane kamery odcinkowe (lista UK z js/14 + z kafelków widoku) łączymy w „stanowiska” (kamery po obu jezdniach tej samej bramy
+     < 80 m = jedno stanowisko), grupujemy stanowiska leżące do 4 km od siebie w odcinki i numerujemy wzdłuż osi odcinka (od zachodu albo
+     od południa). Numeracja jest przybliżona (OSM nie podaje kolejności) — w przeciwnym kierunku jazdy jest odwrócona.
+     ============================================================ */
+  const CVA = { MERGE_M: 80, LINK_M: 4000 };
+  let cvAvgSig = "", cvAvgSites = [];
+  function cvAvgPoints(){
+    const pts = [];
+    (typeof avgSpeedLastFeatures !== "undefined" ? avgSpeedLastFeatures : []).forEach(f => pts.push([f.geometry.coordinates[1], f.geometry.coordinates[0]]));
+    cvViewCams.forEach(p => { if(p[2]) pts.push([p[0], p[1]]); });
+    return pts.filter(p => !cvIsHidden(p[0], p[1]));
+  }
+  function cvAvgBuild(pts){
+    // 1) stanowiska: scalanie bliskich punktów (siatka ok. 90 m)
+    const cell = 0.0012, grid = new Map(), sites = [];
+    pts.forEach(p => {
+      const cy = Math.floor(p[0] / cell), cx = Math.floor(p[1] / (cell * 1.6)); let hit = null;
+      for(let dy = -1; dy <= 1 && !hit; dy++) for(let dx = -1; dx <= 1 && !hit; dx++){
+        (grid.get((cy + dy) + "_" + (cx + dx)) || []).forEach(st => { if(!hit && haversine(st.lat, st.lon, p[0], p[1]) < CVA.MERGE_M) hit = st; });
+      }
+      if(hit){ hit.lat = (hit.lat * hit.n + p[0]) / (hit.n + 1); hit.lon = (hit.lon * hit.n + p[1]) / (hit.n + 1); hit.n++; return; }
+      const st = { lat: p[0], lon: p[1], n: 1, cl: -1 }; sites.push(st);
+      const k = cy + "_" + cx; (grid.get(k) || grid.set(k, []).get(k)).push(st);
+    });
+    // 2) odcinki: łączenie stanowisk do 4 km (union-find po siatce ~4,4 km)
+    const par = sites.map((_, i) => i), find = i => { while(par[i] !== i){ par[i] = par[par[i]]; i = par[i]; } return i; };
+    const G = 0.04, g2 = new Map();
+    sites.forEach((st, i) => { const k = Math.floor(st.lat / G) + "_" + Math.floor(st.lon / (G * 1.6)); (g2.get(k) || g2.set(k, []).get(k)).push(i); });
+    sites.forEach((st, i) => {
+      const cy = Math.floor(st.lat / G), cx = Math.floor(st.lon / (G * 1.6));
+      for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++) (g2.get((cy + dy) + "_" + (cx + dx)) || []).forEach(j => {
+        if(j > i && haversine(st.lat, st.lon, sites[j].lat, sites[j].lon) < CVA.LINK_M) par[find(j)] = find(i);
+      });
+    });
+    const groups = new Map(); sites.forEach((st, i) => { const r = find(i); (groups.get(r) || groups.set(r, []).get(r)).push(st); });
+    // 3) numeracja wzdłuż osi głównej odcinka
+    const out = [];
+    groups.forEach(arr => {
+      if(arr.length < 2) return;
+      const lat0 = arr.reduce((a, s) => a + s.lat, 0) / arr.length, lon0 = arr.reduce((a, s) => a + s.lon, 0) / arr.length, kx = Math.cos(lat0 * Math.PI / 180);
+      let sxx = 0, syy = 0, sxy = 0;
+      arr.forEach(s => { const x = (s.lon - lon0) * kx, y = s.lat - lat0; sxx += x * x; syy += y * y; sxy += x * y; });
+      const th = 0.5 * Math.atan2(2 * sxy, sxx - syy); let ux = Math.cos(th), uy = Math.sin(th);
+      const east = Math.abs(ux) >= Math.abs(uy);
+      if(east ? ux < 0 : uy < 0){ ux = -ux; uy = -uy; }
+      arr.forEach(s => { s.t = ((s.lon - lon0) * kx) * ux + (s.lat - lat0) * uy; });
+      arr.sort((a, b) => a.t - b.t);
+      arr.forEach((s, i) => { s.idx = i + 1; s.of = arr.length; s.dir = east ? "zachodu" : "południa"; out.push(s); });
+    });
+    return out;
+  }
+  function cvAvgRender(){
+    try{
+      if(!map || !map.getSource) return;
+      const pts = cvAvgPoints();
+      const sig = pts.length + ":" + (pts.length ? pts[0][0].toFixed(4) + pts[pts.length - 1][1].toFixed(4) : "");
+      if(sig === cvAvgSig) return;
+      cvAvgSig = sig;
+      cvAvgSites = cvAvgBuild(pts);
+      if(!map.getSource("avg-sections")){
+        map.addSource("avg-sections", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "avg-sections-label", type: "symbol", source: "avg-sections", minzoom: 10,
+          layout: {
+            "text-field": ["get", "label"], "text-font": ["Noto Sans Bold"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 16, 13],
+            "text-anchor": "top", "text-offset": ["interpolate", ["linear"], ["zoom"], 10, ["literal", [0, 1.2]], 14, ["literal", [0, 1.8]], 18, ["literal", [0, 2.7]]],
+            "text-allow-overlap": true, "text-ignore-placement": true
+          },
+          paint: { "text-color": "#111", "text-halo-color": "#FFD400", "text-halo-width": 2.2 }
+        });
+      }
+      map.getSource("avg-sections").setData({ type: "FeatureCollection", features: cvAvgSites.map(s => ({
+        type: "Feature", properties: { label: (s.idx === 1 ? "POCZĄTEK " : s.idx === s.of ? "KONIEC " : "") + s.idx + "/" + s.of },
+        geometry: { type: "Point", coordinates: [s.lon, s.lat] } })) });
+      debugLog("info", `Odcinki pomiarowe: ${cvAvgSites.length} ponumerowanych stanowisk kamer w ${cvAvgSites.filter(s => s.idx === 1).length} odcinkach (punktów wejściowych: ${pts.length})`);
+    }catch(e){ console.warn("Numeracja odcinków:", e); }
+  }
+  addTick(cvAvgRender, 3000);
+  function cvAvgInfo(lat, lon){
+    let best = null, bd = 120;
+    cvAvgSites.forEach(s => { const d = haversine(s.lat, s.lon, lat, lon); if(d < bd){ bd = d; best = s; } });
+    return best;
+  }
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
