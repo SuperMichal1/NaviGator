@@ -20106,7 +20106,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
    Wpisy kierowców (kind speed_camera) dotknięte na mapie otwierają kartę głosowania (js/20), a administrator może je usunąć (js/61). */
 "use strict";
 
-  const CV = { TLAT: 0.25, TLON: 0.4, PREFIX: "camtile_v2:", MAX_AGE: 30 * 24 * 3600 * 1000, MIN_ZOOM: 9, MAX_TILES: 12 };
+  const CV = { TLAT: 0.25, TLON: 0.4, PREFIX: "camtile_v3:", MAX_AGE: 30 * 24 * 3600 * 1000, MIN_ZOOM: 9, MAX_TILES: 12 };
   const cvMem = new Map();                      // id → { t, c:[[lat,lon],...] }
   let cvViewCams = [], cvSupa = [], cvSig = "", cvBusy = false, cvSupaAt = 0, cvSupaSig = "";
   let cvHidden = { t: 0, list: [] }, cvLocalHid = null, cvHideLoaded = false;
@@ -20136,6 +20136,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   /* ---------- fotoradary punktowe w widoku mapy ---------- */
+  // odcinkowy pomiar wg tagów OSM: enforcement=average_speed (standard) albo nazwa/opis/typ wskazujące na pomiar odcinkowy (SPECS)
+  function cvIsAvg(t){
+    if(!t) return false;
+    if(/average|section/i.test(t.enforcement || "")) return true;
+    return /average|specs|section|odcink/i.test([t.name, t.description, t.note, t.operator, t["speed_camera"], t["camera:type"], t["surveillance:type"]].filter(Boolean).join(" "));
+  }
   const cvTile = (iy, ix) => iy + "_" + ix;
   function cvTilesInView(){
     const b = map.getBounds(), ids = [];
@@ -20185,7 +20191,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const q = id.split("_"), iy = +q[0], ix = +q[1], f = x => +x.toFixed(5);
     const b = `${f(iy * CV.TLAT)},${f(ix * CV.TLON)},${f((iy + 1) * CV.TLAT)},${f((ix + 1) * CV.TLON)}`;
     const json = await tryEndpoints(`[out:json][timeout:25];(node["highway"="speed_camera"](${b});node["hazard"="speed_camera"](${b});node["enforcement"="maxspeed"](${b});node["enforcement"="average_speed"](${b}););out;`, 0, 25000, true);
-    const c = []; (json.elements || []).forEach(el => { if(el.type === "node" && el.lat != null) c.push([Math.round(el.lat * 1e6) / 1e6, Math.round(el.lon * 1e6) / 1e6, el.tags && el.tags.enforcement === "average_speed" ? 1 : 0]); });   // 3. element: 1 = odcinkowy pomiar
+    const c = []; (json.elements || []).forEach(el => { if(el.type === "node" && el.lat != null) c.push([Math.round(el.lat * 1e6) / 1e6, Math.round(el.lon * 1e6) / 1e6, cvIsAvg(el.tags) ? 1 : 0]); });   // 3. element: 1 = odcinkowy pomiar
     const d = { t: Date.now(), c };
     await cvTileRemember(id, d);
     if(supaConfigured() && typeof supaRpc === "function") supaRpc("put_camera_tile", { p_id: id, p_data: { c } }).catch(() => {});   // zalogowany kierowca / admin zasila wspólną bazę (sql/camera_tiles.sql)
@@ -20216,7 +20222,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         await cvSupaLoad(b);
         (await cvTilesPrepare(ids)).forEach(p => got.push(p));
         cvViewCams = got; cvSig = sig;
-        debugLog("info", `Fotoradary w widoku: ${got.length} z ${ids.length} kafelków, wpisy kierowców: ${cvSupa.length}`);
+        debugLog("info", `Fotoradary w widoku: ${got.length} (w tym odcinkowych: ${got.filter(p => p[2]).length}) z ${ids.length} kafelków, wpisy kierowców: ${cvSupa.length}, zoom ${map.getZoom().toFixed(1)}, środek ${map.getCenter().lat.toFixed(3)},${map.getCenter().lng.toFixed(3)}`);
         rebuildCameraList();
       } finally { cvBusy = false; }
     }catch(e){ cvBusy = false; }
@@ -20283,7 +20289,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
           yes: "👍 Jest", no: "👎 Nie ma", by: "dodane przez użytkownika" });
         return true;
       }
-      if(kind === "osm" && pr.src === "local"){ showVoteCard({ kind: "local", local: true, title: "Fotoradar", by: "dodane przez użytkownika (Ty)" }, 6000); return true; }
+      if(kind === "osm" && pr.src === "local"){ cvShowCard("local", lat, lon); return true; }
       cvShowCard(kind, lat, lon);
       return true;
     }catch(err){ return false; }
@@ -20291,10 +20297,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function cvShowCard(kind, lat, lon){
     try{ hidePoiAsk(); }catch(e){}
     cvCardTarget = { kind, lat, lon };
-    const name = kind === "avg" ? "Odcinkowy pomiar prędkości" : kind === "motorway" ? "Fotoradar na autostradzie" : "Fotoradar";
+    const name = kind === "avg" ? "Odcinkowy pomiar prędkości" : kind === "motorway" ? "Fotoradar na autostradzie" : kind === "local" ? "Fotoradar dodany na tym telefonie" : "Fotoradar";
     cvEl("camTitle").textContent = name;
-    cvEl("camSub").textContent = isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
-    const b = cvEl("camAct"); b.textContent = isAdmin() ? "🗑 Usuń (nieaktualny)" : "Zgłoś: nieaktywny";
+    cvEl("camSub").textContent = kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
+    const b = cvEl("camAct"); b.textContent = kind === "local" ? "🗑 Usuń" : isAdmin() ? "🗑 Usuń (nieaktualny)" : "Zgłoś: nieaktywny";
     cvEl("camCard").classList.add("show");
     if(cvCardTimer) clearTimeout(cvCardTimer);
     cvCardTimer = setTimeout(cvHideCard, 12000);
@@ -20302,6 +20308,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   async function cvAct(){
     const t = cvCardTarget; if(!t) return;
     const nm = t.kind === "avg" ? "Odcinkowy pomiar prędkości" : "Fotoradar";
+    if(t.kind === "local"){        // fotoradar zapisany tylko na tym telefonie (jeszcze nie potwierdzony) — usuwamy od ręki
+      const near = p => Math.abs(p.lat - t.lat) < 0.0006 && Math.abs(p.lon - t.lon) < 0.001 && haversine(p.lat, p.lon, t.lat, t.lon) < 40;
+      userReportedCameras = userReportedCameras.filter(p => !near(p)); saveUserReportedCameras();
+      cvHideCard(); rebuildCameraList();
+      showBanner("USUNIĘTO", "Fotoradar usunięty z tego telefonu", false);
+      return;
+    }
     if(isAdmin()){
       if(!window.confirm("Usunąć ten fotoradar dla wszystkich kierowców?")) return;
       cvHideCard();
