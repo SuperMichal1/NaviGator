@@ -897,6 +897,16 @@
   #alPickCard .poiBtns button{ flex:1; min-height:46px; border-radius:12px; font:800 14px 'Inter',sans-serif; }
   #alPickCard #alPickOk:not(:disabled){ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
   #alPickCard #alPickOk:disabled{ opacity:.45; }
+
+/* karta fotoradaru/kamery: droga i adres, lista stanu, większe odstępy między przyciskami */
+#camCard .camRoad{ font-weight:700; opacity:.95; }
+#camCard .camRoad:empty, #camCard #camSub:empty{ display:none; }
+#camCard .camStateRow{ display:flex; align-items:center; gap:10px; margin-top:6px; }
+#camCard .camStateRow label{ font-size:13px; font-weight:600; opacity:.8; flex:none; }
+#camCard select{ flex:1; min-width:0; padding:10px 12px; border-radius:10px; border:1px solid var(--panel-border); background:transparent; color:var(--text-main); font:600 14px 'Inter',sans-serif; }
+#camCard select option{ color:#14181c; }
+#camCard .poiBtns{ gap:16px; margin-top:10px; }
+#camCard #camMore{ gap:12px; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1022,9 +1032,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #pickTruckBtn{ display:none; align-items:center; gap:7px; align-self:flex-start; max-width:100%; padding:5px 10px 5px 8px; border-radius:999px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   #pickTruckBtn .si{ width:18px; height:18px; flex:none; }
   #pickTruckBtn span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #pickTruckBtn .pickTruckH{ font:800 15px/1 'Inter',system-ui,sans-serif; color:var(--text-main); }
   #pickTruckBtn b{ font-weight:700; color:var(--text-main); opacity:.75; margin-left:2px; }
   #pickTruckBtn:active{ transform:scale(.97); }
   #navPanel[data-navstate="picker"] #pickTruckBtn{ display:inline-flex; }
+
+/* haczyki w oknie wyboru trasy: ikona + krótki napis; TomTom i National Highways to jeden wspólny haczyk „Roboty drogowe” */
+#pickNHRow{ display:none !important; }
+#pickChecks .pickChkIco{ width:22px; height:22px; flex:0 0 auto; }
+#pickChecks label span{ font-weight:600; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1952,7 +1968,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M12 10.8v5.6M9.2 13.6h5.6" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="2.6 2.6 18.8 18.8" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M12 10.8v5.6M9.2 13.6h5.6" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -2079,8 +2095,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
 <div id="camCard" class="poiCard" role="dialog" aria-live="polite">
   <div class="poiName" id="camTitle"></div>
+  <div class="poiAddr camRoad" id="camRoad"></div>
   <div class="poiAddr" id="camSub"></div>
-  <div class="poiBtns"><button id="camClose" type="button">Zamknij</button><button id="camAct" type="button"></button></div>
+  <div class="camStateRow"><label for="camState">Stan</label><select id="camState"><option value="active">Aktywny</option><option value="inactive">Nieaktywny</option><option value="remove">Usuń</option></select></div>
+  <div class="poiBtns"><button id="camClose" type="button">Zamknij</button><button id="camAct" type="button">Zastosuj</button></div>
   <div class="poiBtns" id="camMore" style="display:none;flex-wrap:wrap">
     <button id="camAvg" type="button" style="display:none"></button>
     <button id="camEdit" type="button" style="display:none"></button>
@@ -2242,7 +2260,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     <div class="navTopRow" id="navDestRow">
     <div id="navDestWrap" class="navStopWrap">
       <div id="navDestCombo">
-        <input type="text" id="navDest" class="navStopInput" placeholder="Finish" autocomplete="off">
+        <input type="text" id="navDest" class="navStopInput" placeholder="Gdzie chcesz jechać?" autocomplete="off">
         <button id="navDestClear" class="navClearBtn" type="button" aria-label="Wyczyść cel">✕</button>
         <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
         <span class="navComboSep" aria-hidden="true"></span>
@@ -2317,8 +2335,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
       <div id="pickChecks">
-        <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><span>Roboty i zamknięcia (TomTom)</span><small id="pickTrafficInfo"></small></label>
-        <label id="pickMbRow"><input type="checkbox" id="pickMbTraffic"><span>Korki na mapie (Mapbox)</span></label>
+        <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><svg class="pickChkIco" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 22 21H2z" fill="#f59e0b" stroke="#14181c" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 16.4h11.2M8.3 12.9h7.4" stroke="#14181c" stroke-width="1.6" stroke-linecap="round"/><path d="M7.7 18.6 10 16.4M11 18.6l2.3-2.2M14.3 18.6l2.3-2.2" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg><span>Roboty drogowe</span><small id="pickTrafficInfo"></small></label>
+        <label id="pickMbRow"><input type="checkbox" id="pickMbTraffic"><svg class="pickChkIco" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="1.8" width="10" height="20.4" rx="4" fill="#2b333b" stroke="#dfe5ea" stroke-width="1"/><circle cx="12" cy="6.8" r="2.3" fill="#e5392f"/><circle cx="12" cy="12" r="2.3" fill="#ffb020"/><circle cx="12" cy="17.2" r="2.3" fill="#2fbf71"/></svg><span>Korki na trasie</span></label>
         <label id="pickNHRow"><input type="checkbox" id="pickNH"><span>Remonty dróg (National Highways)</span></label>
       </div>
       <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
@@ -10810,9 +10828,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
      po zamknięciu ustawień ze zmienionymi parametrami trasa przelicza się sama ---------- */
   function pickTruckLabel(){
     const p = HGV_PROFILE, ftin = m => { const tot = Math.round(m / 0.0254); return Math.floor(tot / 12) + "'" + (tot % 12) + "\""; };
-    return formatWeightLabel(p.weight).replace("t", " t") + " · " + ftin(p.height) + " · " + ftin(p.width);
+    return { h: ftin(p.height), rest: formatWeightLabel(p.weight).replace("t", " t") + " · " + ftin(p.width) };   // wysokość pokazujemy pierwszą i większą
   }
-  function pickTruckRefresh(){ const el = document.getElementById("pickTruckTxt"); if(el) el.textContent = "Pojazd: " + pickTruckLabel(); }
+  function pickTruckRefresh(){
+    const el = document.getElementById("pickTruckTxt"); if(!el) return;
+    const l = pickTruckLabel();
+    el.textContent = "";
+    const h = document.createElement("strong"); h.className = "pickTruckH"; h.textContent = l.h;
+    el.append("Pojazd: ", h, " · " + l.rest);
+  }
   safeInit("przycisk pojazdu w wyborze trasy", () => {
     let snap = null;
     document.getElementById("pickTruckBtn").addEventListener("click", () => { snap = JSON.stringify(HGV_PROFILE); openNavSettings("truck"); });
@@ -17507,53 +17531,169 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   });
 </script>
 <script>
-/* ===== js/51-mapbox-traffic.js — Korki na mapie (Mapbox Traffic, kafelki wektorowe) =====
-   Klasyczny <script> (bez IIFE). Warstwa „traffic” z tilesetu mapbox.mapbox-traffic-v1: kolor wg zatłoczenia drogi (moderate / heavy / severe),
-   bez zapytań o trasę — tylko kafelki mapy (używa tokenu Mapbox z js/11d). Domyślnie WYŁĄCZONA (ikona 🚦 w wysuwanym menu lub haczyk w oknie wyboru trasy); haczyk „Korki na mapie (Mapbox)” w oknie wyboru trasy.
-   TomTom (js/48) zostaje do robót i zamknięć na trasie. Zależności (tylko w callbackach): map, mapboxToken (js/11d), addTick (js/03). */
+/* ===== js/51-mapbox-traffic.js — Korki Mapbox tylko na wybranej i alternatywnej trasie =====
+   Klasyczny <script> (bez IIFE). Kafelki mapbox.mapbox-traffic-v1 są pobierane WYŁĄCZNIE w prostokącie obejmującym obie trasy (source.bounds),
+   a rysowane są tylko odcinki leżące na wybranej lub alternatywnej trasie (dopasowanie do siatki trasy z js/30) — nigdzie indziej.
+   Bez trasy nic się nie pobiera ani nie rysuje. Fotoradary i kamery chowamy na czas planowania trasy (okno wyboru trasy), niezależnie od korków.
+   Domyślnie WYŁĄCZONE (ikona 🚦 w menu lub haczyk „Korki na trasie” w oknie wyboru trasy); stan nie jest zapamiętywany (oszczędza limit Mapbox).
+   Zależności (tylko w callbackach): map, mapboxToken (js/11d), addTick (js/03), setRouteLineCoords (js/36), buildRouteGrid / pointNearGrid (js/30). */
 "use strict";
 
-  const MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";
-  let mbtOn = false;   // zawsze wyłączone na starcie — kierowca włącza ręcznie przy każdym uruchomieniu (oszczędza limit Mapbox); stan NIE jest zapamiętywany
+  const MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";          // kafelki (warstwa niewidoczna — tylko po to, by kafelki się ładowały)
+  const MBT_RSRC = "mbx-traffic-route", MBT_RLYR = "mbx-traffic-route-line";   // odcinki dopasowane do trasy (to widać)
+  const MBT_CONG = ["moderate", "heavy", "severe"];
+  const MBT_CAM_RE = /^(cameras|avg-speed-cameras|motorway-cameras)/;   // także cameras-inactive (js/64)
+  let mbtOn = false;                       // zawsze wyłączone na starcie
+  let mbtRoutes = { main: [], alt: [] };   // aktualnie narysowane trasy (wybrana / alternatywna)
+  let mbtBoundsKey = "", mbtHooked = false, mbtTimer = 0;
+  let mbtGrid = { main: null, alt: null, mainRef: null, altRef: null };
+  const mbtHiddenCams = new Set();
+
+  function mbtHasRoute(){ return (mbtRoutes.main && mbtRoutes.main.length > 1) || (mbtRoutes.alt && mbtRoutes.alt.length > 1); }
+
+  function mbtBounds(){
+    let w = 180, s = 90, e = -180, n = -90;
+    [mbtRoutes.main, mbtRoutes.alt].forEach(arr => (arr || []).forEach(c => {
+      if(c[0] < w) w = c[0]; if(c[0] > e) e = c[0]; if(c[1] < s) s = c[1]; if(c[1] > n) n = c[1];
+    }));
+    const pad = 0.03;
+    return [Math.max(-180, w - pad), Math.max(-85, s - pad), Math.min(180, e + pad), Math.min(85, n + pad)];
+  }
+
+  function mbtCameras(){   // fotoradary i kamery znikają, gdy planowana jest trasa (okno wyboru trasy); wracają po jego zamknięciu
+    if(!map || !map.getStyle()) return;
+    const hide = typeof navUiState !== "undefined" && navUiState === "picker";
+    (map.getStyle().layers || []).forEach(l => {
+      if(!MBT_CAM_RE.test(l.id)) return;
+      const vis = map.getLayoutProperty(l.id, "visibility");
+      if(hide){
+        if(vis !== "none"){ map.setLayoutProperty(l.id, "visibility", "none"); mbtHiddenCams.add(l.id); }
+      }else if(mbtHiddenCams.has(l.id)){
+        map.setLayoutProperty(l.id, "visibility", "visible"); mbtHiddenCams.delete(l.id);
+      }
+    });
+    if(!hide) mbtHiddenCams.clear();
+  }
+
+  function mbtRemoveTiles(){
+    if(map.getLayer(MBT_LYR)) map.removeLayer(MBT_LYR);
+    if(map.getSource(MBT_SRC)) map.removeSource(MBT_SRC);
+  }
+  function mbtHide(){
+    [MBT_LYR, MBT_RLYR].forEach(id => { if(map.getLayer(id) && map.getLayoutProperty(id, "visibility") !== "none") map.setLayoutProperty(id, "visibility", "none"); });
+    if(map.getSource(MBT_RSRC)) map.getSource(MBT_RSRC).setData({ type: "FeatureCollection", features: [] });
+  }
 
   function mbtApply(){
     try{
       if(!map || !map.getStyle()) return;
+      if(!mbtHooked){
+        mbtHooked = true;
+        map.on("moveend", mbtMatchSoon);
+        map.on("sourcedata", e => { if(e && e.sourceId === MBT_SRC && e.isSourceLoaded) mbtMatchSoon(); });
+      }
       const tok = typeof mapboxToken === "string" ? mapboxToken : "";
-      const want = mbtOn && /^pk\./.test(tok);
-      if(!want){ if(map.getLayer(MBT_LYR)) map.setLayoutProperty(MBT_LYR, "visibility", "none"); return; }
+      const want = mbtOn && /^pk\./.test(tok) && mbtHasRoute();
+      if(!want){ mbtHide(); return; }
+      const b = mbtBounds(), key = b.map(v => v.toFixed(2)).join(",");
+      if(map.getSource(MBT_SRC) && key !== mbtBoundsKey) mbtRemoveTiles();   // trasa się zmieniła: nowy prostokąt pobierania kafelków
       if(!map.getSource(MBT_SRC)){
-        map.addSource(MBT_SRC, { type: "vector", minzoom: 0, maxzoom: 16,
+        map.addSource(MBT_SRC, { type: "vector", minzoom: 0, maxzoom: 16, bounds: b,
           tiles: ["https://api.mapbox.com/v4/mapbox.mapbox-traffic-v1/{z}/{x}/{y}.vector.pbf?access_token=" + encodeURIComponent(tok)],
           attribution: "© Mapbox" });
+        mbtBoundsKey = key;
       }
       if(!map.getLayer(MBT_LYR)){
-        const before = ["route-line-glow", "route-line-casing", "cameras-glow"].find(id => map.getLayer(id));
         map.addLayer({ id: MBT_LYR, type: "line", source: MBT_SRC, "source-layer": "traffic", minzoom: 7,
-          filter: ["in", ["get", "congestion"], ["literal", ["moderate", "heavy", "severe"]]],
+          filter: ["in", ["get", "congestion"], ["literal", MBT_CONG]],
+          paint: { "line-color": "#000", "line-width": 1, "line-opacity": 0 } });
+      }
+      if(!map.getSource(MBT_RSRC)) map.addSource(MBT_RSRC, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      if(!map.getLayer(MBT_RLYR)){
+        map.addLayer({ id: MBT_RLYR, type: "line", source: MBT_RSRC,
           layout: { "line-cap": "round", "line-join": "round" },
           paint: {
             "line-color": ["match", ["get", "congestion"], "moderate", "#F2B134", "heavy", "#E5484D", "severe", "#8E1B2D", "#F2B134"],
-            "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1.6, 12, 3.4, 16, 6],
-            "line-opacity": 0.9
-          } }, before);
+            "line-width": ["interpolate", ["linear"], ["zoom"], 7, 2, 12, 3.6, 16, 6],
+            "line-opacity": 0.95
+          } });
       }
-      if(map.getLayoutProperty(MBT_LYR, "visibility") !== "visible") map.setLayoutProperty(MBT_LYR, "visibility", "visible");
+      [MBT_LYR, MBT_RLYR].forEach(id => { if(map.getLayoutProperty(id, "visibility") !== "visible") map.setLayoutProperty(id, "visibility", "visible"); });
+      mbtMatchSoon();
     }catch(e){}
   }
+
+  function mbtMatchSoon(){ clearTimeout(mbtTimer); mbtTimer = setTimeout(mbtMatch, 350); }
+
+  function mbtGrids(){
+    if(mbtGrid.mainRef !== mbtRoutes.main){ mbtGrid.mainRef = mbtRoutes.main; mbtGrid.main = mbtRoutes.main.length > 1 ? buildRouteGrid(mbtRoutes.main) : null; }
+    if(mbtGrid.altRef !== mbtRoutes.alt){ mbtGrid.altRef = mbtRoutes.alt; mbtGrid.alt = mbtRoutes.alt.length > 1 ? buildRouteGrid(mbtRoutes.alt) : null; }
+  }
+  function mbtLineOnRoute(line){
+    const n = line.length, idx = [0, Math.floor(n * 0.25), Math.floor(n * 0.5), Math.floor(n * 0.75), n - 1];
+    const on = grid => !!grid && idx.every(i => pointNearGrid(line[i], grid));
+    return on(mbtGrid.main) || on(mbtGrid.alt);
+  }
+  function mbtMatch(){
+    try{
+      const rs = map && map.getSource(MBT_RSRC);
+      if(!rs || !map.getSource(MBT_SRC) || !mbtOn || !mbtHasRoute()) return;
+      mbtGrids();
+      const feats = map.querySourceFeatures(MBT_SRC, { sourceLayer: "traffic", filter: ["in", ["get", "congestion"], ["literal", MBT_CONG]] });
+      const seen = new Set(), out = [];
+      feats.forEach(f => {
+        const g = f.geometry; if(!g) return;
+        const lines = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+        lines.forEach(line => {
+          if(!line || line.length < 2) return;
+          const cg = f.properties && f.properties.congestion;
+          const key = cg + "|" + line[0].join(",") + "|" + line[line.length - 1].join(",") + "|" + line.length;
+          if(seen.has(key)) return; seen.add(key);
+          if(mbtLineOnRoute(line)) out.push({ type: "Feature", properties: { congestion: cg }, geometry: { type: "LineString", coordinates: line } });
+        });
+      });
+      rs.setData({ type: "FeatureCollection", features: out });
+    }catch(e){}
+  }
+
   function mbtSet(on){
     mbtOn = !!on;
     const cb = document.getElementById("pickMbTraffic"); if(cb) cb.checked = mbtOn;
     const bt = document.getElementById("btnMbTraffic"); if(bt) bt.classList.toggle("active", mbtOn);
     mbtApply();
   }
+
+  /* trasa wybrana i alternatywna: wszystkie zmiany idą przez setRouteLineCoords (js/36) */
+  if(typeof setRouteLineCoords === "function"){
+    const mbtOrigSetRoute = setRouteLineCoords;
+    setRouteLineCoords = function(coords, sourceId){
+      const r = mbtOrigSetRoute.apply(this, arguments);
+      const id = sourceId || "route-line";
+      if(id === "route-line") mbtRoutes.main = Array.isArray(coords) ? coords : [];
+      else if(id === "route-line-alt") mbtRoutes.alt = Array.isArray(coords) ? coords : [];
+      else return r;
+      if(mbtOn) mbtApply();
+      return r;
+    };
+  }
+
   safeInit("korki Mapbox", () => {
     const cb = document.getElementById("pickMbTraffic");
     const bt = document.getElementById("btnMbTraffic");
     if(bt){ bt.classList.toggle("active", mbtOn); bt.addEventListener("click", () => mbtSet(!mbtOn)); }
     if(cb){ cb.checked = mbtOn; cb.addEventListener("change", e => mbtSet(e.target.checked)); }
+    /* jeden wspólny haczyk „Roboty drogowe” steruje i TomTom (pickTraffic), i National Highways (pickNH) */
+    const rw = document.getElementById("pickTraffic"), nh = document.getElementById("pickNH");
+    if(rw && nh){
+      const on0 = rw.checked || nh.checked;
+      const fire = el => el.dispatchEvent(new Event("change"));
+      if(rw.checked !== on0){ rw.checked = on0; fire(rw); }
+      if(nh.checked !== on0){ nh.checked = on0; fire(nh); }
+      rw.addEventListener("change", () => { if(nh.checked !== rw.checked){ nh.checked = rw.checked; fire(nh); } });
+    }
   });
-  addTick(mbtApply, 4000);   // dodaje warstwę po załadowaniu mapy i odtwarza ją po przemalowaniu stylu (motyw dzień/noc)
+  addTick(mbtApply, 4000);
+  addTick(() => { try{ mbtCameras(); }catch(e){} }, 600);   // kamery chowają się zaraz po wejściu w planowanie trasy   // odtwarza warstwy po przemalowaniu stylu (motyw dzień/noc) i pilnuje ukrycia kamer
 </script>
 <script>
 /* ===== js/52-poi-sheet.js — Nawigator: okno firmy na dole ekranu (po kliknięciu w nazwę firmy) =====
@@ -19235,9 +19375,32 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function mpSkyQueue(){ if(MP.raf) return; MP.raf = requestAnimationFrame(() => { MP.raf = 0; mpSkyUpdate(); }); }
 
+  /* ---------- drogi A grubsze w widoku 3D (jazda) ---------- */
+  const MP3 = { base: null, on: false, F: 1.5 };
+  function mpRoads3D(){
+    if(!map) return;
+    const on = map.getPitch() >= 30;
+    if(MP3.base && on === MP3.on) return;
+    if(!MP3.base){
+      MP3.base = {};
+      (map.getStyle().layers || []).forEach(l => {
+        if(l.type !== "line" || l["source-layer"] !== "transportation") return;
+        if(/motorway/i.test(l.id) || !/trunk|primary/i.test(l.id)) return;
+        const w = map.getPaintProperty(l.id, "line-width");
+        if(w !== undefined && w !== null) MP3.base[l.id] = w;
+      });
+    }
+    MP3.on = on;
+    Object.keys(MP3.base).forEach(id => {
+      try{ if(map.getLayer(id)) map.setPaintProperty(id, "line-width", on ? scaleWidthExpression(MP3.base[id], MP3.F) : MP3.base[id]); }
+      catch(e){ console.warn("Grubość drogi A w 3D:", id, e); }
+    });
+  }
+
   safeInit("wygląd mapy", () => mpWhenMap(() => {
-    mpRoads(); mpBuildings(); mpShields(); mpSkyUpdate();
+    mpRoads(); mpBuildings(); mpShields(); mpSkyUpdate(); mpRoads3D();
     ["pitch", "move", "resize"].forEach(ev => map.on(ev, mpSkyQueue));
+    map.on("pitch", mpRoads3D);
   }));
 </script>
 <script>
@@ -20298,7 +20461,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const cvMem = new Map();                      // id → { t, c:[[lat,lon],...] }
   let cvViewCams = [], cvSupa = [], cvSig = "", cvBusy = false, cvSupaAt = 0, cvSupaSig = "";
   let cvHidden = { t: 0, list: [] }, cvLocalHid = null, cvHideLoaded = false;
-  let cvEdits = { markRows: [], flipRows: [], sections: [] };      // zmiany administratora z camera_flags: to_avg / flip / new_section (status applied)
+  let cvEdits = { markRows: [], flipRows: [], sections: [], inactiveRows: [] };      // zmiany administratora z camera_flags: to_avg / flip / new_section (status applied)
   const CV_AVGLOC_LS = "nav_avg_local_v1";                          // własne, jeszcze niezatwierdzone zgłoszenia odcinków tego telefonu
   const cvNear = (aLat, aLon, bLat, bLon, m) => Math.abs(aLat - bLat) < 0.0008 && Math.abs(aLon - bLon) < 0.0013 && haversine(aLat, aLon, bLat, bLon) < m;
   const CV_LOCAL_LS = "nav_cam_hidden_v1";
@@ -20309,7 +20472,27 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   function cvLocalAdd(lat, lon){ cvLocal().push({ lat, lon }); try{ localStorage.setItem(CV_LOCAL_LS, JSON.stringify(cvLocal().slice(-300))); }catch(e){} }
   function cvIsHidden(lat, lon){
     const near = h => Math.abs(h.lat - lat) < 0.0006 && Math.abs(h.lon - lon) < 0.001 && haversine(h.lat, h.lon, lat, lon) < 40;
-    return cvHidden.list.some(near) || cvLocal().some(near);
+    return cvHidden.list.some(near) || cvLocal().some(near) || cvIsInactive(lat, lon);
+  }
+  /* ---------- nieaktywne (wygaszone): zostają na mapie, półprzezroczyste, bez alertów ---------- */
+  const CV_INACT_LS = "nav_cam_inactive_v1";
+  let cvInactLoc = null, cvInactSig = "";
+  function cvInactLocal(){ if(!cvInactLoc){ try{ cvInactLoc = JSON.parse(localStorage.getItem(CV_INACT_LS) || "[]"); }catch(e){ cvInactLoc = []; } } return cvInactLoc; }
+  function cvInactSave(){ try{ localStorage.setItem(CV_INACT_LS, JSON.stringify(cvInactLocal().slice(-300))); }catch(e){} }
+  const cvInactNear = (h, lat, lon) => Math.abs(h.lat - lat) < 0.0006 && Math.abs(h.lon - lon) < 0.001 && haversine(h.lat, h.lon, lat, lon) < 40;
+  function cvIsInactive(lat, lon){ return cvEdits.inactiveRows.some(h => cvInactNear(h, lat, lon)) || cvInactLocal().some(h => cvInactNear(h, lat, lon)); }
+  function cvInactDraw(force){
+    try{
+      if(!map || !map.getStyle()) return;
+      const feats = cvEdits.inactiveRows.concat(cvInactLocal()).map(r => ({ type: "Feature", properties: { kind: r.kind || "osm" }, geometry: { type: "Point", coordinates: [r.lon, r.lat] } }));
+      const sig = JSON.stringify(feats.map(f => f.geometry.coordinates));
+      if(!map.getSource("cam-inactive")){ map.addSource("cam-inactive", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); cvInactSig = ""; }
+      if(!map.getLayer("cameras-inactive")){
+        map.addLayer({ id: "cameras-inactive", type: "circle", source: "cam-inactive", minzoom: 9,
+          paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 14, 8, 17, 11], "circle-color": "#9aa4ad", "circle-opacity": 0.35, "circle-stroke-color": "#5d6670", "circle-stroke-width": 1, "circle-stroke-opacity": 0.35 } });
+      }
+      if(force || sig !== cvInactSig){ cvInactSig = sig; map.getSource("cam-inactive").setData({ type: "FeatureCollection", features: feats }); }
+    }catch(e){}
   }
   async function cvLoadHidden(force){     // pobiera zmiany: usunięte, zamienione na odcinkowe, odwrócone numeracje, ręczne odcinki
     if(!force && Date.now() - cvHidden.t < 10 * 60 * 1000) return;
@@ -20323,6 +20506,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       cvHidden.list = rows.filter(r => !r.action || r.action === "remove");
       cvEdits.markRows = rows.filter(r => r.action === "to_avg");
       cvEdits.flipRows = rows.filter(r => r.action === "flip");
+      cvEdits.inactiveRows = rows.filter(r => r.action === "inactive");
       cvEdits.sections = rows.filter(r => r.action === "new_section" && r.extra && Array.isArray(r.extra.pts) && r.extra.pts.length >= 2).map(r => ({ id: r.id, pts: r.extra.pts, mph: r.extra.mph || null, off: !!r.extra.off, path: Array.isArray(r.extra.path) ? r.extra.path : null }));
       cvRefreshAll();
     }catch(e){}
@@ -20358,6 +20542,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return cvSections().some(sec => sec.pts.some(p => cvNear(p[0], p[1], lat, lon, 40)));
   }
   function cvRefreshAll(){          // ukryty / usunięty fotoradar znika ze wszystkich warstw
+    try{ cvInactDraw(true); }catch(e){}
     try{ if(typeof rebuildCameraList === "function") rebuildCameraList(); }catch(e){}
     try{ if(typeof mwCamRender === "function") mwCamRender(); }catch(e){}
     try{ if(typeof avgSpeedLastFeatures !== "undefined" && typeof setAvgSpeedCameraData === "function") setAvgSpeedCameraData(avgSpeedLastFeatures); }catch(e){}
@@ -20499,14 +20684,14 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
 
   /* ---------- dotknięcie fotoradaru ---------- */
-  const CV_HIT_LAYERS = ["cameras-sign", "cameras-core", "cameras-icon", "motorway-cameras-dot", "avg-speed-cameras-sign", "avg-speed-cameras-core", "avg-speed-cameras-icon"];
+  const CV_HIT_LAYERS = ["cameras-inactive", "cameras-sign", "cameras-core", "cameras-icon", "motorway-cameras-dot", "avg-speed-cameras-sign", "avg-speed-cameras-core", "avg-speed-cameras-icon"];
   let cvCardTarget = null, cvCardTimer = null;
   function cvHideCard(){ cvCardTarget = null; if(cvCardTimer){ clearTimeout(cvCardTimer); cvCardTimer = null; } const c = cvEl("camCard"); if(c) c.classList.remove("show"); }
   function camClickAt(e){
     try{
       if(!map || window.alPicking || (typeof psGatePlacing !== "undefined" && psGatePlacing) || routeEditMode || destPinPhase()) return false;
       if(typeof navUiState !== "undefined" && navUiState === "picker") return false;
-      const layers = CV_HIT_LAYERS.filter(id => map.getLayer(id)); if(!layers.length) return false;
+      const layers = CV_HIT_LAYERS.filter(id => map.getLayer(id)); if(!layers.length){ cvHideCard(); return false; }
       const R = 18, feats = map.queryRenderedFeatures([[e.point.x - R, e.point.y - R], [e.point.x + R, e.point.y + R]], { layers });
       let best = null, bd = Infinity;
       feats.forEach(f => {
@@ -20514,9 +20699,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         const p = map.project(f.geometry.coordinates), d = Math.hypot(p.x - e.point.x, p.y - e.point.y);
         if(d < bd){ bd = d; best = f; }
       });
-      if(!best) return false;
+      if(!best){ cvHideCard(); return false; }     // dotknięcie pustego miejsca zamyka kartę
       const lid = best.layer.id, pr = best.properties || {}, c = best.geometry.coordinates, lat = c[1], lon = c[0];
-      const kind = /^motorway/.test(lid) ? "motorway" : (/^avg/.test(lid) || pr.avg === 1 || pr.avg === "1") ? "avg" : "osm";
+      const kind = lid === "cameras-inactive" ? (pr.kind || "osm") : /^motorway/.test(lid) ? "motorway" : (/^avg/.test(lid) || pr.avg === 1 || pr.avg === "1") ? "avg" : "osm";
       if(kind === "osm" && pr.src === "community" && pr.reportId != null && pr.reportId !== "undefined"){
         showVoteCard({ kind: "report", id: pr.reportId, title: "Fotoradar zgłoszony przez kierowców", confirmations: pr.confirmations, denials: pr.denials, status: pr.pending ? "pending" : "active",
           yes: "👍 Jest", no: "👎 Nie ma", by: "dodane przez użytkownika" });
@@ -20529,11 +20714,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   function cvShowCard(kind, lat, lon){
     try{ hidePoiAsk(); }catch(e){}
-    cvCardTarget = { kind, lat, lon };
+    const inactive = cvIsInactive(lat, lon);
+    cvCardTarget = { kind, lat, lon, inactive };
     const name = kind === "avg" ? "Odcinkowy pomiar prędkości" : kind === "motorway" ? "Fotoradar na autostradzie" : kind === "local" ? "Fotoradar dodany na tym telefonie" : "Fotoradar";
     cvEl("camTitle").textContent = name;
     const avgI = kind === "avg" ? cvAvgInfo(lat, lon) : null;
-    cvEl("camSub").textContent = avgI ? cvAvgText(avgI) : kind === "avg" && isAdmin() ? "Ta kamera nie należy jeszcze do żadnego odcinka. Utwórz odcinek, aby ją ponumerować." : kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
+    cvEl("camRoad").textContent = "";
+    cvEl("camSub").textContent = avgI ? cvAvgText(avgI) : kind === "avg" && isAdmin() ? "Ta kamera nie należy jeszcze do żadnego odcinka. Utwórz odcinek, aby ją ponumerować." : "";
+    cvEl("camState").value = inactive ? "inactive" : "active";
+    const gseq = ++cvGeoSeq;
+    cvGeo(lat, lon).then(g => {        // numer drogi, ulica i miejscowość (Nominatim; wynik zapamiętany)
+      if(gseq !== cvGeoSeq || !cvCardTarget || cvCardTarget.lat !== lat || cvCardTarget.lon !== lon || !g) return;
+      cvEl("camRoad").textContent = g.road || "";
+      const sub = cvEl("camSub"); sub.textContent = [avgI ? cvAvgText(avgI) : "", g.place].filter(Boolean).join(" · ");
+    }).catch(() => {});
     cvCardTarget.avgI = avgI;
     const adm = isAdmin(), marked = kind === "avg" && cvEdits.markRows.some(r => cvNear(r.lat, r.lon, lat, lon, 40));
     const show = (id, on, txt) => { const el = cvEl(id); el.style.display = on ? "" : "none"; if(txt) el.textContent = txt; return on; };
@@ -20542,10 +20736,52 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     any = show("camEdit", adm && kind === "avg", avgI ? "✏️ Edytuj odcinek" : "✏️ Utwórz odcinek") || any;
     any = show("camUnavg", adm && marked) || any;
     cvEl("camMore").style.display = any ? "flex" : "none";
-    const b = cvEl("camAct"); b.textContent = kind === "local" ? "🗑 Usuń" : isAdmin() ? "🗑 Usuń (nieaktualny)" : "Zgłoś: nieaktywny";
     cvEl("camCard").classList.add("show");
     if(cvCardTimer) clearTimeout(cvCardTimer);
-    cvCardTimer = setTimeout(cvHideCard, 12000);
+    cvCardTimer = setTimeout(cvHideCard, 25000);
+  }
+  let cvGeoSeq = 0; const cvGeoCache = new Map();
+  function cvGeo(lat, lon){            // droga (numer + nazwa) i miejsce dla punktu; jedno zapytanie na dotknięcie
+    const k = lat.toFixed(5) + "," + lon.toFixed(5);
+    if(cvGeoCache.has(k)) return Promise.resolve(cvGeoCache.get(k));
+    const params = new URLSearchParams({ format: "jsonv2", lat: String(lat), lon: String(lon), zoom: "17", addressdetails: "1", extratags: "1", "accept-language": "en-GB" });
+    return fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString()).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(d => {
+      const a = (d && d.address) || {}, ex = (d && d.extratags) || {};
+      const ref = String(ex.ref || "").split(";")[0].trim();
+      const town = a.suburb || a.village || a.town || a.city || a.hamlet || "";
+      const g = { road: [ref, a.road].filter(Boolean).join(" · "), place: [town, a.postcode].filter(Boolean).join(", ") };
+      cvGeoCache.set(k, g); if(cvGeoCache.size > 50) cvGeoCache.delete(cvGeoCache.keys().next().value);
+      return g;
+    });
+  }
+  async function cvApply(){            // przycisk „Zastosuj”: stan z listy (aktywny / nieaktywny / usuń)
+    const t = cvCardTarget; if(!t) return;
+    const v = cvEl("camState").value;
+    if(v === "remove") return cvAct();
+    if(v === "inactive" && !t.inactive) return cvSetInactive(t, true);
+    if(v === "active" && t.inactive) return cvSetInactive(t, false);
+    cvHideCard();
+  }
+  async function cvSetInactive(t, on){
+    cvHideCard();
+    const loc = cvInactLocal(), near = h => cvInactNear(h, t.lat, t.lon);
+    if(on){
+      if(!loc.some(near)){ loc.push({ lat: t.lat, lon: t.lon, kind: t.kind }); cvInactSave(); }
+      if(isAdmin()){
+        try{ await supaAdminRequest("POST", "camera_flags", [{ kind: t.kind, name: "Fotoradar nieaktywny", lat: t.lat, lon: t.lon, status: "applied", action: "inactive", reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }], "return=minimal"); await cvLoadHidden(true); }
+        catch(e){ showBanner("TYLKO NA TYM URZĄDZENIU", "Nie zapisano w bazie — uruchom sql/camera_flags.sql", false); }
+      }
+      showBanner("NIEAKTYWNY", "Fotoradar jest wygaszony — bez alertów, zostaje na mapie", false);
+    }else{
+      if(!isAdmin() && cvEdits.inactiveRows.some(near)){ showBanner("USTAWIŁ ADMINISTRATOR", "Tylko administrator może znów włączyć ten fotoradar", false); return; }
+      cvInactLoc = loc.filter(h => !near(h)); cvInactSave();
+      if(isAdmin()){
+        try{ for(const r of cvEdits.inactiveRows.filter(near)) if(r.id != null) await supaAdminRequest("DELETE", "camera_flags?id=eq." + encodeURIComponent(r.id)); await cvLoadHidden(true); }
+        catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); }
+      }
+      showBanner("AKTYWNY", "Fotoradar znów działa normalnie", false);
+    }
+    cvRefreshAll(); cvInactDraw(true);
   }
   async function cvAct(){
     const t = cvCardTarget; if(!t) return;
@@ -20800,7 +21036,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     else if(q("#avgPickCancel")) cvPickStop();
     else if(q("#camAvg")) cvToAvg();
     else if(q("#camUnavg")) cvUnavg();
-    else if(e.target.closest && e.target.closest("#camAct")) cvAct();
+    else if(e.target.closest && e.target.closest("#camAct")) cvApply();
     else if(e.target.closest && e.target.closest("#camClose")) cvHideCard();
   });
 
@@ -20895,6 +21131,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvAvgSites.forEach(s => { const d = haversine(s.lat, s.lon, lat, lon); if(d < bd){ bd = d; best = s; } });
     return best;
   }
+
+  addTick(cvInactDraw, 3000);   // warstwa nieaktywnych fotoradarów: dodaje się po załadowaniu mapy i odtwarza po zmianie motywu
 </script>
 <script>
 /* ===== js/65-avg-speed-meter.js — Licznik średniej prędkości na odcinkach pomiarowych (żółte kamery) =====
