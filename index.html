@@ -6515,13 +6515,19 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   }
   function avgSectionsLoadShared(){
     if(!supaConfigured()) return;
-    fetchTableFromSupabase("avg_speed_sections", "id,mph,cams").then(rows => { if(rows && rows.length) avgSectionsSet(rows.filter(r => Array.isArray(r.cams))); });
+    fetchTableFromSupabase("avg_speed_sections", "id,mph,cams").then(rows => {
+      if(rows && rows.length){ debugLog("info", `Odcinki z OpenStreetMap: ${rows.length} ze wspólnej bazy`); avgSectionsSet(rows.filter(r => Array.isArray(r.cams))); }
+      else if(rows && avgOsmSections.length && isAdmin()) avgSectionsUpload(avgOsmSections, false);   // tabela pusta (np. świeżo utworzona): wysyłamy to, co ma telefon admina
+    });
   }
   async function avgSectionsStore(list, complete){        // wynik z OpenStreetMap: na telefon, a administrator także do wspólnej bazy
     if(!list.length) return;
     if(complete) avgSectionsSet(list);
     else { const all = new Map(avgOsmSections.concat(list).map(s => [String(s.id), s])); avgSectionsSet(Array.from(all.values())); }
-    if(!isAdmin() || !supaConfigured()) return;
+    debugLog("info", `Odcinki z OpenStreetMap: pobrano ${list.length}${complete ? "" : " (niepełne dane)"}`);
+    if(isAdmin() && supaConfigured()) await avgSectionsUpload(list, complete);
+  }
+  async function avgSectionsUpload(list, complete){
     const stamp = new Date().toISOString();
     try{
       for(let i = 0; i < list.length; i += 500) await supaAdminRequest("POST", "avg_speed_sections?on_conflict=id", list.slice(i, i + 500).map(s => ({ id: s.id, mph: s.mph, cams: s.cams, updated_at: stamp })), "resolution=merge-duplicates,return=minimal");
@@ -6612,6 +6618,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     let last = 0; try{ last = Number(localStorage.getItem(AVG_SPEED_OSM_KEY)) || 0; }catch(e){}
     if(!force && Date.now() - last < AVG_SPEED_OSM_EVERY_MS) return;
     avgAdminBusy = true;
+    debugLog("info", "Odcinkowy pomiar: sprawdzam OpenStreetMap (administrator), to może potrwać kilka minut…");
     downloadAvgSpeedCamerasBands(flattenRestrictionsRegions()).then(({ features, failedBands }) => {
       const all = new Map();
       avgSpeedLastFeatures.concat(features).forEach(f => all.set(String(f.properties.id), f));
