@@ -314,14 +314,14 @@
   /* gdy u góry jest pasek celu podróży (#navTopBar), wskaźnik zoomu schodzi pod niego */
   body:has(#navPanel[data-navstate="search"]):not(:has(#navPanel.truck-open)):not(:has(#navPanel.billboard-open)) #zoomChip{ top: calc(env(safe-area-inset-top, 0px) + 68px); }
   #btnLocate{ left:36px; }
-  #btnCompass{ right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnCompass{ right:16px; width:52px; height:52px; padding:0; gap:0; justify-content:center; }
   #btnCompass svg{ display:block; transition: transform .12s linear; }
   /* prawa kolumna od dołu: Cała trasa -> Kompas -> Zgłoszenia (każdy kolejny pojawia się nad poprzednim) */
   body:has(#btnFitRoute.visible) #btnCompass{
     bottom: calc(var(--side-widgets-bottom, calc(var(--nav-icon-row-h, 64px) + 14px)) + 58px);
   }
   /* "Cała trasa": tylko ikona (trasa z punktu A do B), okrągły przycisk bez podpisu */
-  #btnFitRoute{ touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; right:16px; width:48px; height:48px; padding:0; gap:0; justify-content:center; }
+  #btnFitRoute{ touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; right:16px; width:52px; height:52px; padding:0; gap:0; justify-content:center; }
   #btnLocate.visible, #btnFitRoute.visible, #btnCompass.visible{
     opacity:1;
     transform: translateY(0) scale(1);
@@ -558,10 +558,6 @@
     font-family:'Inter', sans-serif; border:1px solid var(--panel-border);
     background: rgba(255,255,255,0.12); color: var(--text-main);
   }
-  #navOriginWrap #navOrigin{ font-size:13px; padding-right:104px; }
-  #navOriginWrap #navOriginPc{ position:absolute; right:0; top:0; bottom:0; width:98px; padding:0 8px; background:transparent !important; border:none !important; border-left:1px solid rgba(128,128,128,.35) !important; border-radius:0 !important; text-transform:uppercase; text-align:center; font-size:13px; font-weight:600; letter-spacing:.03em; outline:none; }
-  #navOriginWrap #navOriginPc::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
-  #navTopBar #navOriginWrap .navOriginGps{ right:102px; }
   #navDest, .navStopInput{
     width:100%;
     background: rgba(255,255,255,0.88);
@@ -728,17 +724,17 @@
   #navPanel[data-navstate="picker"] #navRouteInfo{ display:none; }
 
   /* pole celu = jedno pole z dwiema częściami: cel podróży | kod pocztowy (subtelna kreska między nimi) */
-  #navDestCombo{ display:flex; align-items:stretch; width:100%; box-sizing:border-box; border-radius:10px; overflow:hidden;
+  #navDestCombo, #navOriginCombo{ display:flex; align-items:stretch; width:100%; box-sizing:border-box; border-radius:10px; overflow:hidden;
     background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
-  #navDestCombo:focus-within{ border-color: var(--accent); }
-  body.night #navDestCombo{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
-  #navDestCombo input{ background:transparent !important; border:none !important; border-radius:0; outline:none; min-width:0; box-sizing:border-box; }
-  #navDestCombo #navDest{ flex:1 1 auto; width:auto; padding-right:6px; }
+  #navDestCombo:focus-within, #navOriginCombo:focus-within{ border-color: var(--accent); }
+  body.night #navDestCombo, body.night #navOriginCombo{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
+  #navDestCombo input, #navOriginCombo input{ background:transparent !important; border:none !important; border-radius:0; outline:none; min-width:0; box-sizing:border-box; }
+  #navDestCombo #navDest, #navOriginCombo #navOrigin{ flex:1 1 auto; width:auto; padding-right:6px; }
   #navDestCombo #navDestFav{ position:static; flex:0 0 36px; align-self:center; height:36px; }
-  #navDestCombo .navComboSep{ flex:0 0 1px; align-self:center; height:24px; background: rgba(0,0,0,0.18); }
-  body.night #navDestCombo .navComboSep{ background: rgba(255,176,32,0.22); }
-  #navDestCombo #navPostcode{ flex:0 0 102px; width:102px; padding:10px 10px; text-transform:uppercase; text-align:center; font-weight:600; letter-spacing:.03em; }
-  #navDestCombo #navPostcode::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
+  :is(#navDestCombo, #navOriginCombo) .navComboSep{ flex:0 0 1px; align-self:center; height:24px; background: rgba(0,0,0,0.18); }
+  body.night :is(#navDestCombo, #navOriginCombo) .navComboSep{ background: rgba(255,176,32,0.22); }
+  #navDestCombo #navPostcode, #navOriginCombo #navOriginPc{ flex:0 0 102px; width:102px; padding:10px 10px; text-transform:uppercase; text-align:center; font-weight:600; letter-spacing:.03em; }
+  #navDestCombo #navPostcode::placeholder, #navOriginCombo #navOriginPc::placeholder{ text-transform:none; font-weight:400; letter-spacing:0; font-size:12px; }
 
   /* pole celu + kod pocztowy: pasek na samej górze ekranu (jak w Google Maps), lista adresów pod nim na całą resztę ekranu */
   #navTopBar{
@@ -765,33 +761,36 @@
   body.has-dest:not(.wp-max) #navTopBar #navAddWaypointBtn{ display:flex; }
   body.has-dest:not(.show-origin):not(.wp-max) #navTopBar #navAddWaypointBtn2{ display:flex; }
   body.show-origin #navTopBar #navSwapBtn{ display:flex; }
-  #navTopBar #navOrigin, #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:48px; padding:0 14px; box-sizing:border-box; width:100%; background:var(--fieldBg); color:inherit;
-    border:1.5px solid var(--fieldBorder); border-bottom:none; border-radius:14px 14px 0 0; }
-  #navTopBar .navWaypointWrap .navStopInput{ height:44px; border-radius:0; }
-  body.night #navTopBar #navOrigin, body.night #navTopBar .navWaypointWrap .navStopInput{ color:#f5e6d0; }
+  body.show-origin.wp-max #navTopBar #navAddWaypointBtn{ display:flex; visibility:hidden; }   /* pole startu zostaje tej samej szerokości co cel */
+  #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:44px; padding:0 14px; box-sizing:border-box; width:100%; background:var(--fieldBg); color:inherit;
+    border:1.5px solid var(--fieldBorder); border-bottom:none; border-radius:0; }
+  body.night #navTopBar .navWaypointWrap .navStopInput{ color:#f5e6d0; }
+  /* wpisywany tekst: w dzień czarny, w nocy jasny (to samo w obu polach) */
+  #navTopBar #navDest, #navTopBar #navPostcode, #navTopBar #navOrigin, #navTopBar #navOriginPc{ color:#14181c; caret-color:#14181c; }
+  body.night #navTopBar #navDest, body.night #navTopBar #navPostcode, body.night #navTopBar #navOrigin, body.night #navTopBar #navOriginPc{ color:#f5e6d0; caret-color:#f5e6d0; }
   #navTopBar #navOriginWrap{ position:relative; }
-  #navTopBar #navOrigin{ padding-right:52px; }
-  #navTopBar .navOriginGps{ position:absolute; right:7px; top:6px; width:36px; height:36px; border-radius:50%; display:none; align-items:center; justify-content:center;
-    background: color-mix(in srgb, var(--fieldAccent) 16%, transparent); font-size:18px; cursor:pointer; z-index:2; user-select:none; -webkit-user-select:none; }
-  #navTopBar #navOrigin:focus, #navTopBar .navWaypointWrap .navStopInput:focus{ border-color: var(--fieldAccent); }
+  #navTopBar .navOriginGps{ flex:0 0 36px; align-self:center; height:36px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    background: color-mix(in srgb, var(--fieldAccent) 16%, transparent); font-size:18px; cursor:pointer; user-select:none; -webkit-user-select:none; }
+  #navTopBar .navWaypointWrap .navStopInput:focus{ border-color: var(--fieldAccent); }
   #navTopBar #navWaypointsList:empty{ display:none; }
   #navTopBar #navWaypointsList{ gap:0; }
   #navTopBar .navWaypointWrap{ margin-top:0; }
   /* listy podpowiedzi punktu początkowego i pośrednich: nakładka pod polem (bez przesuwania pozostałych pól) */
   #navTopBar .navStopWrap:not(#navDestWrap) .navSuggestions{ position:absolute; left:0; right:0; top:100%; margin-top:4px; max-height:46vh; overflow-y:auto; z-index:20; -webkit-overflow-scrolling:touch; }
   #navTopBar #navDestWrap{ display:flex; flex-direction:column; min-height:0; }
-  #navTopBar #navDestCombo{ flex:0 0 auto; min-height:48px; }
-  #navTopBar #navDest{ font-size:16px; padding:13px 8px 13px 14px; }
-  #navTopBar #navPostcode{ font-size:15px; }
+  #navTopBar #navDestCombo, #navTopBar #navOriginCombo{ flex:0 0 auto; min-height:48px; }
+  #navTopBar #navDest, #navTopBar #navOrigin{ font-size:16px; padding:13px 8px 13px 14px; }
+  #navTopBar #navPostcode, #navTopBar #navOriginPc{ font-size:15px; }
   #navTopBar #navSuggestions{ flex:1 1 auto; min-height:0; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px);
     overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-top:6px; }
   #navTopBar #navSuggestions.saved{ max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px); }
   #navTopBar .navSuggestion{ padding:13px 14px; font-size:14px; }
 
   /* pasek u góry: tła prawie nieprzezroczyste, żeby wpisany tekst był dobrze widoczny */
-  #navTopBar #navDestCombo{ background:var(--fieldBg); border:1.5px solid var(--fieldBorder); border-radius:14px; }
+  #navTopBar #navDestCombo, #navTopBar #navOriginCombo{ background:var(--fieldBg); border:1.5px solid var(--fieldBorder); border-radius:14px; }
+  #navTopBar #navOriginCombo{ border-bottom:none; border-radius:14px 14px 0 0; }
   body.show-origin #navTopBar #navDestCombo, body:has(#navWaypointsList .navWaypointWrap) #navTopBar #navDestCombo{ border-radius:0 0 14px 14px; }
-  #navTopBar #navDestCombo:focus-within{ border-color: var(--fieldAccent); }
+  #navTopBar #navDestCombo:focus-within, #navTopBar #navOriginCombo:focus-within{ border-color: var(--fieldAccent); }
   #navTopBar #navSuggestions{ background: rgba(255,255,255,0.98); }
   #navTopBar .navSavedTabs, #navTopBar .navSavedHead{ background:#eef0f2; }
   body.night #navTopBar #navSuggestions{ background: rgba(23,18,10,0.985); }
@@ -801,10 +800,10 @@
     background: rgba(0,0,0,0.10); color:#333; font-size:14px; line-height:1; cursor:pointer; }
   .navClearBtn:active{ background: rgba(0,0,0,0.22); }
   body.night .navClearBtn{ background: rgba(255,255,255,0.14); color:#eee; }
-  #navDestCombo.has-dest #navDestClear, #navDestCombo.has-pc #navPostcodeClear{ display:block; }
+  #navDestCombo.has-dest #navDestClear, #navDestCombo.has-pc #navPostcodeClear, #navOriginCombo.has-dest #navOriginClear, #navOriginCombo.has-pc #navOriginPcClear{ display:block; }
   /* cel wybrany z listy: zamiast kodu pocztowego tylko ✕, które czyści cel */
-  #navDestCombo.picked :is(#navPostcode, .navComboSep, #navPostcodeClear){ display:none !important; }
-  #navDestCombo #navPostcode{ flex:0 0 96px; width:96px; padding-left:6px; padding-right:4px; }
+  #navDestCombo.picked :is(#navPostcode, .navComboSep, #navPostcodeClear), #navOriginCombo.picked :is(#navOriginPc, .navComboSep, #navOriginPcClear){ display:none !important; }
+  #navDestCombo #navPostcode, #navOriginCombo #navOriginPc{ flex:0 0 96px; width:96px; padding-left:6px; padding-right:4px; }
 
   /* „Po drodze”: przycisk w karcie jazdy + arkusz z parkingami / paliwem / punktem pośrednim */
   #navAlongRow{ display:none; margin-top:8px; }
@@ -1379,6 +1378,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     100%{ opacity:1; transform:translateX(-135vw) skewX(-28deg); }
   }
 
+  /* licznik średniej prędkości na odcinku pomiarowym (js/65): żółta tablica nad prędkościomierzem */
+  #avgMeter{ display:none; position:absolute; left:0; bottom:calc(100% + 8px); min-width:112px; text-align:center; padding:5px 12px 6px; border-radius:16px;
+    background:#FFD400; color:#111; border:3px solid #111; box-shadow:0 5px 16px rgba(0,0,0,.45); font-family:'Space Grotesk', sans-serif; white-space:nowrap; cursor:pointer; }
+  #avgMeter.show{ display:block; }
+  #avgMeter #amTitle{ font-size:10px; font-weight:800; letter-spacing:.08em; }
+  #avgMeter #amValue{ font-size:38px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  #avgMeter small{ font-size:11px; font-weight:800; margin-left:3px; }
+  #avgMeter #amInfo{ font-size:12px; font-weight:700; }
+  #avgMeter.over{ background:#d4180d; color:#fff; border-color:#fff; }
+  #avgMeter.done{ border-style:double; border-width:5px; }
+
   #limitSign{
     width:74px; height:74px;
     border-radius:50%;
@@ -1736,9 +1746,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   /* ---------- pole celu i dolny panel: nigdy szersze niż ekran ---------- */
   html, body{ max-width:100vw; overflow-x:hidden; }
   #navTopBar{ box-sizing:border-box; width:auto; max-width:min(560px, calc(100vw - 16px)); left:8px; right:8px; }
-  #navTopBar, #navTopBar .navTopRow, #navTopBar #navDestWrap, #navTopBar #navOriginWrap, #navTopBar #navDestCombo, #navTopBar #navOriginRow{ min-width:0; max-width:100%; box-sizing:border-box; }
+  #navTopBar, #navTopBar .navTopRow, #navTopBar #navDestWrap, #navTopBar #navOriginWrap, #navTopBar #navDestCombo, #navTopBar #navOriginCombo, #navTopBar #navOriginRow{ min-width:0; max-width:100%; box-sizing:border-box; }
   #navTopBar input{ min-width:0; max-width:100%; }
-  #navDestCombo #navPostcode, #navOriginWrap #navOriginPc{ flex:0 1 96px; width:96px; min-width:70px; }
+  #navDestCombo #navPostcode, #navOriginCombo #navOriginPc{ flex:0 0 96px; width:96px; min-width:70px; }
   #navPanel{ box-sizing:border-box; max-width:100vw; overflow-x:hidden; }
   #navPanel > *{ min-width:0; max-width:100%; }
   #navPanel input, #navPanel select{ min-width:0; max-width:100%; box-sizing:border-box; }
@@ -1801,11 +1811,8 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #flagSubtype button svg{ width:22px; height:22px; flex:none; }
 #flagSubtype button.active{ color:#fff; background:#0b7a6d; border-color:#3ddc84; opacity:1; box-shadow:0 0 0 3px rgba(61,220,132,.28); }
 
-/* przycisk zgłoszeń: szklany jak pozostałe, ale w bursztynowym odcieniu, żeby się wyróżniał */
-#reportFloat #btnReportMenu{ width:52px; height:52px; background:linear-gradient(160deg, rgba(255,214,92,.72), rgba(255,160,0,.42)) !important; border:1.5px solid rgba(255,190,40,.95) !important; box-shadow:0 8px 24px rgba(0,0,0,.35), 0 0 14px rgba(255,176,32,.45), inset 0 1px 0 rgba(255,255,255,.65) !important; color:#2f1f00 !important; }
-body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(255,184,40,.38), rgba(255,140,0,.16)) !important; color:#ffd56a !important; }
-#reportFloat #btnReportMenu svg.ico{ width:30px; height:30px; filter:none; }
-#reportFloat #btnReportMenu.active{ background:#ffb020 !important; color:#2f1f00 !important; }
+/* przycisk zgłoszeń: to samo szkło i rozmiar co pozostałe, wyróżnia go bursztynowy plus */
+#reportFloat #btnReportMenu.active{ background:#ffb020; color:#2f1f00; }
 
 /* okno fotoradaru: wybór zwykły (biały znak) / odcinkowy (żółty znak) */
 #flagCamType{ display:none; gap:8px; margin:6px 0 4px; }
@@ -1827,10 +1834,11 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   #avgPickDone{ background:#FFD400 !important; color:#111 !important; border-color:#FFD400 !important; }
   #camMore button{ flex:1 1 45%; }
   #avgAdmin > * + *{ margin-top:8px; }
-  #avgMph{ display:flex; align-items:center; gap:6px; }
-  #avgMph span{ flex:0 0 auto; }
-  #avgMph button{ flex:1; min-height:42px; border-radius:999px; border:2px solid rgba(255,255,255,.3); background:transparent; color:#fff; font:800 15px 'Inter',system-ui,sans-serif; }
-  #avgMph button.on{ background:#fff; color:#111; border-color:#d1131f; border-width:3px; }
+  #avgMph{ display:flex; align-items:center; justify-content:space-between; gap:4px; min-height:62px; padding:0 4px; }
+  #avgMph button{ flex:0 0 auto; width:42px; height:42px; padding:0; border-radius:50%; border:4px solid #d1131f; background:#fff; color:#111; font:800 16px 'Inter',system-ui,sans-serif; transition:transform .15s ease; }
+  #avgMph button[data-mph=""]{ border-color:#8a9096; }
+  #avgMph button.sug{ box-shadow:0 0 0 3px #3ddc84; }
+  #avgMph button.on{ transform:scale(1.38); margin:0 7px; box-shadow:0 0 0 3px #3ddc84, 0 4px 12px rgba(0,0,0,.5); }
   .avgPickBtns button{ min-height:44px; }
 /* ===== css/16-accounts.css — okno logowania / konta i lista użytkowników (administrator) ===== */
 #accModal{ position:fixed; inset:0; z-index:300; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.55); }
@@ -1944,7 +1952,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 22 20.4H2z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 10.2v7M8.5 13.7h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M12 10.8v5.6M9.2 13.6h5.6" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -2082,7 +2090,8 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
 <div id="avgPickBar" role="dialog">
   <div id="avgPickTxt">Odcinkowy pomiar: dotknij na mapie kolejne kamery — od pierwszej do ostatniej.</div>
   <div id="avgAdmin" style="display:none">
-    <div id="avgMph"><span>Limit HGV</span><button type="button" data-mph="">–</button><button type="button" data-mph="30">30</button><button type="button" data-mph="40">40</button><button type="button" data-mph="50">50</button><button type="button" data-mph="60">60</button></div>
+    <div id="avgMphInfo">Limit HGV</div>
+    <div id="avgMph"><button type="button" data-mph="">–</button><button type="button" data-mph="20">20</button><button type="button" data-mph="30">30</button><button type="button" data-mph="40">40</button><button type="button" data-mph="50">50</button><button type="button" data-mph="60">60</button></div>
     <div class="avgPickBtns"><button id="avgPickFlip" type="button">⇅ Odwróć</button><button id="avgPickDissolve" type="button">🗑 Rozwiąż odcinek</button></div>
   </div>
   <div class="avgPickBtns"><button id="avgPickUndo" type="button">↶ Cofnij</button><button id="avgPickDone" type="button">✔ Zakończ</button><button id="avgPickCancel" type="button">✕ Anuluj</button></div>
@@ -2140,7 +2149,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   <div class="poiAddr" id="flagSub"></div>
   <div id="flagCamType">
     <button type="button" data-cam="normal" class="active"><svg viewBox="0 0 46 50" aria-hidden="true"><rect x="1" y="1" width="44" height="48" rx="5" fill="#f7f7f7"/><rect x="3.5" y="3.5" width="39" height="43" rx="3.5" fill="none" stroke="#111" stroke-width="2.6"/><rect x="11" y="8" width="17" height="17" rx="2.5" fill="#111"/><circle cx="15.8" cy="20" r="3.4" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="22.6" cy="12.4" r="1.8" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M29.4 10.5V23M31 11V22.5M32.6 11.5V22M28.2 22.8H32.8" stroke="#111" stroke-width=".9" fill="none"/><rect x="34" y="14" width="3.5" height="5" fill="#111"/><text x="23" y="35.5" font-size="8.4" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">Speed</text><text x="23" y="44" font-size="7.6" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">cameras</text></svg>Zwykły</button>
-    <button type="button" data-cam="avg"><svg viewBox="0 0 46 50" aria-hidden="true"><rect x="1" y="1" width="44" height="48" rx="5" fill="#FFD400"/><rect x="3.5" y="3.5" width="39" height="43" rx="3.5" fill="none" stroke="#111" stroke-width="2.6"/><circle cx="23" cy="17" r="9.5" fill="#fff" stroke="#111" stroke-width="2.4"/><path d="M23 17V11M23 17l4.5 2.5" stroke="#111" stroke-width="2" stroke-linecap="round" fill="none"/><text x="23" y="35.5" font-size="8.2" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">Average</text><text x="23" y="44" font-size="8.2" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">speed</text></svg>Odcinkowy</button>
+    <button type="button" data-cam="avg"><svg viewBox="0 0 46 50" aria-hidden="true"><rect x="1" y="1" width="44" height="48" rx="5" fill="#FFD400"/><rect x="3.5" y="3.5" width="39" height="43" rx="3.5" fill="none" stroke="#111" stroke-width="2.6"/><rect x="11" y="8" width="17" height="17" rx="2.5" fill="#111"/><circle cx="15.8" cy="20" r="3.4" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="22.6" cy="12.4" r="1.8" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M29.4 10.5V23M31 11V22.5M32.6 11.5V22M28.2 22.8H32.8" stroke="#111" stroke-width=".9" fill="none"/><rect x="34" y="14" width="3.5" height="5" fill="#111"/><text x="23" y="35.5" font-size="8.2" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">Average</text><text x="23" y="44" font-size="8.2" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#111">speed</text></svg>Odcinkowy</button>
   </div>
   <div id="flagSubtype">
     <button type="button" data-sub="parking"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="#1a6fd6"/><path d="M9.6 18V6.4h3.8a3.3 3.3 0 0 1 0 6.6H9.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Parking</button>
@@ -2217,9 +2226,14 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
 <div id="navTopBar">
     <div class="navTopRow" id="navOriginRow">
       <div id="navOriginWrap" class="navStopWrap">
-        <input type="text" id="navOrigin" class="navStopInput" placeholder="Wpisz punkt początkowy…" autocomplete="off">
-        <input type="text" id="navOriginPc" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy punktu początkowego">
-        <div id="navOriginGps" class="navOriginGps" role="button" title="Start z mojej pozycji GPS" aria-label="Start z mojej pozycji GPS">📍</div>
+        <div id="navOriginCombo">
+          <input type="text" id="navOrigin" class="navStopInput" placeholder="Start" autocomplete="off">
+          <button id="navOriginClear" class="navClearBtn" type="button" aria-label="Wyczyść start">✕</button>
+          <div id="navOriginGps" class="navOriginGps" role="button" title="Start z mojej pozycji GPS" aria-label="Start z mojej pozycji GPS">📍</div>
+          <span class="navComboSep" aria-hidden="true"></span>
+          <input type="text" id="navOriginPc" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy punktu początkowego">
+          <button id="navOriginPcClear" class="navClearBtn" type="button" aria-label="Wyczyść kod pocztowy startu">✕</button>
+        </div>
         <div id="navOriginSuggestions" class="navSuggestions"></div>
       </div>
       <div id="navAddWaypointBtn" class="navTopBtn" role="button" title="Dodaj punkt pośredni" aria-label="Dodaj punkt pośredni">＋</div>
@@ -2228,7 +2242,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     <div class="navTopRow" id="navDestRow">
     <div id="navDestWrap" class="navStopWrap">
       <div id="navDestCombo">
-        <input type="text" id="navDest" class="navStopInput" placeholder="Wpisz cel podróży…" autocomplete="off">
+        <input type="text" id="navDest" class="navStopInput" placeholder="Finish" autocomplete="off">
         <button id="navDestClear" class="navClearBtn" type="button" aria-label="Wyczyść cel">✕</button>
         <button id="navDestFav" type="button" title="Dodaj cel do ulubionych" aria-label="Ulubione">☆</button>
         <span class="navComboSep" aria-hidden="true"></span>
@@ -2675,6 +2689,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
 <div id="overSpeedFx" aria-hidden="true"><span>OVER SPEED</span></div>
 <div id="speedCluster">
   <div id="ovTimer" aria-live="off">0:58</div>
+  <div id="avgMeter" role="status" aria-label="Średnia prędkość na odcinku"><div id="amTitle">ŚREDNIA</div><div><span id="amValue">–</span><small>mph</small></div><div id="amInfo"></div></div>
   <div id="speedPanel">
     <div id="speedValue">0</div>
     <div id="speedUnit">KM/H</div>
@@ -3780,6 +3795,17 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     return { data: ctx.getImageData(0, 0, d, d), options: { pixelRatio: PR } };
   }
 
+  function drawSpeedCameraGlyph(g, rr){     // wspólny aparat dla białego i żółtego znaku (rysunek w układzie 46 × 50)
+    // kamerka: czarny korpus z dwoma białymi kółkami + obiektyw (schodki)
+    rr(11, 8, 17, 17, 2.5); g.fillStyle = "#111"; g.fill();
+    g.beginPath(); g.arc(15.8, 20, 3.4, 0, Math.PI * 2); g.lineWidth = 1.5; g.strokeStyle = "#fff"; g.stroke();
+    g.beginPath(); g.arc(22.6, 12.4, 1.8, 0, Math.PI * 2); g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = "#111"; g.fillRect(34, 14, 3.5, 5);                               // lufa obiektywu
+    g.lineWidth = 0.9; g.strokeStyle = "#111";
+    [29.4, 31, 32.6].forEach((x, i) => { g.beginPath(); g.moveTo(x, 10.5 + i * .5); g.lineTo(x, 23 - i * .5); g.stroke(); });   // pionowe listwy
+    g.beginPath(); g.moveTo(28.2, 22.8); g.lineTo(32.8, 22.8); g.stroke();
+  }
+
   // Znak „Speed cameras" (biała tablica z grubą czarną ramką, czarna kamerka z dwoma kółkami, napis) — jeden obrazek
   function addCameraSignImage(m){
     const id = "mw-camera-sign";
@@ -3791,21 +3817,14 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     g.scale(k, k);
     rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#f7f7f7"; g.fill();                 // biała tablica
     rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#111"; g.stroke();   // czarna ramka
-    // kamerka: czarny korpus z dwoma białymi kółkami + obiektyw (schodki)
-    rr(11, 8, 17, 17, 2.5); g.fillStyle = "#111"; g.fill();
-    g.beginPath(); g.arc(15.8, 20, 3.4, 0, Math.PI * 2); g.lineWidth = 1.5; g.strokeStyle = "#fff"; g.stroke();
-    g.beginPath(); g.arc(22.6, 12.4, 1.8, 0, Math.PI * 2); g.lineWidth = 1.2; g.stroke();
-    g.fillStyle = "#111"; g.fillRect(34, 14, 3.5, 5);                               // lufa obiektywu
-    g.lineWidth = 0.9; g.strokeStyle = "#111";
-    [29.4, 31, 32.6].forEach((x, i) => { g.beginPath(); g.moveTo(x, 10.5 + i * .5); g.lineTo(x, 23 - i * .5); g.stroke(); });   // pionowe listwy
-    g.beginPath(); g.moveTo(28.2, 22.8); g.lineTo(32.8, 22.8); g.stroke();
+    drawSpeedCameraGlyph(g, rr);
     g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "alphabetic";
     g.font = "bold 8.4px Arial, Helvetica, sans-serif"; g.fillText("Speed", W / 2, 35.5);
     g.font = "bold 7.6px Arial, Helvetica, sans-serif"; g.fillText("cameras", W / 2, 44);
     m.addImage(id, g.getImageData(0, 0, W * k, H * k), { pixelRatio: PR });
   }
 
-  function addAvgCameraSignImage(m){     // ŻÓŁTY znak odcinkowego pomiaru prędkości (zegar + „Average speed”) — inny niż biały znak zwykłego fotoradaru
+  function addAvgCameraSignImage(m){     // ŻÓŁTY znak odcinkowego pomiaru prędkości (aparat jak na białym znaku + „Average speed”) — inny niż biały znak zwykłego fotoradaru
     const id = "avg-camera-sign";
     try{ if(m.hasImage(id)) m.removeImage(id); }catch(e){}
     const PR = 3, W = 46, H = 50, k = PR;
@@ -3815,8 +3834,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     g.scale(k, k);
     rr(1, 1, W - 2, H - 2, 5); g.fillStyle = "#FFD400"; g.fill();                    // żółta tablica
     rr(3.5, 3.5, W - 7, H - 7, 3.5); g.lineWidth = 2.6; g.strokeStyle = "#111"; g.stroke();
-    g.beginPath(); g.arc(W / 2, 17, 9.5, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.lineWidth = 2.4; g.strokeStyle = "#111"; g.stroke();
-    g.beginPath(); g.moveTo(W / 2, 17); g.lineTo(W / 2, 11); g.moveTo(W / 2, 17); g.lineTo(W / 2 + 4.5, 19.5); g.lineWidth = 2; g.lineCap = "round"; g.stroke();
+    drawSpeedCameraGlyph(g, rr);
     g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "alphabetic";
     g.font = "bold 8.2px Arial, Helvetica, sans-serif"; g.fillText("Average", W / 2, 35.5);
     g.fillText("speed", W / 2, 44);
@@ -9120,6 +9138,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     try{ checkOffRoute(rawLat, rawLon, pos.coords.accuracy); }catch(e){ console.warn("Wykrywanie zjechania z trasy:", e); }
     try{ updateGuidance(lat, lon); }catch(e){ console.warn("Prowadzenie:", e); }
     updateSpeedLimit(lat, lon);
+    try{ if(typeof avgMeterFix === "function") avgMeterFix(rawLat, rawLon, now, pos.coords.accuracy, speedKmh); }catch(e){ console.warn("Licznik średniej:", e); }
     checkCameraProximity(lat, lon);
     detectUnitSystem(lat, lon);
     renderSpeedUI();
@@ -10373,11 +10392,16 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   })();
 
   // ---------- X w polach celu/kodu + przycisk „wstecz” (zamyka listę zamiast wychodzić z aplikacji) ----------
+  let navSelectedOrigin = null; // null = start od aktualnej pozycji GPS
   function navRefreshClearBtns(){
     const combo = document.getElementById("navDestCombo"); if(!combo) return;
     combo.classList.toggle("has-dest", !!document.getElementById("navDest").value);
     combo.classList.toggle("has-pc", !!document.getElementById("navPostcode").value);
     combo.classList.toggle("picked", !!navSelectedDest && !!document.getElementById("navDest").value);
+    const oc = document.getElementById("navOriginCombo"), o = document.getElementById("navOrigin").value, opc = document.getElementById("navOriginPc").value;
+    oc.classList.toggle("has-dest", !!o);
+    oc.classList.toggle("has-pc", !!opc);
+    oc.classList.toggle("picked", !!navSelectedOrigin && !!o && !opc);
   }
   (function(){
     const dest = document.getElementById("navDest"), pc = document.getElementById("navPostcode");
@@ -10411,7 +10435,6 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   navRefreshClearBtns();
 
   // ---------- pole miejsca początkowego (opcjonalne — puste = użyj bieżącej pozycji GPS) ----------
-  let navSelectedOrigin = null; // null = start od aktualnej pozycji GPS
   createStopSearch(
     document.getElementById("navOriginWrap"),
     document.getElementById("navOrigin"),
@@ -10460,6 +10483,15 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
       else showNavError("Wpisz pełny kod pocztowy UK, np. M1 1AE.");
     });
     oEl.addEventListener("input", () => { pcEl.value = ""; });
+    pcEl.addEventListener("input", navRefreshClearBtns);
+    document.getElementById("navOriginClear").addEventListener("click", e => {
+      e.preventDefault(); tok++; navSelectedOrigin = null; oEl.value = ""; pcEl.value = "";
+      oEl.dispatchEvent(new Event("input", { bubbles: true })); refreshOriginGpsChip(); oEl.focus();
+    });
+    document.getElementById("navOriginPcClear").addEventListener("click", e => {
+      e.preventDefault(); tok++; if(tmr) clearTimeout(tmr); if(oEl.value === pcEl.value){ oEl.value = ""; navSelectedOrigin = null; } pcEl.value = "";
+      refreshOriginGpsChip(); pcEl.focus();
+    });
     document.getElementById("navOriginGps").addEventListener("click", () => { pcEl.value = ""; });
   })();
 
@@ -10475,17 +10507,16 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
   function refreshOriginGpsChip(){
     const chip = document.getElementById("navOriginGps"), el = document.getElementById("navOrigin");
     if(chip) chip.style.display = (lastPos && (navSelectedOrigin || (el.value || "").trim())) ? "flex" : "none";
+    navRefreshClearBtns();
   }
   function updateAddWaypointVisibility(){
     const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
-    const originEl = document.getElementById("navOrigin");
     if(!hasDest && typeof pendingRouteMode !== "undefined") pendingRouteMode = null;
     // pole punktu początkowego pojawia się, gdy użytkownik planuje trasę (wybrał cel): domyślnie start z GPS, można wybrać inne miejsce
     document.body.classList.toggle("has-dest", hasDest);
     navRefreshClearBtns();
     document.body.classList.toggle("show-origin", hasDest);
-    originEl.placeholder = lastPos ? "Moja pozycja (GPS) — albo wpisz inne miejsce" : "Wpisz punkt początkowy…";
     refreshOriginGpsChip();
     document.body.classList.toggle("wp-max", rows >= NAV_MAX_WAYPOINTS);
     document.getElementById("navWaypointsList").style.display = hasDest ? "" : "none";
@@ -11434,8 +11465,9 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
       pendingRouteMode = mode || null;
       updateAddWaypointVisibility();            // dopiero teraz pojawia się pole punktu początkowego
       showDestPin();
-      showBanner("PUNKT POCZĄTKOWY", "Wpisz, skąd ruszasz — trasa wyznaczy się sama", false);
-      setTimeout(() => { try{ document.getElementById("navOrigin").focus(); }catch(e){} }, 60);
+      const o = document.getElementById("navOrigin");
+      o.focus();                                // od razu, w tym samym dotknięciu — inaczej telefon nie otworzy klawiatury
+      setTimeout(() => { if(pendingRouteMode === (mode || null) && !navSelectedOrigin && document.activeElement !== o && document.activeElement !== document.getElementById("navOriginPc")) o.focus(); }, 120);
       return;
     }
     confirmDestination();
@@ -19787,7 +19819,8 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
       let m = ""; try{ m = (await r.text()).slice(0, 140); }catch(e){}
       throw new Error("HTTP " + r.status + (m ? " — " + m : ""));
     }
-    return r.json();
+    const txt = await r.text();          // funkcje bez wyniku (np. zapis klucza) zwracają pustą odpowiedź
+    return txt ? JSON.parse(txt) : null;
   }
   const accDate = s => { if(!s) return "—"; const d = new Date(s), p = v => String(v).padStart(2, "0"); return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()); };
   const accMk = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
@@ -20614,27 +20647,73 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     const step = Math.ceil(line.length / 400); if(step > 1) line = line.filter((p, i) => i % step === 0 || i === line.length - 1);
     return { path: line, len, odd: len > straight * 1.6 + 400 };
   }
+  // limit HGV na odcinku: najbliższa droga przy kamerach i wzdłuż przebiegu (kafelki dróg js/45); wygrywa najczęstsza wartość
+  async function cvSuggestMph(pts, path){
+    const samples = pts.slice(0, 8);
+    if(path && path.length > 2) for(let i = 1; i <= 6; i++) samples.push(path[Math.floor(path.length * i / 7)]);
+    const tileOf = p => { const t = rtOf(p[0], p[1]); return rtId(t.iy, t.ix); };
+    const ids = Array.from(new Set(samples.map(tileOf))), tiles = {};
+    for(const id of ids){ const d = await rtLocalGet(id); if(d) tiles[id] = d; }
+    const rows = await rtSupaGet(ids.filter(id => !tiles[id]));
+    for(const id of Object.keys(rows)){ rows[id].t = rows[id].t || Date.now(); tiles[id] = rows[id]; await rtStore(id, rows[id]); }
+    for(const id of ids.filter(id => !tiles[id]).slice(0, 3)){ try{ tiles[id] = await rtFromOverpass(id, true); }catch(e){} }
+    const ways = {}; Object.keys(tiles).forEach(id => ways[id] = rtDecode(id, tiles[id]).ways);
+    const count = new Map();
+    samples.forEach(p => {
+      let best = null, bd = 35;
+      (ways[tileOf(p)] || []).forEach(w => {
+        for(let i = 1; i < w.geometry.length; i++){
+          const a = w.geometry[i - 1], b = w.geometry[i], d = pointToSegmentMeters(p[0], p[1], [a.lon, a.lat], [b.lon, b.lat]);
+          if(d < bd){ bd = d; best = w; }
+        }
+      });
+      if(!best) return;
+      let kmh = parseMaxspeed(best.tags.maxspeed), explicit = true;
+      if(!kmh){ const info = roadLimitInfo(best.id) || ukNationalInfo(best.tags); if(!info) return; kmh = Math.round(info.mph * 1.60934); explicit = info.source === "default"; }
+      const mph = Math.min(60, Math.max(20, Math.round(hgvAdjustKmh(kmh, best.tags, explicit).kmh / 16.0934) * 10));
+      count.set(mph, (count.get(mph) || 0) + 1);
+    });
+    const top = Array.from(count.entries()).sort((x, y) => y[1] - x[1] || x[0] - y[0])[0];
+    return top ? top[0] : null;
+  }
   let cvRouteTimer = null;
-  function cvPickChanged(){         // po każdej zmianie listy kamer: nowy rysunek i (dla administratora) przebieg po drodze
+  function cvPickChanged(){         // po każdej zmianie listy kamer: nowy rysunek i (dla administratora) przebieg po drodze + limit
     const st = cvPick; if(!st) return;
     st.path = null; st.len = null; st.odd = false; st.routeErr = false; st.seq = (st.seq || 0) + 1;
-    cvPickDraw();
+    st.sug = null; st.sugBusy = isAdmin() && st.pts.length > 0;
+    if(!st.pts.length && !st.mphTouched) st.mph = null;
+    cvPickDraw(); cvPickMphDraw();
     if(cvRouteTimer) clearTimeout(cvRouteTimer);
-    if(!isAdmin() || st.pts.length < 2) return;
-    const seq = st.seq;
+    if(!isAdmin() || !st.pts.length) return;
+    const seq = st.seq, stale = () => cvPick !== st || st.seq !== seq;
     cvRouteTimer = setTimeout(async () => {
-      try{ const r = await cvRoadPath(st.pts.slice()); if(cvPick !== st || st.seq !== seq) return; Object.assign(st, r); }
-      catch(e){ if(cvPick !== st || st.seq !== seq) return; st.routeErr = true; }
-      cvPickDraw();
+      if(st.pts.length >= 2){
+        try{ const r = await cvRoadPath(st.pts.slice()); if(stale()) return; Object.assign(st, r); }
+        catch(e){ if(stale()) return; st.routeErr = true; }
+        cvPickDraw();
+      }
+      let mph = null;
+      try{ mph = await cvSuggestMph(st.pts.slice(), st.odd ? null : st.path); }catch(e){ console.warn("Limit odcinka:", e); }
+      if(stale()) return;
+      st.sug = mph; st.sugBusy = false;
+      if(!st.mphTouched) st.mph = mph;          // podpowiedź zaznaczamy sami, dopóki administrator nie wybierze znaku
+      cvPickMphDraw();
     }, 900);
   }
-  function cvPickMphDraw(){ document.querySelectorAll("#avgMph button").forEach(b => b.classList.toggle("on", String(cvPick && cvPick.mph || "") === b.dataset.mph)); }
+  function cvPickMphDraw(){
+    const st = cvPick; if(!st) return;
+    document.querySelectorAll("#avgMph button").forEach(b => {
+      b.classList.toggle("on", String(st.mph || "") === b.dataset.mph);
+      b.classList.toggle("sug", !!st.sug && String(st.sug) === b.dataset.mph);
+    });
+    cvEl("avgMphInfo").textContent = st.sug ? "Limit HGV — na tej drodze: " + st.sug + " mph" : st.sugBusy ? "Limit HGV — sprawdzam drogę…" : st.pts.length ? "Limit HGV — nie znalazłem, wybierz sam" : "Limit HGV";
+  }
   function cvPickStart(opts){
     if(!isAdmin() && typeof accNeedLogin === "function" && accNeedLogin("zgłosić odcinkowy pomiar prędkości")) return;
     try{ closeReportMenu(); }catch(e){}
     cvHideCard(); try{ hidePoiAsk(); }catch(e){}
     const o = opts && opts.pts ? opts : null;
-    cvPick = { pts: o ? o.pts : [], mph: o ? o.mph : null, edit: o ? o.edit : null };
+    cvPick = { pts: o ? o.pts : [], mph: o ? o.mph : null, mphTouched: !!(o && o.mph), edit: o ? o.edit : null };
     window.cvPicking = true;
     cvEl("avgAdmin").style.display = isAdmin() ? "" : "none";
     cvEl("avgPickDissolve").style.display = cvPick.edit && cvPick.edit.grouped ? "" : "none";
@@ -20715,7 +20794,7 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     if(q("#avgPickUndo")){ if(cvPick){ cvPick.pts.pop(); cvPickChanged(); } }
     else if(q("#avgPickFlip")){ if(cvPick){ cvPick.pts.reverse(); cvPickChanged(); } }
     else if(q("#avgPickDissolve")) cvPickDissolve();
-    else if(q("#avgMph button")){ if(cvPick){ cvPick.mph = Number(q("#avgMph button").dataset.mph) || null; cvPickMphDraw(); } }
+    else if(q("#avgMph button")){ if(cvPick){ cvPick.mph = Number(q("#avgMph button").dataset.mph) || null; cvPick.mphTouched = true; cvPickMphDraw(); } }
     else if(q("#camEdit")) cvEditStart();
     else if(q("#avgPickDone")) cvPickDone();
     else if(q("#avgPickCancel")) cvPickStop();
@@ -20816,6 +20895,102 @@ body.night #reportFloat #btnReportMenu{ background:linear-gradient(160deg, rgba(
     cvAvgSites.forEach(s => { const d = haversine(s.lat, s.lon, lat, lon); if(d < bd){ bd = d; best = s; } });
     return best;
   }
+</script>
+<script>
+/* ===== js/65-avg-speed-meter.js — Licznik średniej prędkości na odcinkach pomiarowych (żółte kamery) =====
+   Klasyczny <script> (bez IIFE). Odcinki bierze z js/64 (cvAvgSites: tylko pewne — z OpenStreetMap i ułożone przez administratora).
+   Start: przejazd obok kamery odcinka, gdy przed pojazdem jest następna. Średnia = droga przejechana wg GPS / czas od pierwszej kamery
+   (także po wjeździe w połowie odcinka — liczymy od pierwszej mijanej kamery). Koniec: ostatnia kamera w kierunku jazdy (wynik 8 s).
+   Zjazd z odcinka: za daleko od ostatniej kamery albo od linii odcinka → licznik znika. Limit: HGV z edytora odcinka, inaczej bieżący limit.
+   Średnia powyżej limitu: sygnał dźwiękowy (js/06), powtarzany co 15 s. */
+"use strict";
+
+  const AM = { PASS_M: 45, AHEAD_DEG: 80, MIN_LEG_M: 150, MIN_KMH: 8, MAX_ACC_M: 80, MAX_GAP_MS: 180000, OFF_PATH_M: 200, RESULT_MS: 8000, BEEP_MS: 15000 };
+  let amS = null, amPrev = null, amHideAt = 0;
+
+  const amTurn = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+  function amAhead(group, from, hdg, passed){      // nieminięte kamery odcinka leżące przed pojazdem
+    return group.filter(c => !passed.has(c) && haversine(from.lat, from.lon, c.lat, c.lon) > AM.MIN_LEG_M && amTurn(hdg, bearingBetween(from.lat, from.lon, c.lat, c.lon)) <= AM.AHEAD_DEG);
+  }
+  function amNear(site, a, b){       // czy odcinek jazdy a→b przeszedł obok kamery (obie jezdnie: pozycja stanowiska lub konkretnej kamery)
+    const pts = [[site.lat, site.lon]]; if(site.rp) pts.push(site.rp);
+    return pts.some(p => pointToSegmentMeters(p[0], p[1], [a.lon, a.lat], [b.lon, b.lat]) <= AM.PASS_M);
+  }
+  const amAllow = (cam, ahead) => Math.min(...ahead.map(c => haversine(cam.lat, cam.lon, c.lat, c.lon))) * 1.5 + 1200;   // tyle drogi wolno przejechać do następnej kamery
+  function amStart(cam, here, hdg){
+    const group = cvAvgSites.filter(s => s.g === cam.g), passed = new Set([cam]), ahead = amAhead(group, here, hdg, passed);
+    if(!ahead.length) return false;
+    const rec = cam.manual ? cvSections().find(s => s.id === cam.secId) : null;
+    amS = { g: cam.g, manual: !!cam.manual, group, passed, t0: here.t, t: here.t, dist: 0, since: 0, allow: amAllow(cam, ahead), idx: cam.idx, of: cam.of,
+      lim: cam.mph || null, path: rec && rec.path && rec.path.length > 1 ? rec.path : null, off: 0, done: false };
+    amHideAt = 0; amRender();
+    return true;
+  }
+  function amEnd(){ amS = null; amHideAt = 0; amRender(); }
+  function amFinish(){ amS.done = true; amHideAt = Date.now() + AM.RESULT_MS; amRender(); setTimeout(() => { if(amS && amS.done && Date.now() >= amHideAt) amEnd(); }, AM.RESULT_MS + 100); }
+  function amOffPath(p, path){
+    for(let i = 1; i < path.length; i++) if(pointToSegmentMeters(p.lat, p.lon, [path[i - 1][1], path[i - 1][0]], [path[i][1], path[i][0]]) <= AM.OFF_PATH_M) return false;
+    return true;
+  }
+
+  // wywoływane z js/23 przy każdym odczycie GPS
+  function avgMeterFix(lat, lon, t, accuracy, speedKmh){
+    if(accuracy != null && accuracy > AM.MAX_ACC_M) return;
+    const a = amPrev, b = { lat, lon, t }; amPrev = b;
+    if(!a || t <= a.t) return;
+    if(t - a.t > AM.MAX_GAP_MS){ if(amS) amEnd(); return; }
+    const seg = haversine(a.lat, a.lon, b.lat, b.lon), moving = speedKmh >= AM.MIN_KMH && seg >= 3;
+    if(amS && !amS.done){
+      amS.t = t;
+      if(seg >= 3 && (speedKmh >= 4 || seg >= 15)){ amS.dist += seg; amS.since += seg; }
+    }
+    if(moving && typeof cvAvgSites !== "undefined"){
+      const hdg = bearingBetween(a.lat, a.lon, b.lat, b.lon);
+      const near = cvAvgSites.filter(s => Math.abs(s.lat - lat) < 0.006 && Math.abs(s.lon - lon) < 0.01 && amNear(s, a, b));
+      if(amS && !amS.done){
+        // numery stanowisk mogły zostać przeliczone w tle (nowe obiekty) — porównujemy po położeniu
+        const same = (x, y) => haversine(x.lat, x.lon, y.lat, y.lon) < 60;
+        const hit = amS.group.find(c => !amS.passed.has(c) && near.some(n => same(n, c)));
+        if(hit){
+          amS.passed.add(hit); amS.since = 0; amS.idx = hit.idx;
+          const ahead = amAhead(amS.group, b, hdg, amS.passed);
+          if(ahead.length) amS.allow = amAllow(hit, ahead); else amFinish();
+        } else {
+          // wjazd na inny odcinek, zanim poprzedni się skończył
+          const other = near.find(n => !amS.group.some(c => same(n, c)));
+          if(other) amStart(other, b, hdg);
+        }
+      } else {
+        for(const s of near){
+          if(amS && amS.done && amS.group.some(c => haversine(c.lat, c.lon, s.lat, s.lon) < 60)) continue;     // kamera właśnie zakończonego odcinka
+          if(amStart(s, b, hdg)) break;
+        }
+      }
+    }
+    if(amS && !amS.done){
+      if(amS.path){ amS.off = amOffPath(b, amS.path) ? amS.off + 1 : 0; }
+      if(amS.since > amS.allow || amS.off >= 4) amEnd(); else amRender();
+    }
+  }
+  const amMph = () => { const s = amS && (amS.t - amS.t0) / 1000; return s >= 5 && amS.dist >= 80 ? Math.round(amS.dist / s * 2.236936) : null; };
+  function amRender(){
+    const el = document.getElementById("avgMeter"); if(!el) return;
+    el.classList.toggle("show", !!amS);
+    if(!amS) return;
+    const v = amMph(), lim = amS.lim || (typeof currentLimit !== "undefined" && currentLimit ? Math.round(currentLimit * 0.621371) : null);
+    el.classList.toggle("over", v != null && lim != null && v > lim);
+    el.classList.toggle("done", amS.done);
+    if(!amS.done && v != null && lim != null && v > lim && Date.now() - (amS.beepAt || 0) >= AM.BEEP_MS){   // sygnał od razu, potem co 15 s, dopóki średnia jest za wysoka
+      amS.beepAt = Date.now(); try{ ovAudio(); beep(); }catch(e){}
+    }
+    document.getElementById("amTitle").textContent = amS.done ? "KONIEC ODCINKA" : "ŚREDNIA";
+    document.getElementById("amValue").textContent = v == null ? "–" : String(v);
+    document.getElementById("amInfo").textContent = (lim ? "limit " + lim + " · " : "") + (amS.dist / 1609.344).toFixed(1) + " mi";
+  }
+  safeInit("licznik średniej prędkości", () => {
+    document.getElementById("avgMeter").addEventListener("click", amEnd);        // dotknięcie chowa licznik
+    addTick(() => { if(amS && !amS.done && Date.now() - amPrev.t > AM.MAX_GAP_MS) amEnd(); }, 5000);
+  });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
 </body>
