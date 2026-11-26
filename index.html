@@ -1811,6 +1811,13 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #camCard{ top:calc(env(safe-area-inset-top, 0px) + 96px); }
   body.guidance-on #camCard{ top:calc(env(safe-area-inset-top, 0px) + 96px + var(--guidance-h, 0px)); }
   .poiCard button#camAct{ background:#b3261e; border-color:#b3261e; color:#fff; }
+  /* zgłaszanie odcinka pomiarowego (js/64): pasek wyboru kamer + dodatkowe przyciski karty */
+  #avgPickBar{ position:fixed; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom, 0px) + 12px); z-index:60; display:none; flex-direction:column; gap:8px; padding:12px 14px; border-radius:16px; background:rgba(20,22,26,.96); color:#fff; border:1.5px solid #FFD400; box-shadow:0 8px 24px rgba(0,0,0,.5); font:600 13.5px/1.35 'Inter',system-ui,sans-serif; }
+  #avgPickBar.show{ display:flex; }
+  .avgPickBtns{ display:flex; gap:8px; }
+  .avgPickBtns button{ flex:1; padding:10px 6px; border-radius:11px; border:1px solid rgba(255,255,255,.3); background:transparent; color:#fff; font:700 13px 'Inter',system-ui,sans-serif; }
+  #avgPickDone{ background:#FFD400 !important; color:#111 !important; border-color:#FFD400 !important; }
+  #camMore button{ flex:1 1 45%; }
 /* ===== css/16-accounts.css — okno logowania / konta i lista użytkowników (administrator) ===== */
 #accModal{ position:fixed; inset:0; z-index:300; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.55); }
 #accModal.show{ display:flex; }
@@ -1879,6 +1886,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #setTabs{ overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
 #setTabs::-webkit-scrollbar{ display:none; }
 #setTabs button{ flex:1 0 auto; padding-left:10px; padding-right:10px; }
+/* karta ustawień jest kolumną z przewijaniem: nagłówek i pasek zakładek NIE mogą się kurczyć (po dodaniu „Narzędzi mapy” treść jest dłuższa niż ekran i pasek zwijał się do 0 px — znikały ikony Ekran / Dźwięk / Ciężarówka…) */
+#navSettingsCard .navSettingsHeader, #navSettingsCard #setTabs, #navSettingsCard .setPane, #navSettingsCard #soundPane{ flex:0 0 auto; }
+#setTabs{ position:sticky; top:0; z-index:3; background:var(--panel-bg, var(--card-bg, inherit)); padding-bottom:6px; }
 </style>
 </head>
 <body>
@@ -1915,6 +1925,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 <div id="reportFloat">
   <div class="reportSubMenu" id="reportSubMenu">
     <div class="ctrl-btn" id="btnReportCamera" title="Zgłoś fotoradar w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.1 22.7 20.7H1.3z" fill="#fff" stroke="#d1131f" stroke-width="2.5" stroke-linejoin="round"/><rect x="6.4" y="11" width="11.2" height="6.4" rx="1.5" fill="#1b1f24"/><path d="M9 11l.9-1.6h4.2L15 11z" fill="#1b1f24"/><circle cx="12" cy="14.2" r="2.1" fill="#fff"/><circle cx="12" cy="14.2" r="1" fill="#1b1f24"/><circle cx="15.7" cy="12.3" r=".6" fill="#e5392f"/></svg></div>
+    <div class="ctrl-btn" id="btnReportAvg" title="Zgłoś odcinkowy pomiar prędkości (wskaż kamery na mapie)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="1.8" width="20" height="20.4" rx="4.4" fill="#FFD400" stroke="#111" stroke-width="1.6"/><circle cx="12" cy="9.6" r="4.6" fill="#fff" stroke="#111" stroke-width="1.5"/><path d="M12 9.6V6.6M12 9.6l2.3 1.3" stroke="#111" stroke-width="1.4" stroke-linecap="round" fill="none"/><text x="12" y="19.4" text-anchor="middle" font-size="4.6" font-weight="900" font-family="Arial,sans-serif" fill="#111">AVG</text></svg></div>
     <div class="ctrl-btn" id="btnReportParking" title="Zgłoś parking HGV w tym miejscu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b8cf0"/><stop offset="1" stop-color="#1558b8"/></linearGradient></defs><rect x="1.8" y="1.8" width="20.4" height="20.4" rx="5.4" fill="url(#pkG)" stroke="#fff" stroke-width="1.3"/><path d="M9.4 18.4V5.9h4a3.5 3.5 0 0 1 0 7H9.4" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div class="ctrl-btn" id="btnReportWeight" title="Zgłoś ograniczenie tonażu (3,5 / 7,5 / 18 t)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><g transform="translate(12 12.3) scale(.8) translate(-12 -12)"><rect x="3.4" y="6.4" width="11" height="8.6" rx="1" fill="#222"/><path d="M14.9 8.4h2.7l2.8 3.3v3.3h-5.5z" fill="#222"/><text x="8.9" y="13.1" text-anchor="middle" font-size="6.2" font-weight="900" font-family="Arial,sans-serif" fill="#fff">7.5</text><circle cx="7.2" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/><circle cx="17" cy="16.3" r="1.8" fill="#222" stroke="#fff" stroke-width=".9"/></g></svg></div>
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
@@ -2049,6 +2060,17 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="poiName" id="camTitle"></div>
   <div class="poiAddr" id="camSub"></div>
   <div class="poiBtns"><button id="camClose" type="button">Zamknij</button><button id="camAct" type="button"></button></div>
+  <div class="poiBtns" id="camMore" style="display:none;flex-wrap:wrap">
+    <button id="camAvg" type="button" style="display:none"></button>
+    <button id="camFirst" type="button" style="display:none">Ustaw jako pierwszy</button>
+    <button id="camLast" type="button" style="display:none">Ustaw jako ostatni</button>
+    <button id="camFlip" type="button" style="display:none">Odwróć numerację</button>
+    <button id="camUnavg" type="button" style="display:none">Zmień na zwykły fotoradar</button>
+  </div>
+</div>
+<div id="avgPickBar" role="dialog">
+  <div id="avgPickTxt">Odcinkowy pomiar: dotknij na mapie kolejne kamery — od pierwszej do ostatniej.</div>
+  <div class="avgPickBtns"><button id="avgPickUndo" type="button">↶ Cofnij</button><button id="avgPickDone" type="button">✔ Zakończ</button><button id="avgPickCancel" type="button">✕ Anuluj</button></div>
 </div>
 
 <div id="voteCard" class="poiCard" role="dialog" aria-live="polite">
@@ -2504,10 +2526,10 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div id="rpAl"></div>
       <div class="navTitle" style="margin-top:14px">Usunięte z listy „Po drodze”</div>
       <div id="rpAlOut"></div>
-      <div class="navTitle" style="margin-top:14px">Fotoradary zgłoszone jako nieaktywne <span id="rpCamCount"></span></div>
-      <div class="psMuted" style="margin-bottom:6px">Fotoradary z OpenStreetMap, które kierowcy uznali za nieaktywne albo zdemontowane. „Usuń z mapy” ukrywa fotoradar u wszystkich. Usuwać możesz też bezpośrednio na mapie — dotknij fotoradaru.</div>
+      <div class="navTitle" style="margin-top:14px">Fotoradary: zgłoszenia kierowców <span id="rpCamCount"></span></div>
+      <div class="psMuted" style="margin-bottom:6px">Zgłoszenia kierowców: fotoradar nieaktywny, zwykły fotoradar który jest kamerą odcinkową i nowe odcinki pomiarowe. Zatwierdzenie pokazuje zmianę wszystkim. Zmieniać możesz też bezpośrednio na mapie — dotknij fotoradaru.</div>
       <div id="rpCam"></div>
-      <div class="navTitle" style="margin-top:14px">Usunięte fotoradary</div>
+      <div class="navTitle" style="margin-top:14px">Zatwierdzone zmiany fotoradarów</div>
       <div id="rpCamOut"></div>
     </div>
     <div class="setPane adminOnly" data-pane="users">
@@ -6232,7 +6254,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!src) return;
     src.setData({
       type: "FeatureCollection",
-      features: mwCamAll.filter(c => typeof cvIsHidden !== "function" || !cvIsHidden(c.lat, c.lon)).map(c => {
+      features: mwCamAll.filter(c => typeof cvIsHidden !== "function" || (!cvIsHidden(c.lat, c.lon) && !cvIsMarkedAvg(c.lat, c.lon))).map(c => {
         const s = mwCamShift.get(c.id);
         return { type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: s || [c.lon, c.lat] } };
       })
@@ -7373,7 +7395,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       camDrawnN = cameras.length;
       const feats = cameras.map(c => ({
         type:"Feature",
-        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0, avg: c.avg ? 1 : 0 },
+        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0, avg: (c.avg || (typeof cvIsMarkedAvg === "function" && cvIsMarkedAvg(c.lat, c.lon))) ? 1 : 0 },
         geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
       }));
       const extra = typeof cvExtraFeatures === "function" ? cvExtraFeatures(cameras) : [];     // fotoradary w widoku mapy poza kółkiem wokół pojazdu (js/64)
@@ -11290,7 +11312,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 
   function setupPoiClick(){
     map.on("click", (e) => {
-      if(window.alPicking) return;                                        // wybór punktu pośredniego na mapie (js/50)
+      if(window.alPicking || window.cvPicking) return;                    // wybór punktu pośredniego na mapie (js/50)
       if(typeof psGatePlacing !== "undefined" && psGatePlacing) return;   // administrator ustawia bramę wjazdową (js/52)
       if(typeof camClickAt === "function" && camClickAt(e)) return;       // dotknięty fotoradar → karta: usuń (admin) / zgłoś nieaktywny (js/64)
       if(navUiState === "picker" && pickTapOtherRoute(e)) return;
@@ -18314,13 +18336,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <div class="rpAct"><button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">Pokaż na mapie</button>
         ${out ? `<button type="button" data-act="alback">Przywróć na listę</button>` : `<button type="button" data-act="alok" class="psPrimary">✔ Usuń z listy</button><button type="button" data-act="alno">✖ Zostaw</button>`}</div></div>`;
   }
-  function camFlagItemHtml(r, out){     // fotoradar zgłoszony jako nieaktywny (js/64, sql/camera_flags.sql)
-    const k = r.kind === "avg" ? "Odcinkowy pomiar" : r.kind === "motorway" ? "Autostrada" : "Fotoradar";
+  function camFlagItemHtml(r, out){     // zmiany fotoradarów zgłoszone przez kierowców / wprowadzone przez administratora (js/64, sql/camera_flags.sql)
+    const act = r.action || "remove";
+    const k = act === "to_avg" ? "Zwykły → odcinkowy" : act === "new_section" ? "Nowy odcinek (" + ((r.extra && r.extra.pts && r.extra.pts.length) || "?") + " kamer)" : act === "flip" ? "Odwrócona numeracja" : "Fotoradar nieaktywny";
+    const first = act === "new_section" && r.extra && r.extra.pts && r.extra.pts[0] ? r.extra.pts[0] : [r.lat, r.lon];
+    const okTxt = act === "to_avg" ? "✔ Zamień na odcinkową" : act === "new_section" ? "✔ Zatwierdź odcinek" : "✔ Usuń z mapy";
     return `<div class="rpItem" data-id="${hgvEsc(r.id)}">
-      <div class="rpHead"><span class="rpKind">${hgvEsc(r.name || "Fotoradar")}</span><b class="rpVal">${k}</b></div>
-      <div class="psMuted">${Number(r.lat).toFixed(5)}, ${Number(r.lon).toFixed(5)} · ${hgvEsc(hgvDate(r.created_at))}</div>
-      <div class="rpAct"><button type="button" data-act="show" data-lat="${r.lat}" data-lon="${r.lon}">Pokaż na mapie</button>
-        ${out ? `<button type="button" data-act="camback">Przywróć na mapę</button>` : `<button type="button" data-act="camok" class="psPrimary">✔ Usuń z mapy</button><button type="button" data-act="camno">✖ Zostaw</button>`}</div></div>`;
+      <div class="rpHead"><span class="rpKind">${hgvEsc(r.name || "Fotoradar")}</span><b class="rpVal">${hgvEsc(k)}</b></div>
+      <div class="psMuted">${Number(first[0]).toFixed(5)}, ${Number(first[1]).toFixed(5)} · ${hgvEsc(hgvDate(r.created_at))}</div>
+      <div class="rpAct"><button type="button" data-act="show" data-lat="${first[0]}" data-lon="${first[1]}">Pokaż na mapie</button>
+        ${out ? `<button type="button" data-act="camback">Cofnij zmianę</button>` : `<button type="button" data-act="camok" data-ca="${hgvEsc(act)}" class="psPrimary">${okTxt}</button><button type="button" data-act="camno">✖ Odrzuć</button>`}</div></div>`;
   }
   async function hgvPanelLoad(){
     const list = hgvEl("rpList"), appr = hgvEl("rpApproved");
@@ -18350,11 +18375,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     hgvEl("rpAlCount").textContent = alp.length ? "(" + alp.length + ")" : "";
     let cfp = [], cfo = [];
     try{
-      cfp = await hgvAdminGet("camera_flags?select=id,kind,name,lat,lon,created_at&status=eq.pending&order=created_at.desc&limit=200");
-      cfo = await hgvAdminGet("camera_flags?select=id,kind,name,lat,lon,created_at&status=eq.removed&order=created_at.desc&limit=100");
+      cfp = await hgvAdminGet("camera_flags?select=id,kind,name,lat,lon,action,extra,created_at&status=eq.pending&order=created_at.desc&limit=200");
+      cfo = await hgvAdminGet("camera_flags?select=id,kind,name,lat,lon,action,extra,created_at&status=in.(removed,applied)&order=created_at.desc&limit=100");
     }catch(e){}
     hgvEl("rpCam").innerHTML = cfp.length ? cfp.map(r => camFlagItemHtml(r, false)).join("") : `<div class="psMuted">Brak zgłoszeń.</div>`;
-    hgvEl("rpCamOut").innerHTML = cfo.length ? cfo.map(r => camFlagItemHtml(r, true)).join("") : `<div class="psMuted">Brak usuniętych fotoradarów.</div>`;
+    hgvEl("rpCamOut").innerHTML = cfo.length ? cfo.map(r => camFlagItemHtml(r, true)).join("") : `<div class="psMuted">Brak zatwierdzonych zmian.</div>`;
     hgvEl("rpCamCount").textContent = cfp.length ? "(" + cfp.length + ")" : "";
     hgvSetBadge(pend.length + sug.length + alp.length + cfp.length);
     list.innerHTML = pend.length ? pend.map(r => hgvItemHtml(r, true)).join("") : `<div class="psMuted">Brak nowych zgłoszeń.</div>`;
@@ -18393,9 +18418,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(act === "camok" || act === "camno" || act === "camback"){          // fotoradary zgłoszone jako nieaktywne (js/64)
       try{
         if(act === "camback") await supaAdminRequest("DELETE", `camera_flags?id=eq.${encodeURIComponent(id)}`);
-        else await supaAdminRequest("PATCH", `camera_flags?id=eq.${encodeURIComponent(id)}`, { status: act === "camok" ? "removed" : "rejected", reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, "return=minimal");
+        else await supaAdminRequest("PATCH", `camera_flags?id=eq.${encodeURIComponent(id)}`, { status: act === "camok" ? ((btn.dataset.ca || "remove") === "remove" ? "removed" : "applied") : "rejected", reviewed_at: new Date().toISOString(), reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, "return=minimal");
         if(typeof cvLoadHidden === "function") await cvLoadHidden(true);
-        if(act === "camok") showBanner("FOTORADAR USUNIĘTY", "Nie będzie już widoczny dla kierowców", false);
+        if(act === "camok") showBanner("ZATWIERDZONO", "Zmiana jest już widoczna dla kierowców", false);
       }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); return; }
       hgvPanelLoad(); return;
     }
@@ -20115,6 +20140,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const cvMem = new Map();                      // id → { t, c:[[lat,lon],...] }
   let cvViewCams = [], cvSupa = [], cvSig = "", cvBusy = false, cvSupaAt = 0, cvSupaSig = "";
   let cvHidden = { t: 0, list: [] }, cvLocalHid = null, cvHideLoaded = false;
+  let cvEdits = { markRows: [], flipRows: [], sections: [] };      // zmiany administratora z camera_flags: to_avg / flip / new_section (status applied)
+  const CV_AVGLOC_LS = "nav_avg_local_v1";                          // własne, jeszcze niezatwierdzone zgłoszenia odcinków tego telefonu
+  const cvNear = (aLat, aLon, bLat, bLon, m) => Math.abs(aLat - bLat) < 0.0008 && Math.abs(aLon - bLon) < 0.0013 && haversine(aLat, aLon, bLat, bLon) < m;
   const CV_LOCAL_LS = "nav_cam_hidden_v1";
   const cvEl = id => document.getElementById(id);
 
@@ -20125,19 +20153,39 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const near = h => Math.abs(h.lat - lat) < 0.0006 && Math.abs(h.lon - lon) < 0.001 && haversine(h.lat, h.lon, lat, lon) < 40;
     return cvHidden.list.some(near) || cvLocal().some(near);
   }
-  async function cvLoadHidden(force){
+  async function cvLoadHidden(force){     // pobiera zmiany: usunięte, zamienione na odcinkowe, odwrócone numeracje, ręczne odcinki
     if(!force && Date.now() - cvHidden.t < 10 * 60 * 1000) return;
     cvHidden.t = Date.now();
     if(!supaConfigured()) return;
     try{
-      const rows = await psRest("GET", "camera_flags?select=lat,lon&status=eq.removed&limit=5000");
-      if(Array.isArray(rows)){ cvHidden.list = rows; cvRefreshAll(); }
+      let rows;
+      try{ rows = await psRest("GET", "camera_flags?select=id,action,lat,lon,extra,status&status=in.(removed,applied)&limit=5000"); }
+      catch(e){ rows = await psRest("GET", "camera_flags?select=lat,lon&status=eq.removed&limit=5000"); }      // stara tabela bez kolumn action/extra
+      if(!Array.isArray(rows)) return;
+      cvHidden.list = rows.filter(r => !r.action || r.action === "remove");
+      cvEdits.markRows = rows.filter(r => r.action === "to_avg");
+      cvEdits.flipRows = rows.filter(r => r.action === "flip");
+      cvEdits.sections = rows.filter(r => r.action === "new_section" && r.extra && Array.isArray(r.extra.pts) && r.extra.pts.length >= 2).map(r => ({ id: r.id, pts: r.extra.pts }));
+      cvRefreshAll();
     }catch(e){}
+  }
+  /* własne zgłoszenia odcinków (pending) widzi od razu ich autor */
+  function cvAvgLocal(){ try{ const o = JSON.parse(localStorage.getItem(CV_AVGLOC_LS) || "{}"); return { marks: o.marks || [], sections: o.sections || [] }; }catch(e){ return { marks: [], sections: [] }; } }
+  function cvAvgLocalSave(o){ try{ localStorage.setItem(CV_AVGLOC_LS, JSON.stringify({ marks: o.marks.slice(-100), sections: o.sections.slice(-30) })); }catch(e){} }
+  function cvSections(){          // odcinki wskazane ręcznie: zatwierdzone + własne oczekujące
+    const rem = cvEdits.sections, loc = cvAvgLocal().sections.filter(l => !rem.some(r => cvNear(r.pts[0][0], r.pts[0][1], l.pts[0][0], l.pts[0][1], 40)));
+    return rem.concat(loc.map((l, i) => ({ id: "loc" + i, pts: l.pts })));
+  }
+  function cvMarkPts(){ const out = []; cvEdits.markRows.forEach(r => out.push([r.lat, r.lon])); cvAvgLocal().marks.forEach(m => out.push([m.lat, m.lon])); return out; }
+  function cvIsMarkedAvg(lat, lon){       // zwykły fotoradar zamieniony na odcinkowy albo wskazany jako kamera ręcznego odcinka
+    if(cvMarkPts().some(p => cvNear(p[0], p[1], lat, lon, 40))) return true;
+    return cvSections().some(sec => sec.pts.some(p => cvNear(p[0], p[1], lat, lon, 40)));
   }
   function cvRefreshAll(){          // ukryty / usunięty fotoradar znika ze wszystkich warstw
     try{ if(typeof rebuildCameraList === "function") rebuildCameraList(); }catch(e){}
     try{ if(typeof mwCamRender === "function") mwCamRender(); }catch(e){}
     try{ if(typeof avgSpeedLastFeatures !== "undefined" && typeof setAvgSpeedCameraData === "function") setAvgSpeedCameraData(avgSpeedLastFeatures); }catch(e){}
+    cvAvgSig = ""; try{ cvAvgRender(); }catch(e){}
   }
 
   /* ---------- fotoradary punktowe w widoku mapy ---------- */
@@ -20249,8 +20297,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvViewCams.forEach((p, i) => {
       if(cvIsHidden(p[0], p[1]) || dup(p[0], p[1]) || inMw(p[0], p[1])) return;     // autostradowe rysuje warstwa motorway-cameras
       seen.push({ lat: p[0], lon: p[1] });
-      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0, avg: p[2] ? 1 : 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
+      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0, avg: (p[2] || cvIsMarkedAvg(p[0], p[1])) ? 1 : 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
     });
+    const avgF = (id, lat, lon) => ({ type: "Feature", properties: { id, src: "osm", pending: 0, avg: 1 }, geometry: { type: "Point", coordinates: [lon, lat] } });
+    cvMarkPts().forEach((p, i) => { if(dup(p[0], p[1])) return; seen.push({ lat: p[0], lon: p[1] }); out.push(avgF("mark-" + i, p[0], p[1])); });          // zwykły → odcinkowy (także autostradowe)
+    cvSections().forEach(sec => sec.pts.forEach((p, i) => { if(dup(p[0], p[1])) return; seen.push({ lat: p[0], lon: p[1] }); out.push(avgF("sec-" + sec.id + "-" + i, p[0], p[1])); }));
     return out;
   }
 
@@ -20305,7 +20356,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const name = kind === "avg" ? "Odcinkowy pomiar prędkości" : kind === "motorway" ? "Fotoradar na autostradzie" : kind === "local" ? "Fotoradar dodany na tym telefonie" : "Fotoradar";
     cvEl("camTitle").textContent = name;
     const avgI = kind === "avg" ? cvAvgInfo(lat, lon) : null;
-    cvEl("camSub").textContent = avgI ? `Kamera ${avgI.idx} z ${avgI.of} na odcinku${avgI.idx === 1 ? " (początek)" : avgI.idx === avgI.of ? " (koniec)" : ""} — licząc od ${avgI.dir}. W przeciwnym kierunku jazdy numeracja jest odwrócona. Numeracja przybliżona (wg danych OpenStreetMap).` : kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
+    cvEl("camSub").textContent = avgI ? `Kamera ${avgI.idx} z ${avgI.of} na odcinku${avgI.idx === 1 ? " (początek)" : avgI.idx === avgI.of ? " (koniec)" : ""} — ${avgI.dir ? "licząc od " + avgI.dir + ". W przeciwnym kierunku jazdy numeracja jest odwrócona. Numeracja przybliżona (wg OpenStreetMap)." : "kolejność wskazana ręcznie."}` : kind === "local" ? "Jest tylko na tym telefonie i czeka na potwierdzenie przez innych kierowców. Możesz go usunąć." : isAdmin() ? "Dane OpenStreetMap. Jeśli już go nie ma, usuń go — zniknie u wszystkich kierowców." : "Dane OpenStreetMap. Jeśli fotoradar już nie działa albo go zdemontowano, zgłoś to administratorowi.";
+    cvCardTarget.avgI = avgI;
+    const adm = isAdmin(), marked = kind === "avg" && cvEdits.markRows.some(r => cvNear(r.lat, r.lon, lat, lon, 40));
+    const show = (id, on, txt) => { const el = cvEl(id); el.style.display = on ? "" : "none"; if(txt) el.textContent = txt; return on; };
+    let any = false;
+    any = show("camAvg", (kind === "osm" || kind === "motorway") && !cvIsMarkedAvg(lat, lon), adm ? "Zmień na odcinkową" : "Zgłoś: to kamera odcinkowa") || any;
+    const ord = adm && kind === "avg" && avgI && avgI.of >= 2;
+    any = show("camFirst", ord) || any; any = show("camLast", ord) || any; any = show("camFlip", ord) || any;
+    any = show("camUnavg", adm && marked) || any;
+    cvEl("camMore").style.display = any ? "flex" : "none";
     const b = cvEl("camAct"); b.textContent = kind === "local" ? "🗑 Usuń" : isAdmin() ? "🗑 Usuń (nieaktualny)" : "Zgłoś: nieaktywny";
     cvEl("camCard").classList.add("show");
     if(cvCardTimer) clearTimeout(cvCardTimer);
@@ -20347,8 +20407,112 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvRefreshAll();
     showBanner("ZGŁOSZONE", "Administrator sprawdzi, czy fotoradar jest nieaktywny", false);
   }
+  /* ---------- zmiany odcinkowych: zwykły → odcinkowy, numeracja (administrator), nowe odcinki ---------- */
+  async function cvPostFlag(row, direct){      // direct = administrator zapisuje od razu (applied); kierowca wysyła do akceptacji (pending)
+    if(direct) await supaAdminRequest("POST", "camera_flags", [Object.assign({ reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }, row)], "return=minimal");
+    else await psRest("POST", "camera_flags", [Object.assign({ device: getDeviceId() }, row)], "return=minimal");
+  }
+  async function cvToAvg(){
+    const t = cvCardTarget; if(!t) return;
+    if(isAdmin()){
+      cvHideCard();
+      try{ await cvPostFlag({ kind: "avg", name: "Odcinkowy pomiar", lat: t.lat, lon: t.lon, status: "applied", action: "to_avg" }, true); await cvLoadHidden(true); showBanner("ZMIENIONO", "Ten fotoradar jest teraz kamerą odcinkową", false); }
+      catch(e){ showBanner("NIE ZAPISANO", "Uruchom sql/camera_flags.sql (" + String(e.message || e).slice(0, 60) + ")", false); }
+      return;
+    }
+    if(typeof accNeedLogin === "function" && accNeedLogin("zgłosić kamerę odcinkową")) return;
+    cvHideCard();
+    try{ await cvPostFlag({ kind: "avg", name: "Odcinkowy pomiar", lat: t.lat, lon: t.lon, status: "pending", action: "to_avg" }, false); }catch(e){ console.warn("Zgłoszenie kamery odcinkowej:", e); }
+    const o = cvAvgLocal(); o.marks.push({ lat: t.lat, lon: t.lon }); cvAvgLocalSave(o);
+    cvRefreshAll(); showBanner("ZGŁOSZONE", "Administrator sprawdzi zgłoszenie. U Ciebie kamera jest już odcinkowa.", false);
+  }
+  async function cvUnavg(){
+    const t = cvCardTarget; if(!t || !isAdmin()) return; cvHideCard();
+    try{
+      for(const r of cvEdits.markRows.filter(r => cvNear(r.lat, r.lon, t.lat, t.lon, 40))) await supaAdminRequest("DELETE", "camera_flags?id=eq." + encodeURIComponent(r.id));
+      const o = cvAvgLocal(); o.marks = o.marks.filter(m => !cvNear(m.lat, m.lon, t.lat, t.lon, 40)); cvAvgLocalSave(o);
+      await cvLoadHidden(true); showBanner("ZMIENIONO", "To znowu zwykły fotoradar", false);
+    }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); }
+  }
+  async function cvOrder(mode){               // administrator: odwrócenie numeracji; „pierwszy” / „ostatni” = odwrócenie, gdy kamera jest na przeciwnym końcu
+    const t = cvCardTarget; if(!t || !isAdmin() || !t.avgI) return;
+    const s = t.avgI;
+    if(mode === "first" && s.idx === 1){ showBanner("JUŻ PIERWSZA", "Ta kamera jest już początkiem odcinka", false); return; }
+    if(mode === "last" && s.idx === s.of){ showBanner("JUŻ OSTATNIA", "Ta kamera jest już końcem odcinka", false); return; }
+    if((mode === "first" && s.idx !== s.of) || (mode === "last" && s.idx !== 1)){ showBanner("KAMERA W ŚRODKU", "Pierwszą i ostatnią może być tylko skrajna kamera odcinka", false); return; }
+    cvHideCard();
+    try{
+      if(s.flipRows && s.flipRows.length){ for(const r of s.flipRows) await supaAdminRequest("DELETE", "camera_flags?id=eq." + encodeURIComponent(r.id)); }
+      else await cvPostFlag({ kind: "avg", name: "Odwrócona numeracja", lat: s.lat, lon: s.lon, status: "applied", action: "flip" }, true);
+      await cvLoadHidden(true); showBanner("NUMERACJA ZMIENIONA", "Numeracja odcinka została odwrócona", false);
+    }catch(e){ showBanner("NIE ZAPISANO", "Uruchom sql/camera_flags.sql (" + String(e.message || e).slice(0, 60) + ")", false); }
+  }
+  let cvPick = null;
+  function cvPickDraw(){
+    if(!map.getSource("avg-pick")){
+      map.addSource("avg-pick", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "avg-pick-line", type: "line", source: "avg-pick", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": "#FFD400", "line-width": 3, "line-dasharray": [2, 1.5] } });
+      map.addLayer({ id: "avg-pick-dot", type: "circle", source: "avg-pick", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 12, "circle-color": "#FFD400", "circle-stroke-color": "#111", "circle-stroke-width": 2.2 } });
+      map.addLayer({ id: "avg-pick-num", type: "symbol", source: "avg-pick", filter: ["==", ["geometry-type"], "Point"], layout: { "text-field": ["to-string", ["get", "n"]], "text-font": ["Noto Sans Bold"], "text-size": 13, "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#111" } });
+    }
+    const f = cvPick.pts.map((p, i) => ({ type: "Feature", properties: { n: i + 1 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } }));
+    if(cvPick.pts.length >= 2) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: cvPick.pts.map(p => [p[1], p[0]]) } });
+    map.getSource("avg-pick").setData({ type: "FeatureCollection", features: f });
+    cvEl("avgPickTxt").textContent = cvPick.pts.length ? `Odcinkowy pomiar: wskazano ${cvPick.pts.length} ${cvPick.pts.length === 1 ? "kamerę" : "kamer"}. Dotknij kolejną albo „Zakończ” (min. 2).` : "Odcinkowy pomiar: dotknij na mapie kolejne kamery — od pierwszej do ostatniej.";
+  }
+  function cvPickStart(){
+    if(!isAdmin() && typeof accNeedLogin === "function" && accNeedLogin("zgłosić odcinkowy pomiar prędkości")) return;
+    try{ closeReportMenu(); }catch(e){}
+    cvHideCard(); try{ hidePoiAsk(); }catch(e){}
+    cvPick = { pts: [] }; window.cvPicking = true;
+    cvEl("avgPickBar").classList.add("show"); cvPickDraw();
+  }
+  function cvPickStop(){
+    cvPick = null; window.cvPicking = false; cvEl("avgPickBar").classList.remove("show");
+    try{ if(map.getSource("avg-pick")) map.getSource("avg-pick").setData({ type: "FeatureCollection", features: [] }); }catch(e){}
+  }
+  async function cvPickDone(){
+    if(!cvPick || cvPick.pts.length < 2){ showBanner("ZA MAŁO KAMER", "Wskaż co najmniej dwie kamery odcinka", false); return; }
+    const pts = cvPick.pts.slice(), first = pts[0];
+    cvPickStop();
+    const admin = isAdmin();
+    try{ await cvPostFlag({ kind: "avg", name: "Odcinek pomiarowy (" + pts.length + " kamer)", lat: first[0], lon: first[1], status: admin ? "applied" : "pending", action: "new_section", extra: { pts } }, admin); }
+    catch(e){ if(admin){ showBanner("NIE ZAPISANO", "Uruchom sql/camera_flags.sql (" + String(e.message || e).slice(0, 60) + ")", false); return; } console.warn("Zgłoszenie odcinka:", e); }
+    if(!admin){ const o = cvAvgLocal(); o.sections.push({ pts }); cvAvgLocalSave(o); }
+    if(admin) await cvLoadHidden(true); else cvRefreshAll();
+    showBanner(admin ? "ODCINEK DODANY" : "ZGŁOSZONE", admin ? "Odcinek jest już widoczny dla wszystkich kierowców" : "Administrator sprawdzi odcinek. U Ciebie jest już widoczny.", false);
+  }
+  (function cvPickInit(){
+    const t = setInterval(() => {
+      if(typeof map === "undefined" || !map || !map.on) return;
+      clearInterval(t);
+      map.on("click", e => {
+        if(!cvPick) return;
+        let lat = e.lngLat.lat, lon = e.lngLat.lng;
+        try{      // przyciągnięcie do istniejącej kamery w pobliżu dotknięcia
+          const layers = CV_HIT_LAYERS.filter(id => map.getLayer(id)), R = 22;
+          const fs = layers.length ? map.queryRenderedFeatures([[e.point.x - R, e.point.y - R], [e.point.x + R, e.point.y + R]], { layers }) : [];
+          let bd = Infinity; fs.forEach(f => { if(f.geometry && f.geometry.type === "Point"){ const p = map.project(f.geometry.coordinates), d = Math.hypot(p.x - e.point.x, p.y - e.point.y); if(d < bd){ bd = d; lat = f.geometry.coordinates[1]; lon = f.geometry.coordinates[0]; } } });
+        }catch(err){}
+        if(cvPick.pts.some(p => cvNear(p[0], p[1], lat, lon, 15))) return;           // ta sama kamera dwa razy — pomijamy
+        cvPick.pts.push([Math.round(lat * 1e6) / 1e6, Math.round(lon * 1e6) / 1e6]);
+        cvPickDraw();
+      });
+    }, 500);
+  })();
+
   document.addEventListener("click", e => {
-    if(e.target.closest && e.target.closest("#camAct")) cvAct();
+    const q = id => e.target.closest && e.target.closest(id);
+    if(q("#btnReportAvg")) cvPickStart();
+    else if(q("#avgPickUndo")){ if(cvPick){ cvPick.pts.pop(); cvPickDraw(); } }
+    else if(q("#avgPickDone")) cvPickDone();
+    else if(q("#avgPickCancel")) cvPickStop();
+    else if(q("#camAvg")) cvToAvg();
+    else if(q("#camUnavg")) cvUnavg();
+    else if(q("#camFirst")) cvOrder("first");
+    else if(q("#camLast")) cvOrder("last");
+    else if(q("#camFlip")) cvOrder("flip");
+    else if(e.target.closest && e.target.closest("#camAct")) cvAct();
     else if(e.target.closest && e.target.closest("#camClose")) cvHideCard();
   });
 
@@ -20362,10 +20526,12 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const CVA = { MERGE_M: 80, LINK_M: 4000 };
   let cvAvgSig = "", cvAvgSites = [];
   function cvAvgPoints(){
-    const pts = [];
+    const pts = [], secPts = [];
+    cvSections().forEach(sec => sec.pts.forEach(p => secPts.push(p)));
     (typeof avgSpeedLastFeatures !== "undefined" ? avgSpeedLastFeatures : []).forEach(f => pts.push([f.geometry.coordinates[1], f.geometry.coordinates[0]]));
     cvViewCams.forEach(p => { if(p[2]) pts.push([p[0], p[1]]); });
-    return pts.filter(p => !cvIsHidden(p[0], p[1]));
+    cvMarkPts().forEach(p => pts.push(p));
+    return pts.filter(p => !cvIsHidden(p[0], p[1]) && !secPts.some(q => cvNear(q[0], q[1], p[0], p[1], 40)));      // punkty ręcznych odcinków numerujemy osobno
   }
   function cvAvgBuild(pts){
     // 1) stanowiska: scalanie bliskich punktów (siatka ok. 90 m)
@@ -20391,7 +20557,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     });
     const groups = new Map(); sites.forEach((st, i) => { const r = find(i); (groups.get(r) || groups.set(r, []).get(r)).push(st); });
     // 3) numeracja wzdłuż osi głównej odcinka
-    const out = [];
+    const out = []; let gid = 0;
     groups.forEach(arr => {
       if(arr.length < 2) return;
       const lat0 = arr.reduce((a, s) => a + s.lat, 0) / arr.length, lon0 = arr.reduce((a, s) => a + s.lon, 0) / arr.length, kx = Math.cos(lat0 * Math.PI / 180);
@@ -20402,7 +20568,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       if(east ? ux < 0 : uy < 0){ ux = -ux; uy = -uy; }
       arr.forEach(s => { s.t = ((s.lon - lon0) * kx) * ux + (s.lat - lat0) * uy; });
       arr.sort((a, b) => a.t - b.t);
-      arr.forEach((s, i) => { s.idx = i + 1; s.of = arr.length; s.dir = east ? "zachodu" : "południa"; out.push(s); });
+      gid++; arr.forEach((s, i) => { s.idx = i + 1; s.of = arr.length; s.dir = east ? "zachodu" : "południa"; s.dirR = east ? "wschodu" : "północy"; s.g = "h" + gid; out.push(s); });
     });
     return out;
   }
@@ -20410,10 +20576,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{
       if(!map || !map.getSource) return;
       const pts = cvAvgPoints();
-      const sig = pts.length + ":" + (pts.length ? pts[0][0].toFixed(4) + pts[pts.length - 1][1].toFixed(4) : "");
+      const sig = pts.length + ":" + (pts.length ? pts[0][0].toFixed(4) + pts[pts.length - 1][1].toFixed(4) : "") + ":" + cvEdits.flipRows.length + ":" + cvSections().length + ":" + cvEdits.markRows.length;
       if(sig === cvAvgSig) return;
       cvAvgSig = sig;
       cvAvgSites = cvAvgBuild(pts);
+      cvSections().forEach(sec => sec.pts.forEach((p, i) => cvAvgSites.push({ lat: p[0], lon: p[1], idx: i + 1, of: sec.pts.length, dir: null, dirR: null, g: "s" + sec.id, manual: true })));
+      const groupsBy = {}; cvAvgSites.forEach(st => (groupsBy[st.g] = groupsBy[st.g] || []).push(st));
+      Object.keys(groupsBy).forEach(g => {       // odwrócenia numeracji ustawione przez administratora
+        const mem = groupsBy[g], fl = cvEdits.flipRows.filter(f => mem.some(m => cvNear(m.lat, m.lon, f.lat, f.lon, 80)));
+        mem.forEach(m => { m.flipRows = fl; if(fl.length){ m.idx = m.of + 1 - m.idx; const d = m.dir; m.dir = m.dirR; m.dirR = d; m.flipped = true; } });
+      });
       if(!map.getSource("avg-sections")){
         map.addSource("avg-sections", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({
