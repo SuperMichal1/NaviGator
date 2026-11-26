@@ -42,7 +42,7 @@
     --panel-bg: rgba(10, 8, 6, 0.88);
     --panel-bg-solid: #0c0a08;
     --panel-border: rgba(255,176,32,0.15);
-    --text-main: #F5E6D0;
+    --text-main: #E4D2B4;      /* nie rażące w oczy, w kolorze motywu (wcześniej #F5E6D0 — prawie biały) */
     --text-dim: #9c8a72;
     --sign-face: #1a1512;
     --sign-ring: #cc4a3a;
@@ -907,6 +907,16 @@
 #camCard select option{ color:#14181c; }
 #camCard .poiBtns{ gap:16px; margin-top:10px; }
 #camCard #camMore{ gap:12px; }
+
+/* jeden przycisk „Edytuj dane firmy”: dawny wiersz „Zmień nazwę (administrator)” jest ukryty, nazwa i adres są w formularzu danych firmy */
+#poiAdminRow{ display:none !important; }
+#psInfoForm #poiEditBox{ margin-bottom:2px; }
+#psInfoForm #poiEditBox .poiBtns{ gap:12px; }
+/* dzień: lista „Historia / Ulubione” pod polem celu leży na jasnym tle — czcionki ciemne (wcześniej dziedziczyły jasny kolor) */
+body:not(.night) #navTopBar #navSuggestions{ color:#0d1c24; }
+body:not(.night) #navTopBar .navSavedTabs button{ color:#0d1c24; border-color:rgba(0,0,0,.28); }
+body:not(.night) #navTopBar .navSavedTabs button.active{ color:var(--gator-on); border-color:var(--gator-dark); }
+body:not(.night) .navSavedHead, body:not(.night) .navSavedEmpty{ color:#33414d; }
   /* ---------- DZIEŃ: jasne szkło nawigatora leży na jasnej mapie, więc czcionki muszą być ciemne ----------
      (w nocy zostają jasne — patrz body.night). Nadpisanie zmiennych działa na cały panel naraz. */
   body:not(.night) #navPanel{
@@ -1572,7 +1582,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   /* dzień: jasne, delikatnie przezroczyste szkło; noc: ciemne, też delikatnie przezroczyste */
   body:not(.night) #poiAsk.poiCard{ background: rgba(250,252,253,.84); color:#0d1c24; border-top:1px solid rgba(255,255,255,.7); }
-  body.night #poiAsk.poiCard{ background: rgba(16,20,26,.80); color:#f1ece4; border-top:1px solid rgba(255,255,255,.12); }
+  body.night #poiAsk.poiCard{ background: rgba(16,20,26,.80); color:#e4d2b4; border-top:1px solid rgba(255,255,255,.12); }
   #poiAsk.poiCard.dragging{ transition:none; }
   #poiAsk.poiCard.ps-away{ transform: translateY(110%); }
   #psGrab{ display:flex; justify-content:center; padding:9px 0 7px; cursor:grab; touch-action:none; flex:0 0 auto; user-select:none; -webkit-user-select:none; }
@@ -1670,6 +1680,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #flagWeightPick .wSign.sel span{ font-weight:800; }
   .flagChk{ display:flex; align-items:center; gap:10px; font:700 14px 'Inter',system-ui,sans-serif; padding:6px 2px; cursor:pointer; }
   .flagChk input{ width:24px; height:24px; accent-color:#0b7a6d; flex:none; }
+
+/* dzień: karta firmy to jasne szkło — ciemne czcionki także na przyciskach (w tym przyciskach administratora) i w polach */
+body:not(.night) #poiAsk{ --text-main:#0d1c24; --text-dim:#31495a; --panel-border:rgba(0,0,0,.2); }
+body:not(.night) #poiAsk button{ color:#0d1c24; }
+body:not(.night) #poiAsk button#psDrive, body:not(.night) #poiAsk button#psAskReview, body:not(.night) #poiAsk button#psAskPhoto{ color:#fff; }
+body:not(.night) #poiAsk button#poiEditSave, body:not(.night) #poiAsk button#psfSave{ color:#fff; }
+body:not(.night) #poiEditInput, body:not(.night) #poiEditAddr{ background:rgba(0,0,0,.06); color:#0d1c24; }
+/* noc: miękkie, ciepłe kolory zamiast bieli (nazwa firmy, opisy, przyciski) */
+body.night #poiAsk .poiName, body.night #poiAsk .psTitle{ color:#e4d2b4; }
+body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.night #poiAsk button#psAskPhoto{ color:#e6dcc6; }
 /* ---------- ostrzeżenia pogodowe na trasie (js/55) ---------- */
   #wxChip{ position:absolute; left:10px; top:calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); z-index:48; display:none; max-width:min(78vw, 380px);
     padding:7px 12px; border-radius:12px; background:#b45309; color:#fff; font:700 13px/1.3 'Inter',system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.4); border:1.5px solid rgba(255,255,255,.55); }
@@ -2023,6 +2043,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         <button id="psInfoConfirmBtn" type="button" style="display:none">✔ Potwierdź dane z OSM</button>
       </div>
       <div class="psForm" id="psInfoForm">
+  <div id="poiEditBox" style="display:none">
+    <input id="poiEditInput" type="text" maxlength="80" autocomplete="off" placeholder="Aktualna nazwa firmy / budynku">
+    <input id="poiEditAddr" type="text" maxlength="140" autocomplete="off" placeholder="Adres (ulica, miasto, kod pocztowy)">
+    <div class="poiBtns" style="display:none">
+      <button id="poiEditCancel" type="button">Anuluj</button>
+      <button id="poiEditSave" type="button">Zapisz</button>
+    </div>
+    <div class="poiBtns">
+      <button id="poiEditRestore" type="button" style="display:none">↩ Nazwa z OSM</button>
+      <button id="poiEditHide" type="button">🚫 Ukryj firmę</button>
+    </div>
+    <div class="poiAddr" id="poiEditMsg"></div>
+  </div>
         <div class="psMuted" id="psfHint">Wpisz tylko to, co sam sprawdziłeś. Pola z danymi z TomTom zostają puste — nie kopiujemy ich. Administrator zatwierdzi zmianę.</div>
         <label class="psLbl">Telefon<input id="psfPhone" type="tel" maxlength="40" autocomplete="off"></label>
         <label class="psLbl">Strona www<input id="psfUrl" type="text" maxlength="200" autocomplete="off" placeholder="np. firma.co.uk"></label>
@@ -2073,19 +2106,6 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       <button id="psGateSet" type="button">🚪 Ustaw bramę wjazdową</button>
       <button id="psGateDel" type="button" style="display:none">🗑 Usuń bramę</button>
     </div>
-  <div id="poiEditBox" style="display:none">
-    <input id="poiEditInput" type="text" maxlength="80" autocomplete="off" placeholder="Aktualna nazwa firmy / budynku">
-    <input id="poiEditAddr" type="text" maxlength="140" autocomplete="off" placeholder="Adres (ulica, miasto, kod pocztowy)">
-    <div class="poiBtns">
-      <button id="poiEditCancel" type="button">Anuluj</button>
-      <button id="poiEditSave" type="button">Zapisz</button>
-    </div>
-    <div class="poiBtns">
-      <button id="poiEditRestore" type="button" style="display:none">↩ Nazwa z OSM</button>
-      <button id="poiEditHide" type="button">🚫 Ukryj firmę</button>
-    </div>
-    <div class="poiAddr" id="poiEditMsg"></div>
-  </div>
   </div>
   </div>
   <input type="file" id="psFile" accept="image/*" hidden>
@@ -2102,6 +2122,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   <div class="poiBtns" id="camMore" style="display:none;flex-wrap:wrap">
     <button id="camAvg" type="button" style="display:none"></button>
     <button id="camEdit" type="button" style="display:none"></button>
+    <button id="camOpp" type="button" style="display:none"></button>
     <button id="camUnavg" type="button" style="display:none">Zmień na zwykły fotoradar</button>
   </div>
 </div>
@@ -15871,17 +15892,18 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $e("poiAdminRow").style.display = can ? "flex" : "none";
     $e("poiEditBox").style.display = "none";
   }
+  function poiKind(t){ return t && t.ref && t.ref.companyId != null ? "company" : (t && t.placeId != null ? "place" : "poi"); }   // firma z OSM / nazwa kierowców / zwykły punkt z mapy (poczta, bank, hotel…)
   function openEdit(){
     const t = poiAskTarget; if(!t) return;
-    const isCompany = t.ref && t.ref.companyId != null;
+    const kind = poiKind(t), isCompany = kind === "company";
     $e("poiEditInput").value = t.name;
     $e("poiEditAddr").value = t.address || "";
-    $e("poiEditRestore").style.display = isCompany && t.ref.edited ? "" : "none";
+    $e("poiEditRestore").style.display = (isCompany && t.ref.edited) || (kind === "poi" && t.origName && t.origName !== t.name) ? "" : "none";
+    $e("poiEditRestore").textContent = kind === "poi" ? "↩ Nazwa z mapy" : "↩ Nazwa z OSM";
+    $e("poiEditHide").style.display = kind === "poi" ? "none" : "";          // zwykłego punktu z mapy nie da się ukryć — tylko nazwać po swojemu
     $e("poiEditHide").textContent = isCompany ? "Ukryj firmę" : "Usuń nazwę";
-    $e("poiEditMsg").textContent = isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
+    $e("poiEditMsg").textContent = kind === "poi" ? "Nowa nazwa jest widoczna u wszystkich kierowców w karcie i wyszukiwarce; napis na samej mapie zostaje z OSM." : isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
     $e("poiEditBox").style.display = "flex"; $e("poiAdminRow").style.display = "none";
-    if(typeof psSetState === "function") psSetState("full");
-    $e("poiEditInput").focus();
   }
   function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
   function editMsg(t, ok){ const m = $e("poiEditMsg"); m.textContent = t; m.style.color = ok === false ? "#ff8a80" : ""; }
@@ -15898,6 +15920,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   async function saveEdit(mode){      // mode: "save" | "restore" | "hide"
     const t = poiAskTarget; if(!t || !isAdmin()) return;
+    if(poiKind(t) === "poi") return poiGenericEdit(mode);       // zwykły punkt z mapy: zapis przez dane firmy (js/52)
     const isCompany = t.ref && t.ref.companyId != null;
     const newName = $e("poiEditInput").value.trim().replace(/\s+/g, " ");
     const newAddr = $e("poiEditAddr").value.trim().replace(/\s+/g, " ");
@@ -17767,7 +17790,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     PS.fromSearch = false;      // ustawia dopiero openDestinationSheet (js/28), gdy okno otwarto z wyszukiwarki
     $p("psReviewForm").classList.remove("open"); PS.editReviewId = null;
     $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").parentNode.style.display = ""; PS.curInfo = null; $p("psInfoConfirmBtn").style.display = "none";
-    $p("psInfoEditBtn").textContent = isAdmin() ? "✏️ Edytuj dane firmy (administrator)" : "✏️ Zgłoś poprawkę danych";
+    $p("psInfoEditBtn").textContent = isAdmin() ? "✏️ Edytuj dane firmy" : "✏️ Zgłoś poprawkę danych";
     PS.detailsFor = null; PS.seq++;
     $p("psInfo").innerHTML = ""; $p("psPhotos").innerHTML = ""; $p("psReviews").innerHTML = ""; $p("psAvg").textContent = "";
     $p("psScroll").scrollTop = 0;
@@ -18013,6 +18036,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     try{ info = await psFetchInfo(t); }catch(e){ info = null; }
     if(seq !== PS.seq) return;
     PS.curInfo = info;
+    if(info && info.ov && info.ov.new_name && t === poiAskTarget && t.name !== info.ov.new_name){      // nazwa zmieniona przez administratora (poczta, bank, hotel…)
+      t.origName = t.origName || t.name; t.name = info.ov.new_name; $p("poiAskName").textContent = t.name;
+    }
     let html = base;
     if(info){
       const h = info.byDate ? psHoursHtml(info.byDate) : (info.hoursRaw ? `<div class="psRow"><span class="ic">🕒</span><div>${psEsc(info.hoursRaw)}</div></div>` : "");
@@ -18134,8 +18160,15 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   const psOvLocalSave = arr => { try{ localStorage.setItem(PS_OV_KEY, JSON.stringify(arr)); }catch(e){} };
   async function psOverrideGet(t){
     let row = null;
-    try{ const rows = await psRest("GET", `poi_overrides?select=key,phone,url,hours,note&${psBoxQuery(t)}&order=updated_at.desc&limit=1`); row = (rows && rows[0]) || null; }catch(e){}
-    if(!row){ const l = psOvLocal().find(r => psNear(r, t, PS_BOX)); if(l) row = Object.assign({ local: true }, l); }
+    try{
+      let rows;
+      try{ rows = await psRest("GET", `poi_overrides?select=key,phone,url,hours,note,new_name&${psBoxQuery(t)}&order=updated_at.desc&limit=1`); }
+      catch(e0){ rows = await psRest("GET", `poi_overrides?select=key,phone,url,hours,note&${psBoxQuery(t)}&order=updated_at.desc&limit=1`); }   // baza bez kolumny new_name (sql/poi_sheet.sql)
+      row = (rows && rows[0]) || null;
+    }catch(e){}
+    const l = psOvLocal().find(r => psNear(r, t, PS_BOX));
+    if(!row){ if(l) row = Object.assign({ local: true }, l); }
+    else if(!row.new_name && l && l.new_name) row.new_name = l.new_name;
     return row;
   }
   function psInfoFormOpen(){
@@ -18153,20 +18186,26 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     $p("psfHint").style.display = adm ? "none" : "";
     $p("psfSave").textContent = adm ? "Zapisz" : "Wyślij do sprawdzenia";
     $p("psInfoForm").classList.add("open"); $p("psInfoEditBtn").parentNode.style.display = "none";
+    if(adm && typeof openEdit === "function") openEdit();       // administrator: nazwa i adres w tym samym formularzu (js/44)
+    else $p("poiEditBox").style.display = "none";
     psSetState("full");
   }
-  function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("psInfoEditBtn").parentNode.style.display = ""; }
+  function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("poiEditBox").style.display = "none"; $p("psInfoEditBtn").parentNode.style.display = ""; }
 
   // zapis własnych (potwierdzonych) danych firmy — to nasze dane, wolno je trzymać bezterminowo
   async function psOverrideWrite(t, vals, old){
     const key = old && old.key ? old.key : psKey(t);
     const row = { key, name: t.name, lat: t.lat, lon: t.lon, phone: vals.phone || "", url: vals.url || "", hours: vals.hours || "", note: vals.note || "" };
+    const hasNN = vals.newName !== undefined, nn = hasNN ? String(vals.newName || "") : "";      // nowa nazwa punktu (poczta, bank, hotel…); pusta = nazwa z mapy
+    const by = (typeof adminEmail === "function" && adminEmail()) || null, prefer = "resolution=merge-duplicates,return=minimal", path = "poi_overrides?on_conflict=key";
     try{
-      await supaAdminRequest("POST", "poi_overrides?on_conflict=key", [Object.assign({}, row, { updated_by: (typeof adminEmail === "function" && adminEmail()) || null })], "resolution=merge-duplicates,return=minimal");
-      psOvLocalSave(psOvLocal().filter(r => r.key !== key));
+      let nameInDb = true;
+      try{ await supaAdminRequest("POST", path, [Object.assign({}, row, hasNN ? { new_name: nn } : {}, { updated_by: by })], prefer); }
+      catch(e1){ if(!hasNN) throw e1; await supaAdminRequest("POST", path, [Object.assign({}, row, { updated_by: by })], prefer); nameInDb = false; }   // brak kolumny new_name: dane do bazy, nazwa tylko lokalnie
+      psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat(hasNN && nn && !nameInDb ? [Object.assign({}, row, { new_name: nn })] : []));
       return "remote";
     }catch(e){
-      psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([row]));
+      psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([Object.assign({}, row, hasNN ? { new_name: nn } : {})]));
       return "local";
     }
   }
@@ -18205,6 +18244,19 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     showBanner(how === "remote" ? "POTWIERDZONE" : "ZAPISANO LOKALNIE", how === "remote" ? "Dane firmy zapisane jako sprawdzone" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
     PS.infoCache.delete(psKey(t)); PS.detailsFor = null; psLoadDetails();
   }
+  async function poiGenericEdit(mode){      // zwykły punkt z mapy (poczta, bank, hotel…) — wołane z saveEdit (js/44)
+    if(mode === "restore"){
+      const t = poiAskTarget; if(!t || !isAdmin()) return;
+      const old = PS.curInfo && PS.curInfo.ov, vals = { phone: (old && old.phone) || "", url: (old && old.url) || "", hours: (old && old.hours) || "", note: (old && old.note) || "", newName: "" };
+      const how = await psOverrideWrite(t, vals, old);
+      if(t.origName){ t.name = t.origName; $p("poiAskName").textContent = t.name; }
+      $p("poiEditInput").value = t.name; $p("poiEditRestore").style.display = "none";
+      PS.infoCache.delete(psKey(t)); PS.detailsFor = null;
+      showBanner(how === "remote" ? "NAZWA PRZYWRÓCONA" : "ZAPISANO LOKALNIE", t.name, false);
+      return;
+    }
+    if(mode === "save") $p("psfSave").click();
+  }
   async function psInfoSave(reset){
     const t = poiAskTarget; if(!t) return;
     if(!isAdmin()){ if(!reset) psSuggestSave(); return; }
@@ -18216,8 +18268,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         psOvLocalSave(psOvLocal().filter(r => r.key !== key));
         showBanner("PRZYWRÓCONO", "Dane firmy znów pochodzą z automatycznych źródeł", false);
       } else {
-        const v = id => $p(id).value.trim();
-        const how = await psOverrideWrite(t, { phone: v("psfPhone"), url: v("psfUrl"), hours: v("psfHours"), note: v("psfNote") }, old);
+        const v = id => $p(id).value.trim(), kind = typeof poiKind === "function" ? poiKind(t) : "poi";
+        const nameIn = $p("poiEditInput").value.trim().replace(/\s+/g, " "), addrIn = $p("poiEditAddr").value.trim().replace(/\s+/g, " ");
+        const nameCh = nameIn.length >= 2 && nameIn !== t.name, addrCh = addrIn !== (t.address || "");
+        const vals = { phone: v("psfPhone"), url: v("psfUrl"), hours: v("psfHours"), note: v("psfNote") };
+        if(kind === "poi") vals.newName = nameIn.length >= 2 && nameIn !== (t.origName || t.name) ? nameIn : "";   // zwykły punkt z mapy: nowa nazwa zapisuje się razem z danymi
+        const how = await psOverrideWrite(t, vals, old);
+        if(kind === "poi"){
+          if(nameCh){ t.origName = t.origName || t.name; t.name = vals.newName || t.origName; $p("poiAskName").textContent = t.name; }
+          if(addrCh){ if(addrIn && typeof smartSetAddress === "function") smartSetAddress({ name: t.name, lat: t.lat, lon: t.lon, address: addrIn }); t.address = addrIn; if(addrIn) $p("poiAskAddr").textContent = addrIn; }
+        }else if((nameCh || addrCh) && typeof saveEdit === "function") await saveEdit("save");      // firma z OSM / nazwa kierowców: zapis nazwy i adresu jak dotąd (js/44)
         showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
       }
     }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 90), false); btn.disabled = false; return; }
@@ -20733,7 +20793,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     const show = (id, on, txt) => { const el = cvEl(id); el.style.display = on ? "" : "none"; if(txt) el.textContent = txt; return on; };
     let any = false;
     any = show("camAvg", (kind === "osm" || kind === "motorway") && !cvIsMarkedAvg(lat, lon), adm ? "Zmień na odcinkową" : "Zgłoś: to kamera odcinkowa") || any;
-    any = show("camEdit", adm && kind === "avg", avgI ? "✏️ Edytuj odcinek" : "✏️ Utwórz odcinek") || any;
+    const oppNear = adm && kind === "avg" && !avgI && !!cvNearManualSite(lat, lon, 160);
+    any = show("camEdit", adm && kind === "avg", avgI ? "✏️ Edytuj odcinek" : oppNear ? "↩ Połącz w przeciwnym kierunku" : "✏️ Utwórz odcinek") || any;
+    any = show("camOpp", !!(adm && kind === "avg" && avgI && avgI.manual), "↩ Utwórz przeciwny kierunek") || any;
     any = show("camUnavg", adm && marked) || any;
     cvEl("camMore").style.display = any ? "flex" : "none";
     cvEl("camCard").classList.add("show");
@@ -20955,10 +21017,43 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvEl("avgPickDissolve").style.display = cvPick.edit && cvPick.edit.grouped ? "" : "none";
     cvPickMphDraw(); cvEl("avgPickBar").classList.add("show"); cvPickChanged();
   }
+  /* ---------- przeciwny kierunek: z kamer odcinka układa automatycznie drugą linię po drugiej jezdni ---------- */
+  function cvNearManualSite(lat, lon, r){
+    let best = null, bd = r;
+    cvAvgSites.forEach(s => { if(!s.manual) return; const d = haversine(s.lat, s.lon, lat, lon); if(d < bd){ bd = d; best = s; } });
+    return best;
+  }
+  function cvOppFrom(site, must){          // site: kamera odcinka ręcznego; must: kamera, którą dotknięto (musi trafić do nowej linii); zwraca true, gdy ruszyła edycja
+    const mem = cvAvgSites.filter(s => s.g === site.g).sort((a, b) => a.idx - b.idx), own = mem.map(s => [s.lat, s.lon]);
+    const pool = [], add = (la, lo) => {
+      if(cvIsHidden(la, lo) || pool.some(p => haversine(p[0], p[1], la, lo) < 12)) return;
+      if(cvAvgSites.some(s => s.manual && haversine(s.lat, s.lon, la, lo) < 25)) return;      // kamery już ułożone w odcinki odpadają
+      pool.push([la, lo]);
+    };
+    cvViewCams.forEach(p => add(p[0], p[1]));
+    (typeof avgSpeedLastFeatures !== "undefined" ? avgSpeedLastFeatures : []).forEach(f => add(f.geometry.coordinates[1], f.geometry.coordinates[0]));
+    const pairs = [];
+    own.forEach((o, i) => pool.forEach((c, j) => { const d = haversine(o[0], o[1], c[0], c[1]); if(d < 160) pairs.push([d, i, j]); }));
+    pairs.sort((a, b) => a[0] - b[0]);
+    const byOwn = new Map(), usedC = new Set();
+    pairs.forEach(([d, i, j]) => { if(!byOwn.has(i) && !usedC.has(j)){ byOwn.set(i, pool[j]); usedC.add(j); } });
+    const found = own.map((o, i) => byOwn.get(i)).filter(Boolean).reverse();       // przeciwny kierunek jazdy = odwrócona kolejność
+    if(must && !found.some(p => cvNear(p[0], p[1], must[0], must[1], 25))) return false;
+    if(!found.length){ showBanner("BRAK KAMER", "Nie znalazłem kamer po drugiej stronie drogi — wskaż je ręcznie", false); return false; }
+    cvPickStart({ pts: found.map(p => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6]), mph: site.mph || null, edit: null });
+    showBanner("PRZECIWNY KIERUNEK", found.length < own.length ? "Znalazłem " + found.length + " z " + own.length + " kamer — resztę dodaj dotykiem" : "Sprawdź kolejność i zatwierdź (Zakończ)", false);
+    try{ const b = new maplibregl.LngLatBounds(); found.concat(own).forEach(p => b.extend([p[1], p[0]])); map.fitBounds(b, { padding: { top: 90, bottom: 260, left: 50, right: 50 }, maxZoom: 15, duration: 600 }); }catch(e){}
+    return true;
+  }
+  function cvOppStart(){ const t = cvCardTarget; if(t && isAdmin() && t.avgI && t.avgI.manual) cvOppFrom(t.avgI, null); }
   function cvEditStart(){          // administrator: „Edytuj odcinek” na karcie kamery
     const t = cvCardTarget; if(!t || !isAdmin()) return;
     const i = t.avgI;
-    if(!i){ cvPickStart({ pts: [[t.lat, t.lon]], mph: null, edit: null }); return; }
+    if(!i){
+      const nb = cvNearManualSite(t.lat, t.lon, 160);
+      if(nb && cvOppFrom(nb, [t.lat, t.lon])) return;          // druga jezdnia istniejącego odcinka: linia w drugą stronę powstaje sama
+      cvPickStart({ pts: [[t.lat, t.lon]], mph: null, edit: null }); return;
+    }
     const mem = cvAvgSites.filter(s => s.g === i.g).sort((a, b) => a.idx - b.idx);
     cvPickStart({ pts: mem.map(s => (s.rp || [s.lat, s.lon]).slice()), mph: i.mph || null,
       edit: { grouped: true, rowId: i.manual ? i.secId : null, flips: (i.flipRows || []).map(r => r.id), orig: mem.map(s => (s.rp || [s.lat, s.lon]).slice()) } });
@@ -21032,6 +21127,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     else if(q("#avgPickDissolve")) cvPickDissolve();
     else if(q("#avgMph button")){ if(cvPick){ cvPick.mph = Number(q("#avgMph button").dataset.mph) || null; cvPick.mphTouched = true; cvPickMphDraw(); } }
     else if(q("#camEdit")) cvEditStart();
+    else if(q("#camOpp")) cvOppStart();
     else if(q("#avgPickDone")) cvPickDone();
     else if(q("#avgPickCancel")) cvPickStop();
     else if(q("#camAvg")) cvToAvg();
@@ -21127,8 +21223,11 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   }
   addTick(cvAvgRender, 3000);
   function cvAvgInfo(lat, lon){
-    let best = null, bd = 120;
-    cvAvgSites.forEach(s => { const d = haversine(s.lat, s.lon, lat, lon); if(d < bd){ bd = d; best = s; } });
+    let best = null, bd = Infinity;
+    cvAvgSites.forEach(s => {       // odcinek ułożony ręcznie: tylko dokładnie ta kamera (kamera po drugiej jezdni to inny kierunek); OSM: stanowisko obu jezdni (do 120 m)
+      const d = haversine(s.lat, s.lon, lat, lon);
+      if(d < (s.manual ? 25 : 120) && d < bd){ bd = d; best = s; }
+    });
     return best;
   }
 
