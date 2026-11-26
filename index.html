@@ -6254,7 +6254,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     if(!src) return;
     src.setData({
       type: "FeatureCollection",
-      features: mwCamAll.filter(c => typeof cvIsHidden !== "function" || (!cvIsHidden(c.lat, c.lon) && !cvIsMarkedAvg(c.lat, c.lon))).map(c => {
+      features: mwCamAll.filter(c => typeof cvIsHidden !== "function" || (!cvIsHidden(c.lat, c.lon) && !cvIsAvgAt(c.lat, c.lon))).map(c => {
         const s = mwCamShift.get(c.id);
         return { type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: s || [c.lon, c.lat] } };
       })
@@ -6469,6 +6469,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     avgSpeedLastFeatures = features;
     const vis = typeof cvIsHidden === "function" ? features.filter(f => !cvIsHidden(f.geometry.coordinates[1], f.geometry.coordinates[0])) : features;   // usunięte przez administratora znikają (js/64)
     if(map.getSource("avg-speed-cameras")) map.getSource("avg-speed-cameras").setData({ type:"FeatureCollection", features: vis });
+    try{ if(typeof mwCamRender === "function") mwCamRender(); if(typeof rebuildCameraList === "function") rebuildCameraList(); }catch(e){}   // białe znaki w tych samych miejscach ustępują żółtym
     if(typeof debugLog === "function" && avgLogN !== vis.length){ avgLogN = vis.length; debugLog("info", `Odcinkowe na mapie: ${vis.length} (źródło: ${map.getSource("avg-speed-cameras") ? "jest" : "BRAK"}, warstwa: ${map.getLayer("avg-speed-cameras-sign") ? "jest" : "BRAK"}, obraz: ${map.hasImage("avg-camera-sign") ? "jest" : "BRAK"})`); }
   }
 
@@ -7395,7 +7396,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
       camDrawnN = cameras.length;
       const feats = cameras.map(c => ({
         type:"Feature",
-        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0, avg: (c.avg || (typeof cvIsMarkedAvg === "function" && cvIsMarkedAvg(c.lat, c.lon))) ? 1 : 0 },
+        properties:{ id: c.id, src: c.community ? "community" : c.local ? "local" : "osm", reportId: c.reportId != null ? c.reportId : null, confirmations: c.confirmations || 0, denials: c.denials || 0, pending: 0, avg: (c.avg || (typeof cvIsAvgAt === "function" && cvIsAvgAt(c.lat, c.lon))) ? 1 : 0 },
         geometry:{ type:"Point", coordinates:[c.lon, c.lat] }
       }));
       const extra = typeof cvExtraFeatures === "function" ? cvExtraFeatures(cameras) : [];     // fotoradary w widoku mapy poza kółkiem wokół pojazdu (js/64)
@@ -20177,6 +20178,24 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     return rem.concat(loc.map((l, i) => ({ id: "loc" + i, pts: l.pts })));
   }
   function cvMarkPts(){ const out = []; cvEdits.markRows.forEach(r => out.push([r.lat, r.lon])); cvAvgLocal().marks.forEach(m => out.push([m.lat, m.lon])); return out; }
+  // czy w tym miejscu (do 40 m) jest odcinkowy pomiar z KTÓREGOKOLWIEK źródła: lista UK (js/14), kafelki widoku, zamiany i ręczne odcinki
+  let cvAvgIdxSig = "", cvAvgIdx = new Map();
+  function cvIsAvgAt(lat, lon){
+    if(cvIsMarkedAvg(lat, lon)) return true;
+    const feats = typeof avgSpeedLastFeatures !== "undefined" ? avgSpeedLastFeatures : [];
+    const sig = feats.length + ":" + cvViewCams.length;
+    if(sig !== cvAvgIdxSig){
+      cvAvgIdxSig = sig; cvAvgIdx = new Map();
+      const add = (la, lo) => { const k = Math.floor(la / 0.0006) + "_" + Math.floor(lo / 0.001); (cvAvgIdx.get(k) || cvAvgIdx.set(k, []).get(k)).push([la, lo]); };
+      feats.forEach(f => add(f.geometry.coordinates[1], f.geometry.coordinates[0]));
+      cvViewCams.forEach(p => { if(p[2]) add(p[0], p[1]); });
+    }
+    const cy = Math.floor(lat / 0.0006), cx = Math.floor(lon / 0.001);
+    for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+      const a = cvAvgIdx.get((cy + dy) + "_" + (cx + dx)); if(a && a.some(p => haversine(p[0], p[1], lat, lon) < 40)) return true;
+    }
+    return false;
+  }
   function cvIsMarkedAvg(lat, lon){       // zwykły fotoradar zamieniony na odcinkowy albo wskazany jako kamera ręcznego odcinka
     if(cvMarkPts().some(p => cvNear(p[0], p[1], lat, lon, 40))) return true;
     return cvSections().some(sec => sec.pts.some(p => cvNear(p[0], p[1], lat, lon, 40)));
@@ -20277,6 +20296,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
         cvViewCams = got; cvSig = sig;
         debugLog("info", `Fotoradary w widoku: ${got.length} (w tym odcinkowych: ${got.filter(p => p[2]).length}) z ${ids.length} kafelków, wpisy kierowców: ${cvSupa.length}, zoom ${map.getZoom().toFixed(1)}, środek ${map.getCenter().lat.toFixed(3)},${map.getCenter().lng.toFixed(3)}`);
         rebuildCameraList();
+        try{ if(typeof mwCamRender === "function") mwCamRender(); }catch(e){}      // autostradowy biały znak ustępuje żółtemu odcinkowemu
       } finally { cvBusy = false; }
     }catch(e){ cvBusy = false; }
   }
@@ -20297,7 +20317,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
     cvViewCams.forEach((p, i) => {
       if(cvIsHidden(p[0], p[1]) || dup(p[0], p[1]) || inMw(p[0], p[1])) return;     // autostradowe rysuje warstwa motorway-cameras
       seen.push({ lat: p[0], lon: p[1] });
-      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0, avg: (p[2] || cvIsMarkedAvg(p[0], p[1])) ? 1 : 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
+      out.push({ type: "Feature", properties: { id: "view-" + i, src: "osm", pending: 0, avg: (p[2] || cvIsAvgAt(p[0], p[1])) ? 1 : 0 }, geometry: { type: "Point", coordinates: [p[1], p[0]] } });
     });
     const avgF = (id, lat, lon) => ({ type: "Feature", properties: { id, src: "osm", pending: 0, avg: 1 }, geometry: { type: "Point", coordinates: [lon, lat] } });
     cvMarkPts().forEach((p, i) => { if(dup(p[0], p[1])) return; seen.push({ lat: p[0], lon: p[1] }); out.push(avgF("mark-" + i, p[0], p[1])); });          // zwykły → odcinkowy (także autostradowe)
