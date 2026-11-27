@@ -18276,6 +18276,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function psInfoFormClose(){ $p("psInfoForm").classList.remove("open"); $p("poiEditBox").style.display = "none"; $p("psInfoEditBtn").parentNode.style.display = ""; }
 
   // zapis własnych (potwierdzonych) danych firmy — to nasze dane, wolno je trzymać bezterminowo
+  let psWriteErr = "";
   async function psOverrideWrite(t, vals, old){
     const key = old && old.key ? old.key : psKey(t);
     const row = { key, name: t.name, lat: t.lat, lon: t.lon, phone: vals.phone || "", url: vals.url || "", hours: vals.hours || "", note: vals.note || "" };
@@ -18288,6 +18289,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat(hasNN && nn && !nameInDb ? [Object.assign({}, row, { new_name: nn })] : []));
       return hasNN && nn && !nameInDb ? "noname" : "remote";
     }catch(e){
+      psWriteErr = String((e && e.message) || e || "").slice(0, 140);      // prawdziwy powód odmowy (np. brak logowania administratora, brak tabeli, uprawnienia)
       psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([Object.assign({}, row, hasNN ? { new_name: nn } : {})]));
       return "local";
     }
@@ -18324,7 +18326,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const vals = { phone: f.phone === "osm" ? i.phone : "", url: f.url === "osm" ? i.url : "", hours: f.hours === "osm" ? i.hoursRaw : "", note: "" };
     if(!vals.phone && !vals.url && !vals.hours){ showBanner("BRAK DANYCH", "Nie ma danych z OSM do potwierdzenia — użyj ✏️ i wpisz własne", false); return; }
     const how = await psOverrideWrite(t, vals, i.ov);
-    showBanner(how === "remote" ? "POTWIERDZONE" : "ZAPISANO LOKALNIE", how === "remote" ? "Dane firmy zapisane jako sprawdzone" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
+    showBanner(how === "remote" ? "POTWIERDZONE" : "ZAPISANO LOKALNIE", how === "remote" ? "Dane firmy zapisane jako sprawdzone" : ((psWriteErr || "Brak połączenia z bazą") + " — zapis tylko na tym urządzeniu"), false);
     PS.infoCache.delete(psKey(t)); PS.detailsFor = null; psLoadDetails();
   }
   async function poiGenericEdit(mode){      // zwykły punkt z mapy (poczta, bank, hotel…) — wołane z saveEdit (js/44)
@@ -18362,7 +18364,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
           if(addrCh){ if(addrIn && typeof smartSetAddress === "function") smartSetAddress({ name: t.name, lat: t.lat, lon: t.lon, address: addrIn }); t.address = addrIn; if(addrIn) $p("poiAskAddr").textContent = addrIn; }
         }else if((nameCh || addrCh) && typeof saveEdit === "function") await saveEdit("save");      // firma z OSM / nazwa kierowców: zapis nazwy i adresu jak dotąd (js/44)
         if(how === "noname") showBanner("NAZWA TYLKO NA TYM URZĄDZENIU", "Dane zapisane dla wszystkich, ale baza nie ma kolumny new_name — uruchom sql/poi_sheet.sql", false);
-        else showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
+        else showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : ((psWriteErr || "Brak połączenia z bazą") + " — zapis tylko na tym urządzeniu"), false);
       }
     }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 90), false); btn.disabled = false; return; }
     btn.disabled = false;
