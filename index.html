@@ -8341,7 +8341,10 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
       headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": auth },
       body: JSON.stringify(body)
     })).then(r => {
-      if(!r.ok) return Promise.reject(new Error("HTTP " + r.status));
+      if(!r.ok) return r.text().then(tx => {      // powód odmowy z bazy (np. limit, zła nazwa, brak funkcji, brak logowania) — pokazujemy go w komunikacie
+        let m = ""; try{ const j = JSON.parse(tx); m = j.message || j.hint || ""; }catch(e){ m = String(tx || "").slice(0, 100); }
+        return Promise.reject(new Error("HTTP " + r.status + (m ? ": " + m : "")));
+      });
       if(!supaRealtime.connected) supaRep.fetchedAt = 0;   // bez Realtime: następne zapytanie pobierze świeże dane
       return r.json().catch(() => ({}));
     });
@@ -11159,8 +11162,9 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
     if(!supaConfigured()) return Promise.resolve(false);
     return supaRpc("add_place_name", { p_name: p.name, p_lat: p.lat, p_lon: p.lon, p_device: getDeviceId(),
       p_verified: p.verified === undefined ? null : p.verified, p_verified_by: source || null })
-      .then(() => true).catch(() => false);
+      .then(() => true).catch(e => { placeSaveErr = String((e && e.message) || e || ""); return false; });
   }
+  let placeSaveErr = "";
 
   // ---- sprawdzanie, czy pod tym adresem naprawdę jest taka firma ----
   // 1) Nominatim (OSM, darmowy) — szukamy nazwy w ~250 m od budynku; 2) TomTom POI Search — tylko jeśli
@@ -11343,7 +11347,7 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
         }
         showBanner(ok ? "ZAPISANO" : "ZAPISANO LOKALNIE",
           (ok ? (verified === true ? "Nazwa wysłana do wspólnej bazy" : "Nazwa wysłana — inni zobaczą ją po potwierdzeniu przez drugiego kierowcę")
-              : "Nie udało się wysłać do wspólnej bazy (limit, niedozwolona nazwa albo brak połączenia) — tylko to urządzenie") + tag, false);
+              : "Nie udało się wysłać do wspólnej bazy (" + (placeSaveErr ? placeSaveErr.slice(0, 110) : "limit, niedozwolona nazwa albo brak połączenia") + ") — tylko to urządzenie") + tag, false);
       });
     } else {
       showBanner("ZAPISANO LOKALNIE", "Skonfiguruj Supabase, żeby zobaczyli to inni kierowcy" + tag, false);
@@ -20555,7 +20559,7 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
     }catch(e){}
   }
   async function cvLoadHidden(force){     // pobiera zmiany: usunięte, zamienione na odcinkowe, odwrócone numeracje, ręczne odcinki
-    if(!force && Date.now() - cvHidden.t < 10 * 60 * 1000) return;
+    if(!force && Date.now() - cvHidden.t < 90 * 1000) return;       // usunięcia innych osób widać po ok. półtorej minuty
     cvHidden.t = Date.now();
     if(!supaConfigured()) return;
     try{
@@ -20860,11 +20864,12 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
       cvHideCard();
       try{
         await supaAdminRequest("POST", "camera_flags", [{ kind: t.kind, name: nm, lat: t.lat, lon: t.lon, status: "removed", reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }], "return=minimal");
-        cvHidden.list.push({ lat: t.lat, lon: t.lon });
-        showBanner("FOTORADAR USUNIĘTY", "Nie będzie już widoczny dla kierowców", false);
+        await cvLoadHidden(true);      // sprawdzamy, czy zapis jest widoczny dla zwykłych kierowców (odczyt jak u konta niezalogowanego)
+        if(cvHidden.list.some(h => cvNear(h.lat, h.lon, t.lat, t.lon, 40))) showBanner("FOTORADAR USUNIĘTY", "Nie będzie już widoczny dla kierowców", false);
+        else { cvHidden.list.push({ lat: t.lat, lon: t.lon }); showBanner("ZAPISANO, ALE NIEWIDOCZNE DLA INNYCH", "Baza nie udostępnia usunięć kierowcom — uruchom sql/camera_flags.sql", false); }
       }catch(e){
         cvLocalAdd(t.lat, t.lon);
-        showBanner("TYLKO NA TYM URZĄDZENIU", "Nie zapisano w bazie — uruchom sql/camera_flags.sql", false);
+        showBanner("USUNIĘTO TYLKO NA TYM URZĄDZENIU", "Baza odrzuciła zapis (" + String((e && e.message) || e).slice(0, 70) + "). Uruchom sql/camera_flags.sql i zaloguj się jako administrator.", false);
       }
       cvRefreshAll(); return;
     }
