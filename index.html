@@ -1690,6 +1690,18 @@ body:not(.night) #poiEditInput, body:not(.night) #poiEditAddr{ background:rgba(0
 /* noc: miękkie, ciepłe kolory zamiast bieli (nazwa firmy, opisy, przyciski) */
 body.night #poiAsk .poiName, body.night #poiAsk .psTitle{ color:#e4d2b4; }
 body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.night #poiAsk button#psAskPhoto{ color:#e6dcc6; }
+
+/* godziny otwarcia jak w Google Maps: dziś na górze, pogrubione */
+.psHours .psToday{ font-weight:800; }
+/* edytor godzin: wpisujesz poniedziałek, reszta tygodnia uzupełnia się sama; weekend poprawiasz ręcznie */
+.psHrsGrid{ display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.psHrsRow{ display:grid; grid-template-columns:46px minmax(0,1fr) 10px minmax(0,1fr) auto; align-items:center; gap:6px; }
+.psHrsRow b{ font-size:13px; font-weight:700; opacity:.9; }
+.psHrsRow i{ text-align:center; opacity:.6; font-style:normal; }
+.psHrsRow input[type=time]{ padding:8px 6px; border-radius:8px; border:1px solid var(--panel-border); background:transparent; color:var(--text-main); font:600 14px 'Inter',system-ui,sans-serif; min-width:0; }
+.psHrsRow label.cl{ display:flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap; }
+.psHrsRow.off input[type=time]{ opacity:.35; }
+body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 /* ---------- ostrzeżenia pogodowe na trasie (js/55) ---------- */
   #wxChip{ position:absolute; left:10px; top:calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); z-index:48; display:none; max-width:min(78vw, 380px);
     padding:7px 12px; border-radius:12px; background:#b45309; color:#fff; font:700 13px/1.3 'Inter',system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.4); border:1.5px solid rgba(255,255,255,.55); }
@@ -2059,7 +2071,10 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
         <div class="psMuted" id="psfHint">Wpisz tylko to, co sam sprawdziłeś. Pola z danymi z TomTom zostają puste — nie kopiujemy ich. Administrator zatwierdzi zmianę.</div>
         <label class="psLbl">Telefon<input id="psfPhone" type="tel" maxlength="40" autocomplete="off"></label>
         <label class="psLbl">Strona www<input id="psfUrl" type="text" maxlength="200" autocomplete="off" placeholder="np. firma.co.uk"></label>
-        <label class="psLbl">Godziny otwarcia<input id="psfHours" type="text" maxlength="300" autocomplete="off" placeholder="Mo-Fr 08:00-17:00; Sa 08:00-12:00; Su off"></label>
+        <div class="psLbl">Godziny otwarcia
+          <div id="psfHoursGrid" class="psHrsGrid"></div>
+          <input id="psfHours" type="text" maxlength="300" autocomplete="off" placeholder="Mo-Fr 08:00-17:00; Sa 08:00-12:00; Su off" style="display:none">
+        </div>
         <label class="psLbl">Uwagi dla kierowców<textarea id="psfNote" maxlength="500" rows="2" placeholder="np. wjazd od tyłu, rozładunek do 14:00"></textarea></label>
         <div class="poiBtns" style="margin-top:0">
           <button id="psfCancel" type="button">Anuluj</button>
@@ -17911,9 +17926,10 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
     const fmt = m => pad2(Math.floor(m / 60) % 24) + ":" + pad2(m % 60);
     let status = open ? `<span class="psOpen">Otwarte</span>` : `<span class="psClosed">Zamknięte</span>`;
     if(open){ const r = todayR.find(r => nowMin >= r.a && nowMin < r.b); status += ` · do ${fmt(r.b)}`; }
-    const rows = dates.map(ds => {
-      const dt = new Date(ds + "T12:00:00");
-      return `<b>${PS_DAYS[dt.getDay()]}</b><span>${byDate[ds].length ? byDate[ds].map(r => fmt(r.a) + "–" + fmt(r.b)).join(", ") : "zamknięte"}</span>`;
+    else { const nx = todayR.filter(r => r.a > nowMin).sort((x, y) => x.a - y.a)[0]; if(nx) status += ` · otwiera o ${fmt(nx.a)}`; }
+    const rows = dates.map((ds, ix) => {            // pierwszy wiersz = dzisiaj (lista zawsze zaczyna się od bieżącego dnia)
+      const dt = new Date(ds + "T12:00:00"), cl = ix === 0 ? ` class="psToday"` : "";
+      return `<b${cl}>${PS_DAYS[dt.getDay()]}</b><span${cl}>${byDate[ds].length ? byDate[ds].map(r => fmt(r.a) + "–" + fmt(r.b)).join(", ") : "zamknięte"}</span>`;
     }).join("");
     return `<div class="psRow"><span class="ic">🕒</span><div>${status}</div></div><div class="psHours">${rows}</div>`;
   }
@@ -17950,6 +17966,69 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
       out[d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())] = week[(d.getDay() + 6) % 7];
     }
     return out;
+  }
+  /* ---------- edytor godzin: 7 wierszy, poniedziałek uzupełnia resztę tygodnia, weekend poprawiasz ręcznie ---------- */
+  const PS_OSM_D = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"], PS_DAYS_FORM = ["Pon.", "Wt.", "Śr.", "Czw.", "Pt.", "Sob.", "Niedz."];
+  const psHrsManual = [false, false, false, false, false, false, false];
+  function psWeekToOsm(week){            // week[0..6] (pon..niedz): lista przedziałów {a,b}, pusta = zamknięte, null = brak danych
+    const fmt = m => pad2(Math.floor(m / 60) % 24) + ":" + pad2(m % 60);
+    const val = d => week[d] == null ? null : week[d].length ? week[d].map(r => fmt(r.a) + "-" + fmt(r.b)).join(",") : "off";
+    const parts = []; let d = 0;
+    while(d < 7){
+      const v = val(d); if(v == null){ d++; continue; }
+      let e = d; while(e + 1 < 7 && val(e + 1) === v) e++;
+      parts.push((e > d ? PS_OSM_D[d] + "-" + PS_OSM_D[e] : PS_OSM_D[d]) + " " + v); d = e + 1;
+    }
+    return parts.join("; ");
+  }
+  function psByDateToOsm(byDate){        // podpowiedź z TomTom (dni z datami) → tydzień w naszym zapisie; nic nie jest zapisywane w bazie
+    const week = [null, null, null, null, null, null, null];
+    Object.keys(byDate || {}).forEach(ds => { week[(new Date(ds + "T12:00:00").getDay() + 6) % 7] = byDate[ds].map(r => ({ a: r.a, b: r.b })).sort((x, y) => x.a - y.a); });
+    return psWeekToOsm(week);
+  }
+  function psHrsRows(){ return [...$p("psfHoursGrid").querySelectorAll(".psHrsRow")]; }
+  function psHrsBuild(){
+    const g = $p("psfHoursGrid"); if(g.firstChild) return;
+    g.innerHTML = PS_DAYS_FORM.map((n, d) => `<div class="psHrsRow" data-d="${d}"><b>${n}</b><input type="time" class="a" step="60" aria-label="${n} od"><i>–</i><input type="time" class="b" step="60" aria-label="${n} do"><label class="cl"><input type="checkbox" class="x"> zamkn.</label></div>`).join("");
+    g.addEventListener("input", e => { const row = e.target.closest(".psHrsRow"); if(row) psHrsEdit(+row.dataset.d); });
+  }
+  const psHrsGet = row => ({ a: row.querySelector(".a").value, b: row.querySelector(".b").value, x: row.querySelector(".x").checked });
+  function psHrsSet(row, v){
+    row.querySelector(".a").value = v.a; row.querySelector(".b").value = v.b; row.querySelector(".x").checked = v.x;
+    row.classList.toggle("off", v.x); row.querySelector(".a").disabled = row.querySelector(".b").disabled = v.x;
+  }
+  function psHrsSync(){                  // siatka → tekst w formacie OSM (to jest zapisywane)
+    const week = psHrsRows().map(row => {
+      const v = psHrsGet(row), m = x => +x.slice(0, 2) * 60 + +x.slice(3, 5);
+      if(v.x) return [];
+      if(!v.a || !v.b) return null;
+      const a = m(v.a); let b = m(v.b); if(b <= a) b += 1440;
+      return [{ a, b }];
+    });
+    $p("psfHours").value = psWeekToOsm(week);
+  }
+  function psHrsEdit(d){                 // pon uzupełnia resztę tygodnia (poza dniami poprawionymi ręcznie); wt–pt kolejne dni robocze; sob i niedz tylko ręcznie
+    const rows = psHrsRows(), v = psHrsGet(rows[d]);
+    psHrsSet(rows[d], v);
+    if(d > 0) psHrsManual[d] = true;
+    const last = d === 0 ? 6 : d <= 4 ? 4 : d;
+    for(let j = d + 1; j <= last; j++) if(!psHrsManual[j]) psHrsSet(rows[j], v);
+    psHrsSync();
+  }
+  function psHrsLoad(str){               // tekst OSM → siatka; zapis nietypowy (kilka przedziałów, święta…) zostaje tekstem do ręcznej edycji
+    psHrsBuild();
+    const raw = String(str || "").trim(), wk = raw ? psOsmHours(raw) : null;
+    const simple = !raw || (wk && wk.every(r => r.length <= 1));
+    $p("psfHours").style.display = simple ? "none" : ""; $p("psfHoursGrid").style.display = simple ? "" : "none";
+    $p("psfHours").value = raw;
+    if(!simple) return;
+    const t = x => pad2(Math.floor(x / 60) % 24) + ":" + pad2(x % 60), rows = psHrsRows();
+    rows.forEach((row, d) => {
+      const r = wk ? wk[d] : null;
+      psHrsSet(row, !wk ? { a: "", b: "", x: false } : r.length ? { a: t(r[0].a), b: t(r[0].b), x: false } : { a: "", b: "", x: true });
+    });
+    const m0 = JSON.stringify(psHrsGet(rows[0]));
+    rows.forEach((row, d) => { psHrsManual[d] = d > 0 && !!wk && JSON.stringify(psHrsGet(row)) !== m0; });
   }
   async function psOsmLookup(t){        // null = nie udało się zapytać (wtedy niczego nie zapisujemy)
     const q = `[out:json][timeout:12];nwr(around:90,${t.lat},${t.lon})["name"];out tags center 25;`;
@@ -18180,12 +18259,12 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
     if(!poiAskTarget) return;
     const adm = isAdmin();
     const i = PS.curInfo || {}, ov = i.ov || {}, f = i.from || {};
-    const own = (k, ovv, val) => ovv || (f[k] === "tt" ? "" : (val || ""));      // wartości z TomTom nie trafiają do formularza (nie kopiujemy ich)
+    const own = (k, ovv, val) => ovv || val || "";      // dane z TomTom są tylko podpowiedzią w polach — do bazy trafią dopiero po „Zapisz”
     $p("psfPhone").value = own("phone", ov.phone, i.phone);
     $p("psfUrl").value = own("url", ov.url, i.url);
-    $p("psfHours").value = own("hours", ov.hours, i.hoursRaw);
+    psHrsLoad(ov.hours || (f.hours === "tt" && i.byDate ? psByDateToOsm(i.byDate) : (i.hoursRaw || "")));
     $p("psfNote").value = ov.note || i.note || "";
-    $p("psfMsg").textContent = "";
+    $p("psfMsg").textContent = (!ov.phone && f.phone === "tt") || (!ov.url && f.url === "tt") || (!ov.hours && f.hours === "tt") ? "Dane podpowiedziane z TomTom — sprawdź je; zapiszą się dopiero po „Zapisz”." : "";
     $p("psfReset").style.display = adm && i.ov ? "" : "none";
     $p("psfHint").style.display = adm ? "none" : "";
     $p("psfSave").textContent = adm ? "Zapisz" : "Wyślij do sprawdzenia";
@@ -18207,7 +18286,7 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
       try{ await supaAdminRequest("POST", path, [Object.assign({}, row, hasNN ? { new_name: nn } : {}, { updated_by: by })], prefer); }
       catch(e1){ if(!hasNN) throw e1; await supaAdminRequest("POST", path, [Object.assign({}, row, { updated_by: by })], prefer); nameInDb = false; }   // brak kolumny new_name: dane do bazy, nazwa tylko lokalnie
       psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat(hasNN && nn && !nameInDb ? [Object.assign({}, row, { new_name: nn })] : []));
-      return "remote";
+      return hasNN && nn && !nameInDb ? "noname" : "remote";
     }catch(e){
       psOvLocalSave(psOvLocal().filter(r => r.key !== key).concat([Object.assign({}, row, hasNN ? { new_name: nn } : {})]));
       return "local";
@@ -18255,7 +18334,7 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
       const how = await psOverrideWrite(t, vals, old);
       if(t.origName){ t.name = t.origName; $p("poiAskName").textContent = t.name; }
       $p("poiEditInput").value = t.name; $p("poiEditRestore").style.display = "none";
-      PS.infoCache.delete(psKey(t)); PS.detailsFor = null;
+      PS.infoCache.clear(); PS.detailsFor = null;
       showBanner(how === "remote" ? "NAZWA PRZYWRÓCONA" : "ZAPISANO LOKALNIE", t.name, false);
       return;
     }
@@ -18282,11 +18361,12 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
           if(nameCh){ t.origName = t.origName || t.name; t.name = vals.newName || t.origName; $p("poiAskName").textContent = t.name; }
           if(addrCh){ if(addrIn && typeof smartSetAddress === "function") smartSetAddress({ name: t.name, lat: t.lat, lon: t.lon, address: addrIn }); t.address = addrIn; if(addrIn) $p("poiAskAddr").textContent = addrIn; }
         }else if((nameCh || addrCh) && typeof saveEdit === "function") await saveEdit("save");      // firma z OSM / nazwa kierowców: zapis nazwy i adresu jak dotąd (js/44)
-        showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
+        if(how === "noname") showBanner("NAZWA TYLKO NA TYM URZĄDZENIU", "Dane zapisane dla wszystkich, ale baza nie ma kolumny new_name — uruchom sql/poi_sheet.sql", false);
+        else showBanner(how === "remote" ? "DANE ZAPISANE" : "ZAPISANO LOKALNIE", how === "remote" ? "Widzą je wszyscy kierowcy" : "Brak połączenia z bazą — zapis tylko na tym urządzeniu", false);
       }
     }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 90), false); btn.disabled = false; return; }
     btn.disabled = false;
-    PS.infoCache.delete(psKey(t)); psInfoFormClose();
+    PS.infoCache.clear(); psInfoFormClose();      // cały cache: klucz zależy od nazwy, a ta właśnie się zmieniła
     PS.detailsFor = null; psLoadDetails();
   }
 
