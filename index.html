@@ -11161,6 +11161,47 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     });
     renderPlaceNames();
   }
+  /* ---------- starsze wpisy zapisane tylko na tym urządzeniu (nigdy nie trafiły do bazy): ✏ Nazwa · 📍 Przesuń · 🗑 Usuń ---------- */
+  function placeLocalLoad(){ try{ return JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]"); }catch(e){ return []; } }
+  function placeLocalSave(list){ try{ localStorage.setItem(PLACE_NAMES_LOCAL_KEY, JSON.stringify(list)); }catch(e){} }
+  function placeLocalCard(t){          // wołane z karty budynku (js/28) dla nazwy bez id z bazy
+    const nk = nameTokens(t.name).join(" ");
+    const e = placeNames.find(q => q.id == null && _dM(q.lat, q.lon, t.lat, t.lon) < 12 && nameTokens(q.name).join(" ") === nk);
+    if(!e) return;
+    const mine = document.getElementById("poiMine"), who = document.getElementById("poiWho"); if(!mine || !who) return;
+    Object.assign(mine.dataset, { local: "1", lat: String(e.lat), lon: String(e.lon), name: e.name, kind: "place", id: "", sub: "place", editable: "1" });
+    who.textContent = "Zapisane tylko na tym urządzeniu";
+    const ed = document.getElementById("poiMineEdit"); if(ed) ed.style.display = "";
+    mine.style.display = "";
+  }
+  function placeLocalAct(act, d){
+    const lat = parseFloat(d.lat), lon = parseFloat(d.lon), nm = d.name, nk = nameTokens(nm).join(" ");
+    const same = q => q.id == null && nameTokens(q.name).join(" ") === nk && _dM(q.lat, q.lon, lat, lon) < 40;
+    if(act === "del"){
+      if(!confirm("Usunąć ten wpis? Zniknie z mapy na tym urządzeniu (w bazie go nie ma).")) return;
+      placeLocalSave(placeLocalLoad().filter(q => !same(q)));
+      for(let i = placeNames.length - 1; i >= 0; i--) if(same(placeNames[i])) placeNames.splice(i, 1);
+      renderPlaceNames(); hidePoiAsk();
+      showBanner("WPIS USUNIĘTY", "Zniknął z mapy na tym urządzeniu", false);
+    }else if(act === "edit"){
+      const v = prompt("Nowa nazwa budynku:", nm); if(v === null) return;
+      const nn = v.trim().replace(/\s+/g, " "); if(nn.length < 2 || nn === nm) return;
+      placeLocalSave(placeLocalLoad().map(q => same(q) ? Object.assign({}, q, { name: nn }) : q));
+      placeNames.forEach(q => { if(same(q)) q.name = nn; });
+      renderPlaceNames(); hidePoiAsk();
+      showBanner("NAZWA ZMIENIONA", nn + " — tylko na tym urządzeniu", false);
+    }else if(act === "move"){
+      hidePoiAsk();
+      startReportFlag("place", { move: { kind: "place", id: "local", lat, lon, sub: "place", local: true, name: nm } });
+    }
+  }
+  function placeLocalMoveDone(m, lat, lon){
+    const nk = nameTokens(m.name).join(" "), same = q => q.id == null && nameTokens(q.name).join(" ") === nk && _dM(q.lat, q.lon, m.lat, m.lon) < 40;
+    placeLocalSave(placeLocalLoad().map(q => same(q) ? Object.assign({}, q, { lat, lon }) : q));
+    placeNames.forEach(q => { if(same(q)){ q.lat = lat; q.lon = lon; } });
+    renderPlaceNames();
+    showBanner("WPIS PRZESUNIĘTY", "Nowe miejsce zapisane na tym urządzeniu", false);
+  }
   function loadPlaceNames(){
     try{ mergePlaceNames(JSON.parse(localStorage.getItem(PLACE_NAMES_LOCAL_KEY) || "[]"), { move: true }); }catch(e){}   // lokalne wpisy są chronologiczne: późniejszy zastępuje wcześniejszy
     applyPlaceMoves();
@@ -11469,10 +11510,14 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function showPoiAsk(name, lat, lon, placeId, ref, addrOverride){
     const seq = ++poiAskSeq;
     hideVoteCard();
+    let origName;
+    if(placeId == null && !ref && typeof psRenameFor === "function"){ const rn = psRenameFor(lat, lon); if(rn && rn !== name){ origName = name; name = rn; } }   // własna nazwa punktu (js/52) widoczna od razu
     poiAskTarget = { lat, lon, name, address: "", placeId, ref: ref || null };
+    if(origName) poiAskTarget.origName = origName;
     if(typeof poiAdminRefresh === "function") poiAdminRefresh();   // administrator: „✏️ Zmień nazwę” (js/44)
     document.getElementById("poiVoteRow").style.display = placeId != null ? "flex" : "none"; // głosować można na nazwy dodane przez kierowców
     if(typeof accPointCard === "function") accPointCard("poi", placeId != null ? { kind: "place", id: placeId, sub: "place" } : null);   // kto dodał nazwę, kiedy; własna: popraw / przesuń / usuń (js/61)
+    if(placeId == null && typeof placeLocalCard === "function") placeLocalCard(poiAskTarget);   // starszy wpis tylko z tego urządzenia: Nazwa / Przesuń / Usuń (js/27)
     document.getElementById("poiAskName").textContent = name;
     document.getElementById("poiAskAddr").textContent = "";   // adres wpisze się sam, gdy będzie znany (bez pokazywania współrzędnych)
     document.getElementById("poiAsk").classList.add("show");
@@ -15921,7 +15966,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     $e("poiEditRestore").textContent = kind === "poi" ? "↩ Nazwa z mapy" : "↩ Nazwa z OSM";
     $e("poiEditHide").style.display = kind === "poi" ? "none" : "";          // zwykłego punktu z mapy nie da się ukryć — tylko nazwać po swojemu
     $e("poiEditHide").textContent = isCompany ? "Ukryj firmę" : "Usuń nazwę";
-    $e("poiEditMsg").textContent = kind === "poi" ? "Nowa nazwa jest widoczna u wszystkich kierowców w karcie i wyszukiwarce; napis na samej mapie zostaje z OSM." : isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
+    $e("poiEditMsg").textContent = kind === "poi" ? "Nowa nazwa jest widoczna u wszystkich kierowców w karcie i na mapie." : isCompany ? "Poprawka dotyczy wszystkich użytkowników i zostaje po odświeżeniu danych z OSM." : "Zmiana dotyczy wszystkich użytkowników.";
     $e("poiEditBox").style.display = "flex"; $e("poiAdminRow").style.display = "none";
   }
   function closeEdit(){ $e("poiEditBox").style.display = "none"; poiAdminRefresh(); }
@@ -18241,6 +18286,78 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   const PS_OV_KEY = "nav_poi_override_v1";
   const psOvLocal = () => { try{ return JSON.parse(localStorage.getItem(PS_OV_KEY) || "[]"); }catch(e){ return []; } };
   const psOvLocalSave = arr => { try{ localStorage.setItem(PS_OV_KEY, JSON.stringify(arr)); }catch(e){} };
+  /* ---------- własne nazwy punktów z mapy (Subway, poczta, bank…): od razu w karcie i na samej mapie ---------- */
+  let psRenames = [], psRenamesAt = 0, psRnSig = "";
+  const psRnProps = new Map(), psRnKey = r => r.lat.toFixed(5) + "," + r.lon.toFixed(5);
+  async function psRenamesLoad(){
+    psRenamesAt = Date.now();
+    let rows = [];
+    try{ rows = (await psRest("GET", "poi_overrides?select=lat,lon,new_name&new_name=not.is.null&limit=2000")) || []; }catch(e){}
+    const out = rows.filter(r => r && r.new_name).map(r => ({ lat: +r.lat, lon: +r.lon, name: String(r.new_name) }));
+    psOvLocal().filter(r => r.new_name).forEach(r => { if(!out.some(o => haversine(o.lat, o.lon, r.lat, r.lon) < 12)) out.push({ lat: +r.lat, lon: +r.lon, name: String(r.new_name) }); });
+    psRenames = out; psRenamesApply();
+  }
+  function psRenameFor(lat, lon){      // nazwa ustawiona przez administratora dla punktu w promieniu 12 m (null, gdy brak)
+    let best = null, bd = 12;
+    psRenames.forEach(r => { const d = haversine(r.lat, r.lon, lat, lon); if(d < bd){ bd = d; best = r; } });
+    return best ? best.name : null;
+  }
+  const psRnBase = () => (map.getStyle().layers || []).filter(l => l["source-layer"] === "poi" && l.type === "symbol" && !/-rn$/.test(l.id));
+  function psRnStrip(f){               // zdejmuje naszą klauzulę „nie w pobliżu przemianowanych”, zostawia oryginalny filtr warstwy
+    if(!Array.isArray(f) || f[0] !== "all") return f;
+    const rest = f.slice(1).filter(x => !(Array.isArray(x) && x[0] === "!" && Array.isArray(x[1]) && x[1][0] === "within"));
+    return rest.length === 1 ? rest[0] : ["all"].concat(rest);
+  }
+  function psRnCapture(src){           // właściwości oryginalnego punktu z kafelka (klasa, ranga…) — ikona zostaje, zmienia się tylko napis
+    let feats = []; try{ feats = map.querySourceFeatures(src, { sourceLayer: "poi" }); }catch(e){}
+    psRenames.forEach(r => {
+      if(psRnProps.has(psRnKey(r))) return;
+      let best = null, bd = 15;
+      feats.forEach(f => {
+        if(!f.geometry || f.geometry.type !== "Point" || !(f.properties && f.properties.name)) return;
+        if(typeof HGV_KEEP_POI_CLASSES !== "undefined" && HGV_KEEP_POI_CLASSES.indexOf(f.properties.class) < 0) return;
+        const d = haversine(r.lat, r.lon, f.geometry.coordinates[1], f.geometry.coordinates[0]); if(d < bd){ bd = d; best = f; }
+      });
+      if(best) psRnProps.set(psRnKey(r), { props: Object.assign({}, best.properties), lon: best.geometry.coordinates[0], lat: best.geometry.coordinates[1] });
+    });
+  }
+  function psRenamesApply(){
+    try{
+      if(!map || !map.getStyle()) return;
+      const base = psRnBase(); if(!base.length) return;
+      if(!psRenames.length && !map.getSource("poi-renames")) return;
+      psRnCapture(base[0].source);
+      const ready = psRenames.filter(r => psRnProps.has(psRnKey(r)));
+      const sig = JSON.stringify(ready.map(r => [r.lat, r.lon, r.name]));
+      if(!map.getSource("poi-renames")){ map.addSource("poi-renames", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); psRnSig = ""; }
+      const polys = ready.map(r => { const c = psRnProps.get(psRnKey(r)), dy = 0.00013, dx = 0.0002; return [[[c.lon - dx, c.lat - dy], [c.lon + dx, c.lat - dy], [c.lon + dx, c.lat + dy], [c.lon - dx, c.lat + dy], [c.lon - dx, c.lat - dy]]]; });
+      base.forEach(l => {
+        const cid = l.id + "-rn", orig = psRnStrip(map.getFilter(l.id));
+        if(!map.getLayer(cid)){
+          const spec = { id: cid, type: "symbol", source: "poi-renames", layout: Object.assign({}, l.layout), paint: Object.assign({}, l.paint) };
+          if(orig) spec.filter = orig; if(l.minzoom != null) spec.minzoom = l.minzoom; if(l.maxzoom != null) spec.maxzoom = l.maxzoom;
+          map.addLayer(spec, l.id);
+        }
+        Object.keys(l.paint || {}).forEach(k => { try{ if(JSON.stringify(map.getPaintProperty(cid, k)) !== JSON.stringify(l.paint[k])) map.setPaintProperty(cid, k, l.paint[k]); }catch(e){} });   // motyw dzień/noc
+        const has = JSON.stringify(map.getFilter(l.id) || "").indexOf('"within"') >= 0;
+        if(polys.length){
+          if(sig !== psRnSig || !has){
+            const clause = ["!", ["within", { type: "MultiPolygon", coordinates: polys }]];
+            map.setFilter(l.id, orig ? ["all", orig, clause] : clause);
+          }
+        }else if(has) map.setFilter(l.id, orig || null);
+      });
+      if(sig !== psRnSig){
+        psRnSig = sig;
+        map.getSource("poi-renames").setData({ type: "FeatureCollection", features: ready.map(r => {
+          const c = psRnProps.get(psRnKey(r));
+          return { type: "Feature", properties: Object.assign({}, c.props, { name: r.name, "name:en": r.name, name_en: r.name, "name:latin": r.name }), geometry: { type: "Point", coordinates: [c.lon, c.lat] } };
+        }) });
+      }
+    }catch(e){ console.warn("Własne nazwy punktów na mapie:", e); }
+  }
+  addTick(() => { try{ if(map && map.getStyle() && (!psRenamesAt || Date.now() - psRenamesAt > 120000)) psRenamesLoad(); else psRenamesApply(); }catch(e){} }, 2500);   // nazwy innych administratorów i kafelki wczytane po przesunięciu mapy
+
   async function psOverrideGet(t){
     let row = null;
     try{
@@ -18336,7 +18453,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       const how = await psOverrideWrite(t, vals, old);
       if(t.origName){ t.name = t.origName; $p("poiAskName").textContent = t.name; }
       $p("poiEditInput").value = t.name; $p("poiEditRestore").style.display = "none";
-      PS.infoCache.clear(); PS.detailsFor = null;
+      PS.infoCache.clear(); PS.detailsFor = null; psRenamesLoad();
       showBanner(how === "remote" ? "NAZWA PRZYWRÓCONA" : "ZAPISANO LOKALNIE", t.name, false);
       return;
     }
@@ -18360,6 +18477,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         if(kind === "poi") vals.newName = nameIn.length >= 2 && nameIn !== (t.origName || t.name) ? nameIn : "";   // zwykły punkt z mapy: nowa nazwa zapisuje się razem z danymi
         const how = await psOverrideWrite(t, vals, old);
         if(kind === "poi"){
+          psRenamesLoad();
           if(nameCh){ t.origName = t.origName || t.name; t.name = vals.newName || t.origName; $p("poiAskName").textContent = t.name; }
           if(addrCh){ if(addrIn && typeof smartSetAddress === "function") smartSetAddress({ name: t.name, lat: t.lat, lon: t.lon, address: addrIn }); t.address = addrIn; if(addrIn) $p("poiAskAddr").textContent = addrIn; }
         }else if((nameCh || addrCh) && typeof saveEdit === "function") await saveEdit("save");      // firma z OSM / nazwa kierowców: zapis nazwy i adresu jak dotąd (js/44)
@@ -20349,7 +20467,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function accPointCard(prefix, target){
     if(prefix !== "poi") accAdminCard(prefix, target);
     const who = accEl(prefix + "Who"), mine = accEl(prefix + "Mine"); if(!who || !mine) return;
-    who.textContent = ""; mine.style.display = "none"; mine.dataset.id = ""; mine.dataset.kind = "";
+    who.textContent = ""; mine.style.display = "none"; mine.dataset.id = ""; mine.dataset.kind = ""; mine.dataset.local = "";
     if(!target || !supaConfigured()) return;
     accPointInfo(target.kind, target.id).then(j => {
       if(!j || !j.nick) return;                                  // bez autora (starszy wpis albo dodany bez konta): nic nie pokazujemy
@@ -20370,7 +20488,9 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   }
   function accRefreshMap(lat, lon){ try{ supaRep.fetchedAt = 0; fetchOverpassData(lat, lon); }catch(e){} }
   async function accPointAct(prefix, act){
-    const mine = accEl(prefix + "Mine"), kind = mine.dataset.kind, id = mine.dataset.id; if(!id) return;
+    const mine = accEl(prefix + "Mine");
+    if(mine.dataset.local === "1" && typeof placeLocalAct === "function") return placeLocalAct(act, mine.dataset);      // wpis tylko z tego urządzenia (js/27)
+    const kind = mine.dataset.kind, id = mine.dataset.id; if(!id) return;
     const lat = parseFloat(mine.dataset.lat), lon = parseFloat(mine.dataset.lon), sub = mine.dataset.sub;
     const closeCard = () => { try{ if(prefix === "vote") hideVoteCard(); else if(prefix === "park") accEl("parkCard").classList.remove("show"); else hidePoiAsk(); }catch(e){} };
     try{
@@ -20394,6 +20514,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     }catch(e){ showBanner("NIE UDAŁO SIĘ", String(e.message || e), false); }
   }
   async function accMovePoint(m, lat, lon){
+    if(m.local && typeof placeLocalMoveDone === "function") return placeLocalMoveDone(m, lat, lon);
     try{
       await accRpc("move_my_point", { p_kind: m.kind, p_id: m.id, p_lat: lat, p_lon: lon });
       accLocalForget(m.lat, m.lon); accRefreshMap(lat, lon);
