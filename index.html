@@ -1679,28 +1679,30 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .rpPlace{ font-size:14px; margin:3px 0 2px; word-break:break-word; }
   .rpNote{ font-size:13px; margin-top:3px; opacity:.9; }
   .rpAct{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  /* zakładka Zgłoszenia: zieleń aligatora jak aktywna zakładka u góry ustawień (--gator*), zielone czcionki */
-  .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-fg:#2f4a1b; --rp-dim:#4f6b2c; --rp-line:rgba(63,90,36,.4); color:var(--rp-fg); }
-  body.night .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-fg:#b5cf7a; --rp-dim:#8fa862; --rp-line:rgba(124,154,58,.5); }
-  .setPane:is([data-pane="reports"],[data-pane="users"]) .navTitle{ color:var(--rp-fg); }
-  .setPane:is([data-pane="reports"],[data-pane="users"]) .psMuted{ color:var(--rp-dim); opacity:1; }
+  /* zakładki Zgłoszenia i Użytkownicy — paleta na ciemnej karcie ustawień: nagłówki ciepłe złoto, tekst neutralny (z motywu), przyciski zieleń aligatora (zielona czcionka) */
+  .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-head:#e3bf74; --rp-count:#ffc857; --rp-btn:#b3cf78; --rp-btn-bg:rgba(124,154,58,.14); --rp-btn-line:rgba(140,172,72,.5); --rp-danger:#e8a39b; --rp-line:rgba(255,255,255,.1); color:var(--text-main); }
+  body.night .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-head:#dcb665; --rp-line:rgba(255,176,32,.16); }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .navTitle{ color:var(--rp-head); }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .psMuted, .setPane:is([data-pane="reports"],[data-pane="users"]) .rpNote{ color:var(--text-dim); opacity:1; }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .rpVal{ color:var(--rp-head); }
   .setPane:is([data-pane="reports"],[data-pane="users"]) .rpItem, .setPane:is([data-pane="reports"],[data-pane="users"]) .rpSec{ border-color:var(--rp-line); }
   .setPane:is([data-pane="reports"],[data-pane="users"]) .rpSec.rpSub{ border-left-color:var(--rp-line); }
-  .rpAct button, #rpRefresh, #usrRefresh{ min-height:44px; padding:8px 12px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--rp-fg); background:transparent; border:1px solid var(--rp-line); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .usrWarn{ color:#f0a39a; }
+  .rpAct button, #rpRefresh, #usrRefresh{ min-height:44px; padding:8px 12px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--rp-btn); background:var(--rp-btn-bg); border:1px solid var(--rp-btn-line); cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .rpAct button{ flex:1 1 auto; }
   .rpAct button:active, #rpRefresh:active, #usrRefresh:active{ transform:scale(.97); }
-  .rpAct button.psPrimary{ background:var(--gator-dark); border-color:var(--gator); color:var(--gator-on); }
-  .rpAct button[data-act="del"], .rpAct button[data-act="camback"], .rpAct button[data-act="alback"], .rpAct button.usrDanger{ border-color:rgba(217,48,37,.5); }
-  .rpInput{ color:var(--rp-fg); border-color:var(--rp-line); }
-  .rpInput::placeholder{ color:var(--rp-dim); opacity:.8; }
+  .rpAct button.psPrimary{ background:#3f5a24; border-color:#7c9a3a; color:#e9f5c9; }
+  .rpAct button[data-act="del"], .rpAct button[data-act="camback"], .rpAct button[data-act="alback"], .rpAct button.usrDanger{ background:transparent; color:var(--rp-danger); border-color:rgba(217,48,37,.5); }
+  .rpInput{ color:var(--text-main); border-color:var(--rp-line); }
+  .rpInput::placeholder{ color:var(--text-dim); opacity:.8; }
 
   /* zwijane działy zakładki Zgłoszenia: nowe rzeczy na wierzchu, zatwierdzone schowane w archiwum */
   .rpSec{ margin-top:12px; border-top:1px solid var(--panel-border); }
-  .rpSec > summary{ list-style:none; display:flex; align-items:center; gap:8px; min-height:48px; font-weight:800; font-size:15px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .rpSec > summary{ color:var(--rp-head, inherit); list-style:none; display:flex; align-items:center; gap:8px; min-height:48px; font-weight:800; font-size:15px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .rpSec > summary::-webkit-details-marker{ display:none; }
   .rpSec > summary::after{ content:"›"; margin-left:auto; font-size:22px; line-height:1; opacity:.6; transition:transform .15s ease; }
   .rpSec[open] > summary::after{ transform:rotate(90deg); }
-  .rpCnt{ font-weight:800; color:var(--gator); }
+  .rpCnt{ font-weight:800; color:var(--rp-count, #ffc857); }
   .rpSec.rpSub{ margin-top:0; margin-left:6px; padding-left:8px; border-left:2px solid var(--panel-border); border-top:none; }
   .rpSec.rpSub > summary{ font-size:14px; font-weight:700; min-height:44px; }
   .rpArchive > summary{ opacity:.9; }
@@ -1949,13 +1951,13 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 .usrRow .usrT{ font-weight:700; word-break:break-word; }
 .usrDot{ margin-right:6px; }
 #accCard .accDanger{ background:transparent; color:#d93025; border:1px solid rgba(217,48,37,.5); min-height:44px; font-weight:600; }
-.usrRow .usrDel{ margin-top:6px; min-height:44px; padding:0 14px; border-radius:12px; border:1px solid rgba(217,48,37,.5); background:transparent; color:#d93025; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
+.usrRow .usrDel{ margin-top:6px; min-height:44px; padding:0 14px; border-radius:12px; border:1px solid rgba(217,48,37,.5); background:transparent; color:#e8a39b; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
 .usrWarn{ color:#d93025; font-weight:700; margin-left:6px; font-size:12px; }
 .accWho{ opacity:.7; font-size:12px; }
 #accAppealNote{ font-size:13px; opacity:.85; white-space:pre-line; }
 #accAppealIn{ box-sizing:border-box; width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(128,128,128,.45); background:rgba(128,128,128,.1); color:inherit; font:500 15px/1.4 'Inter',system-ui,sans-serif; resize:vertical; }
 .usrAppeal .usrRow .usrBtns{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
-.usrAppeal .usrRow .usrBtns button{ min-height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--rp-line, rgba(63,90,36,.4)); background:transparent; color:var(--rp-fg, inherit); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
+.usrAppeal .usrRow .usrBtns button{ min-height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--rp-btn-line, rgba(140,172,72,.5)); background:var(--rp-btn-bg, rgba(124,154,58,.14)); color:var(--rp-btn, #b3cf78); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
 #accOr{ text-align:center; font-size:12px; opacity:.6; }
 #accTabs{ display:flex; gap:6px; }
 #accTabs button{ flex:1; min-height:44px; border-radius:12px; border:1px solid rgba(128,128,128,.45); background:transparent; color:inherit; font:600 15px 'Inter',system-ui,sans-serif; cursor:pointer; }
@@ -2642,30 +2644,25 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     </div>
     <div class="setPane adminOnly" data-pane="reports">
       <div class="navTitle">Zgłoszenia <span id="rpCount"></span></div>
-      <div class="psMuted" style="margin-bottom:8px">Tu czeka wszystko, co kierowcy zgłosili i co wymaga Twojej decyzji. Zatwierdzone rzeczy są niżej, w zwiniętej sekcji „Zatwierdzone i archiwum”.</div>
       <div class="poiBtns" style="margin:0 0 4px"><button id="rpRefresh" type="button">↻ Odśwież listę</button></div>
 
       <details class="rpSec" open>
         <summary>Ograniczenia: tonaż i wysokość <span class="rpCnt" id="rpHgvCount"></span></summary>
-        <div class="psMuted" style="margin-bottom:6px">Kierowcy zgłaszają ograniczenia 7,5 t i niskie mosty przyciskiem ze znakiem robót drogowych na mapie. Ty dodajesz własne tym samym przyciskiem — od razu obowiązują.</div>
         <div id="rpList"></div>
       </details>
 
       <details class="rpSec" open>
         <summary>Fotoradary: zgłoszenia kierowców <span class="rpCnt" id="rpCamCount"></span></summary>
-        <div class="psMuted" style="margin-bottom:6px">Fotoradar nieaktywny, zwykły fotoradar który jest kamerą odcinkową i nowe odcinki pomiarowe. Zatwierdzenie pokazuje zmianę wszystkim. Zmieniać możesz też bezpośrednio na mapie — dotknij fotoradaru.</div>
         <div id="rpCam"></div>
       </details>
 
       <details class="rpSec" open>
         <summary>Poprawki danych firm <span class="rpCnt" id="rpSugCount"></span></summary>
-        <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
         <div id="rpSug"></div>
       </details>
 
       <details class="rpSec" open>
         <summary>„Po drodze”: nieodpowiednie dla HGV <span class="rpCnt" id="rpAlCount"></span></summary>
-        <div class="psMuted" style="margin-bottom:6px">Parkingi i stacje z listy „Po drodze”, które kierowcy uznali za nieodpowiednie dla ciężarówek. „Usuń z listy” ukrywa punkt u wszystkich.</div>
         <div id="rpAl"></div>
       </details>
 
@@ -2687,7 +2684,6 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     </div>
     <div class="setPane adminOnly" data-pane="users">
       <div class="navTitle">Użytkownicy <span id="usrCount"></span></div>
-      <div class="psMuted" style="margin-bottom:8px">Kto zarejestrował się przez Google, jaki ma pseudonim i co dodał. Liczby „potwierdził” i „zaprzeczył” to głosy innych kierowców na jego punkty na mapie.</div>
       <div class="poiBtns" style="margin:0 0 8px"><button id="usrRefresh" type="button">↻ Odśwież listę</button></div>
       <input id="usrFilter" class="rpInput" style="width:100%; margin-bottom:6px" placeholder="Szukaj: pseudonim lub e-mail" autocomplete="off">
       <div id="usrList"></div>
