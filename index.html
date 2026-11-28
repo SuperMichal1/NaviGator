@@ -429,9 +429,15 @@
   .bbColors label{ display:flex; align-items:center; gap:6px; }
   .bbColors input[type=color]{ width:42px; height:34px; padding:0; border:1px solid var(--panel-border); border-radius:8px; background:transparent; }
   .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .unitSeg{ display:flex; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; }
-  .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
-  #navTruckBlock.units-imperial .unitSeg button[data-u="imperial"], #navTruckBlock.units-metric .unitSeg button[data-u="metric"]{ background: var(--gator-dark); color: var(--gator-on); }
+  /* mały, dyskretny przełącznik ft / m przy etykietach wymiarów (jeden wspólny stan, zapis w telefonie) */
+  .truckLbl{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .unitTog{ display:inline-flex; border:1px solid var(--panel-border); border-radius:7px; overflow:hidden; padding:0; background:transparent; cursor:pointer; opacity:.75; }
+  .unitTog b{ font:700 10px 'Inter', system-ui, sans-serif; padding:3px 6px; color:var(--text-dim); }
+  #navTruckBlock.units-imperial .unitTog b[data-u="imperial"], #navTruckBlock.units-metric .unitTog b[data-u="metric"]{ background:var(--gator-dark); color:var(--gator-on); }
+  .truckPair{ display:grid; grid-template-columns:1fr 1fr; gap:6px; min-width:0; }
+  .truckPair .truckInputWrap{ padding:0 4px; }
+  .truckPair .truckInputWrap input{ max-width:4ch; font-size:16px; }
+  .truckPair .truckField > span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* wszystkie pola ciężarówki jednakowe: ta sama wysokość, liczba na środku, tuż przy niej jednostka (js/35: fitImp) */
   .truckInputWrap{ display:flex; align-items:center; justify-content:center; height:48px; padding:0 8px; box-sizing:border-box; border-radius:12px; background:rgba(255,255,255,0.06); border:1px solid var(--panel-border); cursor:text; }
   .truckInputWrap:focus-within{ border-color:var(--accent); }
@@ -449,11 +455,11 @@
   .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; }
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
-  .truckActionRow #tpReset{ flex:1; align-self:flex-end; min-height:48px; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 156px; min-height:96px; background:#0a1220; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); }
+  .truckActionRow #tpReset{ flex:1; align-self:stretch; height:48px; min-height:48px; }
+  .truckActionRow .avatarIconBtn{ flex:0 0 104px; height:48px; min-height:48px; background:#0a1220; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); border:1px solid rgba(45,255,150,.45); box-shadow:0 0 10px rgba(45,255,150,.25), inset 0 0 0 1px rgba(255,255,255,.06); }
   .avatarIconBtn.on{ border-color: var(--accent); box-shadow:0 0 0 2px var(--accent); }
   /* ikona 3D: wszystkie avatary na neonowej trasie (rysuje js/11d) */
-  .truckRouteIco{ display:block; width:100%; height:auto; }
+  .truckRouteIco{ display:block; width:100%; height:100%; }
   /* klawiatura ekranowa: panel unosi się nad nią, żeby pola były widoczne */
   body.kb-open #navPanel{ bottom: var(--kb, 0px); }
   /* z klawiaturą pola celu i kodu pocztowego zawsze widoczne: panel mieści się w widocznym obszarze,
@@ -2597,25 +2603,26 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     <div class="setPane" data-pane="truck">
   <div id="navTruckBlock" class="units-imperial">
     <div class="truckHead"><span><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg>Parametry ciężarówki</span>
-      <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · t</button><button type="button" data-u="metric">m · t</button></div>
     </div>
     <div class="truckGrid">
-      <div class="truckField"><span>Wysokość</span>
+      <div class="truckField"><span class="truckLbl">Wysokość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
         <div class="truckInputWrap metOnly"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
-      <div class="truckField"><span>Szerokość</span>
+      <div class="truckField"><span class="truckLbl">Szerokość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
         <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
-      <div class="truckField"><span>Długość</span>
+      <div class="truckField"><span class="truckLbl">Długość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
-      <div class="truckField"><span>Masa całkowita</span>
-        <div class="truckInputWrap"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
-      <div class="truckField"><span>Maks. obciążenie osi</span>
-        <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
+      <div class="truckPair">
+        <div class="truckField"><span>Masa całk.</span>
+          <div class="truckInputWrap"><input id="tpWeight" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
+        <div class="truckField"><span>Maks. oś</span>
+          <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
+      </div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg id="avatarBtnArt" class="truckRouteIco" viewBox="0 0 160 100" aria-hidden="true"></svg></button>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg id="avatarBtnArt" class="truckRouteIco" viewBox="0 6 160 80" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></button>
       </div>
     </div>
     <div id="avatarInline"><div class="aiIn">
@@ -3679,9 +3686,9 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     const el = document.getElementById("appSplash");
     if(!el || el.dataset.done) return;
     el.dataset.done = "1";
-    setTimeout(() => { el.classList.add("out"); setTimeout(() => { try{ el.remove(); }catch(e){} }, 600); }, 700);      // chwila zapasu na dopracowanie kolorów budynków i dróg
+    setTimeout(() => { el.classList.add("out"); setTimeout(() => { try{ el.remove(); }catch(e){} }, 600); }, 0);      // bez dodatkowego zapasu (logo krócej) na dopracowanie kolorów budynków i dróg
   }
-  setTimeout(splashHide, 12000);       // zabezpieczenie: ekran startowy nigdy nie zostaje na stałe
+  setTimeout(splashHide, 10000);       // zabezpieczenie: ekran startowy nigdy nie zostaje na stałe
   function hideNonHgvPoi(){
     const layers = map.getStyle().layers || [];
     const keepExpr = ["in", ["get", "class"], ["literal", HGV_KEEP_POI_CLASSES]];
@@ -4666,7 +4673,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       if(!id || /^mw-asphalt-/.test(id) || /shield|^uk-|^road-/i.test(id)) return;
       if(!map.hasImage(id)) map.addImage(id, { width:1, height:1, data:new Uint8Array(4) });
     });
-    map.once("load", () => { map.once("idle", splashHide); setTimeout(splashHide, 6000); });      // logo znika, gdy mapa jest gotowa i narysowana (js/07)
+    map.once("load", () => { map.once("idle", splashHide); setTimeout(splashHide, 4000); });      // logo znika, gdy mapa jest gotowa i narysowana (js/07)
     map.on("load", () => {
       try{ const L = map.getStyle().layers; satBaseTopId = L.length ? L[L.length - 1].id : null; }catch(e){}
       try{ applyBaseMap(); }catch(e){ console.warn("Mapa satelitarna:", e); }
@@ -6063,7 +6070,9 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     const road = "M-8 92 C30 94 34 62 70 64 S112 66 118 44 S140 14 170 12";
     const arrow = `<path d="M0 -13 L10 11 L0 5 L-10 11 Z" fill="#1FD6C1" stroke="#eafffb" stroke-width="1.4" stroke-linejoin="round"/>`;
     const av = [["car", 112, 40, 28, .82, 0], ["gator", 138, 76, 52, .8, 0], ["truck", 50, 60, 68, .92, -17], ["arrow", 24, 24, 55, 1.15, 0]];
-    let defs = `<linearGradient id="abBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c3558"/><stop offset="1" stop-color="#070d18"/></linearGradient>
+    let defs = `<linearGradient id="abBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26497a"/><stop offset=".55" stop-color="#0f2038"/><stop offset="1" stop-color="#050a14"/></linearGradient>
+      <radialGradient id="abSun" cx=".82" cy=".1" r=".7"><stop offset="0" stop-color="#7fe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fe8ff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="abSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <filter id="abGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.2"/></filter>
       <filter id="abSide"><feColorMatrix type="matrix" values=".35 0 0 0 0  0 .35 0 0 0  0 0 .4 0 0  0 0 0 1 0"/></filter>`;
     let body = "";
@@ -6075,10 +6084,12 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       for(let i = 5; i >= 1; i--) body += one(i * .9, ' filter="url(#abSide)"');
       body += one(0, "");
     });
-    el.innerHTML = `<defs>${defs}</defs><rect width="160" height="100" fill="url(#abBg)"/>
+    el.innerHTML = `<defs>${defs}</defs><rect width="160" height="100" fill="url(#abBg)"/><rect width="160" height="100" fill="url(#abSun)"/>
       <path d="${road}" fill="none" stroke="#19ff8c" stroke-width="13" opacity=".8" filter="url(#abGlow)"/>
       <path d="${road}" fill="none" stroke="#2dff96" stroke-width="7" stroke-linecap="round"/>
-      <path d="${road}" fill="none" stroke="#effff6" stroke-width="2" stroke-linecap="round"/>${body}`;
+      <path d="${road}" fill="none" stroke="#effff6" stroke-width="2" stroke-linecap="round"/>
+      <path d="${road}" fill="none" stroke="#0b3a26" stroke-width="1.2" stroke-dasharray="5 7" stroke-linecap="round" opacity=".7"/>${body}
+      <rect x="0" y="0" width="160" height="34" fill="url(#abSheen)" opacity=".5"/>`;
   }
   safeInit("ikona avatarów", drawAvatarBtnArt);
   safeInit("avatar i kolor trasy", () => {
@@ -13877,8 +13888,8 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       inp.addEventListener("click", sel);
     });
 
-    document.querySelectorAll("#tpUnits button").forEach(b => b.addEventListener("click", () => {
-      units = b.dataset.u;
+    document.querySelectorAll("#navTruckBlock .unitTog").forEach(b => b.addEventListener("click", () => {
+      units = units === "imperial" ? "metric" : "imperial";      // jeden wspólny przełącznik ft ↔ m, wybór zostaje w telefonie
       try{ localStorage.setItem(UNITS_KEY, units); }catch(e){}
       fill();
     }));
