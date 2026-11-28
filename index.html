@@ -1679,7 +1679,27 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .rpPlace{ font-size:14px; margin:3px 0 2px; word-break:break-word; }
   .rpNote{ font-size:13px; margin-top:3px; opacity:.9; }
   .rpAct{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .rpAct button{ flex:1 1 auto; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:700; }
+  /* przyciski zgłoszeń: szklane pigułki w stylu okna firmy, główna akcja w zieleni aplikacji */
+  .rpAct button{ flex:1 1 auto; min-height:44px; padding:8px 12px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--text-main); background:rgba(128,128,128,.14); border:1px solid var(--panel-border); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .rpAct button:active{ transform:scale(.97); }
+  .rpAct button.psPrimary{ background:#26756d; border-color:#26756d; color:#fff; }
+  .rpAct button[data-act="no"], .rpAct button[data-act="camno"], .rpAct button[data-act="sno"], .rpAct button[data-act="alno"]{ background:transparent; opacity:.85; }
+  .rpAct button[data-act="del"], .rpAct button[data-act="camback"], .rpAct button[data-act="alback"]{ background:transparent; border-color:rgba(217,48,37,.55); }
+  body.night .rpAct button.psPrimary{ color:#e6dcc6; }
+  body:not(.night) #navSettingsCard .rpAct button:not(.psPrimary){ color:#0d1c24; }
+  #rpRefresh{ min-height:44px; padding:8px 14px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--text-main); background:rgba(128,128,128,.14); border:1px solid var(--panel-border); }
+  body:not(.night) #navSettingsCard #rpRefresh{ color:#0d1c24; }
+
+  /* zwijane działy zakładki Zgłoszenia: nowe rzeczy na wierzchu, zatwierdzone schowane w archiwum */
+  .rpSec{ margin-top:12px; border-top:1px solid var(--panel-border); }
+  .rpSec > summary{ list-style:none; display:flex; align-items:center; gap:8px; min-height:48px; font-weight:800; font-size:15px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .rpSec > summary::-webkit-details-marker{ display:none; }
+  .rpSec > summary::after{ content:"›"; margin-left:auto; font-size:22px; line-height:1; opacity:.6; transition:transform .15s ease; }
+  .rpSec[open] > summary::after{ transform:rotate(90deg); }
+  .rpCnt{ font-weight:800; color:var(--accent); }
+  .rpSec.rpSub{ margin-top:0; margin-left:6px; padding-left:8px; border-left:2px solid var(--panel-border); border-top:none; }
+  .rpSec.rpSub > summary{ font-size:14px; font-weight:700; min-height:44px; }
+  .rpArchive > summary{ opacity:.9; }
   .rpInput{ flex:1 1 90px; min-width:0; padding:8px 10px; border-radius:10px; font:600 14px 'Inter',system-ui,sans-serif; border:1px solid var(--panel-border); background: rgba(128,128,128,.12); color:inherit; box-sizing:border-box; }
 
   /* wybór znaku tonażu i haczyk w oknie zgłoszenia ograniczenia (js/20) */
@@ -2610,25 +2630,49 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   </div>
     </div>
     <div class="setPane adminOnly" data-pane="reports">
-      <div class="navTitle">Zgłoszenia ograniczeń <span id="rpCount"></span></div>
-      <div class="psMuted" style="margin-bottom:8px">Kierowcy zgłaszają ograniczenia 7,5 t i niskie mosty przyciskiem ze znakiem robót drogowych na mapie. Ty dodajesz własne tym samym przyciskiem — od razu obowiązują.</div>
-      <div class="poiBtns" style="margin:0 0 8px"><button id="rpRefresh" type="button">↻ Odśwież listę</button></div>
-      <div id="rpList"></div>
-      <div class="navTitle" style="margin-top:14px">Zatwierdzone</div>
-      <div id="rpApproved"></div>
-      <div class="navTitle" style="margin-top:14px">Poprawki danych firm <span id="rpSugCount"></span></div>
-      <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
-      <div id="rpSug"></div>
-      <div class="navTitle" style="margin-top:14px">Punkty „Po drodze” zgłoszone jako nieodpowiednie dla HGV <span id="rpAlCount"></span></div>
-      <div class="psMuted" style="margin-bottom:6px">Parkingi i stacje z listy „Po drodze”, które kierowcy uznali za nieodpowiednie dla ciężarówek. „Usuń z listy” ukrywa punkt u wszystkich.</div>
-      <div id="rpAl"></div>
-      <div class="navTitle" style="margin-top:14px">Usunięte z listy „Po drodze”</div>
-      <div id="rpAlOut"></div>
-      <div class="navTitle" style="margin-top:14px">Fotoradary: zgłoszenia kierowców <span id="rpCamCount"></span></div>
-      <div class="psMuted" style="margin-bottom:6px">Zgłoszenia kierowców: fotoradar nieaktywny, zwykły fotoradar który jest kamerą odcinkową i nowe odcinki pomiarowe. Zatwierdzenie pokazuje zmianę wszystkim. Zmieniać możesz też bezpośrednio na mapie — dotknij fotoradaru.</div>
-      <div id="rpCam"></div>
-      <div class="navTitle" style="margin-top:14px">Zatwierdzone zmiany fotoradarów</div>
-      <div id="rpCamOut"></div>
+      <div class="navTitle">Zgłoszenia <span id="rpCount"></span></div>
+      <div class="psMuted" style="margin-bottom:8px">Tu czeka wszystko, co kierowcy zgłosili i co wymaga Twojej decyzji. Zatwierdzone rzeczy są niżej, w zwiniętej sekcji „Zatwierdzone i archiwum”.</div>
+      <div class="poiBtns" style="margin:0 0 4px"><button id="rpRefresh" type="button">↻ Odśwież listę</button></div>
+
+      <details class="rpSec" open>
+        <summary>Ograniczenia: tonaż i wysokość <span class="rpCnt" id="rpHgvCount"></span></summary>
+        <div class="psMuted" style="margin-bottom:6px">Kierowcy zgłaszają ograniczenia 7,5 t i niskie mosty przyciskiem ze znakiem robót drogowych na mapie. Ty dodajesz własne tym samym przyciskiem — od razu obowiązują.</div>
+        <div id="rpList"></div>
+      </details>
+
+      <details class="rpSec" open>
+        <summary>Fotoradary: zgłoszenia kierowców <span class="rpCnt" id="rpCamCount"></span></summary>
+        <div class="psMuted" style="margin-bottom:6px">Fotoradar nieaktywny, zwykły fotoradar który jest kamerą odcinkową i nowe odcinki pomiarowe. Zatwierdzenie pokazuje zmianę wszystkim. Zmieniać możesz też bezpośrednio na mapie — dotknij fotoradaru.</div>
+        <div id="rpCam"></div>
+      </details>
+
+      <details class="rpSec" open>
+        <summary>Poprawki danych firm <span class="rpCnt" id="rpSugCount"></span></summary>
+        <div class="psMuted" style="margin-bottom:6px">Kierowcy proponują telefon, godziny, stronę lub uwagi. Po zatwierdzeniu staje się to naszymi danymi firmy.</div>
+        <div id="rpSug"></div>
+      </details>
+
+      <details class="rpSec" open>
+        <summary>„Po drodze”: nieodpowiednie dla HGV <span class="rpCnt" id="rpAlCount"></span></summary>
+        <div class="psMuted" style="margin-bottom:6px">Parkingi i stacje z listy „Po drodze”, które kierowcy uznali za nieodpowiednie dla ciężarówek. „Usuń z listy” ukrywa punkt u wszystkich.</div>
+        <div id="rpAl"></div>
+      </details>
+
+      <details class="rpSec rpArchive">
+        <summary>Zatwierdzone i archiwum <span class="rpCnt" id="rpArchCount"></span></summary>
+        <details class="rpSec rpSub">
+          <summary>Zatwierdzone ograniczenia <span class="rpCnt" id="rpApprCount"></span></summary>
+          <div id="rpApproved"></div>
+        </details>
+        <details class="rpSec rpSub">
+          <summary>Zatwierdzone zmiany fotoradarów <span class="rpCnt" id="rpCamOutCount"></span></summary>
+          <div id="rpCamOut"></div>
+        </details>
+        <details class="rpSec rpSub">
+          <summary>Usunięte z listy „Po drodze” <span class="rpCnt" id="rpAlOutCount"></span></summary>
+          <div id="rpAlOut"></div>
+        </details>
+      </details>
     </div>
     <div class="setPane adminOnly" data-pane="users">
       <div class="navTitle">Użytkownicy <span id="usrCount"></span></div>
@@ -18976,6 +19020,9 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     hgvEl("rpCam").innerHTML = cfp.length ? cfp.map(r => camFlagItemHtml(r, false)).join("") : `<div class="psMuted">Brak zgłoszeń.</div>`;
     hgvEl("rpCamOut").innerHTML = cfo.length ? cfo.map(r => camFlagItemHtml(r, true)).join("") : `<div class="psMuted">Brak zatwierdzonych zmian.</div>`;
     hgvEl("rpCamCount").textContent = cfp.length ? "(" + cfp.length + ")" : "";
+    const setCnt = (id, n) => { const e = hgvEl(id); if(e) e.textContent = n ? "(" + n + ")" : ""; };
+    setCnt("rpHgvCount", pend.length); setCnt("rpApprCount", ok.length); setCnt("rpCamOutCount", cfo.length); setCnt("rpAlOutCount", alo.length);
+    setCnt("rpArchCount", ok.length + cfo.length + alo.length);
     hgvSetBadge(pend.length + sug.length + alp.length + cfp.length);
     list.innerHTML = pend.length ? pend.map(r => hgvItemHtml(r, true)).join("") : `<div class="psMuted">Brak nowych zgłoszeń.</div>`;
     appr.innerHTML = ok.length ? ok.map(r => hgvItemHtml(r, false)).join("") : `<div class="psMuted">Brak zatwierdzonych ograniczeń.</div>`;
@@ -19070,10 +19117,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     hgvEl("btnReportHeight").addEventListener("click", () => { closeReportMenu(); startReportFlag("height"); });
     ["flagVal"].forEach(id => hgvEl(id).addEventListener("focus", () => { if(typeof flagDraft !== "undefined" && flagDraft) flagDraft.docked = false; }));   // klawiatura nie przesuwa chorągiewki
     hgvEl("rpRefresh").addEventListener("click", hgvPanelLoad);
-    hgvEl("rpList").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
-    hgvEl("rpApproved").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
-    hgvEl("rpSug").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
-    ["rpAl", "rpAlOut"].forEach(id => hgvEl(id).addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); }));
+    const rpPane = document.querySelector('.setPane[data-pane="reports"]');       // jedna obsługa dla wszystkich list (także fotoradarów)
+    rpPane.addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if(b) hgvPanelAct(b); });
     document.addEventListener("navtab", e => { if(e.detail === "reports" && isAdmin()) hgvPanelLoad(); });
     whenMapReady(() => {
       setTimeout(hgvCustomLoad, 3500);
