@@ -815,7 +815,7 @@
     font:700 11px/1.15 'Inter',sans-serif; cursor:pointer; }
   #navOriginGpsOn span{ font-size:16px; }
   #navOriginGpsOn:active{ background: color-mix(in srgb, var(--fieldAccent) 32%, transparent); }
-  body.no-gps #navOriginGpsOn{ display:flex; }
+  body.no-gps #navOriginGpsOn, body.gps-lost #navOriginGpsOn{ display:flex; }
   /* X do szybkiego czyszczenia pól (widoczny tylko gdy w polu jest tekst) */
   .navClearBtn{ display:none; flex:0 0 32px; align-self:center; width:32px; height:32px; margin:0 2px; padding:0; border:none; border-radius:50%;
     background: rgba(0,0,0,0.10); color:#333; font-size:14px; line-height:1; cursor:pointer; }
@@ -1065,19 +1065,16 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #pickNHBackList .nhbT{ font-weight:700; }
 #pickNHBackList .nhbS{ opacity:.8; }
 
-  /* subtelny przycisk zmiany parametrów pojazdu w oknie wyboru trasy (js/25) */
-  #pickTruckBtn{ display:none; align-items:center; gap:7px; align-self:flex-start; max-width:100%; padding:5px 10px 5px 8px; border-radius:999px; border:1px solid var(--panel-border); background:transparent; color:var(--text-dim); font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  #pickTruckBtn .si{ width:18px; height:18px; flex:none; }
-  #pickTruckBtn span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #pickTruckBtn .pickTruckH{ font:800 15px/1 'Inter',system-ui,sans-serif; color:var(--text-main); }
-  #pickTruckBtn b{ font-weight:700; color:var(--text-main); opacity:.75; margin-left:2px; }
-  #pickTruckBtn:active{ transform:scale(.97); }
-  #navPanel[data-navstate="picker"] #pickTruckBtn{ display:inline-flex; }
-
 /* haczyki w oknie wyboru trasy: ikona + krótki napis; TomTom i National Highways to jeden wspólny haczyk „Roboty drogowe” */
 #pickNHRow{ display:none !important; }
 #pickChecks .pickChkIco{ width:22px; height:22px; flex:0 0 auto; }
 #pickChecks label span{ font-weight:600; }
+
+  /* przycisk „ciężarówka z naczepą” z wysokością pojazdu (js/25) */
+  #pickTruckBtn{ display:none; align-self:flex-start; width:132px; min-height:52px; padding:0 2px; border:none; background:transparent; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #pickTruckBtn svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+  #pickTruckBtn:active{ transform:scale(.95); }
+  #navPanel[data-navstate="picker"] #pickTruckBtn{ display:block; }
   /* ---------- Animacja aligatora: ogon i łapy ruszają się tylko w trakcie jazdy (CSS, kilka elementów — lekkie) ---------- */
   @keyframes gTailWag{ from{ transform:rotate(-18deg); } to{ transform:rotate(18deg); } }
   @keyframes gLegStep{ from{ transform:rotate(-20deg) translateY(-1.6px); } to{ transform:rotate(20deg) translateY(1.6px); } }
@@ -1504,6 +1501,33 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   #limitEdit #limitEditInput{ flex:1; min-width:0; padding:10px 12px; border-radius:10px; font:700 20px 'Space Grotesk','Inter',system-ui,sans-serif;
     border:1px solid var(--panel-border); background: rgba(255,255,255,0.10); color: var(--text-main); }
   #limitEdit #limitEditUnit{ font-weight:700; font-size:14px; color: var(--text-dim); }
+
+  /* kierowca: pomiar odcinka Start — linia — Stop (js/66) */
+  #avdBar{ display:none; position:fixed; left:10px; right:10px; max-width:460px; margin:0 auto; z-index:60; flex-direction:column; gap:8px; padding:10px 12px; border-radius:16px;
+    background:var(--panel-bg-solid); color:var(--text-main); border:2px solid #FFD400; box-shadow:0 8px 24px rgba(0,0,0,.4); font-family:'Inter',system-ui,sans-serif; }
+  #avdBar.show{ display:flex; }
+  #avdBar .avdHead{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:800; font-size:16px; font-variant-numeric:tabular-nums; }
+  #avdBar button{ border:1px solid var(--panel-border); background:transparent; color:inherit; border-radius:12px; font:800 15px 'Inter',sans-serif; cursor:pointer; }
+  #avdBar button:disabled{ opacity:.35; }
+  #avdBar #avdClose{ width:40px; height:40px; flex:none; }
+  #avdBar .avdRow{ display:flex; align-items:center; gap:10px; }
+  #avdBar #avdStart, #avdBar #avdStop{ min-width:96px; min-height:50px; }
+  #avdBar #avdStart:not(:disabled){ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #avdBar #avdStop:not(:disabled){ background:#c62f26; border-color:#c62f26; color:#fff; }
+  #avdBar .avdLine{ position:relative; flex:1; height:6px; border-radius:3px; background:rgba(255,212,0,.35); overflow:hidden; }
+  #avdBar .avdLine i{ position:absolute; top:0; bottom:0; left:0; width:35%; border-radius:3px; background:#FFD400; display:none; animation:avdRun 1.6s linear infinite; }
+  #avdBar[data-state="run"] .avdLine i{ display:block; }
+  #avdBar[data-state="ask"] .avdLine, #avdBar[data-state="done"] .avdLine{ background:#FFD400; }
+  @keyframes avdRun{ from{ transform:translateX(-100%); } to{ transform:translateX(290%); } }
+  #avdNote{ font-size:14px; font-weight:600; line-height:1.35; }
+  #avdNote:empty{ display:none; }
+  #avdBar .avdBtns{ display:flex; gap:12px; justify-content:center; }
+  #avdBar .avdBtns button{ min-height:42px; padding:0 16px; }
+  #avdBar #avdAsk button{ flex:1; min-height:48px; }
+  #avdBar #avdYes{ background:#0b7a6d; border-color:#0b7a6d; color:#fff; }
+  #avdBar #avdProblem{ min-height:32px; font-size:12px; font-weight:600; opacity:.75; }
+  #avdBar #avdDel{ color:#ff6b5e; }
+  body.avd-open #speedCluster, body.avd-open #btnLocate{ translate:0 calc(-1 * var(--avd-h, 0px)); }
   /* ---------- Konsola debugowania ---------- */
   #debugConsole{
     position:fixed; left:10px; right:10px;
@@ -1997,7 +2021,6 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 .si.siTruck{ width:27px; }
 #setTabs button .si.siTruck{ width:34px; }
 .truckHead .si.siTruck{ width:30px; }
-#pickTruckBtn .si.siTruck{ width:26px; }
 .navKeyEye .si, #navKeyEye .si{ width:22px; height:22px; margin:0; vertical-align:middle; }
 .navPrefBtn .si, #accSettingsBtn .si{ width:20px; height:20px; }
 .stDot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; flex:none; background:#d93025; box-shadow:0 0 0 2px rgba(255,255,255,.55); }
@@ -2207,6 +2230,13 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     <button id="camOpp" type="button" style="display:none"></button>
     <button id="camUnavg" type="button" style="display:none">Zmień na zwykły fotoradar</button>
   </div>
+</div>
+<div id="avdBar" role="dialog" aria-label="Pomiar średniej prędkości">
+  <div class="avdHead"><span id="avdInfo"></span><button id="avdClose" type="button" aria-label="Zamknij">✕</button></div>
+  <div class="avdRow"><button id="avdStart" type="button">▶ Start</button><span class="avdLine" aria-hidden="true"><i></i></span><button id="avdStop" type="button">■ Stop</button></div>
+  <div id="avdNote"></div>
+  <div id="avdAsk" class="avdBtns" style="display:none"><button id="avdYes" type="button">Tak, wyślij</button><button id="avdNo" type="button">Nie</button></div>
+  <div class="avdBtns"><button id="avdDel" type="button" style="display:none">🗑 Usuń moje zgłoszenie</button><button id="avdProblem" type="button" style="display:none">Kamera nie działa?</button></div>
 </div>
 <div id="avgPickBar" role="dialog">
   <div id="avgPickTxt">Odcinkowy pomiar: dotknij na mapie kolejne kamery — od pierwszej do ostatniej.</div>
@@ -2432,7 +2462,15 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     </div>
     <div id="navPickEdit">
       <div id="pickSummary"></div>
-      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg><span id="pickTruckTxt"></span><b>Zmień</b></button>
+      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg viewBox="0 0 150 58" aria-hidden="true">
+<rect x="2" y="3" width="108" height="38" rx="3" fill="#f4f7fa" stroke="#5d7088" stroke-width="2"/>
+<text id="pickTruckTxt" x="56" y="31.5" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="26" fill="#0d1c24"></text>
+<rect x="2" y="42" width="143" height="4" rx="1.5" fill="#3f4b59"/>
+<path d="M116 44V16q0-5 5-5h9q3 0 4.500 2.500L142 26h2q3 0 3 3v15z" fill="#ee7a1a"/>
+<path d="M122 15.500h7.500q1.500 0 2.400 1.500L138 26h-16z" fill="#fff" fill-opacity=".92"/>
+<rect x="144" y="33" width="3" height="4" rx="1" fill="#fff6c8"/>
+<g fill="#222b33" stroke="#cfd6dc" stroke-width="2"><circle cx="13" cy="49" r="6"/><circle cx="28" cy="49" r="6"/><circle cx="43" cy="49" r="6"/><circle cx="119" cy="49" r="6"/><circle cx="137" cy="49" r="6"/></g>
+</svg></button>
       <div id="pickStops"></div>
       <div id="pickAddWrap" class="navStopWrap" style="display:none">
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
@@ -3329,6 +3367,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   ============================================================ */
   let map, userMarkerEl, userMarker;
   let lastPos = null;           // {lat,lon,t}
+  let gpsLost = false;          // GPS działał, ale zniknął sygnał / został wyłączony (js/40 setGpsLost)
   let noGpsMode = true;         // do pierwszego odczytu GPS: mapa działa, a punkt początkowy trasy wpisuje się ręcznie
   let currentSpeedKmh = 0;
   let unitSystem = "mph"; // aplikacja ograniczona do Wielkiej Brytanii — zawsze mile/h, bez zgadywania kraju
@@ -9283,6 +9322,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     currentHeading = smoothHeadingTo(currentHeading, targetHdg, MAX_HEADING_STEP_DEG);
 
     lastPos = { lat, lon, t: now };
+    if(gpsLost) setGpsLost(false);
 
     if(map){
       if(noGpsMode && !userMarker && map.loaded()) exitNoGpsMode(lat, lon);   // pierwszy odczyt GPS po starcie (mapa już otwarta)
@@ -9294,6 +9334,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     try{ checkOffRoute(rawLat, rawLon, pos.coords.accuracy); }catch(e){ console.warn("Wykrywanie zjechania z trasy:", e); }
     try{ updateGuidance(lat, lon); }catch(e){ console.warn("Prowadzenie:", e); }
     updateSpeedLimit(lat, lon);
+    try{ if(typeof avdFix === "function") avdFix(rawLat, rawLon, now, pos.coords.accuracy, speedKmh); }catch(e){ console.warn("Pomiar odcinka:", e); }
     try{ if(typeof avgMeterFix === "function") avgMeterFix(rawLat, rawLon, now, pos.coords.accuracy, speedKmh); }catch(e){ console.warn("Licznik średniej:", e); }
     checkCameraProximity(lat, lon);
     detectUnitSystem(lat, lon);
@@ -9320,6 +9361,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 
   function onPositionError(err){
     console.warn("Błąd geolokalizacji:", err);
+    if(lastPos && err && (err.code === 1 || err.code === 2 || Date.now() - lastPos.t > 15000)) setGpsLost(true);
     if(lastPos) setStatus("error", "Brak dostępu do GPS — sprawdź uprawnienia lokalizacji");   // bez GPS od startu: bez komunikatu (mapa i wpisywanie punktu działają normalnie)
   }
 
@@ -10669,7 +10711,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   // ＋ i ⇅ tylko, gdy ustawione są oba punkty (puste pole startu przy działającym GPS = start ustawiony)
   function refreshRouteEnds(){
     const el = document.getElementById("navOrigin");
-    document.body.classList.toggle("route-ends", !!navSelectedDest && !!(navSelectedOrigin || (lastPos && !(el.value || "").trim())));
+    document.body.classList.toggle("route-ends", !!navSelectedDest && !!(navSelectedOrigin || (lastPos && !gpsLost && !(el.value || "").trim())));
   }
   addTick(refreshRouteEnds, 700);
   function updateAddWaypointVisibility(){
@@ -10969,18 +11011,13 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   }
 
 
-  /* ---------- przycisk „Pojazd” w oknie wyboru trasy: pokazuje parametry i otwiera Ustawienia → Ciężarówka;
+  /* ---------- przycisk ciężarówki w oknie wyboru trasy: pokazuje wysokość i otwiera Ustawienia → Ciężarówka;
      po zamknięciu ustawień ze zmienionymi parametrami trasa przelicza się sama ---------- */
-  function pickTruckLabel(){
-    const p = HGV_PROFILE, ftin = m => { const tot = Math.round(m / 0.0254); return Math.floor(tot / 12) + "'" + (tot % 12) + "\""; };
-    return { h: ftin(p.height), rest: formatWeightLabel(p.weight).replace("t", " t") + " · " + ftin(p.width) };   // wysokość pokazujemy pierwszą i większą
-  }
-  function pickTruckRefresh(){
+  function pickTruckRefresh(){      // na naczepie widnieje ustawiona wysokość ciężarówki
     const el = document.getElementById("pickTruckTxt"); if(!el) return;
-    const l = pickTruckLabel();
-    el.textContent = "";
-    const h = document.createElement("strong"); h.className = "pickTruckH"; h.textContent = l.h;
-    el.append("Pojazd: ", h, " · " + l.rest);
+    const tot = Math.round(HGV_PROFILE.height / 0.0254), h = Math.floor(tot / 12) + "'" + (tot % 12) + "\"";
+    el.textContent = h;
+    document.getElementById("pickTruckBtn").setAttribute("aria-label", "Wysokość pojazdu " + h + " — zmień parametry");
   }
   safeInit("przycisk pojazdu w wyborze trasy", () => {
     let snap = null;
@@ -11676,10 +11713,11 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     document.getElementById("navDest").value = label;
     hidePoiAsk();
     updateAddWaypointVisibility();
-    if(noGpsMode && !navSelectedOrigin){      // bez GPS: cel trafia do pola „cel podróży”, a nad nim czeka pole punktu początkowego
+    if(((noGpsMode && !lastPos) || gpsLost) && !navSelectedOrigin){      // bez GPS: cel trafia do pola „cel podróży”, a nad nim czeka pole punktu początkowego
       pendingRouteMode = mode || null;
       updateAddWaypointVisibility();            // dopiero teraz pojawia się pole punktu początkowego
       showDestPin();
+      showBanner("BRAK SYGNAŁU GPS", "Wpisz punkt początkowy albo włącz GPS", false);
       const o = document.getElementById("navOrigin");
       o.focus();                                // od razu, w tym samym dotknięciu — inaczej telefon nie otworzy klawiatury
       setTimeout(() => { if(pendingRouteMode === (mode || null) && !navSelectedOrigin && document.activeElement !== o && document.activeElement !== document.getElementById("navOriginPc")) o.focus(); }, 120);
@@ -11793,16 +11831,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     followUser = false;
     updateLocateBtnVisibility();
     showDestPin();
-    if(noGpsMode && !lastPos && navUiState === "search"){   // bez GPS: zamiast okna firmy od razu pole punktu początkowego
-      hidePoiAsk();
-      pendingRouteMode = null;
-      updateAddWaypointVisibility();
+    if(((noGpsMode && !lastPos) || gpsLost) && navUiState === "search"){   // brak GPS: komunikat i zamiast okna firmy od razu pole punktu początkowego
       if(map) map.easeTo({ center: [d.lon, d.lat], zoom: 14, pitch: 0, bearing: 0, offset: [0, 0], duration: 600 });
-      const o = document.getElementById("navOrigin");
-      o.focus();                                 // w tym samym dotknięciu — telefon otwiera klawiaturę
-      setTimeout(() => { if(navSelectedDest && !navSelectedOrigin){ o.focus(); o.dispatchEvent(new Event("focus")); } }, 120);   // lista Historia / Ulubione
+      gpsNoSignal();
       return;
     }
+    if(navUiState === "search" && !gpsFresh()) gpsCheck(() => {}, () => { if(navSelectedDest === d) gpsNoSignal(); });   // GPS mógł zostać wyłączony — sprawdzamy
     const label = d.label || "";
     showPoiAsk(d.name || label.split(",")[0] || label, d.lat, d.lon, null, null, d.addr || null);
     if(typeof PS !== "undefined") PS.fromSearch = true;
@@ -15476,25 +15510,59 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       onPositionError({ code:0, message: String(e) });
     }
   }
-  // Przed planowaniem trasy ze startem z GPS: sprawdź, czy GPS naprawdę działa (użytkownik mógł go wyłączyć).
-  // Zwraca true, gdy można planować od razu; inaczej sprawdza GPS w tle i po sukcesie sam woła retry().
+  function setGpsLost(on){
+    if(gpsLost === !!on) return;
+    gpsLost = !!on;
+    document.body.classList.toggle("gps-lost", gpsLost);     // w polu startu pojawia się „Włącz GPS”
+    try{ updateAddWaypointVisibility(); }catch(e){}
+  }
+  let gpsOkAt = 0, gpsWaiters = null;
+  // świeży = sprawdzony w ostatnich 45 s (albo odczyt sprzed chwili) i bez zgłoszonej utraty sygnału
+  function gpsFresh(){ return !!lastPos && !gpsLost && (Date.now() - gpsOkAt < 45000 || Date.now() - lastPos.t < 4000); }
+  // czy GPS naprawdę teraz działa (nie ufamy starej pozycji): prosimy o świeży odczyt; równoczesne wywołania czekają na ten sam
+  function gpsCheck(ok, fail){
+    if(!navigator.geolocation){ fail(); return; }
+    if(gpsWaiters){ gpsWaiters.push([ok, fail]); return; }
+    gpsWaiters = [[ok, fail]];
+    const done = good => { const w = gpsWaiters || []; gpsWaiters = null; w.forEach(c => c[good ? 0 : 1]()); };
+    try{
+      navigator.geolocation.getCurrentPosition(pos => { gpsOkAt = Date.now(); onPosition(pos); setGpsLost(false); done(true); }, () => done(false), { enableHighAccuracy:true, timeout:6000, maximumAge:0 });
+    }catch(e){ done(false); }
+  }
+  // sprawdzenie „w tle” już podczas wpisywania celu — żeby później nie czekać
+  function gpsPrecheck(){
+    if(navSelectedOrigin || gpsWaiters || (!gpsLost && Date.now() - gpsOkAt < 20000)) return;
+    gpsCheck(() => {}, () => { if(lastPos) setGpsLost(true); });
+  }
+  safeInit("sprawdzanie GPS przy wpisywaniu celu", () => {
+    const d = document.getElementById("navDest");
+    ["focus", "input"].forEach(ev => d.addEventListener(ev, gpsPrecheck));
+  });
+  // brak sygnału: komunikat i przejście do pola punktu początkowego (cel zostaje wybrany)
+  function gpsNoSignal(){
+    if(lastPos) setGpsLost(true);
+    showNavStatus("");
+    if(navUiState === "nav"){ showBanner("BRAK SYGNAŁU GPS", "", false); try{ startGps(); }catch(e){} return; }   // w trakcie jazdy tylko informacja
+    showNavError("Brak sygnału GPS — wpisz punkt początkowy");
+    showBanner("BRAK SYGNAŁU GPS", "Wpisz punkt początkowy albo włącz GPS", false);
+    try{ startGps(); }catch(e){}
+    if(!navSelectedDest || navSelectedOrigin || !["search", "confirm", "picker"].includes(navUiState)) return;
+    hidePoiAsk();
+    pendingRouteMode = null;
+    if(navUiState !== "search") setNavUiState("search");
+    updateAddWaypointVisibility();
+    showDestPin();
+    const o = document.getElementById("navOrigin"), pc = document.getElementById("navOriginPc");
+    o.value = ""; pc.value = "";
+    o.focus();                                   // gdy wywołane w dotknięciu — telefon otworzy klawiaturę
+    setTimeout(() => { if(navSelectedDest && !navSelectedOrigin){ o.focus(); o.dispatchEvent(new Event("focus")); } }, 120);   // lista Historia / Ulubione
+  }
+  // Przed planowaniem trasy ze startem z GPS. Zwraca true, gdy można planować od razu; inaczej sprawdza GPS i po sukcesie sam woła retry().
   function gpsGuard(retry){
     if(navSelectedOrigin) return true;                                   // start wpisany ręcznie — GPS niepotrzebny
-    if(lastPos && Date.now() - lastPos.t < 45000) return true;           // świeża pozycja
+    if(gpsFresh()) return true;
     showNavError(""); showNavStatus("Sprawdzam GPS…");
-    const fail = (code) => {
-      showNavStatus("");
-      const msg = code === 1 ? "Lokalizacja jest zablokowana — zezwól na nią w ustawieniach przeglądarki/telefonu"
-                : code === 3 ? "Brak sygnału GPS — wyjedź na otwarte miejsce i spróbuj ponownie"
-                : "GPS jest wyłączony — włącz lokalizację w telefonie albo wpisz punkt początkowy";
-      showNavError(msg);
-      try{ showBanner("GPS WYŁĄCZONY", msg, false); }catch(e){}
-      try{ startGps(); }catch(e){}
-    };
-    if(!navigator.geolocation){ fail(2); return false; }
-    try{
-      navigator.geolocation.getCurrentPosition(pos => { onPosition(pos); showNavStatus(""); retry(); }, err => fail(err && err.code), { enableHighAccuracy:true, timeout:6000, maximumAge:0 });
-    }catch(e){ fail(2); }
+    gpsCheck(() => { showNavStatus(""); retry(); }, gpsNoSignal);
     return false;
   }
   function retryGps(){                       // przycisk lokalizacji bez GPS: ponów próbę włączenia
@@ -15508,7 +15576,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       retryGps();
       if(!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(pos => {
-        onPosition(pos);
+        gpsOkAt = Date.now(); onPosition(pos); setGpsLost(false);
         navSelectedOrigin = null; pendingRouteMode = null;
         ["navOrigin", "navOriginPc"].forEach(id => { const el = document.getElementById(id); el.value = ""; el.blur(); });
         document.getElementById("navOriginSuggestions").classList.remove("open", "saved");
@@ -17862,13 +17930,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     (map.getStyle().layers || []).forEach(l => {
       if(!MBT_CAM_RE.test(l.id)) return;
       const vis = map.getLayoutProperty(l.id, "visibility");
-      if(hide){
+      if(hide || (/^avg-lines/.test(l.id) && !isAdmin())){     // żółte linie odcinków widzi tylko administrator
         if(vis !== "none"){ map.setLayoutProperty(l.id, "visibility", "none"); mbtHiddenCams.add(l.id); }
       }else if(mbtHiddenCams.has(l.id)){
         map.setLayoutProperty(l.id, "visibility", "visible"); mbtHiddenCams.delete(l.id);
       }
     });
-    if(!hide) mbtHiddenCams.clear();
   }
 
   function mbtRemoveTiles(){
@@ -21230,6 +21297,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         return true;
       }
       if(kind === "osm" && pr.src === "local"){ cvShowCard("local", lat, lon); return true; }
+      if(kind === "avg" && !isAdmin() && lid !== "cameras-inactive" && typeof avdOpen === "function"){ avdOpen(lat, lon); return true; }   // kierowca: panel Start / Stop (js/66)
       cvShowCard(kind, lat, lon);
       return true;
     }catch(err){ return false; }
@@ -21545,9 +21613,10 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         if(!r){ try{ r = await cvRoadPath(pts); }catch(e){ console.warn("Przebieg odcinka:", e); } }
         if(r){ extra.path = r.path; extra.len = r.len; }
       }
+      if(!admin) extra.token = avdToken();      // pozwala autorowi wycofać zgłoszenie (js/66)
       try{ await cvPostFlag({ kind: "avg", name: "Odcinek pomiarowy (" + pts.length + " kamer)", lat: first[0], lon: first[1], status: admin ? "applied" : "pending", action: "new_section", extra }, admin); if(admin) await cvDropOld(st.edit); }
       catch(e){ if(admin){ showBanner("NIE ZAPISANO", "Uruchom sql/camera_flags.sql (" + String(e.message || e).slice(0, 60) + ")", false); return; } console.warn("Zgłoszenie odcinka:", e); }
-      if(!admin){ const o = cvAvgLocal(); o.sections.push({ pts }); cvAvgLocalSave(o); }
+      if(!admin){ const o = cvAvgLocal(); o.sections.push({ pts, token: extra.token }); cvAvgLocalSave(o); }
       if(admin) await cvLoadHidden(true); else cvRefreshAll();
       showBanner(admin ? "ODCINEK ZAPISANY" : "ZGŁOSZONE", admin ? "Odcinek jest już widoczny dla wszystkich kierowców" : "Administrator sprawdzi odcinek. U Ciebie jest już widoczny.", false);
     } finally { cvSaving = false; }
@@ -21892,6 +21961,137 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   safeInit("licznik średniej prędkości", () => {
     document.getElementById("avgMeter").addEventListener("click", amEnd);        // dotknięcie chowa licznik
     addTick(() => { if(amS && !amS.done && Date.now() - amPrev.t > AM.MAX_GAP_MS) amEnd(); }, 5000);
+  });
+</script>
+<script>
+/* ===== js/66-avg-drive-report.js — Kierowca: pomiar odcinka przyciskami Start / Stop i zgłoszenie odcinka =====
+   Klasyczny <script> (bez IIFE). Dotknięcie żółtej kamery (js/64, tylko nie-administrator) → mały panel #avdBar u dołu.
+   Start → liczy średnią z GPS i zapisuje przejechaną linię; Stop → jeśli na tej drodze nie ma jeszcze odcinka, pyta o wysłanie zgłoszenia
+   (camera_flags new_section, pending; extra: pts, path, len, token). Token pozwala autorowi wycofać oczekujące zgłoszenie (sql/camera_flags.sql). */
+"use strict";
+
+  const AVD = { MIN_M: 200, CAM_M: 60, PATH_STEP_M: 25, PATH_MAX: 140, PENDING_LS: "nav_avg_drive_pending_v1" };
+  let avd = null;      // { state: idle | run | ask | done, cam, t0, t, dist, last, path, note }
+  const avdEl = id => document.getElementById(id);
+  const avdToken = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
+  const avdMph = () => { const s = avd && (avd.t - avd.t0) / 1000; return s >= 5 && avd.dist >= 80 ? Math.round(avd.dist / s * 2.236936) : null; };
+  const avdMinM = (p, path) => { let m = Infinity; for(let i = 1; i < path.length; i++) m = Math.min(m, pointToSegmentMeters(p[0], p[1], [path[i - 1][1], path[i - 1][0]], [path[i][1], path[i][0]])); return m; };
+  // własne, jeszcze niezatwierdzone zgłoszenie przy tej kamerze (można je wycofać)
+  function avdOwnAt(lat, lon){
+    return cvAvgLocal().sections.find(s => s.token && !cvEdits.sections.some(r => r.raw && r.raw.token === s.token) &&
+      (s.pts.some(p => haversine(p[0], p[1], lat, lon) < AVD.CAM_M) || (s.path && s.path.length > 1 && avdMinM([lat, lon], s.path) < AVD.CAM_M)));
+  }
+  function avdOpen(lat, lon){
+    if(avd && (avd.state === "run" || avd.state === "ask")){ avdRender(); return; }     // trwający pomiar zostaje
+    try{ hidePoiAsk(); cvHideCard(); }catch(e){}
+    avd = { state: "idle", cam: [lat, lon], dist: 0, path: [] };
+    avdRender();
+  }
+  function avdClose(){
+    if(avd && avd.state === "run" && !window.confirm("Przerwać pomiar?")) return;
+    avd = null; try{ localStorage.removeItem(AVD.PENDING_LS); }catch(e){}
+    avdRender();
+  }
+  function avdStart(){
+    if(!avd || avd.state === "run") return;
+    if(!lastPos || Date.now() - lastPos.t > 15000){ showBanner("BRAK GPS", "Pomiar ruszy, gdy telefon złapie pozycję", false); return; }
+    Object.assign(avd, { state: "run", t0: Date.now(), t: Date.now(), dist: 0, last: { lat: lastPos.lat, lon: lastPos.lon }, path: [[lastPos.lat, lastPos.lon]], note: "" });
+    avdRender();
+  }
+  // wywoływane z js/23 przy każdym odczycie GPS
+  function avdFix(lat, lon, t, accuracy, speedKmh){
+    if(!avd || avd.state !== "run" || (accuracy != null && accuracy > AM.MAX_ACC_M)) return;
+    const seg = haversine(avd.last.lat, avd.last.lon, lat, lon);
+    avd.t = t;
+    if(seg >= 3 && (speedKmh >= 4 || seg >= 15)){ avd.dist += seg; avd.last = { lat, lon }; }
+    const p = avd.path[avd.path.length - 1];
+    if(haversine(p[0], p[1], lat, lon) >= AVD.PATH_STEP_M) avd.path.push([lat, lon]);
+    avdRender();
+  }
+  // czy przejechana droga ma już zapisany odcinek (z OpenStreetMap, zatwierdzony albo własny)
+  function avdKnown(path){
+    if(path.length < 2) return false;
+    const hits = new Map();
+    cvAvgSites.forEach(s => { if(avdMinM([s.lat, s.lon], path) < (s.manual ? 35 : 80)) hits.set(s.g, (hits.get(s.g) || 0) + 1); });
+    return Array.from(hits.values()).some(n => n >= 2) || (!!cvAvgInfo(avd.cam[0], avd.cam[1]) && avdMinM(avd.cam, path) < 80);
+  }
+  function avdStop(){
+    if(!avd || avd.state !== "run") return;
+    avd.t = Date.now();
+    if(lastPos) avd.path.push([lastPos.lat, lastPos.lon]);
+    if(avd.dist < AVD.MIN_M){ avd.state = "done"; avd.note = "Odcinek za krótki, żeby go zgłosić."; }
+    else if(avdOwnAt(avd.cam[0], avd.cam[1])){ avd.state = "done"; avd.note = "Masz już zgłoszenie dla tego odcinka."; }
+    else if(avdKnown(avd.path)){ avd.state = "done"; avd.note = "Ten odcinek jest już zapisany."; }
+    else { avd.state = "ask"; avdKeep(); }
+    avdRender();
+  }
+  // pytanie o zgłoszenie przetrwa przeładowanie strony (np. po logowaniu przez Google)
+  function avdKeep(){ try{ localStorage.setItem(AVD.PENDING_LS, JSON.stringify({ at: Date.now(), d: avd })); }catch(e){} }
+  // punkty zgłoszenia: znane kamery odcinkowe przy przejechanej drodze (w kolejności jazdy), a gdy jest ich mniej niż 2 — początek i koniec pomiaru
+  function avdPoints(path){
+    const cams = [avd.cam].concat((typeof avgSpeedLastFeatures !== "undefined" ? avgSpeedLastFeatures : []).map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]), cvViewCams.filter(p => p[2]).map(p => [p[0], p[1]]));
+    const found = [];
+    cams.forEach(c => {
+      if(cvIsHidden(c[0], c[1]) || found.some(f => haversine(f.p[0], f.p[1], c[0], c[1]) < CVA.MERGE_M)) return;
+      let best = Infinity, at = 0;
+      for(let i = 1; i < path.length; i++){ const d = pointToSegmentMeters(c[0], c[1], [path[i - 1][1], path[i - 1][0]], [path[i][1], path[i][0]]); if(d < best){ best = d; at = i + haversine(path[i - 1][0], path[i - 1][1], c[0], c[1]) / 1e6; } }
+      if(best <= AVD.CAM_M) found.push({ p: [c[0], c[1]], at });
+    });
+    const pts = found.length >= 2 ? found.sort((a, b) => a.at - b.at).slice(0, 30).map(f => f.p) : [path[0], path[path.length - 1]];
+    return pts.map(p => [Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5]);
+  }
+  let avdSending = false;
+  async function avdSend(){
+    if(!avd || avd.state !== "ask" || avdSending) return;
+    if(typeof accNeedLogin === "function" && accNeedLogin("zgłosić odcinkowy pomiar prędkości")) return;     // pytanie zostaje na ekranie
+    avdSending = true;
+    const st = avd, pts = avdPoints(st.path), token = avdToken(), step = Math.max(1, Math.ceil(st.path.length / AVD.PATH_MAX));
+    const path = st.path.filter((p, i) => i % step === 0 || i === st.path.length - 1).map(p => [Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5]);
+    try{
+      await cvPostFlag({ kind: "avg", name: "Odcinek pomiarowy (przejazd kierowcy)", lat: pts[0][0], lon: pts[0][1], status: "pending", action: "new_section", extra: { pts, path, len: Math.round(st.dist), token } }, false);
+      const o = cvAvgLocal(); o.sections.push({ pts, path, token }); cvAvgLocalSave(o);
+      try{ localStorage.removeItem(AVD.PENDING_LS); }catch(e){}
+      st.state = "done"; st.token = token; st.note = "Zgłoszone. Administrator sprawdzi odcinek.";
+      cvRefreshAll();
+    }catch(e){ console.warn("Zgłoszenie odcinka:", e); showBanner("NIE WYSŁANO", "Sprawdź internet i spróbuj ponownie", false); }
+    finally{ avdSending = false; avdRender(); }
+  }
+  async function avdWithdraw(){
+    if(!avd) return;
+    const own = avd.token ? cvAvgLocal().sections.find(s => s.token === avd.token) : avdOwnAt(avd.cam[0], avd.cam[1]);
+    if(!own || !window.confirm("Usunąć Twoje zgłoszenie tego odcinka?")) return;
+    let n = null;
+    try{ n = await psRest("POST", "rpc/withdraw_avg_report", { p_token: own.token }); }catch(e){ console.warn("Wycofanie zgłoszenia:", e); }
+    if(n === null){ showBanner("NIE USUNIĘTO", "Spróbuj ponownie później — zgłoszenie nadal czeka u administratora", false); return; }
+    const o = cvAvgLocal(); o.sections = o.sections.filter(s => s.token !== own.token); cvAvgLocalSave(o);
+    avd.token = null; avd.state = "done"; avd.note = n > 0 ? "Zgłoszenie usunięte." : "Administrator już je rozpatrzył.";
+    cvRefreshAll(); avdRender();
+  }
+  function avdRender(){
+    const el = avdEl("avdBar"); if(!el) return;
+    el.classList.toggle("show", !!avd);
+    document.body.classList.toggle("avd-open", !!avd);
+    if(!avd) return;
+    el.dataset.state = avd.state;
+    const v = avdMph(), own = avd.state !== "run" && avd.state !== "ask" && (avd.token || avdOwnAt(avd.cam[0], avd.cam[1]));
+    avdEl("avdInfo").textContent = avd.state === "idle" ? (own ? "Twoje zgłoszenie czeka na sprawdzenie." : "Średnia prędkość: naciśnij Start")
+      : "Średnia " + (v == null ? "–" : v + " mph") + " · " + (avd.dist / 1609.344).toFixed(1) + " mi";
+    avdEl("avdNote").textContent = avd.state === "ask" ? "Czy były tam kamery mierzące prędkość? Wysłać zgłoszenie dla innych kierowców?" : avd.state === "done" ? avd.note : "";
+    avdEl("avdStart").disabled = avd.state === "run";
+    avdEl("avdStop").disabled = avd.state !== "run";
+    avdEl("avdAsk").style.display = avd.state === "ask" ? "flex" : "none";
+    avdEl("avdDel").style.display = own ? "" : "none";
+    avdEl("avdProblem").style.display = avd.state === "idle" ? "" : "none";
+    const nav = typeof getNavBottomChromeHeight === "function" ? getNavBottomChromeHeight() || 0 : 0;
+    el.style.bottom = "calc(env(safe-area-inset-bottom, 0px) + " + (nav + 8) + "px)";
+    document.body.style.setProperty("--avd-h", (el.offsetHeight + 8) + "px");
+  }
+  safeInit("pomiar odcinka (kierowca)", () => {
+    const on = (id, fn) => avdEl(id).addEventListener("click", fn);
+    on("avdStart", avdStart); on("avdStop", avdStop); on("avdClose", avdClose); on("avdYes", avdSend); on("avdNo", avdClose); on("avdDel", avdWithdraw);
+    on("avdProblem", () => { const c = avd && avd.cam; avdClose(); if(c) cvShowCard("avg", c[0], c[1]); });
+    try{ const p = JSON.parse(localStorage.getItem(AVD.PENDING_LS) || "null"); if(p && p.d && Date.now() - p.at < 3600 * 1000){ avd = p.d; avdRender(); } }catch(e){}
+    addTick(() => { if(avd && avd.state === "run"){ avd.t = Date.now(); avdRender(); } }, 1000);
   });
 </script>
 <div id="satAttrib">© Mapbox © Maxar © OpenStreetMap</div>
