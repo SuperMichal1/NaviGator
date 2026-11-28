@@ -101,6 +101,11 @@
   body.night #guidanceCard.sign-motorway{ background:#0a609b; color:#e6ecf1; border-color:#c3ccd4; box-shadow:0 0 0 2px #0a609b, 0 6px 18px rgba(0,0,0,.45); }
   body.night #guidanceCard.sign-primary{ background:#0a4429; color:#bda400; border-color:#bda400; box-shadow:0 0 0 2px #0a4429, 0 6px 18px rgba(0,0,0,.45); }
   body.night #guidanceCard.sign-primary .gIcon{ color:#bda400; }
+  /* widok 3D: niebieskie i zielone tablice trochę ciemniejsze */
+  body.view-3d #guidanceCard.sign-motorway{ background:#005a91; box-shadow:0 0 0 2px #005a91, 0 10px 30px rgba(0,0,0,.45); }
+  body.view-3d #guidanceCard.sign-primary{ background:#004a25; box-shadow:0 0 0 2px #004a25, 0 10px 30px rgba(0,0,0,.45); }
+  body.night.view-3d #guidanceCard.sign-motorway{ background:#084772; box-shadow:0 0 0 2px #084772, 0 6px 18px rgba(0,0,0,.45); }
+  body.night.view-3d #guidanceCard.sign-primary{ background:#07311e; box-shadow:0 0 0 2px #07311e, 0 6px 18px rgba(0,0,0,.45); }
   body.night .rb-motorway{ background:#0a609b; color:#e6ecf1; border-color:#c3ccd4; }
   body.night .rb-primary{ background:#0a4429; color:#bda400; border-color:#9aa6b0; }
   body.night .rb-local{ background:#b3b6ba; color:#101010; border-color:#18181a; }
@@ -768,10 +773,10 @@
   #navTopBar #navOriginRow{ display:none; }
   body.show-origin #navTopBar #navOriginRow{ display:flex; }
   #navTopBar #navAddWaypointBtn, #navTopBar #navAddWaypointBtn2, #navTopBar #navSwapBtn{ display:none; }
-  body.has-dest:not(.wp-max) #navTopBar #navAddWaypointBtn{ display:flex; }
-  body.has-dest:not(.show-origin):not(.wp-max) #navTopBar #navAddWaypointBtn2{ display:flex; }
-  body.show-origin #navTopBar #navSwapBtn{ display:flex; }
-  body.show-origin.wp-max #navTopBar #navAddWaypointBtn{ display:flex; visibility:hidden; }   /* pole startu zostaje tej samej szerokości co cel */
+  body.route-ends:not(.wp-max) #navTopBar #navAddWaypointBtn{ display:flex; }
+  body.route-ends:not(.show-origin):not(.wp-max) #navTopBar #navAddWaypointBtn2{ display:flex; }
+  body.route-ends.show-origin #navTopBar #navSwapBtn{ display:flex; }
+  body.route-ends.show-origin.wp-max #navTopBar #navAddWaypointBtn{ display:flex; visibility:hidden; }   /* pole startu zostaje tej samej szerokości co cel */
   #navTopBar .navWaypointWrap .navStopInput{ font-size:15px; height:44px; padding:0 14px; box-sizing:border-box; width:100%; background:var(--fieldBg); color:inherit;
     border:1.5px solid var(--fieldBorder); border-bottom:none; border-radius:0; }
   body.night #navTopBar .navWaypointWrap .navStopInput{ color:#f5e6d0; }
@@ -801,10 +806,16 @@
   #navTopBar #navOriginCombo{ border-bottom:none; border-radius:14px 14px 0 0; }
   body.show-origin #navTopBar #navDestCombo, body:has(#navWaypointsList .navWaypointWrap) #navTopBar #navDestCombo{ border-radius:0 0 14px 14px; }
   #navTopBar #navDestCombo:focus-within, #navTopBar #navOriginCombo:focus-within{ border-color: var(--fieldAccent); }
-  #navTopBar #navSuggestions{ background: rgba(255,255,255,0.98); }
-  #navTopBar .navSavedTabs, #navTopBar .navSavedHead{ background:#eef0f2; }
-  body.night #navTopBar #navSuggestions{ background: rgba(23,18,10,0.985); }
-  body.night #navTopBar .navSavedTabs, body.night #navTopBar .navSavedHead{ background:#241c0f; }
+  #navTopBar :is(#navSuggestions, #navOriginSuggestions){ background:var(--fieldBg); border:1.5px solid var(--fieldBorder); border-radius:14px; }
+  #navTopBar :is(#navSuggestions, #navOriginSuggestions) :is(.navSavedTabs, .navSavedHead){ background:var(--fieldBg); }
+  #navTopBar #navOriginWrap #navOriginSuggestions{ margin-top:6px; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top, 0px) - 84px); overscroll-behavior:contain; }
+  /* „Włącz GPS” w polu startu — tylko gdy nie ma pozycji GPS */
+  #navOriginGpsOn{ display:none; flex:0 0 62px; align-self:stretch; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 4px;
+    border:none; border-left:1.5px solid var(--fieldBorder); background: color-mix(in srgb, var(--fieldAccent) 16%, transparent); color:var(--fieldAccent);
+    font:700 11px/1.15 'Inter',sans-serif; cursor:pointer; }
+  #navOriginGpsOn span{ font-size:16px; }
+  #navOriginGpsOn:active{ background: color-mix(in srgb, var(--fieldAccent) 32%, transparent); }
+  body.no-gps #navOriginGpsOn{ display:flex; }
   /* X do szybkiego czyszczenia pól (widoczny tylko gdy w polu jest tekst) */
   .navClearBtn{ display:none; flex:0 0 32px; align-self:center; width:32px; height:32px; margin:0 2px; padding:0; border:none; border-radius:50%;
     background: rgba(0,0,0,0.10); color:#333; font-size:14px; line-height:1; cursor:pointer; }
@@ -923,7 +934,7 @@
 #psInfoForm #poiEditBox{ margin-bottom:2px; }
 #psInfoForm #poiEditBox .poiBtns{ gap:12px; }
 /* dzień: lista „Historia / Ulubione” pod polem celu leży na jasnym tle — czcionki ciemne (wcześniej dziedziczyły jasny kolor) */
-body:not(.night) #navTopBar #navSuggestions{ color:#0d1c24; }
+body:not(.night) #navTopBar :is(#navSuggestions, #navOriginSuggestions){ color:#0d1c24; }
 body:not(.night) #navTopBar .navSavedTabs button{ color:#0d1c24; border-color:rgba(0,0,0,.28); }
 body:not(.night) #navTopBar .navSavedTabs button.active{ color:var(--gator-on); border-color:var(--gator-dark); }
 body:not(.night) .navSavedHead, body:not(.night) .navSavedEmpty{ color:#33414d; }
@@ -963,6 +974,12 @@ body:not(.night) .navSavedHead, body:not(.night) .navSavedEmpty{ color:#33414d; 
   /* ---------- Punkt do przeciągania na trasie ---------- */
   .viaPin{ width:46px; height:46px; display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; }
   .viaPin::before{ content:""; width:28px; height:28px; border-radius:50%; box-sizing:border-box; background:var(--accent,#FFB020); border:4px solid #fff; box-shadow:0 2px 9px rgba(0,0,0,.6); }
+
+  /* podpowiedź w edycji trasy (nie łapie dotyku — mapa pod spodem działa normalnie) */
+  #viaHint{ display:none; position:absolute; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:40;
+    width:max-content; max-width:calc(100% - 90px); padding:7px 14px; border-radius:16px; pointer-events:none; text-align:center;
+    background:rgba(16,28,36,.78); color:#fff; font:600 13px/1.35 'Inter',system-ui,sans-serif; box-shadow:0 3px 12px rgba(0,0,0,.3); }
+  #viaHint.show{ display:block; }
 
   /* ---------- Okno edycji trasy: tylko czas i dystans + przyciski ---------- */
   #navRouteInfo.planning #navRouteSub,
@@ -1976,6 +1993,11 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 #themeSeg button .si{ width:28px; height:28px; margin:0; vertical-align:middle; }
 #baseSeg button .si{ width:20px; height:20px; }
 .truckHead .si, .navTitle .si{ width:22px; height:22px; vertical-align:-5px; }
+/* ciężarówka z długą naczepą: ikona szersza niż pozostałe (proporcje 32:24) */
+.si.siTruck{ width:27px; }
+#setTabs button .si.siTruck{ width:34px; }
+.truckHead .si.siTruck{ width:30px; }
+#pickTruckBtn .si.siTruck{ width:26px; }
 .navKeyEye .si, #navKeyEye .si{ width:22px; height:22px; margin:0; vertical-align:middle; }
 .navPrefBtn .si, #accSettingsBtn .si{ width:20px; height:20px; }
 .stDot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; flex:none; background:#d93025; box-shadow:0 0 0 2px rgba(255,255,255,.55); }
@@ -2006,7 +2028,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 </head>
 <body>
 <div id="appSplash" aria-hidden="true"><div class="spLogo">🐊</div><div class="spName">HGV NaviGator</div><div class="spSub">Ładowanie mapy…</div></div>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6db6ff"/><stop offset="1" stop-color="#1f6fe0"/></linearGradient><linearGradient id="gTeal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fdad0"/><stop offset="1" stop-color="#128c8c"/></linearGradient><linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ee6a10"/></linearGradient><linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86e8ad"/><stop offset="1" stop-color="#1fa35b"/></linearGradient><linearGradient id="gYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe28f"/><stop offset="1" stop-color="#f0a400"/></linearGradient><linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset="1" stop-color="#7a47d6"/></linearGradient><linearGradient id="gGray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#aab6c2"/><stop offset="1" stop-color="#5e6a76"/></linearGradient></defs><symbol id="si-screen" viewBox="0 0 24 24"><rect x="2.5" y="3.6" width="19" height="13" rx="2.7" fill="url(#gBlue)"/><rect x="4.5" y="5.5" width="15" height="9.1" rx="1.5" fill="#fff" fill-opacity=".26"/><path d="M8.6 20.4h6.8M12 16.6v3.8" stroke="#5e6a76" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-sound" viewBox="0 0 24 24"><path d="M3.4 9.5h3.8L12.4 5.2v13.6L7.2 14.5H3.4z" fill="url(#gTeal)"/><path d="M15.4 9.3a4 4 0 0 1 0 5.4M18.1 6.8a7.6 7.6 0 0 1 0 10.4" stroke="#128c8c" stroke-width="1.8" stroke-linecap="round" fill="none"/></symbol><symbol id="si-truck" viewBox="0 0 24 24"><rect x=".4" y="4.6" width="14.4" height="9.6" rx="1" fill="url(#gBlue)"/><path d="M1.5 6.9h12.2" stroke="#fff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/><path d="M1.5 9.2h7" stroke="#fff" stroke-opacity=".28" stroke-width="1" stroke-linecap="round"/><rect x=".4" y="14.2" width="23.3" height="1.3" rx=".5" fill="#4a5563"/><path d="M10.6 15.4v2.4M9.4 17.8h2.4" stroke="#8d99a5" stroke-width=".9" stroke-linecap="round"/><path d="M15.2 14.2h3.2v-.8h-3.2z" fill="#8d99a5"/><path d="M16.3 14.4V8.3Q16.3 6.4 18 6.4H19.4Q20 6.4 20.4 6.9L22.3 9.9H23Q23.7 9.9 23.7 10.7V14.4z" fill="url(#gOrange)"/><path d="M17 5.7h2.3q.6 0 .9.5l.5.7h-4.4q.1-1.2.7-1.2z" fill="#fff" fill-opacity=".55"/><path d="M17.9 7.7h1.5q.4 0 .6.4l1.3 2.1h-3.4z" fill="#fff" fill-opacity=".9"/><rect x="22.6" y="11.1" width="1.1" height="1.1" rx=".4" fill="#fff6c8"/><path d="M16.3 12.5h6" stroke="#fff" stroke-opacity=".4" stroke-width=".7"/><g fill="#2a343d" stroke="#cfd6dc" stroke-width=".7"><circle cx="3.1" cy="17.4" r="1.7"/><circle cx="7" cy="17.4" r="1.7"/><circle cx="17.3" cy="17.4" r="1.7"/><circle cx="21.3" cy="17.4" r="1.7"/></g></symbol><symbol id="si-reports" viewBox="0 0 24 24"><path d="M12 3.2 21.6 20H2.4z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 9.4v5" stroke="#1b1f24" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="#1b1f24"/></symbol><symbol id="si-users" viewBox="0 0 24 24"><circle cx="16.7" cy="8.9" r="2.5" fill="url(#gTeal)"/><path d="M16.9 13.8c2.9.1 4.9 1.9 4.9 5.2h-4.5c0-2.1-.6-3.8-1.9-4.9.4-.2.9-.3 1.5-.3z" fill="url(#gTeal)"/><circle cx="9.2" cy="8.4" r="3.2" fill="url(#gBlue)"/><path d="M2.8 19.6c0-3.6 2.8-5.7 6.4-5.7s6.4 2.1 6.4 5.7z" fill="url(#gBlue)"/></symbol><symbol id="si-gear" viewBox="0 0 24 24"><g fill="url(#gGray)"><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(0 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(45 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(90 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(135 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(180 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(225 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(270 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(315 12 12)"/><circle cx="12" cy="12" r="6.6"/></g><circle cx="12" cy="12" r="2.8" fill="#fff" fill-opacity=".9"/></symbol><symbol id="si-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="url(#gYellow)"/><path d="M12 2.4v2.5M12 19.1v2.5M2.4 12h2.5M19.1 12h2.5M5.2 5.2 7 7M17 17l1.8 1.8M5.2 18.8 7 17M17 7l1.8-1.8" stroke="#f0a400" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 1 1 9.6 3.8a6.9 6.9 0 0 0 10.6 10.6z" fill="url(#gPurple)"/><circle cx="17.6" cy="6.2" r="1.1" fill="#ffe28f"/><circle cx="20.2" cy="9.4" r=".7" fill="#ffe28f"/></symbol><symbol id="si-sunset" viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#241a4d" stroke="#fff" stroke-width="1.4"/><path d="M5.4 15.4a6.6 6.6 0 0 1 13.2 0z" fill="#ffd23f"/><path d="M12 3.8v2.7M4.9 7.9l1.9 1.7M19.1 7.9l-1.9 1.7" stroke="#ffd23f" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M3.8 15.8h16.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M7 18.6h10M9.8 21h4.4" stroke="#ff7a3d" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol><symbol id="si-map" viewBox="0 0 24 24"><path d="M3 6.4l6-2.2 6 2.2 6-2.2v13.4l-6 2.2-6-2.2-6 2.2z" fill="url(#gGreen)"/><path d="M9 4.2v13.4M15 6.4v13.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none"/><circle cx="16.4" cy="11.4" r="1.4" fill="#d6342b"/></symbol><symbol id="si-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="url(#gBlue)"/><path d="M6.6 8.4c2-1.6 4.2-1.2 5.2.3s-.6 2.8-2.5 3-3.5-.3-2.7-3.3zM13.4 14c1.7-.7 3.3.2 3.4 1.7s-1.7 2.3-3.1 1.8-1.3-2.9-.3-3.5z" fill="url(#gGreen)"/><ellipse cx="12" cy="12" rx="9" ry="3.4" transform="rotate(-24 12 12)" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.1"/></symbol><symbol id="si-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="4.1" fill="url(#gBlue)"/><path d="M4.4 20.6c0-4.2 3.4-6.7 7.6-6.7s7.6 2.5 7.6 6.7z" fill="url(#gBlue)"/></symbol><symbol id="si-sign" viewBox="0 0 24 24"><rect x="2.8" y="3.6" width="18.4" height="11" rx="1.9" fill="url(#gOrange)"/><path d="M6 8h12M6 11h7.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><rect x="10.9" y="14.6" width="2.2" height="6.4" rx=".8" fill="#5e6a76"/></symbol><symbol id="si-image" viewBox="0 0 24 24"><rect x="2.8" y="4.4" width="18.4" height="15.2" rx="2.5" fill="url(#gBlue)"/><circle cx="8.4" cy="9.6" r="1.9" fill="#ffe28f"/><path d="M3.8 18.4l5.2-5.4 3.4 3.4 3-3.6 5 5.6z" fill="#fff" fill-opacity=".92"/></symbol><symbol id="si-crown" viewBox="0 0 24 24"><path d="M3 8l4.6 4 4.4-6.4 4.4 6.4L21 8l-1.8 10.8H4.8z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1" stroke-linejoin="round"/><circle cx="3" cy="7.6" r="1.4" fill="#f0a400"/><circle cx="12" cy="5.4" r="1.4" fill="#f0a400"/><circle cx="21" cy="7.6" r="1.4" fill="#f0a400"/><path d="M5.6 16.2h12.8" stroke="#c9840a" stroke-width="1.2" fill="none"/></symbol><symbol id="si-road" viewBox="0 0 24 24"><path d="M8.2 3h7.6L21 21H3z" fill="url(#gGray)"/><path d="M12 5.4v2.6M12 10.6v3M12 16.6v3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M8.2 3 3 21M15.8 3 21 21" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/></symbol><symbol id="si-download" viewBox="0 0 24 24"><path d="M12 3.6v10M7.6 10l4.4 4.4 4.4-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-upload" viewBox="0 0 24 24"><path d="M12 14.4v-10M7.6 8l4.4-4.4L16.4 8" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-bricks" viewBox="0 0 24 24"><rect x="2.8" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="12.6" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="7.7" y="7.4" width="8.6" height="5.6" rx="1.2" fill="url(#gYellow)"/></symbol><symbol id="si-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.8" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2"/><circle cx="8" cy="12" r="1.6" fill="#fff"/><path d="M12.6 12H21M18 12v3.2M21 12v2.4" stroke="#c9840a" stroke-width="2" stroke-linecap="round" fill="none"/></symbol><symbol id="si-eye" viewBox="0 0 24 24"><path d="M2.4 12C4.6 7.6 8 5.6 12 5.6s7.4 2 9.6 6.4c-2.2 4.4-5.6 6.4-9.6 6.4S4.6 16.4 2.4 12z" fill="#fff" stroke="#1f6fe0" stroke-width="1.6"/><circle cx="12" cy="12" r="3.5" fill="url(#gBlue)"/><circle cx="12" cy="12" r="1.3" fill="#12305f"/></symbol><symbol id="si-cone" viewBox="0 0 24 24"><path d="M10.2 3.4Q12 1.6 13.8 3.4L18.6 18.6H5.4z" fill="url(#gOrange)"/><path d="M8.1 11h7.8l.9 2.9H7.2zM9.3 7.2h5.4l.7 2.1H8.6z" fill="#fff"/><rect x="3" y="18.2" width="18" height="3.6" rx="1.4" fill="#4a5563"/></symbol><symbol id="si-link" viewBox="0 0 24 24"><path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l3-3a3.6 3.6 0 0 0-5.1-5.1l-1 1M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-3 3a3.6 3.6 0 0 0 5.1 5.1l1-1" stroke="#1f6fe0" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6db6ff"/><stop offset="1" stop-color="#1f6fe0"/></linearGradient><linearGradient id="gTeal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fdad0"/><stop offset="1" stop-color="#128c8c"/></linearGradient><linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ee6a10"/></linearGradient><linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86e8ad"/><stop offset="1" stop-color="#1fa35b"/></linearGradient><linearGradient id="gYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe28f"/><stop offset="1" stop-color="#f0a400"/></linearGradient><linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset="1" stop-color="#7a47d6"/></linearGradient><linearGradient id="gGray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#aab6c2"/><stop offset="1" stop-color="#5e6a76"/></linearGradient></defs><symbol id="si-screen" viewBox="0 0 24 24"><rect x="2.5" y="3.6" width="19" height="13" rx="2.7" fill="url(#gBlue)"/><rect x="4.5" y="5.5" width="15" height="9.1" rx="1.5" fill="#fff" fill-opacity=".26"/><path d="M8.6 20.4h6.8M12 16.6v3.8" stroke="#5e6a76" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-sound" viewBox="0 0 24 24"><path d="M3.4 9.5h3.8L12.4 5.2v13.6L7.2 14.5H3.4z" fill="url(#gTeal)"/><path d="M15.4 9.3a4 4 0 0 1 0 5.4M18.1 6.8a7.6 7.6 0 0 1 0 10.4" stroke="#128c8c" stroke-width="1.8" stroke-linecap="round" fill="none"/></symbol><symbol id="si-truck" viewBox="-8 0 32 24"><rect x="-7.6" y="4.6" width="22.4" height="9.6" rx="1" fill="url(#gBlue)"/><path d="M-6.5 6.9h20.2" stroke="#fff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/><path d="M-6.5 9.2h12" stroke="#fff" stroke-opacity=".28" stroke-width="1" stroke-linecap="round"/><rect x="-7.6" y="14.2" width="31.3" height="1.3" rx=".5" fill="#4a5563"/><path d="M10.6 15.4v2.4M9.4 17.8h2.4" stroke="#8d99a5" stroke-width=".9" stroke-linecap="round"/><path d="M15.2 14.2h3.2v-.8h-3.2z" fill="#8d99a5"/><path d="M16.3 14.4V8.3Q16.3 6.4 18 6.4H19.4Q20 6.4 20.4 6.9L22.3 9.9H23Q23.7 9.9 23.7 10.7V14.4z" fill="url(#gOrange)"/><path d="M17 5.7h2.3q.6 0 .9.5l.5.7h-4.4q.1-1.2.7-1.2z" fill="#fff" fill-opacity=".55"/><path d="M17.9 7.7h1.5q.4 0 .6.4l1.3 2.1h-3.4z" fill="#fff" fill-opacity=".9"/><rect x="22.6" y="11.1" width="1.1" height="1.1" rx=".4" fill="#fff6c8"/><path d="M16.3 12.5h6" stroke="#fff" stroke-opacity=".4" stroke-width=".7"/><g fill="#2a343d" stroke="#cfd6dc" stroke-width=".7"><circle cx="-4.9" cy="17.4" r="1.7"/><circle cx="-1.1" cy="17.4" r="1.7"/><circle cx="2.7" cy="17.4" r="1.7"/><circle cx="17.3" cy="17.4" r="1.7"/><circle cx="21.3" cy="17.4" r="1.7"/></g></symbol><symbol id="si-reports" viewBox="0 0 24 24"><path d="M12 3.2 21.6 20H2.4z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 9.4v5" stroke="#1b1f24" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="#1b1f24"/></symbol><symbol id="si-users" viewBox="0 0 24 24"><circle cx="16.7" cy="8.9" r="2.5" fill="url(#gTeal)"/><path d="M16.9 13.8c2.9.1 4.9 1.9 4.9 5.2h-4.5c0-2.1-.6-3.8-1.9-4.9.4-.2.9-.3 1.5-.3z" fill="url(#gTeal)"/><circle cx="9.2" cy="8.4" r="3.2" fill="url(#gBlue)"/><path d="M2.8 19.6c0-3.6 2.8-5.7 6.4-5.7s6.4 2.1 6.4 5.7z" fill="url(#gBlue)"/></symbol><symbol id="si-gear" viewBox="0 0 24 24"><g fill="url(#gGray)"><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(0 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(45 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(90 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(135 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(180 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(225 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(270 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(315 12 12)"/><circle cx="12" cy="12" r="6.6"/></g><circle cx="12" cy="12" r="2.8" fill="#fff" fill-opacity=".9"/></symbol><symbol id="si-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="url(#gYellow)"/><path d="M12 2.4v2.5M12 19.1v2.5M2.4 12h2.5M19.1 12h2.5M5.2 5.2 7 7M17 17l1.8 1.8M5.2 18.8 7 17M17 7l1.8-1.8" stroke="#f0a400" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 1 1 9.6 3.8a6.9 6.9 0 0 0 10.6 10.6z" fill="url(#gPurple)"/><circle cx="17.6" cy="6.2" r="1.1" fill="#ffe28f"/><circle cx="20.2" cy="9.4" r=".7" fill="#ffe28f"/></symbol><symbol id="si-sunset" viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#241a4d" stroke="#fff" stroke-width="1.4"/><path d="M5.4 15.4a6.6 6.6 0 0 1 13.2 0z" fill="#ffd23f"/><path d="M12 3.8v2.7M4.9 7.9l1.9 1.7M19.1 7.9l-1.9 1.7" stroke="#ffd23f" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M3.8 15.8h16.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M7 18.6h10M9.8 21h4.4" stroke="#ff7a3d" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol><symbol id="si-map" viewBox="0 0 24 24"><path d="M3 6.4l6-2.2 6 2.2 6-2.2v13.4l-6 2.2-6-2.2-6 2.2z" fill="url(#gGreen)"/><path d="M9 4.2v13.4M15 6.4v13.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none"/><circle cx="16.4" cy="11.4" r="1.4" fill="#d6342b"/></symbol><symbol id="si-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="url(#gBlue)"/><path d="M6.6 8.4c2-1.6 4.2-1.2 5.2.3s-.6 2.8-2.5 3-3.5-.3-2.7-3.3zM13.4 14c1.7-.7 3.3.2 3.4 1.7s-1.7 2.3-3.1 1.8-1.3-2.9-.3-3.5z" fill="url(#gGreen)"/><ellipse cx="12" cy="12" rx="9" ry="3.4" transform="rotate(-24 12 12)" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.1"/></symbol><symbol id="si-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="4.1" fill="url(#gBlue)"/><path d="M4.4 20.6c0-4.2 3.4-6.7 7.6-6.7s7.6 2.5 7.6 6.7z" fill="url(#gBlue)"/></symbol><symbol id="si-sign" viewBox="0 0 24 24"><rect x="2.8" y="3.6" width="18.4" height="11" rx="1.9" fill="url(#gOrange)"/><path d="M6 8h12M6 11h7.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><rect x="10.9" y="14.6" width="2.2" height="6.4" rx=".8" fill="#5e6a76"/></symbol><symbol id="si-image" viewBox="0 0 24 24"><rect x="2.8" y="4.4" width="18.4" height="15.2" rx="2.5" fill="url(#gBlue)"/><circle cx="8.4" cy="9.6" r="1.9" fill="#ffe28f"/><path d="M3.8 18.4l5.2-5.4 3.4 3.4 3-3.6 5 5.6z" fill="#fff" fill-opacity=".92"/></symbol><symbol id="si-crown" viewBox="0 0 24 24"><path d="M3 8l4.6 4 4.4-6.4 4.4 6.4L21 8l-1.8 10.8H4.8z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1" stroke-linejoin="round"/><circle cx="3" cy="7.6" r="1.4" fill="#f0a400"/><circle cx="12" cy="5.4" r="1.4" fill="#f0a400"/><circle cx="21" cy="7.6" r="1.4" fill="#f0a400"/><path d="M5.6 16.2h12.8" stroke="#c9840a" stroke-width="1.2" fill="none"/></symbol><symbol id="si-road" viewBox="0 0 24 24"><path d="M8.2 3h7.6L21 21H3z" fill="url(#gGray)"/><path d="M12 5.4v2.6M12 10.6v3M12 16.6v3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M8.2 3 3 21M15.8 3 21 21" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/></symbol><symbol id="si-download" viewBox="0 0 24 24"><path d="M12 3.6v10M7.6 10l4.4 4.4 4.4-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-upload" viewBox="0 0 24 24"><path d="M12 14.4v-10M7.6 8l4.4-4.4L16.4 8" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-bricks" viewBox="0 0 24 24"><rect x="2.8" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="12.6" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="7.7" y="7.4" width="8.6" height="5.6" rx="1.2" fill="url(#gYellow)"/></symbol><symbol id="si-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.8" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2"/><circle cx="8" cy="12" r="1.6" fill="#fff"/><path d="M12.6 12H21M18 12v3.2M21 12v2.4" stroke="#c9840a" stroke-width="2" stroke-linecap="round" fill="none"/></symbol><symbol id="si-eye" viewBox="0 0 24 24"><path d="M2.4 12C4.6 7.6 8 5.6 12 5.6s7.4 2 9.6 6.4c-2.2 4.4-5.6 6.4-9.6 6.4S4.6 16.4 2.4 12z" fill="#fff" stroke="#1f6fe0" stroke-width="1.6"/><circle cx="12" cy="12" r="3.5" fill="url(#gBlue)"/><circle cx="12" cy="12" r="1.3" fill="#12305f"/></symbol><symbol id="si-cone" viewBox="0 0 24 24"><path d="M10.2 3.4Q12 1.6 13.8 3.4L18.6 18.6H5.4z" fill="url(#gOrange)"/><path d="M8.1 11h7.8l.9 2.9H7.2zM9.3 7.2h5.4l.7 2.1H8.6z" fill="#fff"/><rect x="3" y="18.2" width="18" height="3.6" rx="1.4" fill="#4a5563"/></symbol><symbol id="si-link" viewBox="0 0 24 24"><path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l3-3a3.6 3.6 0 0 0-5.1-5.1l-1 1M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-3 3a3.6 3.6 0 0 0 5.1 5.1l1-1" stroke="#1f6fe0" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol></svg>
 
 <div id="map"></div>
 <div id="skyFog" aria-hidden="true"></div>
@@ -2021,6 +2043,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     <button id="detourSkip" type="button">Jadę dalej</button>
   </div>
 </div>
+<div id="viaHint">Dotknij <b>2×</b> linię trasy — pojawi się kropka.<br>Przeciągnij ją tam, którędy chcesz jechać.</div>
 <div id="alertBanner">
   <div class="banner-card" id="bannerCard">
     <div class="banner-icon">📷</div>
@@ -2331,6 +2354,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
           <span class="navComboSep" aria-hidden="true"></span>
           <input type="text" id="navOriginPc" class="navStopInput" placeholder="Kod pocztowy" maxlength="8" enterkeyhint="go" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pocztowy punktu początkowego">
           <button id="navOriginPcClear" class="navClearBtn" type="button" aria-label="Wyczyść kod pocztowy startu">✕</button>
+          <button id="navOriginGpsOn" type="button" title="Włącz GPS i startuj z mojej pozycji"><span aria-hidden="true">📍</span>Włącz GPS</button>
         </div>
         <div id="navOriginSuggestions" class="navSuggestions"></div>
       </div>
@@ -2408,7 +2432,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     </div>
     <div id="navPickEdit">
       <div id="pickSummary"></div>
-      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg class="si" aria-hidden="true"><use href="#si-truck"/></svg><span id="pickTruckTxt"></span><b>Zmień</b></button>
+      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg><span id="pickTruckTxt"></span><b>Zmień</b></button>
       <div id="pickStops"></div>
       <div id="pickAddWrap" class="navStopWrap" style="display:none">
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
@@ -2480,7 +2504,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     <div id="setTabs" role="tablist">
       <button type="button" data-tab="screen" class="active"><svg class="si" aria-hidden="true"><use href="#si-screen"/></svg>Ekran</button>
       <button type="button" data-tab="sound"><svg class="si" aria-hidden="true"><use href="#si-sound"/></svg>Dźwięk</button>
-      <button type="button" data-tab="truck"><svg class="si" aria-hidden="true"><use href="#si-truck"/></svg>Ciężarówka</button>
+      <button type="button" data-tab="truck"><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg>Ciężarówka</button>
       <button type="button" data-tab="reports" class="adminOnly"><svg class="si" aria-hidden="true"><use href="#si-reports"/></svg> Zgłoszenia <b id="rpBadge" class="rpBadge" style="display:none"></b></button>
       <button type="button" data-tab="users" class="adminOnly"><svg class="si" aria-hidden="true"><use href="#si-users"/></svg>Użytkownicy</button>
       <button type="button" data-tab="system" class="adminOnly"><svg class="si" aria-hidden="true"><use href="#si-gear"/></svg>System</button>
@@ -2497,6 +2521,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       <label class="navPrefLabel"><input type="checkbox" id="navPrefSpeedometer"> Prędkościomierz</label>
       <label class="navPrefLabel"><input type="checkbox" id="navPrefLimitSign"> Znak ograniczenia prędkości</label>
       <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefNoLimitMap"> Pokaż na mapie drogi bez limitu (admin)</label>
+      <label class="navPrefLabel adminOnly"><input type="checkbox" id="navPrefCamsMap"> Pokaż na mapie fotoradary i kamery odcinkowe (admin)</label>
       <div class="navTitle" style="margin-top:12px">Tryb mapy</div>
       <div class="themeSeg" id="themeSeg" role="group" aria-label="Tryb mapy">
         <button type="button" data-theme="day" title="Dzień" aria-label="Dzień"><svg class="si" aria-hidden="true"><use href="#si-sun"/></svg></button>
@@ -2550,7 +2575,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 
     <div class="setPane" data-pane="truck">
   <div id="navTruckBlock" class="units-imperial">
-    <div class="truckHead"><span><svg class="si" aria-hidden="true"><use href="#si-truck"/></svg>Parametry ciężarówki</span>
+    <div class="truckHead"><span><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg>Parametry ciężarówki</span>
       <div class="unitSeg" id="tpUnits"><button type="button" data-u="imperial">ft · t</button><button type="button" data-u="metric">m · t</button></div>
     </div>
     <div class="truckGrid">
@@ -2569,7 +2594,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 120 76" aria-hidden="true">
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 150 76" aria-hidden="true">
 <defs>
 <linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b4f78"/><stop offset=".62" stop-color="#14283f"/><stop offset="1" stop-color="#0a1422"/></linearGradient>
 <radialGradient id="trHalo" cx=".62" cy=".42" r=".55"><stop offset="0" stop-color="#5fd0ff" stop-opacity=".32"/><stop offset="1" stop-color="#5fd0ff" stop-opacity="0"/></radialGradient>
@@ -2581,35 +2606,35 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 <linearGradient id="trRoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a3f"/><stop offset="1" stop-color="#0a121e"/></linearGradient>
 <filter id="trGlow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="2.4"/></filter>
 <filter id="trSoft" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="1.1"/></filter>
-<clipPath id="trClip"><rect width="120" height="76" rx="14"/></clipPath>
+<clipPath id="trClip"><rect width="150" height="76" rx="14"/></clipPath>
 <g id="trWheel"><circle r="6.3" fill="#080b10"/><circle r="6.3" fill="none" stroke="#2a3340" stroke-width=".8"/><circle r="3.4" fill="#aab6c4"/><circle r="3.4" fill="none" stroke="#6d7b8c" stroke-width=".6"/><circle r="1.3" fill="#445063"/></g>
 </defs>
 <g clip-path="url(#trClip)">
-<rect width="120" height="76" fill="url(#trBg)"/>
-<rect width="120" height="76" fill="url(#trHalo)"/>
+<rect width="150" height="76" fill="url(#trBg)"/>
+<rect width="150" height="76" fill="url(#trHalo)"/>
 <g fill="#cfe6ff" opacity=".55"><circle cx="12" cy="8" r=".55"/><circle cx="30" cy="5" r=".45"/><circle cx="104" cy="6" r=".5"/><circle cx="116" cy="14" r=".4"/><circle cx="6" cy="19" r=".4"/></g>
 <!-- droga -->
-<path d="M0 62.5 H120 V76 H0Z" fill="url(#trRoad)"/>
-<path d="M0 62.5 H120" stroke="#3b5675" stroke-width=".7" opacity=".7"/>
+<path d="M0 62.5 H150 V76 H0Z" fill="url(#trRoad)"/>
+<path d="M0 62.5 H150" stroke="#3b5675" stroke-width=".7" opacity=".7"/>
 <!-- trasa: poświata, linia, przerywana oś, start i cel -->
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#19e07a" stroke-width="7" opacity=".75" filter="url(#trGlow)"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#0c5a36" stroke-width="5.6" stroke-linecap="round"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#3dff8f" stroke-width="3.6" stroke-linecap="round"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S108 62.5 126 64.5" fill="none" stroke="#eafff2" stroke-width=".9" stroke-linecap="round" stroke-dasharray="1.6 3.4"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#19e07a" stroke-width="7" opacity=".75" filter="url(#trGlow)"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#0c5a36" stroke-width="5.6" stroke-linecap="round"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#3dff8f" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#eafff2" stroke-width=".9" stroke-linecap="round" stroke-dasharray="1.6 3.4"/>
 <!-- cień pod pojazdem -->
-<ellipse cx="62" cy="63.6" rx="54" ry="2.6" fill="#000" opacity=".5" filter="url(#trSoft)"/>
+<ellipse cx="77" cy="63.6" rx="70" ry="2.6" fill="#000" opacity=".5" filter="url(#trSoft)"/>
 <!-- światło reflektora -->
 <path d="M7 45.2 L-6 40 V56 L7 50.4Z" fill="url(#trBeam)"/>
 <!-- naczepa -->
-<rect x="44" y="9" width="71" height="43.5" rx="1.8" fill="url(#trTrl)"/>
-<rect x="44" y="9" width="71" height="2.6" rx="1.2" fill="#fff" opacity=".85"/>
-<g stroke="#b3c2d4" stroke-width=".55" opacity=".9"><path d="M52 12V51M60 12V51M68 12V51M76 12V51M84 12V51M92 12V51M100 12V51M108 12V51"/></g>
-<rect x="44" y="42.2" width="71" height="3.6" fill="#19c46c"/><rect x="44" y="45.8" width="71" height="1" fill="#0c7a43"/>
-<text x="79.5" y="31" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="8.2" fill="#16325c" letter-spacing=".2">Nawi<tspan fill="#0fa65a">Gator</tspan></text>
-<rect x="44" y="49.2" width="71" height="3.4" fill="#2a3442"/>
-<rect x="112.6" y="38" width="2.4" height="9" rx=".8" fill="#ff3a2e"/><rect x="112.6" y="30" width="2.4" height="3" rx=".8" fill="#ffb02e"/>
+<rect x="44" y="9" width="101" height="43.5" rx="1.8" fill="url(#trTrl)"/>
+<rect x="44" y="9" width="101" height="2.6" rx="1.2" fill="#fff" opacity=".85"/>
+<g stroke="#b3c2d4" stroke-width=".55" opacity=".9"><path d="M52 12V51M60 12V51M68 12V51M76 12V51M84 12V51M92 12V51M100 12V51M108 12V51M116 12V51M124 12V51M132 12V51M140 12V51"/></g>
+<rect x="44" y="42.2" width="101" height="3.6" fill="#19c46c"/><rect x="44" y="45.8" width="101" height="1" fill="#0c7a43"/>
+<text x="94.5" y="31" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="8.2" fill="#16325c" letter-spacing=".2">Nawi<tspan fill="#0fa65a">Gator</tspan></text>
+<rect x="44" y="49.2" width="101" height="3.4" fill="#2a3442"/>
+<rect x="142.6" y="38" width="2.4" height="9" rx=".8" fill="#ff3a2e"/><rect x="142.6" y="30" width="2.4" height="3" rx=".8" fill="#ffb02e"/>
 <!-- podwozie -->
-<rect x="9" y="53.5" width="104" height="3.4" rx="1" fill="#111925"/>
+<rect x="9" y="53.5" width="134" height="3.4" rx="1" fill="#111925"/>
 <rect x="41" y="48" width="16" height="7" rx="3.5" fill="#aeb9c6"/><rect x="41" y="48" width="16" height="2.4" rx="1.2" fill="#e8eef5" opacity=".8"/>
 <!-- kabina -->
 <path d="M22 15.4 L27 8.6 Q28 7.4 30 7.4 H41.4 V15.4Z" fill="url(#trDef)"/>
@@ -2623,10 +2648,10 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 <rect x="5.6" y="53.2" width="36" height="4.2" rx="1.6" fill="#161f2d"/><rect x="5.6" y="53.2" width="36" height="1.2" rx=".6" fill="#46566c"/>
 <rect x="33" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/><rect x="26" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/>
 <!-- koła -->
-<g fill="#05080c"><circle cx="21" cy="57.4" r="7.6"/><circle cx="53" cy="57.4" r="7.6"/><circle cx="63" cy="57.4" r="7.6"/><circle cx="95" cy="57.4" r="7.6"/><circle cx="105" cy="57.4" r="7.6"/></g>
-<use href="#trWheel" x="21" y="57.4"/><use href="#trWheel" x="53" y="57.4"/><use href="#trWheel" x="63" y="57.4"/><use href="#trWheel" x="95" y="57.4"/><use href="#trWheel" x="105" y="57.4"/>
+<g fill="#05080c"><circle cx="21" cy="57.4" r="7.6"/><circle cx="53" cy="57.4" r="7.6"/><circle cx="63" cy="57.4" r="7.6"/><circle cx="116" cy="57.4" r="7.6"/><circle cx="126" cy="57.4" r="7.6"/><circle cx="136" cy="57.4" r="7.6"/></g>
+<use href="#trWheel" x="21" y="57.4"/><use href="#trWheel" x="53" y="57.4"/><use href="#trWheel" x="63" y="57.4"/><use href="#trWheel" x="116" y="57.4"/><use href="#trWheel" x="126" y="57.4"/><use href="#trWheel" x="136" y="57.4"/>
 </g>
-<rect x=".5" y=".5" width="119" height="75" rx="13.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
+<rect x=".5" y=".5" width="149" height="75" rx="13.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
 </svg></button>
       </div>
     </div>
@@ -3018,6 +3043,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   const SPEED_VOTE_MIN = 3;          // tylu zgodnych głosów kierowców potrzeba, by limit z głosowania pojawił się na znaku
   const MY_ROAD_VOTES_KEY = "nawigator_road_votes";
   const PREF_SHOW_NOLIMIT_MAP = "nawigator_pref_show_nolimit_map";
+  const PREF_SHOW_CAMS_MAP = "nawigator_pref_show_cams_map";
   const NOLIMIT_RADIUS_M = 450;      // promień pobierania dróg BEZ maxspeed (na nich znak pokazuje ❓)
   const NOLIMIT_HIGHWAY_RE = /^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$/;
   const HGV_PARKING_RADIUS_M = 20000; // promień pobierania parkingów/MOP-ów dla TIR-ów (rzadsze niż drogi, więc większy zasięg)
@@ -3066,8 +3092,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   // (z rosnącym limitem), zamiast jednego wspólnego przerwania, które zabijało wszystkie zapytania naraz.
   const VALHALLA_TRY_TIMEOUTS_MS = [15000, 22000, 30000];
   let valhallaOnRetry = null;   // (nr próby, liczba prób) → komunikat o ponawianiu
-  function valhallaRequest(request, parent, maxAttempts){
-    const url = `${VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`;
+  function valhallaRequest(request, parent, maxAttempts, service){
+    const url = `${service ? VALHALLA_URL.replace(/route$/, service) : VALHALLA_URL}?json=${encodeURIComponent(JSON.stringify(request))}`;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     let n = 0;
     const attempt = () => {
@@ -3345,6 +3371,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function updateViewBtn(){
     const lab = document.getElementById("viewLabel"); if(!lab) return;
     lab.textContent = is3D ? "3D" : "2D";
+    document.body.classList.toggle("view-3d", is3D);
   }
   function updateCompassBtn(){
     const btn = document.getElementById("btnCompass");
@@ -3392,6 +3419,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   let roadVoteTotals = new Map();  // wayId -> Map(mph -> liczba głosów kierowców)
   let lastNoLimitFeatures = [];    // drogi bez limitu jako linie GeoJSON (podgląd dla administratora)
   let prefShowNoLimitMap = localStorage.getItem(PREF_SHOW_NOLIMIT_MAP) !== "0";   // admin: podgląd dróg bez limitu, domyślnie włączony
+  let prefShowCamsMap = localStorage.getItem(PREF_SHOW_CAMS_MAP) !== "0";   // admin: kamery i fotoradary przy każdym przybliżeniu, domyślnie włączone
   let tapLimitWay = null;       // {wayId, highway, lat, lon, known, curMph, src} — droga pod znakiem (❓ albo limit ze społeczności/admina)
   let roadSegments = [];        // [{a:[lon,lat], b:[lon,lat], maxspeed:number}]
   let currentLimit = null;
@@ -10636,7 +10664,14 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const chip = document.getElementById("navOriginGps"), el = document.getElementById("navOrigin");
     if(chip) chip.style.display = (lastPos && (navSelectedOrigin || (el.value || "").trim())) ? "flex" : "none";
     navRefreshClearBtns();
+    refreshRouteEnds();
   }
+  // ＋ i ⇅ tylko, gdy ustawione są oba punkty (puste pole startu przy działającym GPS = start ustawiony)
+  function refreshRouteEnds(){
+    const el = document.getElementById("navOrigin");
+    document.body.classList.toggle("route-ends", !!navSelectedDest && !!(navSelectedOrigin || (lastPos && !(el.value || "").trim())));
+  }
+  addTick(refreshRouteEnds, 700);
   function updateAddWaypointVisibility(){
     const hasDest = !!navSelectedDest;
     const rows = document.querySelectorAll("#navWaypointsList .navWaypointWrap").length;
@@ -11620,7 +11655,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   // Wybrano punkt początkowy ORAZ cel → od razu planujemy i pokazujemy trasę (bez okna firmy i bez klikania „Zaplanuj trasę”).
   // Zachowuje się jak „Zaplanuj trasę” z okna firmy, łącznie z bramą wjazdową ustawioną przez administratora.
   function runAutoPlan(){
-    const d = navSelectedDest; if(!d || !navSelectedOrigin) return;
+    const d = navSelectedDest; if(!d || (!navSelectedOrigin && !lastPos)) return;
     try{
       const gate = (typeof poiGateFor === "function") ? poiGateFor({ name: d.name || String(d.label || "").split(",")[0], lat: d.lat, lon: d.lon }) : null;
       if(gate) navSelectedDest = Object.assign({}, d, { lat: gate.lat, lon: gate.lon });
@@ -11758,6 +11793,16 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     followUser = false;
     updateLocateBtnVisibility();
     showDestPin();
+    if(noGpsMode && !lastPos && navUiState === "search"){   // bez GPS: zamiast okna firmy od razu pole punktu początkowego
+      hidePoiAsk();
+      pendingRouteMode = null;
+      updateAddWaypointVisibility();
+      if(map) map.easeTo({ center: [d.lon, d.lat], zoom: 14, pitch: 0, bearing: 0, offset: [0, 0], duration: 600 });
+      const o = document.getElementById("navOrigin");
+      o.focus();                                 // w tym samym dotknięciu — telefon otwiera klawiaturę
+      setTimeout(() => { if(navSelectedDest && !navSelectedOrigin){ o.focus(); o.dispatchEvent(new Event("focus")); } }, 120);   // lista Historia / Ulubione
+      return;
+    }
     const label = d.label || "";
     showPoiAsk(d.name || label.split(",")[0] || label, d.lat, d.lon, null, null, d.addr || null);
     if(typeof PS !== "undefined") PS.fromSearch = true;
@@ -12296,12 +12341,6 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     activeRoute.stops = ((source || "truck") === "truck" || source === "truck-easy") && lastTruckStops
       ? lastTruckStops.map(s => ({ lat: s.lat, lon: s.lon })) : null;
     clearViaMarkers();
-    if(!viaHintShown){
-      viaHintShown = true;
-      const msg = "Dotknij trasy, żeby dodać punkt — potem go przeciągnij";
-      showNavStatus(msg);
-      setTimeout(() => { const el = document.getElementById("navStatus"); if(el && el.textContent === msg) showNavStatus(""); }, 5000);
-    }
     routeSpeedSegments = [];
     routeTrafficIncidents = [];
     pendingRoutes = { main:null, alt:null };
@@ -13872,6 +13911,13 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     try{ localStorage.setItem(PREF_SHOW_NOLIMIT_MAP, prefShowNoLimitMap ? "1" : "0"); }catch(err){}
     refreshNoLimitLayer();
   });
+  const navPrefCamsMapInput = document.getElementById("navPrefCamsMap");
+  navPrefCamsMapInput.checked = prefShowCamsMap;
+  navPrefCamsMapInput.addEventListener("change", (e) => {
+    prefShowCamsMap = e.target.checked;
+    try{ localStorage.setItem(PREF_SHOW_CAMS_MAP, prefShowCamsMap ? "1" : "0"); }catch(err){}
+    if(typeof mbtCameras === "function") mbtCameras();
+  });
   applyDisplayPrefs();
   // ---------- okno ustawień głosu (długie przytrzymanie głośnika na tablicy z instrukcjami) ----------
   const voicePanel = document.getElementById("soundPane");
@@ -14688,7 +14734,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
      dokładnie przez miejsce, w którym go puścisz (najbliższa droga dozwolona dla ciężarówki), a w trakcie
      przeciągania jest liczona na żywo. Dotknięcie punktu usuwa go. Cofnij przywraca poprzednią trasę.
   ============================================================ */
-  var lastTruckStops = lastTruckStops || null, viaMarkers = viaMarkers || [], viaTap = null, viaHandlerBound = viaHandlerBound || false, viaHintShown = viaHintShown || false;
+  var lastTruckStops = lastTruckStops || null, viaMarkers = viaMarkers || [], viaTap = null, viaHandlerBound = viaHandlerBound || false;
   const VIA_MAX = 8;
   const viaVariant = r => (r && r.source === "truck-easy") ? "easy" : "fast";
   const viaStopsCopy = stops => stops.map(s => ({ lat: s.lat, lon: s.lon }));
@@ -14747,8 +14793,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       addViaAt(n.ll);
       return;
     }
-    // edycja trasy: jedno dotknięcie trasy = punkt, który można przeciągnąć
-    if(!routeEditMode || !activeRoute || !activeRoute.planning) return;
+    // edycja trasy: dwa dotknięcia trasy = punkt, który można przeciągnąć
+    if(!routeEditMode || !activeRoute || !activeRoute.planning){ viaTap = null; return; }
+    const now = Date.now(), prev = viaTap;
+    viaTap = { t: now, x: e.point.x, y: e.point.y };
+    if(!(prev && now - prev.t < DOUBLE_TAP_MS + 100 && Math.hypot(e.point.x - prev.x, e.point.y - prev.y) < DOUBLE_TAP_PX + 15)) return;
+    viaTap = null;
     const n = routeNearest(activeRoute.coords, e.point);
     if(!n.ll || n.dist > 44){ console.info("Punkt na trasie: dotknięcie za daleko od trasy (" + Math.round(n.dist) + " px)"); return; }
     if(viaMarkers.some(m => { const q = map.project([m.stop.lon, m.stop.lat]); return Math.hypot(q.x - e.point.x, q.y - e.point.y) < 30; })) return;
@@ -14793,8 +14843,14 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       if(now - lastPinTap < DOUBLE_TAP_MS){ lastPinTap = 0; removeVia(entry); } else lastPinTap = now;
     });
     viaMarkers.push(entry);
+    updateViaHint();
   }
-  function clearViaMarkers(){ (viaMarkers || []).forEach(m => m.marker.remove()); viaMarkers = []; }
+  // dyskretna podpowiedź w edycji trasy — widoczna, dopóki na trasie nie ma żadnej kropki
+  function updateViaHint(){
+    const el = document.getElementById("viaHint");
+    if(el) el.classList.toggle("show", !!routeEditMode && !viaMarkers.length);
+  }
+  function clearViaMarkers(){ (viaMarkers || []).forEach(m => m.marker.remove()); viaMarkers = []; updateViaHint(); }
   function syncViaMarkers(){
     clearViaMarkers();
     if(activeRoute && activeRoute.stops) activeRoute.stops.forEach(s => { if(s.via) addViaMarker(s); });
@@ -14871,6 +14927,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         viaApply(r, res, stops);
         entry.marker.remove();
         viaMarkers = viaMarkers.filter(m => m !== entry);
+        updateViaHint();
       })
       .catch(viaFail);
   }
@@ -15100,6 +15157,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 
   // w trybie edycji trasa jest grubsza, żeby było widać, że można ją złapać
   function applyRouteEditVisuals(){
+    updateViaHint();
     if(map){
       if(routeEditMode){ ensureViaTapHandler(); try{ map.doubleClickZoom.disable(); }catch(e){} }
       else { clearViaMarkers(); try{ map.doubleClickZoom.enable(); }catch(e){} }
@@ -15443,6 +15501,24 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     startGps();
     try{ showBanner("SZUKAM GPS", "Włącz lokalizację w telefonie i zaczekaj chwilę", false); }catch(e){}
   }
+
+  // „Włącz GPS” w polu startu: po złapaniu pozycji start = GPS, a gdy cel jest wybrany — od razu trasa
+  safeInit("włącz GPS", () => {
+    document.getElementById("navOriginGpsOn").addEventListener("click", () => {
+      retryGps();
+      if(!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        onPosition(pos);
+        navSelectedOrigin = null; pendingRouteMode = null;
+        ["navOrigin", "navOriginPc"].forEach(id => { const el = document.getElementById(id); el.value = ""; el.blur(); });
+        document.getElementById("navOriginSuggestions").classList.remove("open", "saved");
+        updateAddWaypointVisibility();
+        if(navSelectedDest && navUiState === "search") runAutoPlan();
+      }, err => {
+        showBanner("GPS WYŁĄCZONY", err && err.code === 1 ? "Zezwól na lokalizację w ustawieniach przeglądarki / telefonu" : "Włącz lokalizację w telefonie i spróbuj ponownie", false);
+      }, { enableHighAccuracy:true, timeout:10000, maximumAge:0 });
+    });
+  });
 
   function attachWhenReady(){
     const iv = setInterval(() => {
@@ -17417,7 +17493,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 "use strict";
 
   var pendingExtra = null;
-  const AL_RADIUS_M = 25000, AL_CORRIDOR_M = 3500, AL_CACHE_MS = 3 * 60 * 1000;
+  const AL_RADIUS_M = 25000, AL_CORRIDOR_M = 3500, AL_CACHE_MS = 3 * 60 * 1000, AL_STEP_M = 40000, AL_ROUNDS = 3, AL_MAX = 8, AL_ROAD_CAND = 20;
   let alKind = "parking", alCache = {}, alToken = 0, alMarks = [];
   // punkty nieodpowiednie dla HGV (sql/along_flags.sql): wykluczone przez administratora (wszyscy) + ukryte lokalnie (zgłoszone przez tego kierowcę)
   const AL_HIDE_LS = "nav_al_hidden_v1";
@@ -17474,8 +17550,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   // Wyszukiwanie miejsc: 1) własny klucz TomTom (administrator), 2) wspólny klucz z serwera (funkcja tt-proxy; kierowca niczego nie wpisuje),
   // 3) awaryjnie darmowe dane OpenStreetMap (Overpass). Zwraca listę albo null, gdy źródło jest niedostępne.
   let alProxyOffUntil = 0;
-  async function alTomTom(query){
-    const p = { lat: String(lastPos.lat), lon: String(lastPos.lon), radius: String(AL_RADIUS_M), limit: "30", countrySet: NAV_DEFAULT_COUNTRY };
+  async function alTomTom(query, at){
+    const p = { lat: String(at.lat), lon: String(at.lon), radius: String(AL_RADIUS_M), limit: "30", countrySet: NAV_DEFAULT_COUNTRY };
     let j = null;
     try{
       if(tomtomApiKey){
@@ -17494,8 +17570,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       addr: (x.address && (x.address.freeformAddress || x.address.municipality)) || "" }));
   }
   // darmowy zamiennik: OpenStreetMap przez Overpass (parkingi dla ciężarówek, stacje paliw, MOP-y, stacje przy autostradach)
-  async function alOverpass(kind){
-    const ar = "(around:" + AL_RADIUS_M + "," + lastPos.lat.toFixed(5) + "," + lastPos.lon.toFixed(5) + ")";
+  async function alOverpass(kind, at){
+    const ar = "(around:" + AL_RADIUS_M + "," + at.lat.toFixed(5) + "," + at.lon.toFixed(5) + ")";
     const sel = kind === "parking"
       ? ['nwr["amenity"="parking"]["hgv"~"^(yes|designated)$"]', 'nwr["amenity"="parking"]["capacity:hgv"]', 'nwr["highway"="rest_area"]', 'nwr["highway"="services"]']
       : ['nwr["amenity"="fuel"]', 'nwr["highway"="services"]'];
@@ -17510,38 +17586,97 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       }).filter(Boolean);
     }catch(e){ console.warn("Po drodze (OSM):", e); return []; }
   }
-  // dla miejsca: ile przed nami na trasie i jak daleko od niej (tylko miejsca PRZED nami)
-  function alRank(list){
-    const cum = trCum(activeRoute), here = distanceToActiveRoute(lastPos.lat, lastPos.lon).idx, out = [];
-    list.forEach(it => {
-      const d = distanceToActiveRoute(it.lat, it.lon);
-      if(d.idx < here || d.distM > AL_CORRIDOR_M) return;
-      it.alongM = Math.max(0, cum[d.idx] - cum[here]); it.offM = d.distM; out.push(it);
-    });
-    out.sort((a, b) => (a.alongM + a.offM * 3) - (b.alongM + b.offM * 3));
-    const seen = []; return out.filter(it => { if(seen.some(s => haversine(s.lat, s.lon, it.lat, it.lon) < 120)) return false; seen.push(it); return true; }).slice(0, 8);
+  // miejsce na trasie, w którym jesteśmy / obok którego leży punkt: metry od początku trasy i odległość od niej
+  function alOnRoute(lat, lon, from){
+    const c = activeRoute.coords, cum = trCum(activeRoute);
+    let best = null;
+    for(let i = from || 0; i < c.length - 1; i++){
+      const q = projectPointToSegment(lat, lon, c[i], c[i + 1]);
+      if(!best || q.distM < best.offM){
+        const len = cum[i + 1] - cum[i];
+        best = { offM: q.distM, idx: i, m: cum[i] + Math.min(len, Math.sqrt(Math.max(0, Math.pow(haversine(c[i][1], c[i][0], lat, lon), 2) - q.distM * q.distM))) };
+      }
+    }
+    return best;
   }
+  // tylko miejsca PRZED nami przy trasie; odległość = od aktualnej pozycji wzdłuż trasy + zjazd z trasy; najbliższe pierwsze
+  function alRank(list){
+    const here = alOnRoute(lastPos.lat, lastPos.lon), out = [];
+    if(!here) return out;
+    list.forEach(it => {
+      const d = alOnRoute(it.lat, it.lon, here.idx);
+      if(!d || d.offM > AL_CORRIDOR_M || d.m < here.m - 50) return;
+      out.push(Object.assign({}, it, { offM: d.offM, distM: Math.max(0, d.m - here.m) + d.offM }));
+    });
+    out.sort((a, b) => a.distM - b.distM);
+    const seen = []; return out.filter(it => { if(seen.some(s => haversine(s.lat, s.lon, it.lat, it.lon) < 120)) return false; seen.push(it); return true; });
+  }
+  // środki wyszukiwania: tu, gdzie jesteśmy, potem co ok. 25 mil dalej po trasie
+  function alCenters(){
+    const c = activeRoute.coords, cum = trCum(activeRoute), here = alOnRoute(lastPos.lat, lastPos.lon), out = [{ lat: lastPos.lat, lon: lastPos.lon }];
+    for(let k = 1; here && k < AL_ROUNDS; k++){
+      const i = cum.findIndex(v => v >= here.m + k * AL_STEP_M);
+      if(i < 0){ if(cum[cum.length - 1] - here.m > (k - 1) * AL_STEP_M + AL_RADIUS_M){ const e = c[c.length - 1]; out.push({ lat: e[1], lon: e[0] }); } break; }
+      out.push({ lat: c[i][1], lon: c[i][0] });
+    }
+    return out;
+  }
+  async function alFetch(kind, at){      // surowe wyniki dla jednego środka (cache 3 min)
+    const key = Math.round(at.lat * 50) + ":" + Math.round(at.lon * 50) + ":" + kind, c = alCache[key];
+    if(c && Date.now() - c.t < AL_CACHE_MS) return c.raw;
+    let raw;
+    if(kind === "parking") raw = (await alTomTom("lorry parking", at)) || await alOverpass("parking", at);
+    else {
+      const [a, b] = await Promise.all([alTomTom("petrol station", at), alTomTom("motorway services", at)]);
+      raw = a && b ? a.concat(b) : await alOverpass("fuel", at);   // brak TomTom (ani własnego, ani z serwera) → darmowe dane OSM
+    }
+    if(raw.length) alCache[key] = { t: Date.now(), raw };
+    return raw;
+  }
+  // prawdziwy dojazd po drogach dla ciężarówki: jedno zapytanie Valhalla (tabela: moja pozycja → wszystkie miejsca), z uwzględnieniem kierunku jazdy.
+  // Zwraca miejsca od najbliższego (roadM, roadS); bez odpowiedzi serwera — szacunek wzdłuż trasy (bez roadM).
+  async function alRoad(list){
+    if(!list.length) return list;
+    try{
+      const req = {
+        sources: [{ lat: lastPos.lat, lon: lastPos.lon, heading: Math.round(currentHeading) % 360, heading_tolerance: 60 }],
+        targets: list.map(it => ({ lat: it.lat, lon: it.lon })),
+        costing: "truck",
+        costing_options: { truck: Object.assign({}, HGV_PROFILE, TRUCK_FAST_OPTS, tollOpts()) },
+        units: "kilometers"
+      };
+      const { ok, status, data } = await valhallaRequest(req, null, 2, "sources_to_targets");
+      const m = ok && data && data.sources_to_targets;
+      if(!m) throw new Error("VALHALLA_" + status);
+      const out = [];
+      list.forEach((it, i) => {
+        const cell = Array.isArray(m) ? (m[0] || [])[i] : { distance: m.distances[0][i], time: m.durations[0][i] };   // dwa formaty odpowiedzi serwera
+        if(cell && typeof cell.distance === "number") out.push(Object.assign({}, it, { roadM: cell.distance * 1000, roadS: cell.time }));
+      });
+      if(!out.length) throw new Error("brak dojazdów");
+      return out.sort((a, b) => a.roadM - b.roadM);
+    }catch(e){ console.warn("Po drodze (dojazd po drogach):", e); return list; }
+  }
+  const alDistText = it => it.roadM !== undefined
+    ? "dojazd " + alMi(it.roadM) + (it.roadS ? " · ok. " + Math.max(1, Math.round(it.roadS / 60)) + " min" : "")
+    : "≈ " + alMi(it.distM) + " (szacunek)";
   async function alSearch(kind){
-    const token = ++alToken, st = alEl("alStatus"), grid = Math.round(lastPos.lat * 50) + ":" + Math.round(lastPos.lon * 50) + ":" + kind;
+    const token = ++alToken, st = alEl("alStatus");
     st.textContent = "Szukam…";
     try{
-      let res;
-      const c = alCache[grid];
-      if(c && Date.now() - c.t < AL_CACHE_MS) res = c.res;
-      else {
-        let raw = [];
-        if(kind === "parking"){
-          raw = alLocalParking();
-          if(alRank(raw.slice()).length < 3){ const tt = await alTomTom("lorry parking"); raw = raw.concat(tt || await alOverpass("parking")); }
-        } else {
-          const [a, b] = await Promise.all([alTomTom("petrol station"), alTomTom("motorway services")]);
-          raw = a && b ? a.concat(b) : await alOverpass("fuel");   // brak TomTom (ani własnego, ani z serwera) → darmowe dane OSM
-        }
-        res = alRank(raw); alCache[grid] = { t: Date.now(), res };
+      let raw = kind === "parking" ? alLocalParking() : [];
+      for(const at of alCenters()){
+        if(alRank(raw).length >= AL_MAX) break;      // dość miejsc — nie pytamy dalej
+        raw = raw.concat(await alFetch(kind, at));
+        if(token !== alToken) return;
       }
+      let res = alRank(raw);
       if(token !== alToken) return;
       await alLoadExcluded(); if(token !== alToken) return;
-      res = res.filter(it => !alIsHidden(it));
+      res = res.filter(it => !alIsHidden(it)).slice(0, AL_ROAD_CAND);
+      if(res.length) st.textContent = "Liczę dojazd po drogach…";
+      res = (await alRoad(res)).slice(0, AL_MAX);
+      if(token !== alToken) return;
       st.textContent = res.length ? "" : "Brak miejsc blisko trasy przed Tobą (do " + alMi(AL_CORRIDOR_M) + " od trasy).";
       const box = alEl("alList"); box.innerHTML = ""; alClearMarks();
       res.forEach((it, n) => {
@@ -17552,7 +17687,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
           '<div class="alGo">Jedź</div></div><div class="alMore"></div>';
         row.querySelector(".alNum").textContent = String(n + 1);
         row.querySelector(".alName").textContent = it.name;
-        row.querySelector(".alSub").textContent = "za " + alMi(it.alongM) + " · " + (it.offM < 150 ? "przy trasie" : alMi(it.offM) + " od trasy") + (it.addr ? " · " + it.addr : "");
+        row.querySelector(".alSub").textContent = alDistText(it) + (it.addr ? " · " + it.addr : "");
         row.addEventListener("click", ev => {
           if(ev.target.closest(".alMore")) return;
           if(ev.target.closest(".alPhotoBtn")){ alToggleMore(n); return; }
@@ -17700,7 +17835,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   const MBT_SRC = "mbx-traffic", MBT_LYR = "mbx-traffic-line";          // kafelki (warstwa niewidoczna — tylko po to, by kafelki się ładowały)
   const MBT_RSRC = "mbx-traffic-route", MBT_RLYR = "mbx-traffic-route-line";   // odcinki dopasowane do trasy (to widać)
   const MBT_CONG = ["moderate", "heavy", "severe"];
-  const MBT_CAM_RE = /^(cameras|avg-speed-cameras|motorway-cameras)/;   // także cameras-inactive (js/64)
+  const MBT_CAM_RE = /^(cameras|avg-speed-cameras|motorway-cameras|avg-lines|avg-sections)/;   // także cameras-inactive (js/64)
   let mbtOn = false;                       // zawsze wyłączone na starcie
   let mbtRoutes = { main: [], alt: [] };   // aktualnie narysowane trasy (wybrana / alternatywna)
   let mbtBoundsKey = "", mbtHooked = false, mbtTimer = 0;
@@ -17718,9 +17853,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     return [Math.max(-180, w - pad), Math.max(-85, s - pad), Math.min(180, e + pad), Math.min(85, n + pad)];
   }
 
-  function mbtCameras(){   // fotoradary i kamery znikają, gdy planowana jest trasa (okno wyboru trasy); wracają po jego zamknięciu
+  const CAMS_MIN_ZOOM = 13;   // zwykły kierowca: kamery dopiero od tego przybliżenia albo w jeździe
+  // planowanie trasy: kamery, napisy POCZĄTEK/KONIEC i żółte linie odcinków schowane; administrator z haczykiem widzi je przy każdym przybliżeniu
+  function mbtCameras(){
     if(!map || !map.getStyle()) return;
-    const hide = typeof navUiState !== "undefined" && navUiState === "picker";
+    const show = !isRoutePlanningUi() && (!!window.cvPicking || navIsDriving() || (isAdmin() && prefShowCamsMap) || map.getZoom() >= CAMS_MIN_ZOOM);
+    const hide = !show;
     (map.getStyle().layers || []).forEach(l => {
       if(!MBT_CAM_RE.test(l.id)) return;
       const vis = map.getLayoutProperty(l.id, "visibility");
@@ -17851,7 +17989,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     }
   });
   addTick(mbtApply, 4000);
-  addTick(() => { try{ mbtCameras(); }catch(e){} }, 600);   // kamery chowają się zaraz po wejściu w planowanie trasy   // odtwarza warstwy po przemalowaniu stylu (motyw dzień/noc) i pilnuje ukrycia kamer
+  let mbtZoomHooked = false;
+  addTick(() => { try{ if(map && !mbtZoomHooked){ mbtZoomHooked = true; map.on("zoom", mbtCameras); } mbtCameras(); }catch(e){} }, 600);   // kamery chowają się zaraz po wejściu w planowanie trasy   // odtwarza warstwy po przemalowaniu stylu (motyw dzień/noc) i pilnuje ukrycia kamer
 </script>
 <script>
 /* ===== js/52-poi-sheet.js — Nawigator: okno firmy na dole ekranu (po kliknięciu w nazwę firmy) =====
@@ -19538,7 +19677,9 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   addTick(() => {
     const b = document.body;
     const driving = b.classList.contains("guidance-on") && !b.classList.contains("route-planning") && !b.classList.contains("flag-placing");
-    b.classList.toggle("ui-calm", driving && Date.now() - calmLast > CALM_MS);
+    b.classList.toggle("view-3d", is3D);                 // css/02: ciemniejsze tablice w 3D
+    const still = is3D && !followUser;                    // 3D i kamera stoi (nie podąża za GPS) → przyciski zostają
+    b.classList.toggle("ui-calm", driving && !still && Date.now() - calmLast > CALM_MS);
   }, 1000, false);
 </script>
 <script>
