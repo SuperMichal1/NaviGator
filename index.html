@@ -431,9 +431,8 @@
   .truckHead{ font-size:13px; font-weight:700; color: var(--text-main); display:flex; align-items:center; justify-content:space-between; gap:8px; }
   /* mały, dyskretny przełącznik ft / m przy etykietach wymiarów (jeden wspólny stan, zapis w telefonie) */
   .truckLbl{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
-  .unitTog{ display:inline-flex; border:1px solid var(--panel-border); border-radius:7px; overflow:hidden; padding:0; background:transparent; cursor:pointer; opacity:.75; }
-  .unitTog b{ font:700 10px 'Inter', system-ui, sans-serif; padding:3px 6px; color:var(--text-dim); }
-  #navTruckBlock.units-imperial .unitTog b[data-u="imperial"], #navTruckBlock.units-metric .unitTog b[data-u="metric"]{ background:var(--gator-dark); color:var(--gator-on); }
+  .unitTog{ border:1px solid var(--panel-border); border-radius:7px; background:transparent; color:var(--text-dim); font:700 10px 'Inter', system-ui, sans-serif; padding:3px 10px; min-height:22px; cursor:pointer; opacity:.8; }
+  .truckField.u-met .unitTog{ background:var(--gator-dark); color:var(--gator-on); border-color:transparent; opacity:1; }
   .truckPair{ display:grid; grid-template-columns:1fr 1fr; gap:6px; min-width:0; }
   .truckPair .truckInputWrap{ padding:0 4px; }
   .truckPair .truckInputWrap input{ max-width:4ch; font-size:16px; }
@@ -448,15 +447,15 @@
   .truckField.over .truckInputWrap{ border-color:#d93025; }
   .truckField.over .truckInputWrap input, .truckField.over .truckInputWrap em, .truckField.over > span{ color:#ff5a4f; font-weight:800; }
   body:not(.night) .truckField.over .truckInputWrap input, body:not(.night) .truckField.over .truckInputWrap em, body:not(.night) .truckField.over > span{ color:#c4101f; }
-  #navTruckBlock.units-imperial .metOnly{ display:none; }
-  #navTruckBlock.units-metric .impOnly{ display:none; }
+  .truckField:not(.u-met) .metOnly{ display:none; }
+  .truckField.u-met .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
   .truckField{ display:flex; flex-direction:column; gap:3px; min-width:0; }
-  .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; }
+  .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; min-height:24px; display:flex; align-items:center; }
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
   .truckActionRow #tpReset{ flex:1; align-self:stretch; height:48px; min-height:48px; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 104px; height:48px; min-height:48px; background:#0a1220; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); border:1px solid rgba(45,255,150,.45); box-shadow:0 0 10px rgba(45,255,150,.25), inset 0 0 0 1px rgba(255,255,255,.06); }
+  .truckActionRow .avatarIconBtn{ flex:0 0 104px; height:48px; min-height:48px; background:#0a1220; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); border:0; box-shadow:0 2px 12px rgba(45,255,150,.28); }
   .avatarIconBtn.on{ border-color: var(--accent); box-shadow:0 0 0 2px var(--accent); }
   /* ikona 3D: wszystkie avatary na neonowej trasie (rysuje js/11d) */
   .truckRouteIco{ display:block; width:100%; height:100%; }
@@ -990,11 +989,13 @@ body:not(.night) .navSavedHead, body:not(.night) .navSavedEmpty{ color:#33414d; 
      (pozycję pionową wylicza updateNavPanelPeek w --pick-x-top) — zyskujemy miejsce na panelu */
   #navPanel[data-navstate="picker"] .navHeader{ position:absolute; right:14px; top:var(--pick-x-top, 24px); z-index:2; }
   #navPanel[data-navstate="picker"] #pickSummary{ padding-right:44px; }
+  .pickEta{ display:block; font:600 12px 'Inter',system-ui,sans-serif; color:var(--text-dim); margin-top:1px; }
   #pickSummary{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); font-variant-numeric:tabular-nums; }
   #pickActions{ display:flex; gap:8px; }
   #pickActions button{ flex:1 1 auto; min-width:0; padding:12px 6px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; white-space:nowrap; cursor:pointer; border:1px solid var(--panel-border); background:rgba(128,128,128,.16); color:var(--text-main); }
   #pickActions button:active{ transform:scale(.97); }
-  #pickActions #pickGoBtn{ flex:1.3 1 auto; font-size:15px; background:var(--accent); color:#0c0f12; border-color:transparent; }
+  #pickActions #pickGoBtn{ flex:1.3 1 auto; font-size:15px; background:var(--accent); color:var(--panel-bg-solid); font-weight:800; border-color:transparent; }
+  body:not(.night) #pickActions #pickGoBtn{ color:#fff; }
   #pickActions #pickGoBtn:disabled{ opacity:.5; }
   #navPanel.picker-reroute #pickChangeBtn, #navPanel.picker-reroute #pickAddBtn, #navPanel.picker-reroute #pickStops{ display:none; }
   #pickStops{ display:flex; flex-direction:column; gap:5px; }
@@ -1928,6 +1929,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 
 /* przycisk zgłoszeń: to samo szkło i rozmiar co pozostałe, wyróżnia go bursztynowy plus */
 #reportFloat #btnReportMenu.active{ background:#ffb020; color:#2f1f00; }
+#reportFloat #btnReportMenu.active .ico path:first-child{ stroke:#2f1f00; }      /* po włączeniu tło jest żółte, więc obramówka ciemna */
 
 /* okno fotoradaru: wybór zwykły (biały znak) / odcinkowy (żółty znak) */
 #flagCamType{ display:none; gap:8px; margin:6px 0 4px; }
@@ -2079,7 +2081,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     <div class="ctrl-btn" id="btnReportHeight" title="Zgłoś niski most lub ograniczenie wysokości"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#d1131f" stroke-width="2.8"/><path d="M12 5.8v12.4M9 8.8l3-3 3 3M9 15.2l3 3 3-3" fill="none" stroke="#111" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
   <div class="ctrl-btn" id="btnFullscreen" title="Pełny ekran"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="2.6 2.6 18.8 18.8" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M12 10.8v5.6M9.2 13.6h5.6" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round"/></svg></div>
+  <div class="ctrl-btn" id="btnReportMenu" title="Zgłoś punkt na mapie: fotoradar, parking, ograniczenie"><svg class="ico" viewBox="2.6 2.6 18.8 18.8" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="#ffd21f" stroke-width="2.3" stroke-linejoin="round"/><path d="M12 10.8v5.6M9.2 13.6h5.6" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round"/></svg></div>
 </div>
 
 <div id="zoomChip" aria-label="Poziom zoomu mapy"><small>zoom</small><span id="zoomChipVal">–</span></div>
@@ -2452,13 +2454,16 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     <div id="navPickEdit">
       <div id="pickSummary"></div>
       <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg viewBox="0 0 150 58" aria-hidden="true">
-<rect x="2" y="3" width="108" height="38" rx="3" fill="#f4f7fa" stroke="#5d7088" stroke-width="2"/>
-<text id="pickTruckTxt" x="56" y="31.5" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="26" fill="#0d1c24"></text>
-<rect x="2" y="42" width="143" height="4" rx="1.5" fill="#3f4b59"/>
-<path d="M116 44V16q0-5 5-5h9q3 0 4.500 2.500L142 26h2q3 0 3 3v15z" fill="#ee7a1a"/>
-<path d="M122 15.500h7.500q1.500 0 2.400 1.500L138 26h-16z" fill="#fff" fill-opacity=".92"/>
-<rect x="144" y="33" width="3" height="4" rx="1" fill="#fff6c8"/>
-<g fill="#222b33" stroke="#cfd6dc" stroke-width="2"><circle cx="13" cy="49" r="6"/><circle cx="28" cy="49" r="6"/><circle cx="43" cy="49" r="6"/><circle cx="119" cy="49" r="6"/><circle cx="137" cy="49" r="6"/></g>
+<defs><linearGradient id="ptTr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dde6ee"/></linearGradient>
+<linearGradient id="ptCb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fe0c8"/><stop offset="1" stop-color="#11a392"/></linearGradient></defs>
+<rect x="2" y="4" width="110" height="38" rx="9" fill="url(#ptTr)"/>
+<rect x="111" y="36" width="8" height="5" rx="2" fill="#2c3744"/>
+<path d="M118 42V17q0-6 6-6h8q3 0 5 3l8 11q1 1.500 1 3.500V42z" fill="url(#ptCb)"/>
+<path d="M124 16.500h7q1.500 0 2.500 1.200L139 26h-15z" fill="#0f2a36" fill-opacity=".85"/>
+<rect x="2" y="40" width="144" height="3.500" rx="1.750" fill="#2c3744"/>
+<text id="pickTruckTxt" x="57" y="30" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="26" fill="#0d1c24"></text>
+<g fill="#1b232c" stroke="#e9eef3" stroke-width="2"><circle cx="20" cy="49" r="5.500"/><circle cx="36" cy="49" r="5.500"/><circle cx="52" cy="49" r="5.500"/><circle cx="125" cy="49" r="5.500"/><circle cx="140" cy="49" r="5.500"/></g>
+<g fill="#8fa1b3"><circle cx="20" cy="49" r="1.800"/><circle cx="36" cy="49" r="1.800"/><circle cx="52" cy="49" r="1.800"/><circle cx="125" cy="49" r="1.800"/><circle cx="140" cy="49" r="1.800"/></g>
 </svg></button>
       <div id="pickStops"></div>
       <div id="pickAddWrap" class="navStopWrap" style="display:none">
@@ -2605,13 +2610,13 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     <div class="truckHead"><span><svg class="si siTruck" aria-hidden="true"><use href="#si-truck"/></svg>Parametry ciężarówki</span>
     </div>
     <div class="truckGrid">
-      <div class="truckField"><span class="truckLbl">Wysokość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
+      <div class="truckField"><span class="truckLbl">Wysokość<button type="button" class="unitTog" aria-pressed="false" aria-label="Pokaż w metrach" title="Metry">m</button></span>
         <div class="truckInputWrap metOnly"><input id="tpHeight" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpHeightFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpHeightIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
-      <div class="truckField"><span class="truckLbl">Szerokość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
+      <div class="truckField"><span class="truckLbl">Szerokość<button type="button" class="unitTog" aria-pressed="false" aria-label="Pokaż w metrach" title="Metry">m</button></span>
         <div class="truckInputWrap metOnly"><input id="tpWidth" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpWidthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpWidthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
-      <div class="truckField"><span class="truckLbl">Długość<button type="button" class="unitTog" aria-label="Przełącz stopy / metry" title="ft / m"><b data-u="imperial">ft</b><b data-u="metric">m</b></button></span>
+      <div class="truckField"><span class="truckLbl">Długość<button type="button" class="unitTog" aria-pressed="false" aria-label="Pokaż w metrach" title="Metry">m</button></span>
         <div class="truckInputWrap metOnly"><input id="tpLength" type="text" inputmode="decimal" autocomplete="off"><em>m</em></div>
         <div class="truckInputWrap impOnly impPair"><input id="tpLengthFt" type="text" inputmode="numeric" autocomplete="off" aria-label="stopy"><em>ft</em><input id="tpLengthIn" type="text" inputmode="decimal" autocomplete="off" aria-label="cale"><em>in</em></div></div>
       <div class="truckPair">
@@ -2622,7 +2627,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       </div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg id="avatarBtnArt" class="truckRouteIco" viewBox="0 6 160 80" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></button>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg id="avatarBtnArt" class="truckRouteIco" viewBox="0 0 208 96" aria-hidden="true"></svg></button>
       </div>
     </div>
     <div id="avatarInline"><div class="aiIn">
@@ -3045,6 +3050,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     height: 4.2, width: 2.55, length: 16.5, weight: 44, axle_load: 10, hazmat: false
   };
   const HGV_DEFAULT = Object.assign({}, HGV_PROFILE);
+  const HGV_HEIGHT_RED = (16 * 12 + 4) * 0.0254;     // wysokość od 16'4" (4,98 m) świeci na czerwono
   const HGV_PROFILE_KEY = "nawigator_hgv_profile";
   const HGV_LIMITS = { height:[1, 6], width:[1, 4], length:[3, 30], weight:[1, 80], axle_load:[1, 30] };
   (function loadHgvProfile(){   // zapisane przez użytkownika parametry ciężarówki nadpisują domyślne
@@ -6067,29 +6073,63 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
   // ikona 3D przycisku „Avatar i trasa”: wszystkie avatary na neonowej trasie (widok z góry pochylony + „grubość” z przyciemnionych kopii)
   function drawAvatarBtnArt(){
     const el = document.getElementById("avatarBtnArt"); if(!el) return;
-    const road = "M-8 92 C30 94 34 62 70 64 S112 66 118 44 S140 14 170 12";
-    const arrow = `<path d="M0 -13 L10 11 L0 5 L-10 11 Z" fill="#1FD6C1" stroke="#eafffb" stroke-width="1.4" stroke-linejoin="round"/>`;
-    const av = [["car", 112, 40, 28, .82, 0], ["gator", 138, 76, 52, .8, 0], ["truck", 50, 60, 68, .92, -17], ["arrow", 24, 24, 55, 1.15, 0]];
-    let defs = `<linearGradient id="abBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26497a"/><stop offset=".55" stop-color="#0f2038"/><stop offset="1" stop-color="#050a14"/></linearGradient>
-      <radialGradient id="abSun" cx=".82" cy=".1" r=".7"><stop offset="0" stop-color="#7fe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fe8ff" stop-opacity="0"/></radialGradient>
-      <linearGradient id="abSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <filter id="abGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.2"/></filter>
-      <filter id="abSide"><feColorMatrix type="matrix" values=".35 0 0 0 0  0 .35 0 0 0  0 0 .4 0 0  0 0 0 1 0"/></filter>`;
-    let body = "";
-    av.forEach(([k, x, y, rot, sc, dy]) => {
-      const inner = k === "arrow" ? arrow : AVATARS[k].svg(k === "truck" ? "#2f7be0" : "#1FD6C1", "ab" + k);
-      defs += `<g id="abAv_${k}">${inner}</g>`;
-      const one = (oy, extra) => `<g transform="translate(${x} ${y + oy}) scale(1 .74) rotate(${rot}) scale(${sc}) translate(0 ${dy})"><use href="#abAv_${k}"${extra}/></g>`;
-      body += `<ellipse cx="${x + 2}" cy="${y + 12}" rx="${k === "truck" ? 30 : 15}" ry="6" fill="#000" opacity=".45" filter="url(#abGlow)"/>`;
-      for(let i = 5; i >= 1; i--) body += one(i * .9, ' filter="url(#abSide)"');
-      body += one(0, "");
-    });
-    el.innerHTML = `<defs>${defs}</defs><rect width="160" height="100" fill="url(#abBg)"/><rect width="160" height="100" fill="url(#abSun)"/>
-      <path d="${road}" fill="none" stroke="#19ff8c" stroke-width="13" opacity=".8" filter="url(#abGlow)"/>
-      <path d="${road}" fill="none" stroke="#2dff96" stroke-width="7" stroke-linecap="round"/>
-      <path d="${road}" fill="none" stroke="#effff6" stroke-width="2" stroke-linecap="round"/>
-      <path d="${road}" fill="none" stroke="#0b3a26" stroke-width="1.2" stroke-dasharray="5 7" stroke-linecap="round" opacity=".7"/>${body}
-      <rect x="0" y="0" width="160" height="34" fill="url(#abSheen)" opacity=".5"/>`;
+
+  const C = Math.cos(Math.PI/6), S = .5, U = 13;                 // rzut izometryczny
+  const P = (x, y, z, o) => [o[0] + (x - y) * C * U, o[1] + (x + y) * S * U - z * U];
+  const poly = pts => pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  // bryła: x = wzdłuż pojazdu (do przodu), y = szerokość, z = wysokość
+  function box(o, x0, y0, z0, dx, dy, dz, top, left, right, extra){
+    const A = (x, y, z) => P(x, y, z, o);
+    const t = [A(x0,y0,z0+dz), A(x0+dx,y0,z0+dz), A(x0+dx,y0+dy,z0+dz), A(x0,y0+dy,z0+dz)];
+    const l = [A(x0,y0+dy,z0), A(x0+dx,y0+dy,z0), A(x0+dx,y0+dy,z0+dz), A(x0,y0+dy,z0+dz)];     // bok widoczny (y+)
+    const r = [A(x0+dx,y0,z0), A(x0+dx,y0+dy,z0), A(x0+dx,y0+dy,z0+dz), A(x0+dx,y0,z0+dz)];     // przód (x+)
+    return `<polygon points="${poly(l)}" fill="${left}"/><polygon points="${poly(r)}" fill="${right}"/><polygon points="${poly(t)}" fill="${top}"/>` +
+      `<polyline points="${poly([t[0],t[1],t[2]])}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width=".7" stroke-linejoin="round"/>` + (extra || "");
+  }
+  const o = [92, 76];
+  const wheel = (x, y, z) => { const c = P(x, y, z, o); return `<ellipse cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" rx="2.4" ry="2.8" fill="#0a0f18" stroke="#46566e" stroke-width=".8"/><ellipse cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" rx=".9" ry="1.1" fill="#8da2c0"/>`; };
+  let truck = "";
+  truck += box(o, -3.2, .1, .5, 3.1, .8, .5, "#33425c", "#1d2738", "#141c2b");             // podwozie
+  truck += box(o, -3.2, 0, 1, 3.3, 1, 1.5, "url(#aaTrT)", "url(#aaTrL)", "url(#aaTrR)");    // naczepa
+  truck += box(o, .25, .02, .5, 1.25, .96, .6, "#2a3a55", "#1a2436", "#111827");             // rama kabiny
+  truck += box(o, .1, 0, 1.1, 1.5, 1, 1.05, "url(#aaCbT)", "url(#aaCbL)", "url(#aaCbR)");   // kabina
+  // szyba i światła na przodzie kabiny (ściana x+)
+  const w = [P(1.6,.12,1.45,o), P(1.6,.88,1.45,o), P(1.6,.88,2.0,o), P(1.6,.12,2.0,o)];
+  truck += `<polygon points="${poly(w)}" fill="url(#aaGlass)"/>`;
+  const hl = P(1.6,.2,1.25,o), hr = P(1.6,.8,1.25,o);
+  truck += `<circle cx="${hl[0].toFixed(1)}" cy="${hl[1].toFixed(1)}" r="1.1" fill="#fff6c8"/><circle cx="${hr[0].toFixed(1)}" cy="${hr[1].toFixed(1)}" r="1.1" fill="#fff6c8"/>`;
+  [[-2.7, 1], [-1.6, 1], [.7, 1], [1.05, 1]].forEach(a => truck += wheel(a[0], 1.02, .62));
+  const road = "M-10 94 C30 92 52 82 96 80 S150 76 166 58 S190 36 222 30";
+  el.innerHTML = `<defs>
+    <linearGradient id="aaBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27497c"/><stop offset=".5" stop-color="#101f38"/><stop offset="1" stop-color="#050913"/></linearGradient>
+    <radialGradient id="aaSun" cx=".8" cy=".05" r=".75"><stop offset="0" stop-color="#7fe8ff" stop-opacity=".6"/><stop offset="1" stop-color="#7fe8ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="aaBr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6ff3ff"/><stop offset=".5" stop-color="#2d7bff"/><stop offset="1" stop-color="#2dff96"/></linearGradient>
+    <linearGradient id="aaTrT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fc2ff"/><stop offset="1" stop-color="#4f93f5"/></linearGradient>
+    <linearGradient id="aaTrL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f78e6"/><stop offset="1" stop-color="#1747a5"/></linearGradient>
+    <linearGradient id="aaTrR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#245fc2"/><stop offset="1" stop-color="#16408f"/></linearGradient>
+    <linearGradient id="aaCbT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9fff6"/><stop offset="1" stop-color="#6ff0d6"/></linearGradient>
+    <linearGradient id="aaCbL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fe0c2"/><stop offset="1" stop-color="#0e8f86"/></linearGradient>
+    <linearGradient id="aaCbR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1fb9a6"/><stop offset="1" stop-color="#0b6f6c"/></linearGradient>
+    <linearGradient id="aaGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fd8ff"/><stop offset="1" stop-color="#0d2a52"/></linearGradient>
+    <linearGradient id="aaSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="aaBlur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="3.4"/></filter>
+    <clipPath id="aaClip"><rect x="1.5" y="1.5" width="205" height="93" rx="17"/></clipPath>
+  </defs>
+  <g clip-path="url(#aaClip)">
+    <rect width="208" height="96" fill="url(#aaBg)"/><rect width="208" height="96" fill="url(#aaSun)"/>
+    <g stroke="#43d9ff" stroke-opacity=".28" stroke-width=".8" fill="none">
+      <path d="M0 40 H208 M0 50 H208 M0 62 H208 M0 77 H208"/>
+      <path d="M104 30 L-60 96 M104 30 L-10 96 M104 30 L50 96 M104 30 L104 96 M104 30 L158 96 M104 30 L218 96 M104 30 L268 96"/>
+    </g>
+    <path d="${road}" fill="none" stroke="#19ff8c" stroke-width="13" opacity=".75" filter="url(#aaBlur)"/>
+    <path d="${road}" fill="none" stroke="#2dff96" stroke-width="6.5" stroke-linecap="round"/>
+    <path d="${road}" fill="none" stroke="#effff6" stroke-width="1.8" stroke-linecap="round"/>
+    <ellipse cx="92" cy="80" rx="46" ry="7" fill="#000" opacity=".55" filter="url(#aaBlur)"/>
+    ${truck}
+    <circle cx="188" cy="22" r="1.6" fill="#fff" opacity=".9"/><circle cx="26" cy="22" r="1.1" fill="#fff" opacity=".7"/><circle cx="196" cy="46" r="1" fill="#bff" opacity=".7"/>
+    <rect x="0" y="0" width="208" height="38" fill="url(#aaSheen)" opacity=".55"/>
+  </g>
+  <rect x="1.5" y="1.5" width="205" height="93" rx="17" fill="none" stroke="url(#aaBr)" stroke-width="2.4"/>`;
   }
   safeInit("ikona avatarów", drawAvatarBtnArt);
   safeInit("avatar i kolor trasy", () => {
@@ -10809,7 +10849,14 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     if(S && O) showAltLabel(O, S, () => pickSelect(oth)); else removeAltLabel();
     pickTruckRefresh();
     const sum = document.getElementById("pickSummary");
-    if(sum) sum.textContent = S ? `${secondsToTimeLabel(S.timeS)} · ${metersToDistanceLabel(S.distanceM)}` : "";
+    if(sum){
+      sum.textContent = S ? `${secondsToTimeLabel(S.timeS)} · ${metersToDistanceLabel(S.distanceM)}` : "";
+      if(S){      // orientacyjna godzina przybycia = teraz + czas jazdy (bez postojów i przerw kierowcy)
+        const eta = new Date(Date.now() + S.timeS * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" });
+        const sp = document.createElement("span"); sp.className = "pickEta"; sp.textContent = "Przyjazd ok. " + eta;
+        sum.appendChild(sp);
+      }
+    }
     if(fit){
       const all = (S ? S.coords : []).concat(O ? O.coords : []);
       if(all.length > 1){
@@ -10977,7 +11024,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     const el = document.getElementById("pickTruckTxt"); if(!el) return;
     const tot = Math.round(HGV_PROFILE.height / 0.0254), h = Math.floor(tot / 12) + "'" + (tot % 12) + "\"";
     el.textContent = h;
-    el.setAttribute("fill", HGV_PROFILE.height > HGV_DEFAULT.height + 0.005 ? "#d11a1a" : "#0d1c24");
+    el.setAttribute("fill", HGV_PROFILE.height >= HGV_HEIGHT_RED - 0.001 ? "#d11a1a" : "#0d1c24");
     document.getElementById("pickTruckBtn").setAttribute("aria-label", "Wysokość pojazdu " + h + " — zmień parametry");
   }
   safeInit("przycisk pojazdu w wyborze trasy", () => {
@@ -13771,9 +13818,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
   safeInit("parametry ciężarówki", () => {
         const block = document.getElementById("navTruckBlock");
     const IN_M = 0.0254, LB_T = 0.00045359237;                      // 1 cal = 2,54 cm; 1 funt = 0,4536 kg
-    const UNITS_KEY = "nawigator_hgv_units";
-    let units = "imperial";
-    try{ if(localStorage.getItem(UNITS_KEY) === "metric") units = "metric"; }catch(e){}
+    const UNITS_KEY = "nawigator_hgv_units_";                       // + height / width / length: każdy wymiar ma własny przełącznik
+    const dimMet = { height:false, width:false, length:false };      // domyślnie ft/in; true = pole w metrach
+    Object.keys(dimMet).forEach(k => { try{ dimMet[k] = localStorage.getItem(UNITS_KEY + k) === "metric"; }catch(e){} });
+    const AUTO_COMMA_MAX = { height:6, width:4, length:20 };         // po cyfrze, której nie da się już „dopisać” liczbą, wstawiamy przecinek
     const DIMS = {
       height:{ m:"tpHeight", ft:"tpHeightFt", inch:"tpHeightIn" },
       width: { m:"tpWidth",  ft:"tpWidthFt",  inch:"tpWidthIn"  },
@@ -13804,7 +13852,8 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     // wartość większa niż standardowa (domyślna) → pole pogrubione i czerwone
     function markOver(k){
       const el = $(DIMS[k] ? DIMS[k].m : WTS[k].t).closest(".truckField");
-      el.classList.toggle("over", HGV_PROFILE[k] > HGV_DEFAULT[k] + 0.005);
+      const over = k === "height" ? HGV_PROFILE.height >= HGV_HEIGHT_RED - 0.001 : HGV_PROFILE[k] > HGV_DEFAULT[k] + 0.005;
+      el.classList.toggle("over", over);
     }
     // pola ft / in: szerokość = liczba znaków (min. 1), żeby między liczbą a jednostką nie było pustego miejsca
     function fitImp(inp){ inp.style.width = Math.max(1, String(inp.value).length) + "ch"; }
@@ -13818,9 +13867,13 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       fitImp($(w.t)); markOver(k);
     }
     function fill(){
-      block.classList.toggle("units-imperial", units === "imperial");
-      block.classList.toggle("units-metric", units === "metric");
-      Object.keys(DIMS).forEach(fillDim); Object.keys(WTS).forEach(fillWt);
+      Object.keys(DIMS).forEach(k => {
+        const f = $(DIMS[k].m).closest(".truckField");
+        f.classList.toggle("u-met", dimMet[k]);
+        const b = f.querySelector(".unitTog"); if(b) b.setAttribute("aria-pressed", dimMet[k] ? "true" : "false");
+        fillDim(k);
+      });
+      Object.keys(WTS).forEach(fillWt);
     }
     function persist(){
       try{ localStorage.setItem(HGV_PROFILE_KEY, JSON.stringify(HGV_PROFILE)); }catch(e){}
@@ -13844,7 +13897,12 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
 
     Object.keys(DIMS).forEach(k => {
       const d = DIMS[k], mi = $(d.m), fi = $(d.ft), ii = $(d.inch);
-      mi.addEventListener("input", () => accept(k, num(mi.value), [mi]));
+      mi.addEventListener("input", e => {
+        const t = mi.value.trim();
+        // wpisana cyfra (np. 2 w szerokości) od razu dostaje przecinek, żeby można było wpisać centymetry
+        if(e && e.inputType && /^insert/.test(e.inputType) && /^\d+$/.test(t) && (t.length >= 2 || Number(t) * 10 > AUTO_COMMA_MAX[k])){ mi.value = t + ","; fitImp(mi); }
+        accept(k, num(mi.value), [mi]);
+      });
       const fromImp = () => {
         const ft = fi.value.trim() === "" ? 0 : num(fi.value), inch = ii.value.trim() === "" ? 0 : num(ii.value);
         accept(k, (ft * 12 + inch) * IN_M, [fi, ii]);   // cale → metry automatycznie
@@ -13888,11 +13946,14 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       inp.addEventListener("click", sel);
     });
 
-    document.querySelectorAll("#navTruckBlock .unitTog").forEach(b => b.addEventListener("click", () => {
-      units = units === "imperial" ? "metric" : "imperial";      // jeden wspólny przełącznik ft ↔ m, wybór zostaje w telefonie
-      try{ localStorage.setItem(UNITS_KEY, units); }catch(e){}
-      fill();
-    }));
+    Object.keys(DIMS).forEach(k => {      // przycisk „m” przy każdym wymiarze działa osobno; zapis w telefonie
+      const b = $(DIMS[k].m).closest(".truckField").querySelector(".unitTog"); if(!b) return;
+      b.addEventListener("click", () => {
+        dimMet[k] = !dimMet[k];
+        try{ localStorage.setItem(UNITS_KEY + k, dimMet[k] ? "metric" : "imperial"); }catch(e){}
+        fill();
+      });
+    });
     $("tpReset").addEventListener("click", () => {
       Object.keys(HGV_LIMITS).forEach(k => { HGV_PROFILE[k] = HGV_DEFAULT[k]; });
       fill(); persist();
@@ -20886,7 +20947,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
 <script>
 /* ===== js/62-map-depth.js — mapa mniej „płaska”: bez kreskowanych obrysów lasów i parków, miękkie krawędzie, cienie budynków i dróg =====
    Klasyczny <script> (bez IIFE). Tylko wygląd, dopinany po załadowaniu mapy i ponawiany w tiku, gdyby styl zgubił warstwy.
-   • Znikają kreskowane „- - - -” wokół parków i lasów (linie ze źródła „park”, obrysy lasów, linie z line-dasharray na terenach).
+   • Znikają przerywane granice hrabstw i regionów (warstwy boundary) oraz kreskowane „- - - -” wokół parków i lasów (linie ze źródła „park”, obrysy lasów, linie z line-dasharray na terenach).
    • W zamian: bardzo miękka, rozmyta krawędź parków i lasów (daje głębię zamiast przerywanej linii).
    • Cień pod budynkami (zoom ≥ 15) oraz delikatny cień pod autostradami i drogami głównymi.
    Koszt dla telefonu jest mały: 5 cienkich warstw widocznych tylko przy odpowiednim zbliżeniu. Kolory dzień / noc przełączają się razem z motywem. */
@@ -20901,7 +20962,8 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     (map.getStyle().layers || []).forEach(l => {
       if(l.type !== "line" || /^mpd-|^mp2-/.test(l.id)) return;
       const sl = l["source-layer"], dashed = !!(l.paint && l.paint["line-dasharray"]);
-      const outline = sl === "park" || /park.*outline|outline.*park|nature.?reserve|wood.*outline|forest.*outline/i.test(l.id) || (dashed && (sl === "landcover" || sl === "landuse"));
+      const boundary = sl === "boundary" || /^boundary|admin/i.test(l.id);      // przerywane granice hrabstw / regionów
+      const outline = boundary || sl === "park" || /park.*outline|outline.*park|nature.?reserve|wood.*outline|forest.*outline/i.test(l.id) || (dashed && (sl === "landcover" || sl === "landuse"));
       if(!outline) return;
       try{ if(map.getLayoutProperty(l.id, "visibility") !== "none") map.setLayoutProperty(l.id, "visibility", "none"); }catch(e){}
     });
