@@ -1679,16 +1679,20 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .rpPlace{ font-size:14px; margin:3px 0 2px; word-break:break-word; }
   .rpNote{ font-size:13px; margin-top:3px; opacity:.9; }
   .rpAct{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  /* przyciski zgłoszeń: szklane pigułki w stylu okna firmy, główna akcja w zieleni aplikacji */
-  .rpAct button{ flex:1 1 auto; min-height:44px; padding:8px 12px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--text-main); background:rgba(128,128,128,.14); border:1px solid var(--panel-border); cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .rpAct button:active{ transform:scale(.97); }
-  .rpAct button.psPrimary{ background:#26756d; border-color:#26756d; color:#fff; }
-  .rpAct button[data-act="no"], .rpAct button[data-act="camno"], .rpAct button[data-act="sno"], .rpAct button[data-act="alno"]{ background:transparent; opacity:.85; }
-  .rpAct button[data-act="del"], .rpAct button[data-act="camback"], .rpAct button[data-act="alback"]{ background:transparent; border-color:rgba(217,48,37,.55); }
-  body.night .rpAct button.psPrimary{ color:#e6dcc6; }
-  body:not(.night) #navSettingsCard .rpAct button:not(.psPrimary){ color:#0d1c24; }
-  #rpRefresh{ min-height:44px; padding:8px 14px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--text-main); background:rgba(128,128,128,.14); border:1px solid var(--panel-border); }
-  body:not(.night) #navSettingsCard #rpRefresh{ color:#0d1c24; }
+  /* zakładka Zgłoszenia: zieleń aligatora jak aktywna zakładka u góry ustawień (--gator*), zielone czcionki */
+  .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-fg:#2f4a1b; --rp-dim:#4f6b2c; --rp-line:rgba(63,90,36,.4); color:var(--rp-fg); }
+  body.night .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-fg:#b5cf7a; --rp-dim:#8fa862; --rp-line:rgba(124,154,58,.5); }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .navTitle{ color:var(--rp-fg); }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .psMuted{ color:var(--rp-dim); opacity:1; }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .rpItem, .setPane:is([data-pane="reports"],[data-pane="users"]) .rpSec{ border-color:var(--rp-line); }
+  .setPane:is([data-pane="reports"],[data-pane="users"]) .rpSec.rpSub{ border-left-color:var(--rp-line); }
+  .rpAct button, #rpRefresh, #usrRefresh{ min-height:44px; padding:8px 12px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; color:var(--rp-fg); background:transparent; border:1px solid var(--rp-line); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .rpAct button{ flex:1 1 auto; }
+  .rpAct button:active, #rpRefresh:active, #usrRefresh:active{ transform:scale(.97); }
+  .rpAct button.psPrimary{ background:var(--gator-dark); border-color:var(--gator); color:var(--gator-on); }
+  .rpAct button[data-act="del"], .rpAct button[data-act="camback"], .rpAct button[data-act="alback"], .rpAct button.usrDanger{ border-color:rgba(217,48,37,.5); }
+  .rpInput{ color:var(--rp-fg); border-color:var(--rp-line); }
+  .rpInput::placeholder{ color:var(--rp-dim); opacity:.8; }
 
   /* zwijane działy zakładki Zgłoszenia: nowe rzeczy na wierzchu, zatwierdzone schowane w archiwum */
   .rpSec{ margin-top:12px; border-top:1px solid var(--panel-border); }
@@ -1696,7 +1700,7 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
   .rpSec > summary::-webkit-details-marker{ display:none; }
   .rpSec > summary::after{ content:"›"; margin-left:auto; font-size:22px; line-height:1; opacity:.6; transition:transform .15s ease; }
   .rpSec[open] > summary::after{ transform:rotate(90deg); }
-  .rpCnt{ font-weight:800; color:var(--accent); }
+  .rpCnt{ font-weight:800; color:var(--gator); }
   .rpSec.rpSub{ margin-top:0; margin-left:6px; padding-left:8px; border-left:2px solid var(--panel-border); border-top:none; }
   .rpSec.rpSub > summary{ font-size:14px; font-weight:700; min-height:44px; }
   .rpArchive > summary{ opacity:.9; }
@@ -1732,6 +1736,13 @@ body.night #poiAsk button#psDrive, body.night #poiAsk button#psAskReview, body.n
 .psHrsRow label.cl{ display:flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap; }
 .psHrsRow.off input[type=time]{ opacity:.35; }
 body.night .psHrsRow input[type=time]{ color-scheme:dark; }
+
+  /* zakładka Użytkownicy: karta użytkownika zwinięta, przyciski w grupach rozwijanych */
+  .rpSec.usrItem{ margin-top:0; }
+  .rpSec.usrItem > summary.usrHead{ flex-wrap:wrap; row-gap:2px; font-size:14px; }
+  .rpSec.usrItem > summary.usrHead .rpKind{ font-size:15px; }
+  .usrBody{ padding:0 0 10px 2px; }
+  .usrBody .rpSec.rpSub{ margin-top:6px; }
 /* ---------- ostrzeżenia pogodowe na trasie (js/55) ---------- */
   #wxChip{ position:absolute; left:10px; top:calc(max(10px, env(safe-area-inset-top)) + var(--guidance-h, 0px) + 8px); z-index:48; display:none; max-width:min(78vw, 380px);
     padding:7px 12px; border-radius:12px; background:#b45309; color:#fff; font:700 13px/1.3 'Inter',system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.4); border:1.5px solid rgba(255,255,255,.55); }
@@ -1938,13 +1949,13 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 .usrRow .usrT{ font-weight:700; word-break:break-word; }
 .usrDot{ margin-right:6px; }
 #accCard .accDanger{ background:transparent; color:#d93025; border:1px solid rgba(217,48,37,.5); min-height:44px; font-weight:600; }
-.usrRow .usrDel{ margin-top:4px; min-height:36px; padding:0 12px; border-radius:10px; border:1px solid rgba(217,48,37,.5); background:transparent; color:#d93025; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
+.usrRow .usrDel{ margin-top:6px; min-height:44px; padding:0 14px; border-radius:12px; border:1px solid rgba(217,48,37,.5); background:transparent; color:#d93025; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
 .usrWarn{ color:#d93025; font-weight:700; margin-left:6px; font-size:12px; }
 .accWho{ opacity:.7; font-size:12px; }
 #accAppealNote{ font-size:13px; opacity:.85; white-space:pre-line; }
 #accAppealIn{ box-sizing:border-box; width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(128,128,128,.45); background:rgba(128,128,128,.1); color:inherit; font:500 15px/1.4 'Inter',system-ui,sans-serif; resize:vertical; }
 .usrAppeal .usrRow .usrBtns{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
-.usrAppeal .usrRow .usrBtns button{ min-height:36px; padding:0 12px; border-radius:10px; border:1px solid rgba(128,128,128,.45); background:transparent; color:inherit; font:600 12px 'Inter',system-ui,sans-serif; cursor:pointer; }
+.usrAppeal .usrRow .usrBtns button{ min-height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--rp-line, rgba(63,90,36,.4)); background:transparent; color:var(--rp-fg, inherit); font:700 13px 'Inter',system-ui,sans-serif; cursor:pointer; }
 #accOr{ text-align:center; font-size:12px; opacity:.6; }
 #accTabs{ display:flex; gap:6px; }
 #accTabs button{ flex:1; min-height:44px; border-radius:12px; border:1px solid rgba(128,128,128,.45); background:transparent; color:inherit; font:600 15px 'Inter',system-ui,sans-serif; cursor:pointer; }
@@ -1993,7 +2004,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 </head>
 <body>
 <div id="appSplash" aria-hidden="true"><div class="spLogo">🐊</div><div class="spName">HGV NaviGator</div><div class="spSub">Ładowanie mapy…</div></div>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6db6ff"/><stop offset="1" stop-color="#1f6fe0"/></linearGradient><linearGradient id="gTeal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fdad0"/><stop offset="1" stop-color="#128c8c"/></linearGradient><linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ee6a10"/></linearGradient><linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86e8ad"/><stop offset="1" stop-color="#1fa35b"/></linearGradient><linearGradient id="gYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe28f"/><stop offset="1" stop-color="#f0a400"/></linearGradient><linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset="1" stop-color="#7a47d6"/></linearGradient><linearGradient id="gGray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#aab6c2"/><stop offset="1" stop-color="#5e6a76"/></linearGradient></defs><symbol id="si-screen" viewBox="0 0 24 24"><rect x="2.5" y="3.6" width="19" height="13" rx="2.7" fill="url(#gBlue)"/><rect x="4.5" y="5.5" width="15" height="9.1" rx="1.5" fill="#fff" fill-opacity=".26"/><path d="M8.6 20.4h6.8M12 16.6v3.8" stroke="#5e6a76" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-sound" viewBox="0 0 24 24"><path d="M3.4 9.5h3.8L12.4 5.2v13.6L7.2 14.5H3.4z" fill="url(#gTeal)"/><path d="M15.4 9.3a4 4 0 0 1 0 5.4M18.1 6.8a7.6 7.6 0 0 1 0 10.4" stroke="#128c8c" stroke-width="1.8" stroke-linecap="round" fill="none"/></symbol><symbol id="si-truck" viewBox="0 0 24 24"><rect x=".3" y="5.6" width="15.9" height="8.4" rx=".7" fill="url(#gBlue)"/><path d="M1.4 8h13.7" stroke="#fff" stroke-opacity=".65" stroke-width="1"/><path d="M.6 14.4h6.8v1.2H.6zM12 15.2h10.5v1.4H12z" fill="#4a5563"/><path d="M10.6 14v3" stroke="#8d99a5" stroke-width=".9"/><path d="M17.2 7.4h3.6q1 0 1.3.9l1.4 3.7q.2.5.2 1v4h-6.5z" fill="url(#gOrange)"/><path d="M18.4 8.8h2.2l1.3 3.4h-3.5z" fill="#fff" fill-opacity=".85"/><g fill="#2a343d" stroke="#cfd6dc" stroke-width=".7"><circle cx="2.4" cy="17.3" r="1.75"/><circle cx="6.2" cy="17.3" r="1.75"/><circle cx="14.4" cy="17.3" r="1.75"/><circle cx="21" cy="17.3" r="1.75"/></g></symbol><symbol id="si-reports" viewBox="0 0 24 24"><path d="M12 3.2 21.6 20H2.4z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 9.4v5" stroke="#1b1f24" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="#1b1f24"/></symbol><symbol id="si-users" viewBox="0 0 24 24"><circle cx="16.7" cy="8.9" r="2.5" fill="url(#gTeal)"/><path d="M16.9 13.8c2.9.1 4.9 1.9 4.9 5.2h-4.5c0-2.1-.6-3.8-1.9-4.9.4-.2.9-.3 1.5-.3z" fill="url(#gTeal)"/><circle cx="9.2" cy="8.4" r="3.2" fill="url(#gBlue)"/><path d="M2.8 19.6c0-3.6 2.8-5.7 6.4-5.7s6.4 2.1 6.4 5.7z" fill="url(#gBlue)"/></symbol><symbol id="si-gear" viewBox="0 0 24 24"><g fill="url(#gGray)"><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(0 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(45 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(90 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(135 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(180 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(225 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(270 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(315 12 12)"/><circle cx="12" cy="12" r="6.6"/></g><circle cx="12" cy="12" r="2.8" fill="#fff" fill-opacity=".9"/></symbol><symbol id="si-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="url(#gYellow)"/><path d="M12 2.4v2.5M12 19.1v2.5M2.4 12h2.5M19.1 12h2.5M5.2 5.2 7 7M17 17l1.8 1.8M5.2 18.8 7 17M17 7l1.8-1.8" stroke="#f0a400" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 1 1 9.6 3.8a6.9 6.9 0 0 0 10.6 10.6z" fill="url(#gPurple)"/><circle cx="17.6" cy="6.2" r="1.1" fill="#ffe28f"/><circle cx="20.2" cy="9.4" r=".7" fill="#ffe28f"/></symbol><symbol id="si-sunset" viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#241a4d" stroke="#fff" stroke-width="1.4"/><path d="M5.4 15.4a6.6 6.6 0 0 1 13.2 0z" fill="#ffd23f"/><path d="M12 3.8v2.7M4.9 7.9l1.9 1.7M19.1 7.9l-1.9 1.7" stroke="#ffd23f" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M3.8 15.8h16.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M7 18.6h10M9.8 21h4.4" stroke="#ff7a3d" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol><symbol id="si-map" viewBox="0 0 24 24"><path d="M3 6.4l6-2.2 6 2.2 6-2.2v13.4l-6 2.2-6-2.2-6 2.2z" fill="url(#gGreen)"/><path d="M9 4.2v13.4M15 6.4v13.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none"/><circle cx="16.4" cy="11.4" r="1.4" fill="#d6342b"/></symbol><symbol id="si-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="url(#gBlue)"/><path d="M6.6 8.4c2-1.6 4.2-1.2 5.2.3s-.6 2.8-2.5 3-3.5-.3-2.7-3.3zM13.4 14c1.7-.7 3.3.2 3.4 1.7s-1.7 2.3-3.1 1.8-1.3-2.9-.3-3.5z" fill="url(#gGreen)"/><ellipse cx="12" cy="12" rx="9" ry="3.4" transform="rotate(-24 12 12)" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.1"/></symbol><symbol id="si-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="4.1" fill="url(#gBlue)"/><path d="M4.4 20.6c0-4.2 3.4-6.7 7.6-6.7s7.6 2.5 7.6 6.7z" fill="url(#gBlue)"/></symbol><symbol id="si-sign" viewBox="0 0 24 24"><rect x="2.8" y="3.6" width="18.4" height="11" rx="1.9" fill="url(#gOrange)"/><path d="M6 8h12M6 11h7.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><rect x="10.9" y="14.6" width="2.2" height="6.4" rx=".8" fill="#5e6a76"/></symbol><symbol id="si-image" viewBox="0 0 24 24"><rect x="2.8" y="4.4" width="18.4" height="15.2" rx="2.5" fill="url(#gBlue)"/><circle cx="8.4" cy="9.6" r="1.9" fill="#ffe28f"/><path d="M3.8 18.4l5.2-5.4 3.4 3.4 3-3.6 5 5.6z" fill="#fff" fill-opacity=".92"/></symbol><symbol id="si-crown" viewBox="0 0 24 24"><path d="M3 8l4.6 4 4.4-6.4 4.4 6.4L21 8l-1.8 10.8H4.8z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1" stroke-linejoin="round"/><circle cx="3" cy="7.6" r="1.4" fill="#f0a400"/><circle cx="12" cy="5.4" r="1.4" fill="#f0a400"/><circle cx="21" cy="7.6" r="1.4" fill="#f0a400"/><path d="M5.6 16.2h12.8" stroke="#c9840a" stroke-width="1.2" fill="none"/></symbol><symbol id="si-road" viewBox="0 0 24 24"><path d="M8.2 3h7.6L21 21H3z" fill="url(#gGray)"/><path d="M12 5.4v2.6M12 10.6v3M12 16.6v3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M8.2 3 3 21M15.8 3 21 21" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/></symbol><symbol id="si-download" viewBox="0 0 24 24"><path d="M12 3.6v10M7.6 10l4.4 4.4 4.4-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-upload" viewBox="0 0 24 24"><path d="M12 14.4v-10M7.6 8l4.4-4.4L16.4 8" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-bricks" viewBox="0 0 24 24"><rect x="2.8" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="12.6" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="7.7" y="7.4" width="8.6" height="5.6" rx="1.2" fill="url(#gYellow)"/></symbol><symbol id="si-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.8" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2"/><circle cx="8" cy="12" r="1.6" fill="#fff"/><path d="M12.6 12H21M18 12v3.2M21 12v2.4" stroke="#c9840a" stroke-width="2" stroke-linecap="round" fill="none"/></symbol><symbol id="si-eye" viewBox="0 0 24 24"><path d="M2.4 12C4.6 7.6 8 5.6 12 5.6s7.4 2 9.6 6.4c-2.2 4.4-5.6 6.4-9.6 6.4S4.6 16.4 2.4 12z" fill="#fff" stroke="#1f6fe0" stroke-width="1.6"/><circle cx="12" cy="12" r="3.5" fill="url(#gBlue)"/><circle cx="12" cy="12" r="1.3" fill="#12305f"/></symbol><symbol id="si-cone" viewBox="0 0 24 24"><path d="M10.2 3.4Q12 1.6 13.8 3.4L18.6 18.6H5.4z" fill="url(#gOrange)"/><path d="M8.1 11h7.8l.9 2.9H7.2zM9.3 7.2h5.4l.7 2.1H8.6z" fill="#fff"/><rect x="3" y="18.2" width="18" height="3.6" rx="1.4" fill="#4a5563"/></symbol><symbol id="si-link" viewBox="0 0 24 24"><path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l3-3a3.6 3.6 0 0 0-5.1-5.1l-1 1M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-3 3a3.6 3.6 0 0 0 5.1 5.1l1-1" stroke="#1f6fe0" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6db6ff"/><stop offset="1" stop-color="#1f6fe0"/></linearGradient><linearGradient id="gTeal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fdad0"/><stop offset="1" stop-color="#128c8c"/></linearGradient><linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ee6a10"/></linearGradient><linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86e8ad"/><stop offset="1" stop-color="#1fa35b"/></linearGradient><linearGradient id="gYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe28f"/><stop offset="1" stop-color="#f0a400"/></linearGradient><linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset="1" stop-color="#7a47d6"/></linearGradient><linearGradient id="gGray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#aab6c2"/><stop offset="1" stop-color="#5e6a76"/></linearGradient></defs><symbol id="si-screen" viewBox="0 0 24 24"><rect x="2.5" y="3.6" width="19" height="13" rx="2.7" fill="url(#gBlue)"/><rect x="4.5" y="5.5" width="15" height="9.1" rx="1.5" fill="#fff" fill-opacity=".26"/><path d="M8.6 20.4h6.8M12 16.6v3.8" stroke="#5e6a76" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-sound" viewBox="0 0 24 24"><path d="M3.4 9.5h3.8L12.4 5.2v13.6L7.2 14.5H3.4z" fill="url(#gTeal)"/><path d="M15.4 9.3a4 4 0 0 1 0 5.4M18.1 6.8a7.6 7.6 0 0 1 0 10.4" stroke="#128c8c" stroke-width="1.8" stroke-linecap="round" fill="none"/></symbol><symbol id="si-truck" viewBox="0 0 24 24"><rect x=".4" y="4.6" width="14.4" height="9.6" rx="1" fill="url(#gBlue)"/><path d="M1.5 6.9h12.2" stroke="#fff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/><path d="M1.5 9.2h7" stroke="#fff" stroke-opacity=".28" stroke-width="1" stroke-linecap="round"/><rect x=".4" y="14.2" width="23.3" height="1.3" rx=".5" fill="#4a5563"/><path d="M10.6 15.4v2.4M9.4 17.8h2.4" stroke="#8d99a5" stroke-width=".9" stroke-linecap="round"/><path d="M15.2 14.2h3.2v-.8h-3.2z" fill="#8d99a5"/><path d="M16.3 14.4V8.3Q16.3 6.4 18 6.4H19.4Q20 6.4 20.4 6.9L22.3 9.9H23Q23.7 9.9 23.7 10.7V14.4z" fill="url(#gOrange)"/><path d="M17 5.7h2.3q.6 0 .9.5l.5.7h-4.4q.1-1.2.7-1.2z" fill="#fff" fill-opacity=".55"/><path d="M17.9 7.7h1.5q.4 0 .6.4l1.3 2.1h-3.4z" fill="#fff" fill-opacity=".9"/><rect x="22.6" y="11.1" width="1.1" height="1.1" rx=".4" fill="#fff6c8"/><path d="M16.3 12.5h6" stroke="#fff" stroke-opacity=".4" stroke-width=".7"/><g fill="#2a343d" stroke="#cfd6dc" stroke-width=".7"><circle cx="3.1" cy="17.4" r="1.7"/><circle cx="7" cy="17.4" r="1.7"/><circle cx="17.3" cy="17.4" r="1.7"/><circle cx="21.3" cy="17.4" r="1.7"/></g></symbol><symbol id="si-reports" viewBox="0 0 24 24"><path d="M12 3.2 21.6 20H2.4z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 9.4v5" stroke="#1b1f24" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="#1b1f24"/></symbol><symbol id="si-users" viewBox="0 0 24 24"><circle cx="16.7" cy="8.9" r="2.5" fill="url(#gTeal)"/><path d="M16.9 13.8c2.9.1 4.9 1.9 4.9 5.2h-4.5c0-2.1-.6-3.8-1.9-4.9.4-.2.9-.3 1.5-.3z" fill="url(#gTeal)"/><circle cx="9.2" cy="8.4" r="3.2" fill="url(#gBlue)"/><path d="M2.8 19.6c0-3.6 2.8-5.7 6.4-5.7s6.4 2.1 6.4 5.7z" fill="url(#gBlue)"/></symbol><symbol id="si-gear" viewBox="0 0 24 24"><g fill="url(#gGray)"><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(0 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(45 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(90 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(135 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(180 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(225 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(270 12 12)"/><rect x="10.3" y="1.7" width="3.4" height="4.8" rx="1.1" transform="rotate(315 12 12)"/><circle cx="12" cy="12" r="6.6"/></g><circle cx="12" cy="12" r="2.8" fill="#fff" fill-opacity=".9"/></symbol><symbol id="si-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="url(#gYellow)"/><path d="M12 2.4v2.5M12 19.1v2.5M2.4 12h2.5M19.1 12h2.5M5.2 5.2 7 7M17 17l1.8 1.8M5.2 18.8 7 17M17 7l1.8-1.8" stroke="#f0a400" stroke-width="1.9" stroke-linecap="round" fill="none"/></symbol><symbol id="si-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 1 1 9.6 3.8a6.9 6.9 0 0 0 10.6 10.6z" fill="url(#gPurple)"/><circle cx="17.6" cy="6.2" r="1.1" fill="#ffe28f"/><circle cx="20.2" cy="9.4" r=".7" fill="#ffe28f"/></symbol><symbol id="si-sunset" viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#241a4d" stroke="#fff" stroke-width="1.4"/><path d="M5.4 15.4a6.6 6.6 0 0 1 13.2 0z" fill="#ffd23f"/><path d="M12 3.8v2.7M4.9 7.9l1.9 1.7M19.1 7.9l-1.9 1.7" stroke="#ffd23f" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M3.8 15.8h16.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M7 18.6h10M9.8 21h4.4" stroke="#ff7a3d" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol><symbol id="si-map" viewBox="0 0 24 24"><path d="M3 6.4l6-2.2 6 2.2 6-2.2v13.4l-6 2.2-6-2.2-6 2.2z" fill="url(#gGreen)"/><path d="M9 4.2v13.4M15 6.4v13.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none"/><circle cx="16.4" cy="11.4" r="1.4" fill="#d6342b"/></symbol><symbol id="si-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="url(#gBlue)"/><path d="M6.6 8.4c2-1.6 4.2-1.2 5.2.3s-.6 2.8-2.5 3-3.5-.3-2.7-3.3zM13.4 14c1.7-.7 3.3.2 3.4 1.7s-1.7 2.3-3.1 1.8-1.3-2.9-.3-3.5z" fill="url(#gGreen)"/><ellipse cx="12" cy="12" rx="9" ry="3.4" transform="rotate(-24 12 12)" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.1"/></symbol><symbol id="si-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="4.1" fill="url(#gBlue)"/><path d="M4.4 20.6c0-4.2 3.4-6.7 7.6-6.7s7.6 2.5 7.6 6.7z" fill="url(#gBlue)"/></symbol><symbol id="si-sign" viewBox="0 0 24 24"><rect x="2.8" y="3.6" width="18.4" height="11" rx="1.9" fill="url(#gOrange)"/><path d="M6 8h12M6 11h7.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><rect x="10.9" y="14.6" width="2.2" height="6.4" rx=".8" fill="#5e6a76"/></symbol><symbol id="si-image" viewBox="0 0 24 24"><rect x="2.8" y="4.4" width="18.4" height="15.2" rx="2.5" fill="url(#gBlue)"/><circle cx="8.4" cy="9.6" r="1.9" fill="#ffe28f"/><path d="M3.8 18.4l5.2-5.4 3.4 3.4 3-3.6 5 5.6z" fill="#fff" fill-opacity=".92"/></symbol><symbol id="si-crown" viewBox="0 0 24 24"><path d="M3 8l4.6 4 4.4-6.4 4.4 6.4L21 8l-1.8 10.8H4.8z" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1" stroke-linejoin="round"/><circle cx="3" cy="7.6" r="1.4" fill="#f0a400"/><circle cx="12" cy="5.4" r="1.4" fill="#f0a400"/><circle cx="21" cy="7.6" r="1.4" fill="#f0a400"/><path d="M5.6 16.2h12.8" stroke="#c9840a" stroke-width="1.2" fill="none"/></symbol><symbol id="si-road" viewBox="0 0 24 24"><path d="M8.2 3h7.6L21 21H3z" fill="url(#gGray)"/><path d="M12 5.4v2.6M12 10.6v3M12 16.6v3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M8.2 3 3 21M15.8 3 21 21" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/></symbol><symbol id="si-download" viewBox="0 0 24 24"><path d="M12 3.6v10M7.6 10l4.4 4.4 4.4-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#1f6fe0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-upload" viewBox="0 0 24 24"><path d="M12 14.4v-10M7.6 8l4.4-4.4L16.4 8" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M4.2 14.6v4.4h15.6v-4.4" stroke="#128c8c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol><symbol id="si-bricks" viewBox="0 0 24 24"><rect x="2.8" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="12.6" y="13.6" width="8.6" height="5.6" rx="1.2" fill="url(#gOrange)"/><rect x="7.7" y="7.4" width="8.6" height="5.6" rx="1.2" fill="url(#gYellow)"/></symbol><symbol id="si-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.8" fill="url(#gYellow)" stroke="#c9840a" stroke-width="1.2"/><circle cx="8" cy="12" r="1.6" fill="#fff"/><path d="M12.6 12H21M18 12v3.2M21 12v2.4" stroke="#c9840a" stroke-width="2" stroke-linecap="round" fill="none"/></symbol><symbol id="si-eye" viewBox="0 0 24 24"><path d="M2.4 12C4.6 7.6 8 5.6 12 5.6s7.4 2 9.6 6.4c-2.2 4.4-5.6 6.4-9.6 6.4S4.6 16.4 2.4 12z" fill="#fff" stroke="#1f6fe0" stroke-width="1.6"/><circle cx="12" cy="12" r="3.5" fill="url(#gBlue)"/><circle cx="12" cy="12" r="1.3" fill="#12305f"/></symbol><symbol id="si-cone" viewBox="0 0 24 24"><path d="M10.2 3.4Q12 1.6 13.8 3.4L18.6 18.6H5.4z" fill="url(#gOrange)"/><path d="M8.1 11h7.8l.9 2.9H7.2zM9.3 7.2h5.4l.7 2.1H8.6z" fill="#fff"/><rect x="3" y="18.2" width="18" height="3.6" rx="1.4" fill="#4a5563"/></symbol><symbol id="si-link" viewBox="0 0 24 24"><path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l3-3a3.6 3.6 0 0 0-5.1-5.1l-1 1M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-3 3a3.6 3.6 0 0 0 5.1 5.1l1-1" stroke="#1f6fe0" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol></svg>
 
 <div id="map"></div>
 <div id="skyFog" aria-hidden="true"></div>
@@ -19057,6 +19068,11 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const item = btn.closest(".rpItem"); if(!item) return;
     const act = btn.dataset.act, id = item.dataset.id;
     if(act === "show"){ hgvShowOnMap(Number(btn.dataset.lat), Number(btn.dataset.lon)); return; }
+    const askTxt = act === "camback" ? "Cofnąć tę zmianę fotoradaru? Wróci stan sprzed zmiany."
+      : act === "alok" ? "Usunąć ten punkt z listy „Po drodze” u wszystkich kierowców?"
+      : act === "alback" ? "Przywrócić ten punkt na listę „Po drodze”?"
+      : (act === "camok" && (btn.dataset.ca || "remove") === "remove") ? "Usunąć ten fotoradar z mapy u wszystkich kierowców?" : "";
+    if(askTxt && !window.confirm(askTxt)) return;      // usuwanie zawsze z potwierdzeniem („Usuń” przy ograniczeniach pyta niżej)
     if(act === "camok" || act === "camno" || act === "camback"){          // fotoradary zgłoszone jako nieaktywne (js/64)
       try{
         if(act === "camback") await supaAdminRequest("DELETE", `camera_flags?id=eq.${encodeURIComponent(id)}`);
@@ -20342,32 +20358,43 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const f = (accEl("usrFilter").value || "").trim().toLowerCase();
     const rows = accUsers.filter(u => !f || String(u.nick || "").toLowerCase().includes(f) || String(u.email || "").toLowerCase().includes(f));
     accEl("usrCount").textContent = accUsers.length ? "(" + accUsers.length + ")" : "";
+    const wasOpen = new Set(Array.prototype.map.call(box.querySelectorAll("details.usrItem[open]"), d => d.dataset.id));      // rozwinięte karty zostają rozwinięte po odświeżeniu
     box.textContent = "";
     if(!rows.length){ box.appendChild(accMk("div", "psMuted", accUsers.length ? "Brak wyników." : "Nikt się jeszcze nie zarejestrował.")); return; }
+    const btn = (act, txt, key, id, cls) => { const x = accMk("button", cls || "", txt); x.type = "button"; x.dataset[key] = id; act.appendChild(x); return x; };
+    const group = (title, openIt) => { const d = accMk("details", "rpSec rpSub"); if(openIt) d.open = true; d.appendChild(accMk("summary", "", title)); const act = accMk("div", "rpAct"); d.appendChild(act); return { d, act }; };
     rows.forEach(u => {
-      const it = accMk("div", "rpItem usrItem"); it.dataset.id = u.id;
-      const head = accMk("div", "rpHead"); head.appendChild(accMk("i", "usrDot stDot " + accDot(u))); head.appendChild(accMk("span", "rpKind", u.nick || "(bez pseudonimu)"));
+      // karta użytkownika: zwinięta, w nagłówku tylko pseudonim i ostrzeżenia; reszta po rozwinięciu
+      const it = accMk("details", "rpSec usrItem"); it.dataset.id = u.id; if(wasOpen.has(u.id)) it.open = true;
+      const head = accMk("summary", "usrHead"); head.appendChild(accMk("i", "usrDot stDot " + accDot(u))); head.appendChild(accMk("span", "rpKind", u.nick || "(bez pseudonimu)"));
       if(u.low_trust) head.appendChild(accMk("span", "usrWarn", "⚠ niskie zaufanie"));
-      if(u.needs_decision) head.appendChild(accMk("span", "usrWarn", "wymaga Twojej decyzji"));
+      if(u.needs_decision) head.appendChild(accMk("span", "usrWarn", "wymaga decyzji"));
       if(u.open_appeals > 0) head.appendChild(accMk("span", "usrWarn", "odwołanie"));
       if(u.email_confirmed === false) head.appendChild(accMk("span", "usrWarn", "e-mail niepotwierdzony"));
-      head.appendChild(accMk("span", "psMuted", u.email || ""));
       it.appendChild(head);
-      if(u.company) it.appendChild(accMk("div", "rpNote", "Firma: " + u.company));
-      it.appendChild(accMk("div", "rpNote usrSeen", accPresenceText(u)));
-      it.appendChild(accMk("div", "rpNote", "Ostrzeżenia: " + (u.cycle_warnings || 0) + "/3 · blokad: " + (u.block_count || 0)));
-      it.appendChild(accMk("div", "rpNote", "Aktywności: " + (u.n_total || 0) + " · potwierdzeń: " + (u.n_confirmed || 0) + " · zaprzeczeń: " + (u.n_denied || 0)));
-      const act = accMk("div", "rpAct"); const b = accMk("button", "", "Historia ▾"); b.type = "button"; b.dataset.hist = u.id; act.appendChild(b);
-      const bw = accMk("button", "", "Ostrzeż"); bw.type = "button"; bw.dataset.warn = u.id; act.appendChild(bw);
-      const ba = accMk("button", "", "Odwołania" + (u.open_appeals > 0 ? " (" + u.open_appeals + ")" : "")); ba.type = "button"; ba.dataset.appeal = u.id; act.appendChild(ba);
-      if(!u.banned){ const bd = accMk("button", "", "Zablokuj na dni…"); bd.type = "button"; bd.dataset.days = u.id; act.appendChild(bd); }
-      const bb = accMk("button", "", accUserBlocked(u) ? "Odblokuj" : "Zablokuj na stałe"); bb.type = "button"; bb.dataset.ban = u.id; act.appendChild(bb);
-      if(u.needs_decision){ const bk = accMk("button", "", "Zostaw bez blokady"); bk.type = "button"; bk.dataset.keep = u.id; act.appendChild(bk); }
-      const bc = accMk("button", "", "Usuń wpisy"); bc.type = "button"; bc.dataset.delc = u.id; act.appendChild(bc);
-      const bu = accMk("button", "", "Usuń konto"); bu.type = "button"; bu.dataset.delu = u.id; act.appendChild(bu);
-      it.appendChild(act);
-      it.appendChild(accMk("div", "usrAppeal"));
-      it.appendChild(accMk("div", "usrHist"));
+      const body = accMk("div", "usrBody");
+      if(u.email) body.appendChild(accMk("div", "rpNote", u.email));
+      if(u.company) body.appendChild(accMk("div", "rpNote", "Firma: " + u.company));
+      body.appendChild(accMk("div", "rpNote usrSeen", accPresenceText(u)));
+      body.appendChild(accMk("div", "rpNote", "Ostrzeżenia: " + (u.cycle_warnings || 0) + "/3 · blokad: " + (u.block_count || 0)));
+      body.appendChild(accMk("div", "rpNote", "Aktywności: " + (u.n_total || 0) + " · potwierdzeń: " + (u.n_confirmed || 0) + " · zaprzeczeń: " + (u.n_denied || 0)));
+      const act = accMk("div", "rpAct");
+      btn(act, "Historia ▾", "hist", u.id);
+      btn(act, "Odwołania" + (u.open_appeals > 0 ? " (" + u.open_appeals + ")" : ""), "appeal", u.id);
+      body.appendChild(act);
+      body.appendChild(accMk("div", "usrAppeal"));
+      body.appendChild(accMk("div", "usrHist"));
+      const mod = group("Ostrzeżenia i blokada", !!u.needs_decision);
+      btn(mod.act, "Ostrzeż", "warn", u.id);
+      if(!u.banned) btn(mod.act, "Zablokuj na dni…", "days", u.id);
+      btn(mod.act, accUserBlocked(u) ? "Odblokuj" : "Zablokuj na stałe", "ban", u.id);
+      if(u.needs_decision) btn(mod.act, "Zostaw bez blokady", "keep", u.id, "psPrimary");
+      body.appendChild(mod.d);
+      const del = group("Usuwanie");
+      btn(del.act, "Usuń wpisy", "delc", u.id, "usrDanger");
+      btn(del.act, "Usuń konto", "delu", u.id, "usrDanger");
+      body.appendChild(del.d);
+      it.appendChild(body);
       box.appendChild(it);
     });
   }
@@ -20800,17 +20827,19 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   const cvMem = new Map();                      // id → { t, c:[[lat,lon],...] }
   let cvViewCams = [], cvSupa = [], cvSig = "", cvBusy = false, cvSupaAt = 0, cvSupaSig = "";
   let cvHidden = { t: 0, list: [] }, cvLocalHid = null, cvHideLoaded = false;
-  let cvEdits = { markRows: [], flipRows: [], sections: [], inactiveRows: [] };      // zmiany administratora z camera_flags: to_avg / flip / new_section (status applied)
+  let cvEdits = { markRows: [], flipRows: [], sections: [], inactiveRows: [], moveRows: [] };      // zmiany administratora z camera_flags: to_avg / flip / new_section (status applied)
   const CV_AVGLOC_LS = "nav_avg_local_v1";                          // własne, jeszcze niezatwierdzone zgłoszenia odcinków tego telefonu
   const cvNear = (aLat, aLon, bLat, bLon, m) => Math.abs(aLat - bLat) < 0.0008 && Math.abs(aLon - bLon) < 0.0013 && haversine(aLat, aLon, bLat, bLon) < m;
   const CV_LOCAL_LS = "nav_cam_hidden_v1";
+  const CV_SAME_M = 10;      // ten sam fotoradar = w promieniu 10 m (dwa fotoradary obok siebie to dwa różne punkty; wcześniej 40 m chowało oba)
+  const cvSame = (h, lat, lon) => Math.abs(h.lat - lat) < 0.0002 && Math.abs(h.lon - lon) < 0.0003 && haversine(h.lat, h.lon, lat, lon) < CV_SAME_M;
   const cvEl = id => document.getElementById(id);
 
   /* ---------- usunięte (administrator) + ukryte lokalnie (zgłoszone przez tego kierowcę) ---------- */
   function cvLocal(){ if(!cvLocalHid){ try{ cvLocalHid = JSON.parse(localStorage.getItem(CV_LOCAL_LS) || "[]"); }catch(e){ cvLocalHid = []; } } return cvLocalHid; }
   function cvLocalAdd(lat, lon){ cvLocal().push({ lat, lon }); try{ localStorage.setItem(CV_LOCAL_LS, JSON.stringify(cvLocal().slice(-300))); }catch(e){} }
   function cvIsHidden(lat, lon){
-    const near = h => Math.abs(h.lat - lat) < 0.0006 && Math.abs(h.lon - lon) < 0.001 && haversine(h.lat, h.lon, lat, lon) < 40;
+    const near = h => cvSame(h, lat, lon);
     return cvHidden.list.some(near) || cvLocal().some(near) || cvIsInactive(lat, lon);
   }
   /* ---------- nieaktywne (wygaszone): zostają na mapie, półprzezroczyste, bez alertów ---------- */
@@ -20818,7 +20847,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   let cvInactLoc = null, cvInactSig = "";
   function cvInactLocal(){ if(!cvInactLoc){ try{ cvInactLoc = JSON.parse(localStorage.getItem(CV_INACT_LS) || "[]"); }catch(e){ cvInactLoc = []; } } return cvInactLoc; }
   function cvInactSave(){ try{ localStorage.setItem(CV_INACT_LS, JSON.stringify(cvInactLocal().slice(-300))); }catch(e){} }
-  const cvInactNear = (h, lat, lon) => Math.abs(h.lat - lat) < 0.0006 && Math.abs(h.lon - lon) < 0.001 && haversine(h.lat, h.lon, lat, lon) < 40;
+  const cvInactNear = (h, lat, lon) => cvSame(h, lat, lon);
   function cvIsInactive(lat, lon){ return cvEdits.inactiveRows.some(h => cvInactNear(h, lat, lon)) || cvInactLocal().some(h => cvInactNear(h, lat, lon)); }
   function cvInactDraw(force){
     try{
@@ -20842,11 +20871,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       try{ rows = await psRest("GET", "camera_flags?select=id,action,lat,lon,extra,status&status=in.(removed,applied)&limit=5000"); }
       catch(e){ rows = await psRest("GET", "camera_flags?select=lat,lon&status=eq.removed&limit=5000"); }      // stara tabela bez kolumn action/extra
       if(!Array.isArray(rows)) return;
-      cvHidden.list = rows.filter(r => !r.action || r.action === "remove");
+      cvHidden.list = rows.filter(r => !r.action || r.action === "remove" || r.action === "move");      // „move”: stare miejsce kamery też jest ukryte
+      cvEdits.moveRows = rows.filter(r => r.action === "move" && r.extra && Array.isArray(r.extra.to) && r.extra.to.length === 2);
       cvEdits.markRows = rows.filter(r => r.action === "to_avg");
       cvEdits.flipRows = rows.filter(r => r.action === "flip");
       cvEdits.inactiveRows = rows.filter(r => r.action === "inactive");
-      cvEdits.sections = rows.filter(r => r.action === "new_section" && r.extra && Array.isArray(r.extra.pts) && r.extra.pts.length >= 2).map(r => ({ id: r.id, pts: r.extra.pts, mph: r.extra.mph || null, off: !!r.extra.off, path: Array.isArray(r.extra.path) ? r.extra.path : null }));
+      cvEdits.sections = rows.filter(r => r.action === "new_section" && r.extra && Array.isArray(r.extra.pts) && r.extra.pts.length >= 2).map(r => ({ id: r.id, pts: r.extra.pts, mph: r.extra.mph || null, off: !!r.extra.off, path: Array.isArray(r.extra.path) ? r.extra.path : null, raw: r.extra }));
       cvRefreshAll();
     }catch(e){}
   }
@@ -20877,8 +20907,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     return false;
   }
   function cvIsMarkedAvg(lat, lon){       // zwykły fotoradar zamieniony na odcinkowy albo wskazany jako kamera ręcznego odcinka
-    if(cvMarkPts().some(p => cvNear(p[0], p[1], lat, lon, 40))) return true;
-    return cvSections().some(sec => sec.pts.some(p => cvNear(p[0], p[1], lat, lon, 40)));
+    if(cvMarkPts().some(p => cvNear(p[0], p[1], lat, lon, CV_SAME_M))) return true;
+    return cvSections().some(sec => sec.pts.some(p => cvNear(p[0], p[1], lat, lon, CV_SAME_M)));
   }
   function cvRefreshAll(){          // ukryty / usunięty fotoradar znika ze wszystkich warstw
     try{ cvInactDraw(true); }catch(e){}
@@ -20984,6 +21014,10 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   addTick(cvTick, 2500);
 
   // dodatkowe fotoradary do narysowania (poza listą „cameras”, która służy do alertów przy pojeździe): bez duplikatów, bez usuniętych
+  function cvRemovedAt(lat, lon){ return cvHidden.list.some(h => h.action !== "move" && cvSame(h, lat, lon)) || cvLocal().some(h => cvSame(h, lat, lon)) || cvIsInactive(lat, lon); }
+  function cvMovedPts(){      // [{id, lat, lon, avg}] — nowe miejsca przesuniętych kamer (chyba że usunięto je potem w nowym miejscu)
+    return cvEdits.moveRows.map(r => ({ id: r.id, lat: r.extra.to[0], lon: r.extra.to[1], avg: r.extra.avg || r.kind === "avg" })).filter(m => !cvRemovedAt(m.lat, m.lon));
+  }
   function cvExtraFeatures(known){
     const out = [], seen = known.slice();
     const dup = (lat, lon) => seen.some(s => Math.abs(s.lat - lat) < 0.0004 && Math.abs(s.lon - lon) < 0.0007 && haversine(s.lat, s.lon, lat, lon) < 30);
@@ -20994,6 +21028,10 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       if(known.some(k => k.reportId != null && k.reportId === r.id)) return;
       seen.push({ lat: r.lat, lon: r.lon });
       out.push({ type: "Feature", properties: { id: "supa-" + r.id, src: "community", reportId: r.id, confirmations: r.confirmations || 0, denials: r.denials || 0, pending: r.status === "pending" ? 1 : 0 }, geometry: { type: "Point", coordinates: [r.lon, r.lat] } });
+    });
+    cvMovedPts().forEach((m, i) => {        // fotoradary przesunięte przez administratora: rysujemy w nowym miejscu (bez porównywania z sąsiadami)
+      seen.push({ lat: m.lat, lon: m.lon });
+      out.push({ type: "Feature", properties: { id: "moved-" + (m.id != null ? m.id : i), src: "osm", pending: 0, avg: m.avg ? 1 : 0 }, geometry: { type: "Point", coordinates: [m.lon, m.lat] } });
     });
     cvViewCams.forEach((p, i) => {
       if(cvIsHidden(p[0], p[1]) || dup(p[0], p[1]) || inMw(p[0], p[1])) return;     // autostradowe rysuje warstwa motorway-cameras
@@ -21011,7 +21049,14 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   const cvAlertObjs = new Map();
   function cvAlertExtras(known){
     const out = [];
-    if(typeof lastPos === "undefined" || !lastPos || !cvViewCams.length) return out;
+    if(typeof lastPos === "undefined" || !lastPos) return out;
+    cvMovedPts().forEach(m => {
+      if(Math.abs(m.lat - lastPos.lat) > 0.03 || Math.abs(m.lon - lastPos.lon) > 0.05 || haversine(lastPos.lat, lastPos.lon, m.lat, m.lon) > CAMERA_RADIUS_M) return;
+      const key = "m" + m.lat + "," + m.lon; let o = cvAlertObjs.get(key);
+      if(!o){ o = { id: "view-a-" + key, lat: m.lat, lon: m.lon, alerted: false, avg: m.avg ? 1 : 0 }; cvAlertObjs.set(key, o); }
+      out.push(o);
+    });
+    if(!cvViewCams.length) return out;
     cvViewCams.forEach(p => {
       if(Math.abs(p[0] - lastPos.lat) > 0.03 || Math.abs(p[1] - lastPos.lon) > 0.05 || haversine(lastPos.lat, lastPos.lon, p[0], p[1]) > CAMERA_RADIUS_M) return;
       if(known.some(k => Math.abs(k.lat - p[0]) < 0.0004 && Math.abs(k.lon - p[1]) < 0.0007 && haversine(k.lat, k.lon, p[0], p[1]) < 30)) return;
@@ -21028,6 +21073,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function cvHideCard(){ cvCardTarget = null; if(cvCardTimer){ clearTimeout(cvCardTimer); cvCardTimer = null; } const c = cvEl("camCard"); if(c) c.classList.remove("show"); }
   function camClickAt(e){
     try{
+      if(window.cmMoving || Date.now() - CM.movedAt < 800) return true;      // puszczenie palca po przesunięciu nie otwiera karty
       if(!map || window.alPicking || (typeof psGatePlacing !== "undefined" && psGatePlacing) || routeEditMode || destPinPhase()) return false;
       if(typeof navUiState !== "undefined" && navUiState === "picker") return false;
       const layers = CV_HIT_LAYERS.filter(id => map.getLayer(id)); if(!layers.length){ cvHideCard(); return false; }
@@ -21068,7 +21114,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       const sub = cvEl("camSub"); sub.textContent = [avgI ? cvAvgText(avgI) : "", g.place].filter(Boolean).join(" · ");
     }).catch(() => {});
     cvCardTarget.avgI = avgI;
-    const adm = isAdmin(), marked = kind === "avg" && cvEdits.markRows.some(r => cvNear(r.lat, r.lon, lat, lon, 40));
+    const adm = isAdmin(), marked = kind === "avg" && cvEdits.markRows.some(r => cvNear(r.lat, r.lon, lat, lon, CV_SAME_M));
     const show = (id, on, txt) => { const el = cvEl(id); el.style.display = on ? "" : "none"; if(txt) el.textContent = txt; return on; };
     let any = false;
     any = show("camAvg", (kind === "osm" || kind === "motorway") && !cvIsMarkedAvg(lat, lon), adm ? "Zmień na odcinkową" : "Zgłoś: to kamera odcinkowa") || any;
@@ -21128,7 +21174,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const t = cvCardTarget; if(!t) return;
     const nm = t.kind === "avg" ? "Odcinkowy pomiar prędkości" : "Fotoradar";
     if(t.kind === "local"){        // fotoradar zapisany tylko na tym telefonie (jeszcze nie potwierdzony) — usuwamy od ręki
-      const near = p => Math.abs(p.lat - t.lat) < 0.0006 && Math.abs(p.lon - t.lon) < 0.001 && haversine(p.lat, p.lon, t.lat, t.lon) < 40;
+      const near = p => cvSame(p, t.lat, t.lon);
       userReportedCameras = userReportedCameras.filter(p => !near(p)); saveUserReportedCameras();
       cvHideCard(); rebuildCameraList();
       showBanner("USUNIĘTO", "Fotoradar usunięty z tego telefonu", false);
@@ -21140,7 +21186,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       try{
         await supaAdminRequest("POST", "camera_flags", [{ kind: t.kind, name: nm, lat: t.lat, lon: t.lon, status: "removed", reviewed_by: (typeof adminEmail === "function" && adminEmail()) || null }], "return=minimal");
         await cvLoadHidden(true);      // sprawdzamy, czy zapis jest widoczny dla zwykłych kierowców (odczyt jak u konta niezalogowanego)
-        if(cvHidden.list.some(h => cvNear(h.lat, h.lon, t.lat, t.lon, 40))) showBanner("FOTORADAR USUNIĘTY", "Nie będzie już widoczny dla kierowców", false);
+        if(cvHidden.list.some(h => cvSame(h, t.lat, t.lon))) showBanner("FOTORADAR USUNIĘTY", "Nie będzie już widoczny dla kierowców", false);
         else { cvHidden.list.push({ lat: t.lat, lon: t.lon }); showBanner("ZAPISANO, ALE NIEWIDOCZNE DLA INNYCH", "Baza nie udostępnia usunięć kierowcom — uruchom sql/camera_flags.sql", false); }
       }catch(e){
         cvLocalAdd(t.lat, t.lon);
@@ -21183,8 +21229,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   async function cvUnavg(){
     const t = cvCardTarget; if(!t || !isAdmin()) return; cvHideCard();
     try{
-      for(const r of cvEdits.markRows.filter(r => cvNear(r.lat, r.lon, t.lat, t.lon, 40))) await supaAdminRequest("DELETE", "camera_flags?id=eq." + encodeURIComponent(r.id));
-      const o = cvAvgLocal(); o.marks = o.marks.filter(m => !cvNear(m.lat, m.lon, t.lat, t.lon, 40)); cvAvgLocalSave(o);
+      for(const r of cvEdits.markRows.filter(r => cvNear(r.lat, r.lon, t.lat, t.lon, CV_SAME_M))) await supaAdminRequest("DELETE", "camera_flags?id=eq." + encodeURIComponent(r.id));
+      const o = cvAvgLocal(); o.marks = o.marks.filter(m => !cvNear(m.lat, m.lon, t.lat, t.lon, CV_SAME_M)); cvAvgLocalSave(o);
       await cvLoadHidden(true); showBanner("ZMIENIONO", "To znowu zwykły fotoradar", false);
     }catch(e){ showBanner("NIE ZAPISANO", String(e.message || e).slice(0, 100), false); }
   }
@@ -21512,6 +21558,108 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   }
 
   addTick(cvInactDraw, 3000);   // warstwa nieaktywnych fotoradarów: dodaje się po załadowaniu mapy i odtwarza po zmianie motywu
+
+  /* ---------- administrator: przytrzymaj ikonę fotoradaru (~0,7 s) i przesuń ją na właściwe miejsce ----------
+     Znacznik pokazuje się nad palcem (żeby go nie zasłaniać). Po puszczeniu pytanie „Przesunąć?”.
+     Zapis: wpis camera_flags action „move” (stare miejsce ukryte, nowe rysowane i z alertem), kamery kierowców → shared_reports, lokalne → telefon. */
+  const CM = { timer: null, start: null, hit: null, moving: false, raf: 0, pos: null, movedAt: 0 };
+  function cmHit(pt){
+    if(!map) return null;
+    const layers = CV_HIT_LAYERS.filter(id => id !== "cameras-inactive" && map.getLayer(id)); if(!layers.length) return null;
+    const R = 22, feats = map.queryRenderedFeatures([[pt.x - R, pt.y - R], [pt.x + R, pt.y + R]], { layers });
+    let best = null, bd = Infinity;
+    feats.forEach(f => {
+      if(!f.geometry || f.geometry.type !== "Point") return;
+      const p = map.project(f.geometry.coordinates), d = Math.hypot(p.x - pt.x, p.y - pt.y);
+      if(d < bd){ bd = d; best = f; }
+    });
+    if(!best) return null;
+    const lid = best.layer.id, pr = best.properties || {}, c = best.geometry.coordinates;
+    const kind = /^motorway/.test(lid) ? "motorway" : (/^avg/.test(lid) || pr.avg === 1 || pr.avg === "1") ? "avg" : "osm";
+    return { kind, src: pr.src || "osm", reportId: pr.reportId, lat: c[1], lon: c[0] };
+  }
+  function cmGhost(on, lat, lon){
+    try{
+      if(!map.getSource("cam-move")) map.addSource("cam-move", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      if(!map.getLayer("cam-move-halo")) map.addLayer({ id: "cam-move-halo", type: "circle", source: "cam-move", paint: { "circle-radius": 26, "circle-color": "#FFD400", "circle-opacity": 0.3 } });
+      if(!map.getLayer("cam-move-dot")) map.addLayer({ id: "cam-move-dot", type: "circle", source: "cam-move", paint: { "circle-radius": 11, "circle-color": "#FFD400", "circle-stroke-color": "#111", "circle-stroke-width": 2.5 } });
+      map.getSource("cam-move").setData({ type: "FeatureCollection", features: on ? [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lon, lat] } }] : [] });
+    }catch(e){}
+  }
+  function cmDown(e){
+    if(!isAdmin() || (e.points && e.points.length > 1) || window.cmMoving) return;
+    if(window.alPicking || window.cvPicking || routeEditMode || destPinPhase() || (typeof psGatePlacing !== "undefined" && psGatePlacing)) return;
+    if(typeof navUiState !== "undefined" && navUiState === "picker") return;
+    const h = cmHit(e.point); if(!h) return;
+    CM.hit = h; CM.start = e.point; CM.pos = null;
+    CM.timer = setTimeout(cmBegin, 700);
+  }
+  function cmBegin(){
+    CM.timer = null; if(!CM.hit) return;
+    CM.moving = true; window.cmMoving = true;
+    try{ map.dragPan.disable(); }catch(x){}
+    try{ if(navigator.vibrate) navigator.vibrate(30); }catch(x){}
+    cvHideCard();
+    cmGhost(true, CM.hit.lat, CM.hit.lon);
+    showBanner("PRZESUWASZ FOTORADAR", "Przeciągnij na właściwe miejsce (znacznik jest nad palcem) i puść", false);
+  }
+  function cmMove(e){
+    if(CM.timer && CM.start && Math.hypot(e.point.x - CM.start.x, e.point.y - CM.start.y) > 10){ clearTimeout(CM.timer); CM.timer = null; CM.hit = null; }
+    if(!CM.moving) return;
+    const ll = map.unproject({ x: e.point.x, y: e.point.y - 48 });
+    CM.pos = { lat: ll.lat, lon: ll.lng };
+    if(!CM.raf) CM.raf = requestAnimationFrame(() => { CM.raf = 0; if(CM.pos) cmGhost(true, CM.pos.lat, CM.pos.lon); });
+  }
+  async function cmUp(){
+    if(CM.timer){ clearTimeout(CM.timer); CM.timer = null; }
+    if(!CM.moving){ CM.hit = null; return; }
+    CM.moving = false; CM.movedAt = Date.now();
+    setTimeout(() => { window.cmMoving = false; }, 300);
+    try{ map.dragPan.enable(); }catch(x){}
+    const h = CM.hit, pos = CM.pos; CM.hit = null; CM.pos = null;
+    if(!h || !pos || haversine(h.lat, h.lon, pos.lat, pos.lon) < 1.5){ cmGhost(false); return; }       // nie ruszono — nic nie zmieniamy
+    const lat = Math.round(pos.lat * 1e6) / 1e6, lon = Math.round(pos.lon * 1e6) / 1e6;
+    const m = Math.round(haversine(h.lat, h.lon, lat, lon));
+    if(!window.confirm("Przesunąć ten fotoradar o ok. " + m + " m w wybrane miejsce?")){ cmGhost(false); return; }
+    await cmSave(h, lat, lon);
+    cmGhost(false);
+  }
+  async function cmSave(h, lat, lon){
+    const by = (typeof adminEmail === "function" && adminEmail()) || null;
+    try{
+      if(h.src === "local"){
+        const a = userReportedCameras.find(p => cvSame(p, h.lat, h.lon)); if(a){ a.lat = lat; a.lon = lon; saveUserReportedCameras(); }
+        rebuildCameraList(); showBanner("FOTORADAR PRZESUNIĘTY", "Zapisano na tym telefonie", false); return;
+      }
+      if(h.src === "community" && h.reportId != null && h.reportId !== "undefined" && h.reportId !== null){
+        await supaAdminRequest("PATCH", "shared_reports?id=eq." + encodeURIComponent(h.reportId), { lat, lon }, "return=minimal");
+        const r = cvSupa.find(x => String(x.id) === String(h.reportId)); if(r){ r.lat = lat; r.lon = lon; }
+        cvSupaAt = 0; cvSupaSig = ""; cvRefreshAll(); showBanner("FOTORADAR PRZESUNIĘTY", "Zapisano nową pozycję dla wszystkich kierowców", false); return;
+      }
+      const isMoved = cvEdits.moveRows.find(r => cvSame({ lat: r.extra.to[0], lon: r.extra.to[1] }, h.lat, h.lon));
+      const extra = { to: [lat, lon], avg: h.kind === "avg" ? 1 : 0 };
+      if(isMoved) await supaAdminRequest("PATCH", "camera_flags?id=eq." + encodeURIComponent(isMoved.id), { extra: Object.assign({}, isMoved.extra, extra) }, "return=minimal");
+      else await supaAdminRequest("POST", "camera_flags", [{ kind: h.kind, name: "Fotoradar przesunięty", lat: h.lat, lon: h.lon, status: "applied", action: "move", extra, reviewed_by: by }], "return=minimal");
+      // wpisy związane ze starym miejscem jadą razem z kamerą: oznaczenie „odcinkowa”, wygaszenie, punkty ręcznych odcinków
+      for(const r of cvEdits.markRows.filter(r => cvNear(r.lat, r.lon, h.lat, h.lon, CV_SAME_M))) await supaAdminRequest("PATCH", "camera_flags?id=eq." + encodeURIComponent(r.id), { lat, lon }, "return=minimal");
+      for(const r of cvEdits.inactiveRows.filter(r => cvSame(r, h.lat, h.lon))) await supaAdminRequest("PATCH", "camera_flags?id=eq." + encodeURIComponent(r.id), { lat, lon }, "return=minimal");
+      for(const s of cvEdits.sections){
+        const i = s.pts.findIndex(p => cvNear(p[0], p[1], h.lat, h.lon, CV_SAME_M)); if(i < 0 || !s.raw) continue;
+        const pts = s.pts.map((p, k) => k === i ? [lat, lon] : p);
+        await supaAdminRequest("PATCH", "camera_flags?id=eq." + encodeURIComponent(s.id), { extra: Object.assign({}, s.raw, { pts }) }, "return=minimal");
+      }
+      cvInactLocal().forEach(x => { if(cvSame(x, h.lat, h.lon)){ x.lat = lat; x.lon = lon; } }); cvInactSave();
+      await cvLoadHidden(true);
+      showBanner("FOTORADAR PRZESUNIĘTY", "Zapisano nową pozycję dla wszystkich kierowców", false);
+    }catch(err){
+      showBanner("NIE ZAPISANO", "Uruchom ponownie sql/camera_flags.sql (doszło przesuwanie). " + String((err && err.message) || err).slice(0, 60), false);
+    }
+  }
+  safeInit("przesuwanie fotoradarów", () => whenMapReady(() => {
+    map.on("touchstart", cmDown); map.on("mousedown", cmDown);
+    map.on("touchmove", cmMove); map.on("mousemove", cmMove);
+    map.on("touchend", cmUp); map.on("touchcancel", cmUp); map.on("mouseup", cmUp);
+  }));
 </script>
 <script>
 /* ===== js/65-avg-speed-meter.js — Licznik średniej prędkości na odcinkach pomiarowych (żółte kamery) =====
