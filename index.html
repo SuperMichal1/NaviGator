@@ -11327,7 +11327,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function showPlaceAdd(lat, lon){
     hidePoiAsk();
     placeAddTarget = { lat, lon }; placeAddForce = false;
-    document.getElementById("poiAddAddr").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    document.getElementById("poiAddAddr").textContent = "";      // bez współrzędnych — adres pojawi się, gdy będzie znany
     document.getElementById("poiAddAsk").style.display = "";
     document.getElementById("poiAddForm").style.display = "none";
     document.getElementById("poiNameInput").value = "";
@@ -11511,7 +11511,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const seq = ++poiAskSeq;
     hideVoteCard();
     let origName;
-    if(placeId == null && !ref && typeof psRenameFor === "function"){ const rn = psRenameFor(lat, lon); if(rn && rn !== name){ origName = name; name = rn; } }   // własna nazwa punktu (js/52) widoczna od razu
+    if(placeId == null && !ref && typeof psRenameFor === "function"){ const rn = psRenameFor(lat, lon); if(rn){ origName = rn !== name ? name : (typeof psRenameOrig === "function" ? psRenameOrig(lat, lon) : undefined); name = rn; } }   // własna nazwa punktu (js/52) widoczna od razu
     poiAskTarget = { lat, lon, name, address: "", placeId, ref: ref || null };
     if(origName) poiAskTarget.origName = origName;
     if(typeof poiAdminRefresh === "function") poiAdminRefresh();   // administrator: „✏️ Zmień nazwę” (js/44)
@@ -11595,7 +11595,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       const tgt = e.originalEvent && e.originalEvent.target;
       if(tgt && tgt.closest && tgt.closest(".dest-pin")) return;
       const poiLayers = map.getStyle().layers
-        .filter(l => l["source-layer"] === "poi" || l.id === "hgv-companies-icon" || l.id === "place-names-icon")
+        .filter(l => l["source-layer"] === "poi" || l.source === "poi-renames" || l.id === "hgv-companies-icon" || l.id === "place-names-icon")     // poi-renames: punkty z własną nazwą (js/52)
         .map(l => l.id).filter(id => map.getLayer(id));
       if(typeof parkingClickAt === "function" && parkingClickAt(e)) return;   // parking HGV → karta z ocenami kierowców (js/56)
       // parking HGV zgłoszony przez kierowców → karta głosowania (potwierdzam / nie ma)
@@ -17877,7 +17877,8 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
   function psOnHide(){
     PS.fromSearch = false;
     document.body.classList.remove("poi-sheet-open");
-    const sh = psSheet(); if(sh){ sh.style.height = ""; sh.classList.remove("asking"); }
+    const sh = psSheet();
+    if(sh) setTimeout(() => { if(!sh.classList.contains("show")){ sh.style.height = ""; sh.classList.remove("asking"); } }, 450);     // dopiero po zjechaniu karty — inaczej na pół sekundy rozciągała się z całą zawartością i przyciskami
     PS.seq++;
   }
 
@@ -18301,6 +18302,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     let best = null, bd = 12;
     psRenames.forEach(r => { const d = haversine(r.lat, r.lon, lat, lon); if(d < bd){ bd = d; best = r; } });
     return best ? best.name : null;
+  }
+  function psRenameOrig(lat, lon){     // oryginalna nazwa z mapy dla przemianowanego punktu (do „↩ Nazwa z mapy”)
+    let best = null, bd = 12;
+    psRenames.forEach(r => { const d = haversine(r.lat, r.lon, lat, lon); if(d < bd){ bd = d; best = r; } });
+    const c = best && psRnProps.get(psRnKey(best));
+    return c && c.props && c.props.name ? String(c.props.name) : undefined;
   }
   const psRnBase = () => (map.getStyle().layers || []).filter(l => l["source-layer"] === "poi" && l.type === "symbol" && !/-rn$/.test(l.id));
   function psRnStrip(f){               // zdejmuje naszą klauzulę „nie w pobliżu przemianowanych”, zostawia oryginalny filtr warstwy
