@@ -432,41 +432,27 @@
   .unitSeg{ display:flex; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; }
   .unitSeg button{ border:none; background:transparent; color: var(--text-dim); font:700 11px 'Inter', system-ui, sans-serif; padding:6px 9px; cursor:pointer; }
   #navTruckBlock.units-imperial .unitSeg button[data-u="imperial"], #navTruckBlock.units-metric .unitSeg button[data-u="metric"]{ background: var(--gator-dark); color: var(--gator-on); }
-  /* ft i in w jednym polu (tak samo jak m przy metrach) */
-  .truckInputWrap.impPair{ display:flex; align-items:center; justify-content:center; gap:0; border-radius:9px; background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); }
-  body.night .truckInputWrap.impPair{ background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); }
-  .truckInputWrap.impPair:focus-within{ border-color: var(--accent); }
-  .truckInputWrap.impPair:has(input.bad){ border-color:#ff4d4d; }
-  /* szerokość pól dopasowuje się do liczby znaków (js/35: fitImp) — liczba stoi tuż przy jednostce: „16 ft  3 in” */
-  .truckInputWrap.impPair{ gap:0; padding:0 6px; }
-  .truckInputWrap.impPair input{ flex:0 0 auto; min-width:1ch; width:2ch; border:none !important; background:transparent !important; border-radius:0; padding:9px 0; text-align:right; box-sizing:content-box; font-variant-numeric:tabular-nums; }
-  .truckInputWrap.impPair em{ position:static; transform:none; padding:0 0 0 4px; flex:0 0 auto; }
+  /* wszystkie pola ciężarówki jednakowe: ta sama wysokość, liczba na środku, tuż przy niej jednostka (js/35: fitImp) */
+  .truckInputWrap{ display:flex; align-items:center; justify-content:center; height:48px; padding:0 8px; box-sizing:border-box; border-radius:12px; background:rgba(255,255,255,0.06); border:1px solid var(--panel-border); cursor:text; }
+  .truckInputWrap:focus-within{ border-color:var(--accent); }
+  .truckInputWrap:has(input.bad){ border-color:#ff4d4d; }
+  .truckInputWrap input{ flex:0 0 auto; min-width:1ch; max-width:7ch; width:2ch; box-sizing:content-box; height:100%; border:none; outline:none; background:transparent; padding:0; text-align:right; color:var(--text-main); font:600 17px 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
+  .truckInputWrap em{ flex:0 0 auto; padding-left:4px; font-style:normal; font-size:13px; color:var(--text-dim); }
   .truckInputWrap.impPair em:first-of-type{ margin-right:16px; }
+  .truckField.over .truckInputWrap{ border-color:#d93025; }
+  .truckField.over .truckInputWrap input, .truckField.over .truckInputWrap em, .truckField.over > span{ color:#ff5a4f; font-weight:800; }
+  body:not(.night) .truckField.over .truckInputWrap input, body:not(.night) .truckField.over .truckInputWrap em, body:not(.night) .truckField.over > span{ color:#c4101f; }
   #navTruckBlock.units-imperial .metOnly{ display:none; }
   #navTruckBlock.units-metric .impOnly{ display:none; }
   .truckGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
   .truckField{ display:flex; flex-direction:column; gap:3px; min-width:0; }
   .truckField > span{ font-size:11px; color: var(--text-dim); font-weight:600; }
-  .truckInputWrap{ position:relative; }
-  .truckInputWrap input{
-    width:100%; box-sizing:border-box; padding:9px 26px 9px 10px; border-radius:9px;
-    background: rgba(255,255,255,0.88); border:1px solid rgba(0,0,0,0.12); color:#14181c;
-    font:600 15px 'Inter', system-ui, sans-serif; font-variant-numeric: tabular-nums;
-  }
-  /* w nocy: to samo ciemne tło, ramka i jasny tekst co w polu "Wpisz cel podróży" */
-  body.night .truckInputWrap input{
-    background: rgba(20,16,10,0.55); border-color: rgba(255,176,32,0.18); color: var(--text-main);
-  }
-  .truckInputWrap input:focus{ outline:none; border-color: var(--accent); }
-  .truckInputWrap input.bad{ border-color:#ff4d4d; }
-  .truckInputWrap em{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-style:normal; font-size:12px; color:#5b6570; pointer-events:none; }
-  body.night .truckInputWrap em{ color: var(--text-dim); }
   .truckResetWrap{ justify-content:flex-end; }
   .truckActionRow{ grid-column:1 / -1; flex-direction:row; gap:8px; align-items:stretch; }
-  .truckActionRow #tpReset{ flex:1; }
-  .truckActionRow .avatarIconBtn{ flex:0 0 110px; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); }
-  .avatarIconBtn.on{ border-color: var(--accent); background: rgba(255,255,255,0.08); }
-  /* ikona: ciągnik siodłowy (kabina, kominy, piąte koło, trzy osie) przed wyraźną, kropkowaną trasą z pinem celu */
+  .truckActionRow #tpReset{ flex:1; align-self:flex-end; min-height:48px; }
+  .truckActionRow .avatarIconBtn{ flex:0 0 156px; min-height:96px; background:#0a1220; display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden; border-radius:12px; color: var(--text-main); }
+  .avatarIconBtn.on{ border-color: var(--accent); box-shadow:0 0 0 2px var(--accent); }
+  /* ikona 3D: wszystkie avatary na neonowej trasie (rysuje js/11d) */
   .truckRouteIco{ display:block; width:100%; height:auto; }
   /* klawiatura ekranowa: panel unosi się nad nią, żeby pola były widoczne */
   body.kb-open #navPanel{ bottom: var(--kb, 0px); }
@@ -474,15 +460,6 @@
      a przewija się tylko lista podpowiedzi pod polami */
   body.kb-open #navPanel:not(.truck-open):not(.billboard-open){ max-height: calc(var(--vvh, 100vh) - 8px); overflow-y:hidden; }
   body.kb-open #navPanel:not(.truck-open):not(.billboard-open) .navSuggestions{ max-height: max(120px, calc(var(--vvh, 100vh) - 270px)); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
-  .truckRouteIco .rtc{ stroke: var(--panel-bg-solid, #0c0f12); stroke-width:5.6; }
-  .truckRouteIco .rt{ stroke: var(--accent); stroke-width:3.4; }
-  .truckRouteIco .pin{ fill:#ff4d4d; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
-  .truckRouteIco .pinDot{ fill:#fff; }
-  .truckRouteIco .tk{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1; paint-order: stroke; }
-  .truckRouteIco .ch{ fill: var(--text-dim); stroke: var(--panel-bg-solid, #0c0f12); stroke-width:.8; }
-  .truckRouteIco .gl{ fill: var(--panel-bg-solid, #0c0f12); opacity:.85; }
-  .truckRouteIco .wh circle{ fill: currentColor; stroke: var(--panel-bg-solid, #0c0f12); stroke-width:1.2; }
-  .truckRouteIco .hub circle{ fill: var(--panel-bg-solid, #0c0f12); }
   /* menu avatara i kolorów rozwijane pod przyciskami, w tym samym oknie */
   #avatarInline{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease, margin-top .25s ease; margin-top:0; }
   #avatarInline.open{ grid-template-rows:1fr; margin-top:10px; }
@@ -2047,6 +2024,12 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
 /* karta ustawień jest kolumną z przewijaniem: nagłówek i pasek zakładek NIE mogą się kurczyć (po dodaniu „Narzędzi mapy” treść jest dłuższa niż ekran i pasek zwijał się do 0 px — znikały ikony Ekran / Dźwięk / Ciężarówka…) */
 #navSettingsCard .navSettingsHeader, #navSettingsCard #setTabs, #navSettingsCard .setPane, #navSettingsCard #soundPane{ flex:0 0 auto; }
 #setTabs{ position:sticky; top:0; z-index:3; background:var(--panel-bg, var(--card-bg, inherit)); padding-bottom:6px; }
+
+/* DZIEŃ: karta „Ustawienia nawigatora” jasna z ciemnymi czcionkami (w nocy zostaje ciemna) */
+body:not(.night) #navSettingsCard{ --panel-bg:#f3f6f4; --panel-bg-solid:#f3f6f4; --panel-border:rgba(0,0,0,.16); --text-main:#0d1c24; --text-dim:#42596a; color:var(--text-main); }
+body:not(.night) #navSettingsCard #setTabs{ background:#f3f6f4; }
+body:not(.night) #navSettingsCard :is(#navSettingsClose, .voiceSeg button:not(.active), .navApiKeyInput, #navKeyEye, .navKeyEye, .truckInputWrap, .bbRow input[type=text]){ background:#fff; }
+body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="users"]){ --rp-head:#6e5212; --rp-count:#9a5b00; --rp-btn:#33501a; --rp-btn-bg:rgba(90,122,46,.12); --rp-btn-line:rgba(70,100,30,.55); --rp-danger:#b3261e; --rp-line:rgba(0,0,0,.14); }
 </style>
 </head>
 <body>
@@ -2632,65 +2615,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         <div class="truckInputWrap"><input id="tpAxle" type="text" inputmode="decimal" autocomplete="off"><em>t</em></div></div>
       <div class="truckField truckResetWrap truckActionRow">
         <button id="tpReset" type="button" class="secondary">Przywróć domyślne</button>
-        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg class="truckRouteIco" viewBox="0 0 150 76" aria-hidden="true">
-<defs>
-<linearGradient id="trBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b4f78"/><stop offset=".62" stop-color="#14283f"/><stop offset="1" stop-color="#0a1422"/></linearGradient>
-<radialGradient id="trHalo" cx=".62" cy=".42" r=".55"><stop offset="0" stop-color="#5fd0ff" stop-opacity=".32"/><stop offset="1" stop-color="#5fd0ff" stop-opacity="0"/></radialGradient>
-<linearGradient id="trCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b86c8"/><stop offset=".55" stop-color="#2f5499"/><stop offset="1" stop-color="#1d3566"/></linearGradient>
-<linearGradient id="trDef" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ea3dc"/><stop offset="1" stop-color="#3d62a6"/></linearGradient>
-<linearGradient id="trTrl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfdff"/><stop offset=".6" stop-color="#d3deea"/><stop offset="1" stop-color="#9fb1c7"/></linearGradient>
-<linearGradient id="trGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16294a"/><stop offset="1" stop-color="#070d19"/></linearGradient>
-<linearGradient id="trBeam" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff6c8" stop-opacity=".55"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/></linearGradient>
-<linearGradient id="trRoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a3f"/><stop offset="1" stop-color="#0a121e"/></linearGradient>
-<filter id="trGlow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="2.4"/></filter>
-<filter id="trSoft" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="1.1"/></filter>
-<clipPath id="trClip"><rect width="150" height="76" rx="14"/></clipPath>
-<g id="trWheel"><circle r="6.3" fill="#080b10"/><circle r="6.3" fill="none" stroke="#2a3340" stroke-width=".8"/><circle r="3.4" fill="#aab6c4"/><circle r="3.4" fill="none" stroke="#6d7b8c" stroke-width=".6"/><circle r="1.3" fill="#445063"/></g>
-</defs>
-<g clip-path="url(#trClip)">
-<rect width="150" height="76" fill="url(#trBg)"/>
-<rect width="150" height="76" fill="url(#trHalo)"/>
-<g fill="#cfe6ff" opacity=".55"><circle cx="12" cy="8" r=".55"/><circle cx="30" cy="5" r=".45"/><circle cx="104" cy="6" r=".5"/><circle cx="116" cy="14" r=".4"/><circle cx="6" cy="19" r=".4"/></g>
-<!-- droga -->
-<path d="M0 62.5 H150 V76 H0Z" fill="url(#trRoad)"/>
-<path d="M0 62.5 H150" stroke="#3b5675" stroke-width=".7" opacity=".7"/>
-<!-- trasa: poświata, linia, przerywana oś, start i cel -->
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#19e07a" stroke-width="7" opacity=".75" filter="url(#trGlow)"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#0c5a36" stroke-width="5.6" stroke-linecap="round"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#3dff8f" stroke-width="3.6" stroke-linecap="round"/>
-<path d="M-6 71 C20 66.5 48 74 78 68.5 S132 62.5 156 64.5" fill="none" stroke="#eafff2" stroke-width=".9" stroke-linecap="round" stroke-dasharray="1.6 3.4"/>
-<!-- cień pod pojazdem -->
-<ellipse cx="77" cy="63.6" rx="70" ry="2.6" fill="#000" opacity=".5" filter="url(#trSoft)"/>
-<!-- światło reflektora -->
-<path d="M7 45.2 L-6 40 V56 L7 50.4Z" fill="url(#trBeam)"/>
-<!-- naczepa -->
-<rect x="44" y="9" width="101" height="43.5" rx="1.8" fill="url(#trTrl)"/>
-<rect x="44" y="9" width="101" height="2.6" rx="1.2" fill="#fff" opacity=".85"/>
-<g stroke="#b3c2d4" stroke-width=".55" opacity=".9"><path d="M52 12V51M60 12V51M68 12V51M76 12V51M84 12V51M92 12V51M100 12V51M108 12V51M116 12V51M124 12V51M132 12V51M140 12V51"/></g>
-<rect x="44" y="42.2" width="101" height="3.6" fill="#19c46c"/><rect x="44" y="45.8" width="101" height="1" fill="#0c7a43"/>
-<text x="94.5" y="31" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="8.2" fill="#16325c" letter-spacing=".2">Nawi<tspan fill="#0fa65a">Gator</tspan></text>
-<rect x="44" y="49.2" width="101" height="3.4" fill="#2a3442"/>
-<rect x="142.6" y="38" width="2.4" height="9" rx=".8" fill="#ff3a2e"/><rect x="142.6" y="30" width="2.4" height="3" rx=".8" fill="#ffb02e"/>
-<!-- podwozie -->
-<rect x="9" y="53.5" width="134" height="3.4" rx="1" fill="#111925"/>
-<rect x="41" y="48" width="16" height="7" rx="3.5" fill="#aeb9c6"/><rect x="41" y="48" width="16" height="2.4" rx="1.2" fill="#e8eef5" opacity=".8"/>
-<!-- kabina -->
-<path d="M22 15.4 L27 8.6 Q28 7.4 30 7.4 H41.4 V15.4Z" fill="url(#trDef)"/>
-<path d="M7.4 56 V27 Q7.4 22 11.4 19 L16.4 15.8 Q18.6 14.6 21.4 14.6 H41.4 V56Z" fill="url(#trCab)"/>
-<path d="M7.4 27 Q7.4 22 11.4 19 L16.4 15.8 Q18.6 14.6 21.4 14.6 H41.4" fill="none" stroke="#9bbcf0" stroke-width=".9" opacity=".8"/>
-<path d="M10.4 31.4 V26.6 Q10.4 24.4 12.2 23.2 L16.6 20.2 Q17.8 19.4 19.2 19.4 H38.6 Q39.6 19.4 39.6 20.4 V31.4Z" fill="url(#trGlass)"/>
-<path d="M13 31.4 L22 19.4 H27.6 L18.6 31.4Z" fill="#9fc3ee" opacity=".22"/><path d="M26 31.4 L33.6 19.4 H36 L28.4 31.4Z" fill="#9fc3ee" opacity=".16"/>
-<path d="M24 32.6 V54.4" stroke="#14264a" stroke-width=".8"/><rect x="25.6" y="38" width="4" height="1.6" rx=".8" fill="#c7d6ec"/>
-<path d="M7.4 36 H24" stroke="#7da2de" stroke-width=".6" opacity=".6"/>
-<rect x="7.4" y="43.6" width="2.4" height="5.4" rx="1" fill="#fff8d0"/><rect x="7.4" y="43.6" width="2.4" height="5.4" rx="1" fill="none" stroke="#ffe27a" stroke-width=".5"/>
-<rect x="5.6" y="53.2" width="36" height="4.2" rx="1.6" fill="#161f2d"/><rect x="5.6" y="53.2" width="36" height="1.2" rx=".6" fill="#46566c"/>
-<rect x="33" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/><rect x="26" y="16.8" width="5.2" height="1.4" rx=".7" fill="#ffc23a"/>
-<!-- koła -->
-<g fill="#05080c"><circle cx="21" cy="57.4" r="7.6"/><circle cx="53" cy="57.4" r="7.6"/><circle cx="63" cy="57.4" r="7.6"/><circle cx="116" cy="57.4" r="7.6"/><circle cx="126" cy="57.4" r="7.6"/><circle cx="136" cy="57.4" r="7.6"/></g>
-<use href="#trWheel" x="21" y="57.4"/><use href="#trWheel" x="53" y="57.4"/><use href="#trWheel" x="63" y="57.4"/><use href="#trWheel" x="116" y="57.4"/><use href="#trWheel" x="126" y="57.4"/><use href="#trWheel" x="136" y="57.4"/>
-</g>
-<rect x=".5" y=".5" width="149" height="75" rx="13.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
-</svg></button>
+        <button id="tpAvatarBtn" type="button" class="secondary avatarIconBtn" aria-label="Avatar, trasa i kolory" title="Avatar, trasa i kolory" aria-expanded="false"><svg id="avatarBtnArt" class="truckRouteIco" viewBox="0 0 160 100" aria-hidden="true"></svg></button>
       </div>
     </div>
     <div id="avatarInline"><div class="aiIn">
@@ -4805,7 +4730,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         minzoom: 8,
         layout:{
           "icon-image": ["case", ["==", ["get", "avg"], 1], "avg-camera-sign", "mw-camera-sign"],
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.28, 11, 0.4, 14, 0.6, 16, 0.85, 18, 1.1],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.17, 11, 0.24, 14, 0.36, 16, 0.52, 18, 0.7],
           "icon-allow-overlap": true, "icon-ignore-placement": true
         },
         paint:{ "icon-opacity": ["case", ["==", ["get", "pending"], 1], 0.6, 1] }
@@ -4861,7 +4786,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         minzoom: 9,
         layout:{
           "icon-image": "avg-camera-sign",
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.3, 12, 0.45, 14, 0.62, 16, 0.85, 18, 1.1],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.19, 12, 0.27, 14, 0.38, 16, 0.52, 18, 0.7],
           "icon-allow-overlap": true, "icon-ignore-placement": true
         }
       });
@@ -5034,7 +4959,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
         minzoom: 14,
         layout:{
           "icon-image": "mw-camera-sign",
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 16, 0.8, 18, 1.1],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.35, 16, 0.5, 18, 0.7],
           "icon-allow-overlap": true, "icon-ignore-placement": true
         },
         paint:{ "icon-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.5, 1] }
@@ -6132,6 +6057,30 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       try{ updateTollMarking(); }catch(e){}
     });
   });
+  // ikona 3D przycisku „Avatar i trasa”: wszystkie avatary na neonowej trasie (widok z góry pochylony + „grubość” z przyciemnionych kopii)
+  function drawAvatarBtnArt(){
+    const el = document.getElementById("avatarBtnArt"); if(!el) return;
+    const road = "M-8 92 C30 94 34 62 70 64 S112 66 118 44 S140 14 170 12";
+    const arrow = `<path d="M0 -13 L10 11 L0 5 L-10 11 Z" fill="#1FD6C1" stroke="#eafffb" stroke-width="1.4" stroke-linejoin="round"/>`;
+    const av = [["car", 112, 40, 28, .82, 0], ["gator", 138, 76, 52, .8, 0], ["truck", 50, 60, 68, .92, -17], ["arrow", 24, 24, 55, 1.15, 0]];
+    let defs = `<linearGradient id="abBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c3558"/><stop offset="1" stop-color="#070d18"/></linearGradient>
+      <filter id="abGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.2"/></filter>
+      <filter id="abSide"><feColorMatrix type="matrix" values=".35 0 0 0 0  0 .35 0 0 0  0 0 .4 0 0  0 0 0 1 0"/></filter>`;
+    let body = "";
+    av.forEach(([k, x, y, rot, sc, dy]) => {
+      const inner = k === "arrow" ? arrow : AVATARS[k].svg(k === "truck" ? "#2f7be0" : "#1FD6C1", "ab" + k);
+      defs += `<g id="abAv_${k}">${inner}</g>`;
+      const one = (oy, extra) => `<g transform="translate(${x} ${y + oy}) scale(1 .74) rotate(${rot}) scale(${sc}) translate(0 ${dy})"><use href="#abAv_${k}"${extra}/></g>`;
+      body += `<ellipse cx="${x + 2}" cy="${y + 12}" rx="${k === "truck" ? 30 : 15}" ry="6" fill="#000" opacity=".45" filter="url(#abGlow)"/>`;
+      for(let i = 5; i >= 1; i--) body += one(i * .9, ' filter="url(#abSide)"');
+      body += one(0, "");
+    });
+    el.innerHTML = `<defs>${defs}</defs><rect width="160" height="100" fill="url(#abBg)"/>
+      <path d="${road}" fill="none" stroke="#19ff8c" stroke-width="13" opacity=".8" filter="url(#abGlow)"/>
+      <path d="${road}" fill="none" stroke="#2dff96" stroke-width="7" stroke-linecap="round"/>
+      <path d="${road}" fill="none" stroke="#effff6" stroke-width="2" stroke-linecap="round"/>${body}`;
+  }
+  safeInit("ikona avatarów", drawAvatarBtnArt);
   safeInit("avatar i kolor trasy", () => {
     refreshCustomizeUi(); syncColorPanel(false);
     document.getElementById("avatarGrid").addEventListener("click", ev => {
@@ -11017,6 +10966,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     const el = document.getElementById("pickTruckTxt"); if(!el) return;
     const tot = Math.round(HGV_PROFILE.height / 0.0254), h = Math.floor(tot / 12) + "'" + (tot % 12) + "\"";
     el.textContent = h;
+    el.setAttribute("fill", HGV_PROFILE.height > HGV_DEFAULT.height + 0.005 ? "#d11a1a" : "#0d1c24");
     document.getElementById("pickTruckBtn").setAttribute("aria-label", "Wysokość pojazdu " + h + " — zmień parametry");
   }
   safeInit("przycisk pojazdu w wyborze trasy", () => {
@@ -13837,14 +13787,24 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       const d = DIMS[k], m = HGV_PROFILE[k], x = mToFtIn(m);
       $(d.m).value = comma(Math.round(m * 100) / 100);
       $(d.ft).value = x.ft; $(d.inch).value = comma(x.inch);
-      fitImp($(d.ft)); fitImp($(d.inch));
+      fitImp($(d.m)); fitImp($(d.ft)); fitImp($(d.inch));
+      markOver(k);
+    }
+    // wartość większa niż standardowa (domyślna) → pole pogrubione i czerwone
+    function markOver(k){
+      const el = $(DIMS[k] ? DIMS[k].m : WTS[k].t).closest(".truckField");
+      el.classList.toggle("over", HGV_PROFILE[k] > HGV_DEFAULT[k] + 0.005);
     }
     // pola ft / in: szerokość = liczba znaków (min. 1), żeby między liczbą a jednostką nie było pustego miejsca
     function fitImp(inp){ inp.style.width = Math.max(1, String(inp.value).length) + "ch"; }
-    Object.keys(DIMS).forEach(k => [DIMS[k].ft, DIMS[k].inch].forEach(id => $(id).addEventListener("input", e => fitImp(e.target))));
+    block.querySelectorAll(".truckInputWrap input").forEach(i => {
+      i.addEventListener("input", () => fitImp(i));
+    });
+    block.querySelectorAll(".truckInputWrap").forEach(w => w.addEventListener("click", e => { if(e.target === w){ const i = w.querySelector("input"); if(i) i.focus(); } }));
     function fillWt(k){
       const w = WTS[k], t = HGV_PROFILE[k];
       $(w.t).value = comma(Math.round(t * 100) / 100);
+      fitImp($(w.t)); markOver(k);
     }
     function fill(){
       block.classList.toggle("units-imperial", units === "imperial");
@@ -13859,7 +13819,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     function accept(k, v, els){
       const ok = inRange(k, v);
       els.forEach(el => el.classList.toggle("bad", !ok && el.value.trim() !== ""));
-      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; persist(); if(k === "weight" && typeof refreshRoadLimitsForTruck === "function") refreshRoadLimitsForTruck(); }
+      if(ok){ HGV_PROFILE[k] = Math.round(v * 10000) / 10000; markOver(k); persist(); if(k === "weight" && typeof refreshRoadLimitsForTruck === "function") refreshRoadLimitsForTruck(); }
     }
     function refillWhenLeft(wrapIds, refill){
       wrapIds.forEach(id => {
@@ -17930,7 +17890,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
     (map.getStyle().layers || []).forEach(l => {
       if(!MBT_CAM_RE.test(l.id)) return;
       const vis = map.getLayoutProperty(l.id, "visibility");
-      if(hide || (/^avg-lines/.test(l.id) && !isAdmin())){     // żółte linie odcinków widzi tylko administrator
+      if(hide || (/^(avg-lines|avg-sections-label)/.test(l.id) && !isAdmin())){     // żółte linie i opisy POCZĄTEK / 1/4 widzi tylko administrator
         if(vis !== "none"){ map.setLayoutProperty(l.id, "visibility", "none"); mbtHiddenCams.add(l.id); }
       }else if(mbtHiddenCams.has(l.id)){
         map.setLayoutProperty(l.id, "visibility", "visible"); mbtHiddenCams.delete(l.id);
@@ -21061,7 +21021,7 @@ body.night .psHrsRow input[type=time]{ color-scheme:dark; }
       if(!map.getSource("cam-inactive")){ map.addSource("cam-inactive", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); cvInactSig = ""; }
       if(!map.getLayer("cameras-inactive")){
         map.addLayer({ id: "cameras-inactive", type: "circle", source: "cam-inactive", minzoom: 9,
-          paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 14, 8, 17, 11], "circle-color": "#9aa4ad", "circle-opacity": 0.35, "circle-stroke-color": "#5d6670", "circle-stroke-width": 1, "circle-stroke-opacity": 0.35 } });
+          paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 14, 5, 17, 7], "circle-color": "#9aa4ad", "circle-opacity": 0.35, "circle-stroke-color": "#5d6670", "circle-stroke-width": 1, "circle-stroke-opacity": 0.35 } });
       }
       if(force || sig !== cvInactSig){ cvInactSig = sig; map.getSource("cam-inactive").setData({ type: "FeatureCollection", features: feats }); }
     }catch(e){}
