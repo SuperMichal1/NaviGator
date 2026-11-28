@@ -989,7 +989,6 @@ body:not(.night) .navSavedHead, body:not(.night) .navSavedEmpty{ color:#33414d; 
      (pozycję pionową wylicza updateNavPanelPeek w --pick-x-top) — zyskujemy miejsce na panelu */
   #navPanel[data-navstate="picker"] .navHeader{ position:absolute; right:14px; top:var(--pick-x-top, 24px); z-index:2; }
   #navPanel[data-navstate="picker"] #pickSummary{ padding-right:44px; }
-  .pickEta{ display:block; font:600 12px 'Inter',system-ui,sans-serif; color:var(--text-dim); margin-top:1px; }
   #pickSummary{ font:700 16px 'Space Grotesk','Inter',system-ui,sans-serif; color:var(--text-main); font-variant-numeric:tabular-nums; }
   #pickActions{ display:flex; gap:8px; }
   #pickActions button{ flex:1 1 auto; min-width:0; padding:12px 6px; border-radius:12px; font:700 13px 'Inter',system-ui,sans-serif; white-space:nowrap; cursor:pointer; border:1px solid var(--panel-border); background:rgba(128,128,128,.16); color:var(--text-main); }
@@ -1055,7 +1054,9 @@ body.night #pickTrafficRow, body.night #pickNHRow, body.night #pickMbRow{ color:
 #pickChecks label span{ font-weight:600; }
 
   /* przycisk „ciężarówka z naczepą” z wysokością pojazdu (js/25) */
-  #pickTruckBtn{ display:none; align-self:flex-start; width:132px; min-height:52px; padding:0 2px; border:none; background:transparent; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #pickMid{ display:flex; align-items:center; gap:4px; }
+  #pickMid #pickChecks{ flex:1 1 auto; min-width:0; }
+  #pickTruckBtn{ display:none; flex:0 0 auto; width:116px; padding:0; border:none; background:transparent; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   #pickTruckBtn svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
   #pickTruckBtn:active{ transform:scale(.95); }
   #navPanel[data-navstate="picker"] #pickTruckBtn{ display:block; }
@@ -2453,27 +2454,39 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     </div>
     <div id="navPickEdit">
       <div id="pickSummary"></div>
-      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg viewBox="0 0 150 58" aria-hidden="true">
-<defs><linearGradient id="ptTr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dde6ee"/></linearGradient>
-<linearGradient id="ptCb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fe0c8"/><stop offset="1" stop-color="#11a392"/></linearGradient></defs>
-<rect x="2" y="4" width="110" height="38" rx="9" fill="url(#ptTr)"/>
-<rect x="111" y="36" width="8" height="5" rx="2" fill="#2c3744"/>
-<path d="M118 42V17q0-6 6-6h8q3 0 5 3l8 11q1 1.500 1 3.500V42z" fill="url(#ptCb)"/>
-<path d="M124 16.500h7q1.500 0 2.500 1.200L139 26h-15z" fill="#0f2a36" fill-opacity=".85"/>
-<rect x="2" y="40" width="144" height="3.500" rx="1.750" fill="#2c3744"/>
-<text id="pickTruckTxt" x="57" y="30" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="26" fill="#0d1c24"></text>
-<g fill="#1b232c" stroke="#e9eef3" stroke-width="2"><circle cx="20" cy="49" r="5.500"/><circle cx="36" cy="49" r="5.500"/><circle cx="52" cy="49" r="5.500"/><circle cx="125" cy="49" r="5.500"/><circle cx="140" cy="49" r="5.500"/></g>
-<g fill="#8fa1b3"><circle cx="20" cy="49" r="1.800"/><circle cx="36" cy="49" r="1.800"/><circle cx="52" cy="49" r="1.800"/><circle cx="125" cy="49" r="1.800"/><circle cx="140" cy="49" r="1.800"/></g>
-</svg></button>
       <div id="pickStops"></div>
       <div id="pickAddWrap" class="navStopWrap" style="display:none">
         <input type="text" id="pickAddInput" class="navStopInput" placeholder="Dodaj przystanek…" autocomplete="off">
         <div id="pickAddSuggestions" class="navSuggestions"></div>
       </div>
+      <div id="pickMid">
       <div id="pickChecks">
         <label id="pickTrafficRow"><input type="checkbox" id="pickTraffic"><svg class="pickChkIco" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 22 21H2z" fill="#f59e0b" stroke="#14181c" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 16.4h11.2M8.3 12.9h7.4" stroke="#14181c" stroke-width="1.6" stroke-linecap="round"/><path d="M7.7 18.6 10 16.4M11 18.6l2.3-2.2M14.3 18.6l2.3-2.2" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg><span>Roboty drogowe</span><small id="pickTrafficInfo"></small></label>
         <label id="pickMbRow"><input type="checkbox" id="pickMbTraffic"><svg class="pickChkIco" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="1.8" width="10" height="20.4" rx="4" fill="#2b333b" stroke="#dfe5ea" stroke-width="1"/><circle cx="12" cy="6.8" r="2.3" fill="#e5392f"/><circle cx="12" cy="12" r="2.3" fill="#ffb020"/><circle cx="12" cy="17.2" r="2.3" fill="#2fbf71"/></svg><span>Korki na trasie</span></label>
         <label id="pickNHRow"><input type="checkbox" id="pickNH"><span>Remonty dróg (National Highways)</span></label>
+      </div>
+      <button id="pickTruckBtn" type="button" aria-label="Zmień parametry pojazdu"><svg viewBox="0 0 150 72" aria-hidden="true">
+<defs><linearGradient id="ptTr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe4ed"/></linearGradient>
+<linearGradient id="ptCb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a98ff"/><stop offset="1" stop-color="#1c52c4"/></linearGradient>
+<linearGradient id="ptGl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d4eaff"/><stop offset="1" stop-color="#1a3a66"/></linearGradient></defs>
+<rect x="6" y="52.500" width="142" height="4" rx="2" fill="#28323d"/>
+<rect id="ptTrailer" x="4" y="22" width="108" height="30.500" rx="6" fill="url(#ptTr)" stroke="#c4cfdb" stroke-width=".8"/>
+<rect x="108" y="50" width="14" height="4.500" rx="1.500" fill="#38444f"/>
+<path d="M118 54V31q0-6 6-6h11q3 0 5 2.200l5 6.300q1 1.400 1 3.200V54z" fill="url(#ptCb)"/>
+<path d="M118 27v-5.500q0-2 2.200-2h8.500q1.800 0 2.800 1.500L134 27z" fill="#eef3f9"/>
+<path d="M123.500 29.500h10.500q1.200 0 2 1l5 6.500h-17.500z" fill="url(#ptGl)"/>
+<path d="M124 38.500V54" stroke="#0d3a9c" stroke-opacity=".45" stroke-width=".8"/>
+<rect x="127" y="41" width="5" height="1.400" rx=".7" fill="#d3e2ff"/>
+<rect x="122" y="49" width="14" height="5" rx="2" fill="#2c3844"/>
+<rect x="141.500" y="39" width="5" height="14" rx="2" fill="#18222d"/>
+<rect x="142.300" y="40.500" width="3.400" height="5" rx="1.700" fill="#fff"/>
+<circle cx="144" cy="49" r="1.700" fill="none" stroke="#cfd8e3" stroke-width=".8"/><path d="M142.700 50.300l2.600-2.600" stroke="#cfd8e3" stroke-width=".8"/>
+<rect x="145" y="33" width="2.200" height="5" rx="1" fill="#0f1720"/>
+<text id="pickTruckTxt" x="58" y="38" text-anchor="middle" dy=".35em" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="22" fill="#0d1c24"></text>
+<g fill="#151a20"><circle cx="20" cy="58" r="6"/><circle cx="34" cy="58" r="6"/><circle cx="48" cy="58" r="6"/><circle cx="124" cy="58" r="6"/><circle cx="142" cy="58" r="6"/></g>
+<g fill="#a3b1c2"><circle cx="20" cy="58" r="3.200"/><circle cx="34" cy="58" r="3.200"/><circle cx="48" cy="58" r="3.200"/><circle cx="124" cy="58" r="3.200"/><circle cx="142" cy="58" r="3.200"/></g>
+<g fill="#3b4652"><circle cx="20" cy="58" r="1.200"/><circle cx="34" cy="58" r="1.200"/><circle cx="48" cy="58" r="1.200"/><circle cx="124" cy="58" r="1.200"/><circle cx="142" cy="58" r="1.200"/></g>
+</svg></button>
       </div>
       <div id="pickNHWarn" style="display:none"><span id="pickNHWarnTxt"></span><button id="pickNHDetourBtn" type="button" style="display:none">🔀 Użyj objazdu</button></div>
       <div id="pickNHBack" style="display:none"><button id="pickNHBackBtn" type="button" aria-expanded="false"><span id="pickNHBackTxt"></span> <span class="nhbChev">▾</span></button><div id="pickNHBackList"></div></div>
@@ -2543,8 +2556,8 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     </div>
 
     <div class="setPane active" data-pane="screen">
-      <div class="navTitle">Narzędzia mapy</div>
-      <div id="setTools">
+      <div class="navTitle adminOnly">Narzędzia mapy</div>
+      <div id="setTools" class="adminOnly">
         <div class="setTool"><div class="ctrl-btn" id="btnMbTraffic" title="Natężenie ruchu na mapie (korki)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tlBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#566271"/><stop offset="1" stop-color="#1a2027"/></linearGradient><radialGradient id="tlR" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ff9a90"/><stop offset=".55" stop-color="#e5392f"/><stop offset="1" stop-color="#a51e17"/></radialGradient><radialGradient id="tlY" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ffe9a3"/><stop offset=".55" stop-color="#ffb020"/><stop offset="1" stop-color="#c78300"/></radialGradient><radialGradient id="tlG" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#9af5bf"/><stop offset=".55" stop-color="#2fbf71"/><stop offset="1" stop-color="#16824a"/></radialGradient></defs><rect x="6.2" y="1.5" width="11.6" height="21" rx="4.6" fill="url(#tlBody)" stroke="#dfe5ea" stroke-width="1"/><path d="M8.3 5.5v13" stroke="#fff" stroke-opacity=".16" stroke-width="1.2" stroke-linecap="round"/><circle cx="12" cy="6.9" r="2.4" fill="url(#tlR)"/><circle cx="12" cy="12" r="2.4" fill="url(#tlY)"/><circle cx="12" cy="17.1" r="2.4" fill="url(#tlG)"/><path d="M9.2 5.3a3.3 3.3 0 0 1 5.6 0M9.2 10.4a3.3 3.3 0 0 1 5.6 0M9.2 15.5a3.3 3.3 0 0 1 5.6 0" fill="none" stroke="#0b0f14" stroke-width="1" stroke-linecap="round"/><circle cx="11.1" cy="6.1" r=".7" fill="#fff" fill-opacity=".7"/><circle cx="11.1" cy="11.2" r=".7" fill="#fff" fill-opacity=".7"/><circle cx="11.1" cy="16.3" r=".7" fill="#fff" fill-opacity=".7"/></svg></div><div class="setToolTxt"><b>Natężenie ruchu</b><span>Korki i spowolnienia na mapie</span></div><i class="setToolState"></i></div>
         <div class="setTool"><div class="ctrl-btn" id="btnNH" title="Roboty drogowe i zamknięcia National Highways"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="cnO" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffa24d"/><stop offset=".45" stop-color="#f97316"/><stop offset="1" stop-color="#c2500a"/></linearGradient><linearGradient id="cnB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5460"/><stop offset="1" stop-color="#232a31"/></linearGradient><clipPath id="cnC"><path d="M10.2 3.4Q12 1.5 13.8 3.4L18.6 18.6H5.4Z"/></clipPath></defs><path d="M10.2 3.4Q12 1.5 13.8 3.4L18.6 18.6H5.4Z" fill="url(#cnO)"/><g clip-path="url(#cnC)"><path d="M0 7.4H24V10.2H0zM0 12.4H24V15.2H0z" fill="#fff"/></g><path d="M10.2 3.4Q12 1.5 13.8 3.4L18.6 18.6H5.4Z" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width=".9" stroke-linejoin="round"/><rect x="3" y="18.2" width="18" height="3.8" rx="1.5" fill="url(#cnB)" stroke="#dfe5ea" stroke-width=".9"/><path d="M10.6 4.2 8.2 17" stroke="#fff" stroke-opacity=".35" stroke-width="1" stroke-linecap="round"/></svg></div><div class="setToolTxt"><b>Roboty drogowe</b><span>Remonty i zamknięcia National Highways</span></div><i class="setToolState"></i></div>
         <div class="setTool noState"><div class="ctrl-btn" id="btnDebugConsole" title="Konsola debugowania (do zgłaszania błędów)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><defs><radialGradient id="bgBody" cx=".35" cy=".3" r=".95"><stop offset="0" stop-color="#8aebb0"/><stop offset=".55" stop-color="#2fbf71"/><stop offset="1" stop-color="#16784a"/></radialGradient><radialGradient id="bgHead" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#4fd68c"/><stop offset="1" stop-color="#17804a"/></radialGradient></defs><path d="M7.3 10.4 3.2 8.2M6.9 14.2H2.4M7.5 18 4 20.8M16.7 10.4l4.1-2.2M17.1 14.2h4.5M16.5 18l3.5 2.8M10.5 4.3 8.7 1.9M13.5 4.3l1.8-2.4" fill="none" stroke="#2a343d" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="12" cy="14.5" rx="5.3" ry="6.7" fill="url(#bgBody)" stroke="#15693f" stroke-width=".9"/><path d="M12 8.4v12.8" stroke="#15693f" stroke-width="1" stroke-opacity=".7"/><circle cx="12" cy="6.7" r="2.7" fill="url(#bgHead)" stroke="#15693f" stroke-width=".9"/><circle cx="9.6" cy="12.3" r="1" fill="#0d4727" fill-opacity=".55"/><circle cx="14.4" cy="12.3" r="1" fill="#0d4727" fill-opacity=".55"/><circle cx="9.5" cy="16.9" r="1" fill="#0d4727" fill-opacity=".55"/><circle cx="14.5" cy="16.9" r="1" fill="#0d4727" fill-opacity=".55"/><ellipse cx="9.7" cy="11" rx="1.1" ry="2" transform="rotate(12 9.7 11)" fill="#fff" fill-opacity=".38"/><circle cx="10.9" cy="6.3" r=".55" fill="#fff"/><circle cx="13.1" cy="6.3" r=".55" fill="#fff"/></svg></div><div class="setToolTxt"><b>Konsola debugowania</b><span>Podgląd błędów aplikacji, do zgłaszania usterek</span></div></div>
@@ -9962,6 +9975,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
   }
   function openNavSettings(tab){
     if(typeof tab === "string") setSettingsTab(tab);
+    else {      // bez wskazanej zakładki: od razu rozwiń pierwszą (Ekran), gdy żadna nie jest aktywna albo aktywna jest ukryta dla zwykłego kierowcy
+      const act = document.querySelector("#setTabs button.active");
+      if(!act || (act.classList.contains("adminOnly") && !(typeof isAdmin === "function" && isAdmin()))) setSettingsTab("screen");
+    }
     try{ if(typeof syncVoicePanel === "function") syncVoicePanel(); }catch(e){}
     document.getElementById("navSettingsPanel").classList.add("open");
   }
@@ -9972,10 +9989,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     document.getElementById("navSettingsPanel").classList.remove("open");
   }
 
-  function setNavKeyRowOpen(open){
+  function setNavKeyRowOpen(open, silent){      // silent = ustawienie stanu przy starcie, bez przełączania zakładki ustawień
     document.getElementById("navKeyRow").classList.toggle("open", open);
     document.getElementById("navKeyToggle").classList.toggle("open", open);
-    if(open) openNavSettings("system");
+    if(open && !silent) openNavSettings("system");
   }
 
   function saveApiKey(key){
@@ -10850,12 +10867,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     pickTruckRefresh();
     const sum = document.getElementById("pickSummary");
     if(sum){
-      sum.textContent = S ? `${secondsToTimeLabel(S.timeS)} · ${metersToDistanceLabel(S.distanceM)}` : "";
-      if(S){      // orientacyjna godzina przybycia = teraz + czas jazdy (bez postojów i przerw kierowcy)
+      if(S){      // czas · dystans · godzina przyjazdu (teraz + czas jazdy, bez postojów i przerw kierowcy)
         const eta = new Date(Date.now() + S.timeS * 1000).toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" });
-        const sp = document.createElement("span"); sp.className = "pickEta"; sp.textContent = "Przyjazd ok. " + eta;
-        sum.appendChild(sp);
-      }
+        sum.textContent = `${secondsToTimeLabel(S.timeS)} · ${metersToDistanceLabel(S.distanceM)} · Przyjazd ${eta}`;
+      } else sum.textContent = "";
     }
     if(fit){
       const all = (S ? S.coords : []).concat(O ? O.coords : []);
@@ -11025,6 +11040,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     const tot = Math.round(HGV_PROFILE.height / 0.0254), h = Math.floor(tot / 12) + "'" + (tot % 12) + "\"";
     el.textContent = h;
     el.setAttribute("fill", HGV_PROFILE.height >= HGV_HEIGHT_RED - 0.001 ? "#d11a1a" : "#0d1c24");
+    // wysokość naczepy na rysunku odpowiada ustawionej wysokości pojazdu (ziemia y=64, 10 jednostek rysunku = 1 m, podłoga naczepy 1,15 m)
+    const hc = Math.max(2.4, Math.min(5.2, HGV_PROFILE.height)), top = 64 - hc * 10, th = 52.5 - top, tr = document.getElementById("ptTrailer");
+    if(tr){ tr.setAttribute("y", top.toFixed(1)); tr.setAttribute("height", th.toFixed(1)); }
+    el.setAttribute("y", (top + th / 2).toFixed(1)); el.setAttribute("font-size", Math.max(7, Math.min(23, th * 0.68)).toFixed(1));
     document.getElementById("pickTruckBtn").setAttribute("aria-label", "Wysokość pojazdu " + h + " — zmień parametry");
   }
   safeInit("przycisk pojazdu w wyborze trasy", () => {
@@ -14131,7 +14150,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
   // pole klucza API — wypełnij zapisaną wartość, zwiń sekcję jeśli klucz już jest zapisany
   const navApiKeyInput = document.getElementById("navApiKey");
   navApiKeyInput.value = tomtomApiKey;
-  setNavKeyRowOpen(!tomtomApiKey);
+  setNavKeyRowOpen(!tomtomApiKey, true);
   document.getElementById("navSettingsPanel").classList.remove("open"); // nie pokazuj modala automatycznie przy starcie
 
   document.getElementById("navKeyToggle").addEventListener("click", () => {
@@ -16770,10 +16789,21 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     }
     return pts;
   }
+  // zwykły kierowca nie ma własnego klucza TomTom: zapytanie idzie przez funkcję serwera tt-proxy, która zna wspólny klucz z bazy (sql/tt-proxy.ts)
+  let trProxyOffUntil = 0;
+  const trHasDb = () => typeof supaConfigured === "function" && supaConfigured();
   function trFetchTomTom(w){
     const a = w[0], b = w[w.length - 1];
-    const url = `${TOMTOM_ROUTE_URL}${a[1]},${a[0]}:${b[1]},${b[0]}/json?key=${encodeURIComponent(tomtomApiKey)}&traffic=true&travelMode=car&routeType=fastest&routeRepresentation=polyline&sectionType=traffic`;
-    return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ supportingPoints: trSupportPoints(w) }) })
+    const q = "traffic=true&travelMode=car&routeType=fastest&routeRepresentation=polyline&sectionType=traffic";
+    const path = `/routing/1/calculateRoute/${a[1]},${a[0]}:${b[1]},${b[0]}/json?${q}`;
+    const body = JSON.stringify({ supportingPoints: trSupportPoints(w) });
+    let req;
+    if(tomtomApiKey) req = fetch(`${TOMTOM_ROUTE_URL}${a[1]},${a[0]}:${b[1]},${b[0]}/json?key=${encodeURIComponent(tomtomApiKey)}&${q}`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    else if(trHasDb() && Date.now() > trProxyOffUntil)
+      req = fetch(normSupaUrl(supaUrl) + "/functions/v1/tt-proxy?p=" + encodeURIComponent(path), { method: "POST", headers: { "Content-Type": "application/json", "apikey": supaKey, "Authorization": "Bearer " + supaKey }, body })
+        .then(r => { if(r.status === 503 || r.status === 404 || r.status === 400 || r.status === 405){ trProxyOffUntil = Date.now() + 30 * 60 * 1000; throw new Error("NOKEY"); } return r; });   // serwer nie ma klucza / funkcji: 30 min spokoju
+    else return Promise.reject(new Error("NOKEY"));
+    return req
       .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(d => d.routes && d.routes[0] ? trParseSections(d.routes[0]) : []);
   }
@@ -16882,7 +16912,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
       : Promise.resolve(trLocalGet(key)).then(l => l || trSupaGet(key).then(sh => { if(sh){ trLocalSet(key, sh); return sh; }
           return fetchTT().then(s => { trLocalSet(key, s); trSupaSet(key, s); return s; }); }));
     src.then(s => { const t = trTarget(); if(t && t.route === route) trDrawRetry(route, s, i0, i1, 0); })
-       .catch(e => { if(e && e.message === "QUOTA"){ trStatus(""); return; }   // limit zapytań na tę trasę wyczerpany — zostaje ostatni obraz ruchu
+       .catch(e => { if(e && (e.message === "QUOTA" || e.message === "NOKEY")){ trStatus(e.message === "NOKEY" && !isAdmin() ? "brak danych o ruchu" : ""); return; }   // limit zapytań na tę trasę wyczerpany — zostaje ostatni obraz ruchu
          console.warn("Ruch na trasie:", e); trStatus("błąd: " + (e && e.message || e)); trStamp = Date.now() - TR_TTL + 30000; })   // ponowna próba najwcześniej za 30 s (bez spamowania zapytań)
        .finally(() => { trBusy = false; });
   }
@@ -16923,10 +16953,10 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
   function trTick(){
     try{
       if(!map) return;
-      const tg = trTarget(), on = trafficOn && tg && tomtomApiKey;
-      if(trafficOn && tg && !tomtomApiKey) trStatus("brak klucza TomTom (⋮)");
+      const tg = trTarget(), canTT = !!tomtomApiKey || trHasDb(), on = trafficOn && tg && canTT;      // bez własnego klucza dane bierzemy z bazy (cache + tt-proxy)
+      if(trafficOn && tg && !canTT) trStatus(isAdmin() ? "brak klucza TomTom (⋮)" : "brak danych o ruchu");
       if(!on){
-        if(!(trafficOn && tg && !tomtomApiKey)) trStatus("");
+        if(!(trafficOn && tg && !canTT)) trStatus("");
         if(trRoute){ trClear(); trRoute = null; const s = map.getSource(TR_SRC); if(s) s.setData({ type: "FeatureCollection", features: [] }); }
         return;
       }
@@ -16946,7 +16976,7 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     trafficOn = !!on;
     try{ localStorage.setItem(TR_LS_ON, on ? "1" : "0"); }catch(e){}
     const pt = document.getElementById("pickTraffic"); if(pt) pt.checked = trafficOn;
-    if(trafficOn && !tomtomApiKey) showBanner("RUCH DROGOWY", (typeof isAdmin === "function" && isAdmin()) ? "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć ruch i roboty na trasie" : "Ruch i roboty na trasie są chwilowo niedostępne", false);
+    if(trafficOn && !tomtomApiKey && !trHasDb()) showBanner("RUCH DROGOWY", (typeof isAdmin === "function" && isAdmin()) ? "Wpisz klucz API TomTom w Ustawieniach (⋮), żeby zobaczyć ruch i roboty na trasie" : "Ruch i roboty na trasie są chwilowo niedostępne", false);
     trRoute = null; trTick();
   }
   document.getElementById("pickTraffic").checked = trafficOn;
@@ -17953,11 +17983,13 @@ body:not(.night) #navSettingsCard .setPane:is([data-pane="reports"],[data-pane="
     return [Math.max(-180, w - pad), Math.max(-85, s - pad), Math.min(180, e + pad), Math.min(85, n + pad)];
   }
 
-  const CAMS_MIN_ZOOM = 13;   // zwykły kierowca: kamery dopiero od tego przybliżenia albo w jeździe
+  const CAMS_MIN_ZOOM = 13;   // administrator bez haczyka: kamery od tego przybliżenia
   // planowanie trasy: kamery, napisy POCZĄTEK/KONIEC i żółte linie odcinków schowane; administrator z haczykiem widzi je przy każdym przybliżeniu
   function mbtCameras(){
     if(!map || !map.getStyle()) return;
-    const show = !isRoutePlanningUi() && (!!window.cvPicking || navIsDriving() || (isAdmin() && prefShowCamsMap) || map.getZoom() >= CAMS_MIN_ZOOM);
+    const show = !isRoutePlanningUi() && (!!window.cvPicking || (isAdmin()
+      ? (navIsDriving() || prefShowCamsMap || map.getZoom() >= CAMS_MIN_ZOOM)
+      : (navIsDriving() && is3D)));      // zwykły kierowca: kamery i fotoradary tylko w widoku 3D podczas jazdy
     const hide = !show;
     (map.getStyle().layers || []).forEach(l => {
       if(!MBT_CAM_RE.test(l.id)) return;
